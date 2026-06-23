@@ -1,0 +1,86 @@
+### Go ###
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.out
+*.test
+*.cov
+
+go.work
+go.work.sum
+
+vendor/
+bin/
+dist/
+
+### Node / Next.js ###
+node_modules/
+.next/
+.next/cache/
+out/
+.vercel/
+.swc/
+.turbo/
+
+*.tsbuildinfo
+.eslintcache
+
+### Environment ###
+.env
+.env.*
+app.env
+
+### IDE / OS ###
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+### Logs ###
+*.log
+**/*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+### Project Binaries ###
+# Explicitly list compiled Go binaries in the root or subdirectories
+/chainvault
+/main
+/monitor
+/settle
+/signtx
+/sweeper
+/test_settle
+/trading_binary
+/trading_svc
+/vault-rotator
+/vault.test
+/wallet-bin
+/wallet_bin
+/vault-plugin/vault-plugin
+
+# Project-specific ignored paths and secrets
+.vault_secrets
+.vault_secrets.json
+/vault/data/
+**/wallet.pid
+**/vault_secrets.txt
+**/.approle_creds
+scratch/
+new\ kafka/
+metrics_example
+
+# Archives
+*.tar.gz
+*.zip
+*.7z
+
+# Vault Plugin directory
+/vault/plugins/*
+!/vault/plugins/.gitkeep
+
+### GeoIP Database ###
+GeoLite2-City.mmdb
