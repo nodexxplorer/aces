@@ -1,0 +1,45 @@
+-- Drop Triggers (these would be dropped automatically with the tables, but it's good practice to drop the function)
+DROP FUNCTION IF EXISTS update_updated_at_column CASCADE;
+
+-- Drop Tables
+DROP TABLE IF EXISTS profile_update_requests CASCADE;
+DROP TABLE IF EXISTS backups CASCADE;
+DROP TABLE IF EXISTS notifications CASCADE;
+DROP TABLE IF EXISTS announcements CASCADE;
+DROP TABLE IF EXISTS timetable CASCADE;
+DROP TABLE IF EXISTS transcript_requests CASCADE;
+DROP TABLE IF EXISTS complaints CASCADE;
+DROP TABLE IF EXISTS payments CASCADE;
+DROP TABLE IF EXISTS payment_batches CASCADE;
+DROP TABLE IF EXISTS payment_cart CASCADE;
+DROP TABLE IF EXISTS dues CASCADE;
+DROP TABLE IF EXISTS attendance_sheets CASCADE;
+DROP TABLE IF EXISTS assignment_grades CASCADE;
+DROP TABLE IF EXISTS assignments CASCADE;
+DROP TABLE IF EXISTS carryover_courses CASCADE;
+DROP TABLE IF EXISTS result_audit_logs CASCADE;
+DROP TABLE IF EXISTS results CASCADE;
+DROP TABLE IF EXISTS registered_courses CASCADE;
+DROP TABLE IF EXISTS course_registrations CASCADE;
+DROP TABLE IF EXISTS courses CASCADE;
+DROP TABLE IF EXISTS semesters CASCADE;
+DROP TABLE IF EXISTS sessions CASCADE;
+DROP TABLE IF EXISTS admin_permissions CASCADE;
+DROP TABLE IF EXISTS staff CASCADE;
+DROP TABLE IF EXISTS students CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+
+-- Drop Enums
+DROP TYPE IF EXISTS backup_status CASCADE;
+DROP TYPE IF EXISTS notification_type CASCADE;
+DROP TYPE IF EXISTS transcript_status CASCADE;
+DROP TYPE IF EXISTS payment_status CASCADE;
+DROP TYPE IF EXISTS payment_type CASCADE;
+DROP TYPE IF EXISTS complaint_priority CASCADE;
+DROP TYPE IF EXISTS complaint_status CASCADE;
+DROP TYPE IF EXISTS complaint_category CASCADE;
+DROP TYPE IF EXISTS grade CASCADE;
+DROP TYPE IF EXISTS result_status CASCADE;
+DROP TYPE IF EXISTS academic_standing CASCADE;
+DROP TYPE IF EXISTS semester_season CASCADE;
+DROP TYPE IF EXISTS user_role CASCADE;
