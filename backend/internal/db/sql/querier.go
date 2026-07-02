@@ -11,26 +11,62 @@ import (
 )
 
 type Querier interface {
+	CreateAnnouncement(ctx context.Context, arg CreateAnnouncementParams) (Announcement, error)
+	CreateAttendanceSheet(ctx context.Context, arg CreateAttendanceSheetParams) (AttendanceSheet, error)
+	CreateCarryoverCourse(ctx context.Context, arg CreateCarryoverCourseParams) (CarryoverCourse, error)
 	CreateCourse(ctx context.Context, arg CreateCourseParams) (Course, error)
+	CreateCourseRegistration(ctx context.Context, arg CreateCourseRegistrationParams) (CourseRegistration, error)
+	CreateNotification(ctx context.Context, arg CreateNotificationParams) (Notification, error)
+	CreateRegisteredCourse(ctx context.Context, arg CreateRegisteredCourseParams) (RegisteredCourse, error)
 	CreateResult(ctx context.Context, arg CreateResultParams) (Result, error)
+	CreateResultAuditLog(ctx context.Context, arg CreateResultAuditLogParams) (ResultAuditLog, error)
 	CreateStudent(ctx context.Context, arg CreateStudentParams) (Student, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	DeleteAnnouncement(ctx context.Context, id uuid.UUID) error
+	DeleteAttendanceSheet(ctx context.Context, id uuid.UUID) error
+	DeleteNotification(ctx context.Context, arg DeleteNotificationParams) error
+	DeleteRegisteredCourse(ctx context.Context, id uuid.UUID) error
 	DeleteUser(ctx context.Context, id uuid.UUID) error
+	FinalizeAttendanceSheet(ctx context.Context, id uuid.UUID) (AttendanceSheet, error)
+	GetAnnouncement(ctx context.Context, id uuid.UUID) (Announcement, error)
+	GetAttendanceSheet(ctx context.Context, id uuid.UUID) (AttendanceSheet, error)
+	// Returns total classes held and attended for a student in a course/session
+	GetAttendanceSummary(ctx context.Context, arg GetAttendanceSummaryParams) (GetAttendanceSummaryRow, error)
+	GetCarryoverCourse(ctx context.Context, id uuid.UUID) (CarryoverCourse, error)
 	GetCourse(ctx context.Context, id uuid.UUID) (Course, error)
 	GetCourseByCode(ctx context.Context, code string) (Course, error)
+	GetCourseRegistration(ctx context.Context, id uuid.UUID) (CourseRegistration, error)
+	GetNotification(ctx context.Context, id uuid.UUID) (Notification, error)
+	GetRegisteredCourse(ctx context.Context, id uuid.UUID) (RegisteredCourse, error)
 	GetResult(ctx context.Context, id uuid.UUID) (Result, error)
 	GetStudent(ctx context.Context, id uuid.UUID) (Student, error)
 	GetStudentByMatric(ctx context.Context, matricNumber string) (Student, error)
 	GetStudentByUserId(ctx context.Context, userID uuid.UUID) (Student, error)
 	GetUser(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
+	ListActiveAnnouncements(ctx context.Context, arg ListActiveAnnouncementsParams) ([]Announcement, error)
+	ListCourseAttendanceSheets(ctx context.Context, arg ListCourseAttendanceSheetsParams) ([]AttendanceSheet, error)
 	ListCourseResults(ctx context.Context, arg ListCourseResultsParams) ([]Result, error)
 	ListCourses(ctx context.Context, arg ListCoursesParams) ([]Course, error)
+	ListRegisteredCoursesByRegistration(ctx context.Context, registrationID uuid.UUID) ([]RegisteredCourse, error)
+	ListResultAuditLogs(ctx context.Context, resultID uuid.UUID) ([]ResultAuditLog, error)
+	// Returns attendance sheets for a session where the student appears in attendance_data
+	ListStudentAttendance(ctx context.Context, arg ListStudentAttendanceParams) ([]AttendanceSheet, error)
+	ListStudentCarryoverCourses(ctx context.Context, studentID uuid.UUID) ([]CarryoverCourse, error)
+	ListStudentCourseRegistrations(ctx context.Context, studentID uuid.UUID) ([]CourseRegistration, error)
 	ListStudentResults(ctx context.Context, studentID uuid.UUID) ([]Result, error)
 	ListStudents(ctx context.Context, arg ListStudentsParams) ([]Student, error)
+	ListUserNotifications(ctx context.Context, arg ListUserNotificationsParams) ([]Notification, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
+	MarkAllUserNotificationsAsRead(ctx context.Context, userID uuid.UUID) error
+	MarkNotificationAsRead(ctx context.Context, arg MarkNotificationAsReadParams) (Notification, error)
+	UpdateAnnouncement(ctx context.Context, arg UpdateAnnouncementParams) (Announcement, error)
+	UpdateAttendanceSheet(ctx context.Context, arg UpdateAttendanceSheetParams) (AttendanceSheet, error)
+	UpdateCarryoverCourse(ctx context.Context, arg UpdateCarryoverCourseParams) (CarryoverCourse, error)
 	UpdateCourse(ctx context.Context, arg UpdateCourseParams) (Course, error)
+	UpdateCourseRegistration(ctx context.Context, arg UpdateCourseRegistrationParams) (CourseRegistration, error)
 	UpdateResult(ctx context.Context, arg UpdateResultParams) (Result, error)
+	UpdateResultStatus(ctx context.Context, arg UpdateResultStatusParams) (Result, error)
 	UpdateStudentAcademicRecord(ctx context.Context, arg UpdateStudentAcademicRecordParams) (Student, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 }
