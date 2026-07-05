@@ -21,11 +21,13 @@ type Querier interface {
 	CreateResult(ctx context.Context, arg CreateResultParams) (Result, error)
 	CreateResultAuditLog(ctx context.Context, arg CreateResultAuditLogParams) (ResultAuditLog, error)
 	CreateStudent(ctx context.Context, arg CreateStudentParams) (Student, error)
+	CreateTimetableEntry(ctx context.Context, arg CreateTimetableEntryParams) (Timetable, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeleteAnnouncement(ctx context.Context, id uuid.UUID) error
 	DeleteAttendanceSheet(ctx context.Context, id uuid.UUID) error
 	DeleteNotification(ctx context.Context, arg DeleteNotificationParams) error
 	DeleteRegisteredCourse(ctx context.Context, id uuid.UUID) error
+	DeleteTimetableEntry(ctx context.Context, id uuid.UUID) error
 	DeleteUser(ctx context.Context, id uuid.UUID) error
 	FinalizeAttendanceSheet(ctx context.Context, id uuid.UUID) (AttendanceSheet, error)
 	GetAnnouncement(ctx context.Context, id uuid.UUID) (Announcement, error)
@@ -42,6 +44,7 @@ type Querier interface {
 	GetStudent(ctx context.Context, id uuid.UUID) (Student, error)
 	GetStudentByMatric(ctx context.Context, matricNumber string) (Student, error)
 	GetStudentByUserId(ctx context.Context, userID uuid.UUID) (Student, error)
+	GetTimetableEntry(ctx context.Context, id uuid.UUID) (Timetable, error)
 	GetUser(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	ListActiveAnnouncements(ctx context.Context, arg ListActiveAnnouncementsParams) ([]Announcement, error)
@@ -56,6 +59,7 @@ type Querier interface {
 	ListStudentCourseRegistrations(ctx context.Context, studentID uuid.UUID) ([]CourseRegistration, error)
 	ListStudentResults(ctx context.Context, studentID uuid.UUID) ([]Result, error)
 	ListStudents(ctx context.Context, arg ListStudentsParams) ([]Student, error)
+	ListTimetableEntries(ctx context.Context, arg ListTimetableEntriesParams) ([]Timetable, error)
 	ListUserNotifications(ctx context.Context, arg ListUserNotificationsParams) ([]Notification, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
 	MarkAllUserNotificationsAsRead(ctx context.Context, userID uuid.UUID) error
@@ -68,6 +72,7 @@ type Querier interface {
 	UpdateResult(ctx context.Context, arg UpdateResultParams) (Result, error)
 	UpdateResultStatus(ctx context.Context, arg UpdateResultStatusParams) (Result, error)
 	UpdateStudentAcademicRecord(ctx context.Context, arg UpdateStudentAcademicRecordParams) (Student, error)
+	UpdateTimetableEntry(ctx context.Context, arg UpdateTimetableEntryParams) (Timetable, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 }
 

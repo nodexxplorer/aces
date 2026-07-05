@@ -92,6 +92,16 @@ func NewServer(store db.Querier) *Server {
 		notifications.DELETE("/:id", server.deleteNotification)
 	}
 
+	// Timetable routes
+	timetables := router.Group("/timetable")
+	{
+		timetables.POST("", server.createTimetableEntry)
+		timetables.GET("", server.listTimetableEntries)
+		timetables.GET("/:id", server.getTimetableEntry)
+		timetables.PUT("/:id", server.updateTimetableEntry)
+		timetables.DELETE("/:id", server.deleteTimetableEntry)
+	}
+
 	server.router = router
 	return server
 }
