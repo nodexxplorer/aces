@@ -102,6 +102,40 @@ func NewServer(store db.Querier) *Server {
 		timetables.DELETE("/:id", server.deleteTimetableEntry)
 	}
 
+	// Payment routes
+	payments := router.Group("/payments")
+	{
+		// Dues
+		payments.POST("/dues", server.createDue)
+		payments.GET("/dues", server.listDues)
+		payments.GET("/dues/level", server.listDuesByLevel)
+		payments.GET("/dues/:id", server.getDue)
+		payments.PUT("/dues/:id", server.updateDue)
+		payments.DELETE("/dues/:id", server.deleteDue)
+
+		// Cart
+		payments.POST("/cart", server.addToCart)
+		payments.GET("/cart/:student_id", server.listStudentCart)
+		payments.DELETE("/cart/:id", server.removeFromCart)
+		payments.DELETE("/cart/student/:student_id", server.clearStudentCart)
+
+		// Batches
+		payments.POST("/batches", server.createPaymentBatch)
+		payments.GET("/batches/student/:student_id", server.listStudentPaymentBatches)
+		payments.GET("/batches/:id", server.getPaymentBatch)
+		payments.GET("/batches/:id/payments", server.listBatchPayments)
+		payments.PUT("/batches/:id/status", server.updatePaymentBatchStatus)
+
+		// Individual Payments
+		payments.POST("", server.createPayment)
+		payments.GET("/student/:student_id", server.listStudentPayments)
+		payments.GET("/summary/:student_id", server.getStudentPaymentSummary)
+		payments.GET("/check-paid", server.checkDuePaid)
+		payments.GET("/:id", server.getPayment)
+		payments.PUT("/:id/status", server.updatePaymentStatus)
+		payments.POST("/:id/verify", server.verifyPayment)
+	}
+
 	server.router = router
 	return server
 }

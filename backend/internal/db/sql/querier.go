@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
@@ -74,6 +75,31 @@ type Querier interface {
 	UpdateStudentAcademicRecord(ctx context.Context, arg UpdateStudentAcademicRecordParams) (Student, error)
 	UpdateTimetableEntry(ctx context.Context, arg UpdateTimetableEntryParams) (Timetable, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
+	
+	// Payments
+	AddToCart(ctx context.Context, arg AddToCartParams) (PaymentCart, error)
+	CheckDuePaid(ctx context.Context, arg CheckDuePaidParams) (bool, error)
+	ClearStudentCart(ctx context.Context, studentID uuid.UUID) error
+	CreateDue(ctx context.Context, arg CreateDueParams) (Due, error)
+	CreatePayment(ctx context.Context, arg CreatePaymentParams) (Payment, error)
+	CreatePaymentBatch(ctx context.Context, arg CreatePaymentBatchParams) (PaymentBatch, error)
+	DeleteDue(ctx context.Context, id uuid.UUID) error
+	GetCartItem(ctx context.Context, id uuid.UUID) (PaymentCart, error)
+	GetDue(ctx context.Context, id uuid.UUID) (Due, error)
+	GetPayment(ctx context.Context, id uuid.UUID) (Payment, error)
+	GetPaymentBatch(ctx context.Context, id uuid.UUID) (PaymentBatch, error)
+	GetStudentPaymentSummary(ctx context.Context, studentID uuid.UUID) (GetStudentPaymentSummaryRow, error)
+	ListBatchPayments(ctx context.Context, batchID pgtype.UUID) ([]Payment, error)
+	ListDues(ctx context.Context, arg ListDuesParams) ([]Due, error)
+	ListDuesByLevel(ctx context.Context, level *int32) ([]Due, error)
+	ListStudentCart(ctx context.Context, studentID uuid.UUID) ([]PaymentCart, error)
+	ListStudentPaymentBatches(ctx context.Context, arg ListStudentPaymentBatchesParams) ([]PaymentBatch, error)
+	ListStudentPayments(ctx context.Context, arg ListStudentPaymentsParams) ([]Payment, error)
+	RemoveFromCart(ctx context.Context, id uuid.UUID) error
+	UpdateDue(ctx context.Context, arg UpdateDueParams) (Due, error)
+	UpdatePaymentBatchStatus(ctx context.Context, arg UpdatePaymentBatchStatusParams) (PaymentBatch, error)
+	UpdatePaymentStatus(ctx context.Context, arg UpdatePaymentStatusParams) (Payment, error)
+	VerifyPayment(ctx context.Context, id uuid.UUID, verifiedBy uuid.UUID) (Payment, error)
 }
 
 var _ Querier = (*Queries)(nil)
