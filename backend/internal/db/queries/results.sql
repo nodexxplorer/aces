@@ -79,3 +79,7 @@ RETURNING *;
 SELECT * FROM carryover_courses
 WHERE student_id = $1
 ORDER BY created_at DESC;
+
+-- name: DeleteCarryoverCourse :exec
+DELETE FROM carryover_courses
+WHERE id = $1;

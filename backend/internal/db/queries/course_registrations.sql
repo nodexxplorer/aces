@@ -43,3 +43,12 @@ ORDER BY created_at ASC;
 -- name: DeleteRegisteredCourse :exec
 DELETE FROM registered_courses
 WHERE id = $1;
+
+-- name: UpdateRegisteredCourse :one
+UPDATE registered_courses
+SET
+    status = $2,
+    is_carryover = $3,
+    previous_attempt_id = $4
+WHERE id = $1
+RETURNING *;
