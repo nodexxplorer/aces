@@ -16,8 +16,46 @@ func NewServer(store db.Querier) *Server {
 	server := &Server{store: store}
 	router := gin.Default()
 
+	// Sessions routes
+	sessions := router.Group("/sessions")
+	{
+		sessions.POST("", server.createSession)
+		sessions.GET("", server.listSessions)
+		sessions.GET("/:id", server.getSession)
+		sessions.PUT("/:id", server.updateSession)
+		sessions.DELETE("/:id", server.deleteSession)
+	}
+
+	// Semesters routes
+	semesters := router.Group("/semesters")
+	{
+		semesters.POST("", server.createSemester)
+		semesters.GET("/session/:session_id", server.listSessionSemesters)
+		semesters.GET("/:id", server.getSemester)
+		semesters.PUT("/:id", server.updateSemester)
+		semesters.DELETE("/:id", server.deleteSemester)
+	}
+
+	// Staff routes
+	staff := router.Group("/staff")
+	{
+		staff.POST("", server.createStaff)
+		staff.GET("", server.listStaff)
+		staff.GET("/:id", server.getStaff)
+		staff.GET("/user/:user_id", server.getStaffByUserID)
+		staff.PUT("/:id", server.updateStaff)
+		staff.DELETE("/:id", server.deleteStaff)
+	}
+
 	// Users routes
-	router.POST("/users", server.createUser)
+	users := router.Group("/users")
+	{
+		users.POST("", server.createUser)
+		users.GET("", server.listUsers)
+		users.GET("/:id", server.getUser)
+		users.PUT("/:id", server.updateUser)
+		users.DELETE("/:id", server.deleteUser)
+	}
 
 	// Students routes
 	router.POST("/students", server.createStudent)
@@ -35,6 +73,34 @@ func NewServer(store db.Querier) *Server {
 		attendance.DELETE("/:id", server.deleteAttendanceSheet)
 	}
 
+	// Courses routes
+	courses := router.Group("/courses")
+	{
+		courses.POST("", server.createCourse)
+		courses.GET("", server.listCourses)
+		courses.GET("/:id", server.getCourse)
+		courses.PUT("/:id", server.updateCourse)
+		courses.DELETE("/:id", server.deleteCourse)
+	}
+
+	// Assignments routes
+	assignments := router.Group("/assignments")
+	{
+		assignments.POST("", server.createAssignment)
+		assignments.GET("/course/:course_id/session/:session_id", server.listCourseAssignments)
+		assignments.GET("/:id", server.getAssignment)
+		assignments.PUT("/:id", server.updateAssignment)
+		assignments.DELETE("/:id", server.deleteAssignment)
+		
+		// Assignment Grades
+		assignments.POST("/grades", server.createAssignmentGrade)
+		assignments.GET("/grades/lookup", server.getAssignmentGrade) // expects ?assignment_id=X&student_id=Y
+		assignments.GET("/:assignment_id/grades", server.listAssignmentGrades)
+		assignments.GET("/grades/student/:student_id", server.listStudentAssignmentGrades)
+		assignments.PUT("/grades/:id", server.updateAssignmentGrade)
+		assignments.DELETE("/grades/:id", server.deleteAssignmentGrade)
+	}
+
 	// Course Registration routes
 	courseRegistrations := router.Group("/course-registrations")
 	{
@@ -46,6 +112,7 @@ func NewServer(store db.Querier) *Server {
 		// Registered Courses under a registration
 		courseRegistrations.POST("/:id/courses", server.createRegisteredCourse)
 		courseRegistrations.GET("/:id/courses", server.listRegisteredCourses)
+		courseRegistrations.PUT("/:id/courses/:registered_course_id", server.updateRegisteredCourse)
 		courseRegistrations.DELETE("/:id/courses/:registered_course_id", server.deleteRegisteredCourse)
 	}
 
@@ -69,6 +136,7 @@ func NewServer(store db.Querier) *Server {
 		carryovers.POST("", server.createCarryoverCourse)
 		carryovers.GET("/:id", server.getCarryoverCourse)
 		carryovers.PUT("/:id", server.updateCarryoverCourse)
+		carryovers.DELETE("/:id", server.deleteCarryoverCourse)
 		carryovers.GET("/student/:student_id", server.listStudentCarryoverCourses)
 	}
 
@@ -134,6 +202,38 @@ func NewServer(store db.Querier) *Server {
 		payments.GET("/:id", server.getPayment)
 		payments.PUT("/:id/status", server.updatePaymentStatus)
 		payments.POST("/:id/verify", server.verifyPayment)
+	}
+
+	// Transcript Requests routes
+	transcripts := router.Group("/transcript-requests")
+	{
+		transcripts.POST("", server.createTranscriptRequest)
+		transcripts.GET("/pending", server.listPendingTranscriptRequests)
+		transcripts.GET("/student/:student_id", server.listStudentTranscriptRequests)
+		transcripts.GET("/:id", server.getTranscriptRequest)
+		transcripts.PUT("/:id", server.updateTranscriptRequest)
+		transcripts.DELETE("/:id", server.deleteTranscriptRequest)
+	}
+
+	// Profile Update Requests routes
+	profileUpdates := router.Group("/profile-update-requests")
+	{
+		profileUpdates.POST("", server.createProfileUpdateRequest)
+		profileUpdates.GET("/pending", server.listPendingProfileUpdateRequests)
+		profileUpdates.GET("/student/:student_id", server.listStudentProfileUpdateRequests)
+		profileUpdates.GET("/:id", server.getProfileUpdateRequest)
+		profileUpdates.PUT("/:id", server.updateProfileUpdateRequestStatus)
+		profileUpdates.DELETE("/:id", server.deleteProfileUpdateRequest)
+	}
+
+	// Admin Permissions routes
+	adminPermissions := router.Group("/admin-permissions")
+	{
+		adminPermissions.POST("", server.grantAdminPermission)
+		adminPermissions.GET("", server.listAdminPermissions)
+		adminPermissions.GET("/:user_id", server.getAdminPermission)
+		adminPermissions.PUT("/:user_id", server.updateAdminPermission)
+		adminPermissions.DELETE("/:user_id", server.revokeAdminPermission)
 	}
 
 	server.router = router

@@ -12,94 +12,147 @@ import (
 )
 
 type Querier interface {
+	// ==================== PAYMENT CART ====================
+	AddToCart(ctx context.Context, arg AddToCartParams) (PaymentCart, error)
+	CheckDuePaid(ctx context.Context, arg CheckDuePaidParams) (bool, error)
+	ClearStudentCart(ctx context.Context, studentID uuid.UUID) error
 	CreateAnnouncement(ctx context.Context, arg CreateAnnouncementParams) (Announcement, error)
+	CreateAssignment(ctx context.Context, arg CreateAssignmentParams) (Assignment, error)
+	CreateAssignmentGrade(ctx context.Context, arg CreateAssignmentGradeParams) (AssignmentGrade, error)
 	CreateAttendanceSheet(ctx context.Context, arg CreateAttendanceSheetParams) (AttendanceSheet, error)
 	CreateCarryoverCourse(ctx context.Context, arg CreateCarryoverCourseParams) (CarryoverCourse, error)
 	CreateCourse(ctx context.Context, arg CreateCourseParams) (Course, error)
 	CreateCourseRegistration(ctx context.Context, arg CreateCourseRegistrationParams) (CourseRegistration, error)
+	// ==================== DUES ====================
+	CreateDue(ctx context.Context, arg CreateDueParams) (Due, error)
 	CreateNotification(ctx context.Context, arg CreateNotificationParams) (Notification, error)
+	// ==================== PAYMENTS ====================
+	CreatePayment(ctx context.Context, arg CreatePaymentParams) (Payment, error)
+	// ==================== PAYMENT BATCHES ====================
+	CreatePaymentBatch(ctx context.Context, arg CreatePaymentBatchParams) (PaymentBatch, error)
+	CreateProfileUpdateRequest(ctx context.Context, arg CreateProfileUpdateRequestParams) (ProfileUpdateRequest, error)
 	CreateRegisteredCourse(ctx context.Context, arg CreateRegisteredCourseParams) (RegisteredCourse, error)
 	CreateResult(ctx context.Context, arg CreateResultParams) (Result, error)
 	CreateResultAuditLog(ctx context.Context, arg CreateResultAuditLogParams) (ResultAuditLog, error)
+	CreateSemester(ctx context.Context, arg CreateSemesterParams) (Semester, error)
+	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
+	CreateStaff(ctx context.Context, arg CreateStaffParams) (Staff, error)
 	CreateStudent(ctx context.Context, arg CreateStudentParams) (Student, error)
 	CreateTimetableEntry(ctx context.Context, arg CreateTimetableEntryParams) (Timetable, error)
+	CreateTranscriptRequest(ctx context.Context, arg CreateTranscriptRequestParams) (TranscriptRequest, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeleteAnnouncement(ctx context.Context, id uuid.UUID) error
+	DeleteAssignment(ctx context.Context, id uuid.UUID) error
+	DeleteAssignmentGrade(ctx context.Context, id uuid.UUID) error
 	DeleteAttendanceSheet(ctx context.Context, id uuid.UUID) error
+	DeleteCarryoverCourse(ctx context.Context, id uuid.UUID) error
+	DeleteCourse(ctx context.Context, id uuid.UUID) error
+	DeleteDue(ctx context.Context, id uuid.UUID) error
 	DeleteNotification(ctx context.Context, arg DeleteNotificationParams) error
+	DeleteProfileUpdateRequest(ctx context.Context, id uuid.UUID) error
 	DeleteRegisteredCourse(ctx context.Context, id uuid.UUID) error
+	DeleteSemester(ctx context.Context, id uuid.UUID) error
+	DeleteSession(ctx context.Context, id uuid.UUID) error
+	DeleteStaff(ctx context.Context, id uuid.UUID) error
 	DeleteTimetableEntry(ctx context.Context, id uuid.UUID) error
+	DeleteTranscriptRequest(ctx context.Context, id uuid.UUID) error
 	DeleteUser(ctx context.Context, id uuid.UUID) error
 	FinalizeAttendanceSheet(ctx context.Context, id uuid.UUID) (AttendanceSheet, error)
+	GetActiveSemester(ctx context.Context) (Semester, error)
+	GetActiveSession(ctx context.Context) (Session, error)
+	GetAdminPermissions(ctx context.Context, userID uuid.UUID) (AdminPermission, error)
 	GetAnnouncement(ctx context.Context, id uuid.UUID) (Announcement, error)
+	GetAssignment(ctx context.Context, id uuid.UUID) (Assignment, error)
+	GetAssignmentGrade(ctx context.Context, arg GetAssignmentGradeParams) (AssignmentGrade, error)
 	GetAttendanceSheet(ctx context.Context, id uuid.UUID) (AttendanceSheet, error)
 	// Returns total classes held and attended for a student in a course/session
 	GetAttendanceSummary(ctx context.Context, arg GetAttendanceSummaryParams) (GetAttendanceSummaryRow, error)
 	GetCarryoverCourse(ctx context.Context, id uuid.UUID) (CarryoverCourse, error)
+	GetCartItem(ctx context.Context, id uuid.UUID) (PaymentCart, error)
 	GetCourse(ctx context.Context, id uuid.UUID) (Course, error)
 	GetCourseByCode(ctx context.Context, code string) (Course, error)
 	GetCourseRegistration(ctx context.Context, id uuid.UUID) (CourseRegistration, error)
+	GetDue(ctx context.Context, id uuid.UUID) (Due, error)
 	GetNotification(ctx context.Context, id uuid.UUID) (Notification, error)
+	GetPayment(ctx context.Context, id uuid.UUID) (Payment, error)
+	GetPaymentBatch(ctx context.Context, id uuid.UUID) (PaymentBatch, error)
+	GetProfileUpdateRequest(ctx context.Context, id uuid.UUID) (ProfileUpdateRequest, error)
 	GetRegisteredCourse(ctx context.Context, id uuid.UUID) (RegisteredCourse, error)
 	GetResult(ctx context.Context, id uuid.UUID) (Result, error)
+	GetSemester(ctx context.Context, id uuid.UUID) (Semester, error)
+	GetSession(ctx context.Context, id uuid.UUID) (Session, error)
+	GetSessionByName(ctx context.Context, name string) (Session, error)
+	GetStaff(ctx context.Context, id uuid.UUID) (Staff, error)
+	GetStaffByStaffID(ctx context.Context, staffID string) (Staff, error)
+	GetStaffByUserID(ctx context.Context, userID uuid.UUID) (Staff, error)
 	GetStudent(ctx context.Context, id uuid.UUID) (Student, error)
 	GetStudentByMatric(ctx context.Context, matricNumber string) (Student, error)
 	GetStudentByUserId(ctx context.Context, userID uuid.UUID) (Student, error)
+	GetStudentPaymentSummary(ctx context.Context, studentID uuid.UUID) (GetStudentPaymentSummaryRow, error)
 	GetTimetableEntry(ctx context.Context, id uuid.UUID) (Timetable, error)
+	GetTranscriptRequest(ctx context.Context, id uuid.UUID) (TranscriptRequest, error)
 	GetUser(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
+	GrantAdminPermissions(ctx context.Context, arg GrantAdminPermissionsParams) (AdminPermission, error)
 	ListActiveAnnouncements(ctx context.Context, arg ListActiveAnnouncementsParams) ([]Announcement, error)
+	ListAdminPermissions(ctx context.Context, arg ListAdminPermissionsParams) ([]AdminPermission, error)
+	ListAssignmentGrades(ctx context.Context, assignmentID uuid.UUID) ([]AssignmentGrade, error)
+	ListBatchPayments(ctx context.Context, batchID pgtype.UUID) ([]Payment, error)
+	ListCourseAssignments(ctx context.Context, arg ListCourseAssignmentsParams) ([]Assignment, error)
 	ListCourseAttendanceSheets(ctx context.Context, arg ListCourseAttendanceSheetsParams) ([]AttendanceSheet, error)
 	ListCourseResults(ctx context.Context, arg ListCourseResultsParams) ([]Result, error)
 	ListCourses(ctx context.Context, arg ListCoursesParams) ([]Course, error)
+	ListDues(ctx context.Context, arg ListDuesParams) ([]Due, error)
+	ListDuesByLevel(ctx context.Context, level *int32) ([]Due, error)
+	ListPendingProfileUpdateRequests(ctx context.Context, arg ListPendingProfileUpdateRequestsParams) ([]ProfileUpdateRequest, error)
+	ListPendingTranscriptRequests(ctx context.Context, arg ListPendingTranscriptRequestsParams) ([]TranscriptRequest, error)
 	ListRegisteredCoursesByRegistration(ctx context.Context, registrationID uuid.UUID) ([]RegisteredCourse, error)
 	ListResultAuditLogs(ctx context.Context, resultID uuid.UUID) ([]ResultAuditLog, error)
+	ListSessionSemesters(ctx context.Context, sessionID uuid.UUID) ([]Semester, error)
+	ListSessions(ctx context.Context, arg ListSessionsParams) ([]Session, error)
+	ListStaff(ctx context.Context, arg ListStaffParams) ([]Staff, error)
+	ListStudentAssignmentGrades(ctx context.Context, studentID uuid.UUID) ([]AssignmentGrade, error)
 	// Returns attendance sheets for a session where the student appears in attendance_data
 	ListStudentAttendance(ctx context.Context, arg ListStudentAttendanceParams) ([]AttendanceSheet, error)
 	ListStudentCarryoverCourses(ctx context.Context, studentID uuid.UUID) ([]CarryoverCourse, error)
+	ListStudentCart(ctx context.Context, studentID uuid.UUID) ([]PaymentCart, error)
 	ListStudentCourseRegistrations(ctx context.Context, studentID uuid.UUID) ([]CourseRegistration, error)
+	ListStudentPaymentBatches(ctx context.Context, arg ListStudentPaymentBatchesParams) ([]PaymentBatch, error)
+	ListStudentPayments(ctx context.Context, arg ListStudentPaymentsParams) ([]Payment, error)
+	ListStudentProfileUpdateRequests(ctx context.Context, studentID uuid.UUID) ([]ProfileUpdateRequest, error)
 	ListStudentResults(ctx context.Context, studentID uuid.UUID) ([]Result, error)
+	ListStudentTranscriptRequests(ctx context.Context, studentID uuid.UUID) ([]TranscriptRequest, error)
 	ListStudents(ctx context.Context, arg ListStudentsParams) ([]Student, error)
 	ListTimetableEntries(ctx context.Context, arg ListTimetableEntriesParams) ([]Timetable, error)
 	ListUserNotifications(ctx context.Context, arg ListUserNotificationsParams) ([]Notification, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
 	MarkAllUserNotificationsAsRead(ctx context.Context, userID uuid.UUID) error
 	MarkNotificationAsRead(ctx context.Context, arg MarkNotificationAsReadParams) (Notification, error)
+	RemoveFromCart(ctx context.Context, id uuid.UUID) error
+	RevokeAdminPermissions(ctx context.Context, userID uuid.UUID) error
+	UpdateAdminPermissions(ctx context.Context, arg UpdateAdminPermissionsParams) (AdminPermission, error)
 	UpdateAnnouncement(ctx context.Context, arg UpdateAnnouncementParams) (Announcement, error)
+	UpdateAssignment(ctx context.Context, arg UpdateAssignmentParams) (Assignment, error)
+	UpdateAssignmentGrade(ctx context.Context, arg UpdateAssignmentGradeParams) (AssignmentGrade, error)
 	UpdateAttendanceSheet(ctx context.Context, arg UpdateAttendanceSheetParams) (AttendanceSheet, error)
 	UpdateCarryoverCourse(ctx context.Context, arg UpdateCarryoverCourseParams) (CarryoverCourse, error)
 	UpdateCourse(ctx context.Context, arg UpdateCourseParams) (Course, error)
 	UpdateCourseRegistration(ctx context.Context, arg UpdateCourseRegistrationParams) (CourseRegistration, error)
-	UpdateResult(ctx context.Context, arg UpdateResultParams) (Result, error)
-	UpdateResultStatus(ctx context.Context, arg UpdateResultStatusParams) (Result, error)
-	UpdateStudentAcademicRecord(ctx context.Context, arg UpdateStudentAcademicRecordParams) (Student, error)
-	UpdateTimetableEntry(ctx context.Context, arg UpdateTimetableEntryParams) (Timetable, error)
-	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
-	
-	// Payments
-	AddToCart(ctx context.Context, arg AddToCartParams) (PaymentCart, error)
-	CheckDuePaid(ctx context.Context, arg CheckDuePaidParams) (bool, error)
-	ClearStudentCart(ctx context.Context, studentID uuid.UUID) error
-	CreateDue(ctx context.Context, arg CreateDueParams) (Due, error)
-	CreatePayment(ctx context.Context, arg CreatePaymentParams) (Payment, error)
-	CreatePaymentBatch(ctx context.Context, arg CreatePaymentBatchParams) (PaymentBatch, error)
-	DeleteDue(ctx context.Context, id uuid.UUID) error
-	GetCartItem(ctx context.Context, id uuid.UUID) (PaymentCart, error)
-	GetDue(ctx context.Context, id uuid.UUID) (Due, error)
-	GetPayment(ctx context.Context, id uuid.UUID) (Payment, error)
-	GetPaymentBatch(ctx context.Context, id uuid.UUID) (PaymentBatch, error)
-	GetStudentPaymentSummary(ctx context.Context, studentID uuid.UUID) (GetStudentPaymentSummaryRow, error)
-	ListBatchPayments(ctx context.Context, batchID pgtype.UUID) ([]Payment, error)
-	ListDues(ctx context.Context, arg ListDuesParams) ([]Due, error)
-	ListDuesByLevel(ctx context.Context, level *int32) ([]Due, error)
-	ListStudentCart(ctx context.Context, studentID uuid.UUID) ([]PaymentCart, error)
-	ListStudentPaymentBatches(ctx context.Context, arg ListStudentPaymentBatchesParams) ([]PaymentBatch, error)
-	ListStudentPayments(ctx context.Context, arg ListStudentPaymentsParams) ([]Payment, error)
-	RemoveFromCart(ctx context.Context, id uuid.UUID) error
 	UpdateDue(ctx context.Context, arg UpdateDueParams) (Due, error)
 	UpdatePaymentBatchStatus(ctx context.Context, arg UpdatePaymentBatchStatusParams) (PaymentBatch, error)
 	UpdatePaymentStatus(ctx context.Context, arg UpdatePaymentStatusParams) (Payment, error)
-	VerifyPayment(ctx context.Context, id uuid.UUID, verifiedBy uuid.UUID) (Payment, error)
+	UpdateProfileUpdateRequestStatus(ctx context.Context, arg UpdateProfileUpdateRequestStatusParams) (ProfileUpdateRequest, error)
+	UpdateRegisteredCourse(ctx context.Context, arg UpdateRegisteredCourseParams) (RegisteredCourse, error)
+	UpdateResult(ctx context.Context, arg UpdateResultParams) (Result, error)
+	UpdateResultStatus(ctx context.Context, arg UpdateResultStatusParams) (Result, error)
+	UpdateSemester(ctx context.Context, arg UpdateSemesterParams) (Semester, error)
+	UpdateSession(ctx context.Context, arg UpdateSessionParams) (Session, error)
+	UpdateStaff(ctx context.Context, arg UpdateStaffParams) (Staff, error)
+	UpdateStudentAcademicRecord(ctx context.Context, arg UpdateStudentAcademicRecordParams) (Student, error)
+	UpdateTimetableEntry(ctx context.Context, arg UpdateTimetableEntryParams) (Timetable, error)
+	UpdateTranscriptRequest(ctx context.Context, arg UpdateTranscriptRequestParams) (TranscriptRequest, error)
+	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
+	VerifyPayment(ctx context.Context, arg VerifyPaymentParams) (Payment, error)
 }
 
 var _ Querier = (*Queries)(nil)
