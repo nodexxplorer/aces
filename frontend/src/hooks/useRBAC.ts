@@ -1,8 +1,10 @@
 import { useRoleStore } from '../stores/roleStore';
+import { useAuthStore } from '../stores/authStore';
 import type { UserRole } from '../types';
 
 export const useRBAC = () => {
-  const { activeRole, hasRole, hasAnyRole } = useRoleStore();
+  const { hasRole, hasAnyRole } = useRoleStore();
+  const activeRole = useAuthStore((s) => s.user?.activeRole ?? 'student');
 
   const isAdmin = hasAnyRole(['hod', 'delegated_admin']);
   const isStaff = hasAnyRole(['hod', 'delegated_admin', 'lecturer']);

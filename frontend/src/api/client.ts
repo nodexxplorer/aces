@@ -10,6 +10,19 @@ const apiClient = axios.create({
   },
 });
 
+export async function safeRequest<T>(request: () => Promise<{ data: { data: T } }>): Promise<T> {
+  try {
+    const response = await request();
+    return response.data.data;
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.data?.message) {
+      throw new Error(err.response.data.message);
+    }
+    if (err instanceof Error) throw err;
+    throw new Error('An unexpected error occurred');
+  }
+}
+
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('aces_access_token');

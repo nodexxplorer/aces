@@ -18,7 +18,7 @@ interface TransactionAudit {
 }
 
 const mockAudits: TransactionAudit[] = [
-  { reference: 'OPAY-REF-001', studentName: 'John Doe', purpose: 'Department Dues', amount: 15000, status: 'completed', date: '2026-06-20' },
+  { reference: 'PAYSTACK-REF-001', studentName: 'John Doe', purpose: 'Department Dues', amount: 15000, status: 'completed', date: '2026-06-20' },
 ];
 
 const VerifyPaymentsPage = () => {
@@ -77,7 +77,7 @@ const VerifyPaymentsPage = () => {
       <div>
         <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Verify Payments</h1>
         <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-          Validate payment references, confirm OPay transaction IDs, and clear registration holds.
+          Validate payment references, confirm Paystack transaction IDs, and clear registration holds.
         </p>
       </div>
 
@@ -90,7 +90,7 @@ const VerifyPaymentsPage = () => {
             <div className="p-4 pt-0 space-y-4">
               <div className="flex gap-2">
                 <Input
-                  placeholder="e.g. OPAY-REF-01"
+                  placeholder="e.g. PAYSTACK-REF-01"
                   value={refInput}
                   onChange={(e) => setRefInput(e.target.value)}
                 />

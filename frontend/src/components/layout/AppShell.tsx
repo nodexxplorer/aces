@@ -3,22 +3,34 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 import Footer from './Footer';
+import ThemeToggle from '../ui/ThemeToggle';
 import { ToastContainer } from '../feedback/Toast';
 import CookieConsent from '../feedback/CookieConsent';
+import OfflineBanner from '../feedback/OfflineBanner';
 
 const AppShell = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-surface-50 dark:bg-surface-950 flex">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="flex-1 flex flex-col md:pl-64 min-h-screen">
-        <Navbar onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 p-6 md:p-8">
-          <Outlet />
-        </main>
-        <Footer />
+    <div className="min-h-screen bg-surface-50 dark:bg-surface-950 flex flex-col overflow-x-hidden">
+      <div className="flex-1 flex w-full min-h-0">
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
+          mobileOpen={mobileSidebarOpen}
+          onMobileClose={() => setMobileSidebarOpen(false)}
+        />
+        <div className="flex flex-col flex-1 min-w-0">
+          <Navbar onMenuClick={() => setMobileSidebarOpen(true)} />
+          <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+            <Outlet />
+          </main>
+          <Footer />
+        </div>
       </div>
+      <OfflineBanner />
+      <ThemeToggle />
       <ToastContainer />
       <CookieConsent />
     </div>

@@ -7,7 +7,7 @@ export type UserRole = 'hod' | 'delegated_admin' | 'lecturer' | 'class_rep' | 'c
 export type AccountType = 'staff' | 'student' | 'graduate';
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded';
-export type PaymentMethod = 'opay' | 'paystack' | 'manual';
+export type PaymentMethod = 'paystack' | 'manual';
 export type ComplaintStatus = 'open' | 'in_progress' | 'resolved' | 'closed' | 'pending';
 export type ComplaintPriority = 'low' | 'medium' | 'high' | 'critical';
 export type TranscriptStatus = 'pending' | 'processing' | 'ready' | 'collected';
@@ -271,7 +271,7 @@ export interface Announcement extends BaseEntity {
 }
 
 // ───── Notifications ─────
-export interface Notification extends BaseEntity {
+export interface AppNotification extends BaseEntity {
   userId: string;
   type: string;
   title: string;

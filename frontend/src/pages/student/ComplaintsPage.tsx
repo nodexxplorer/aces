@@ -24,7 +24,7 @@ const mockComplaints: Complaint[] = [
     studentId: 'stud-1',
     category: 'Payment Issue',
     title: 'Class dues double charged',
-    description: 'I was charged twice on my OPay account reference ACES-2026-X1.',
+    description: 'I was charged twice on my Paystack account reference ACES-2026-X1.',
     status: 'pending',
     createdAt: '2026-06-20T14:30:00Z',
   },

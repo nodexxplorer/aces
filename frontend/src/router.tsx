@@ -1,11 +1,11 @@
 import { lazy, Suspense, type ReactNode } from 'react';
 import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
-import { useRoleStore } from './stores/roleStore';
 import type { UserRole } from './types';
 
 /* ── Lazy-loaded pages ───────────────────────── */
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
+const LoginCelebrationPage = lazy(() => import('./pages/auth/LoginCelebrationPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
 const StudentSignupPage = lazy(() => import('./pages/auth/StudentSignupPage'));
 const LecturerSignupPage = lazy(() => import('./pages/auth/LecturerSignupPage'));
@@ -142,7 +142,7 @@ const PublicOnlyRoute = () => {
 };
 
 const RoleRoute = ({ roles }: { roles: UserRole[] }) => {
-  const activeRole = useRoleStore((s) => s.activeRole);
+  const activeRole = useAuthStore((s) => s.user?.activeRole ?? 'student');
   if (!roles.includes(activeRole)) return <Navigate to="/dashboard" replace />;
   return <Outlet />;
 };
@@ -166,6 +166,7 @@ export const router = createBrowserRouter([
   {
     element: <ProtectedRoute />,
     children: [
+      { path: '/login/celebration', element: <SuspenseWrapper><LoginCelebrationPage /></SuspenseWrapper> },
       {
         element: <AppShell />,
         children: [

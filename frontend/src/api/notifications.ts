@@ -1,13 +1,13 @@
 import apiClient from './client';
-import type { Notification } from '../types';
+import type { AppNotification } from '../types';
 
 export const getNotifications = async () => {
-  const { data } = await apiClient.get<{ data: Notification[] }>('/notifications');
+  const { data } = await apiClient.get<{ data: AppNotification[] }>('/notifications');
   return data.data;
 };
 
 export const markAsRead = async (notificationId: string) => {
-  const { data } = await apiClient.post<{ data: Notification }>(`/notifications/${notificationId}/read`);
+  const { data } = await apiClient.post<{ data: AppNotification }>(`/notifications/${notificationId}/read`);
   return data.data;
 };
 

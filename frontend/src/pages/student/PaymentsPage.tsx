@@ -5,7 +5,7 @@ import DataTable from '../../components/data-display/DataTable';
 import StatusBadge from '../../components/data-display/StatusBadge';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { useNotification } from '../../hooks/useNotification';
-import { initializeOpayPayment, generatePaymentReference } from '../../utils/opay';
+import { initializePaystackPayment, generatePaymentReference } from '../../utils/paystack';
 import { CreditCard, Download } from 'lucide-react';
 import type { Payment } from '../../types';
 
@@ -18,7 +18,7 @@ const mockPayments: Payment[] = [
     purpose: 'Department Dues',
     reference: 'ACES-2026-001',
     status: 'completed',
-    method: 'opay',
+    method: 'paystack',
     createdAt: '2026-02-10T11:00:00Z',
   },
   {
@@ -29,7 +29,7 @@ const mockPayments: Payment[] = [
     purpose: 'Class Dues',
     reference: 'ACES-2026-002',
     status: 'pending',
-    method: 'opay',
+    method: 'paystack',
     createdAt: '2026-06-20T10:00:00Z',
   },
 ];
@@ -42,8 +42,7 @@ const PaymentsPage = () => {
     try {
       const reference = generatePaymentReference();
       const config = {
-        merchantId: 'merchant-aces',
-        publicKey: 'opay-pk-test',
+        publicKey: 'pk_test_xxxxxxxxxxxxx',
         amount,
         currency: 'NGN',
         reference,
@@ -51,8 +50,8 @@ const PaymentsPage = () => {
         callbackUrl: window.location.href,
       };
 
-      const result = await initializeOpayPayment(config);
-      success('Payment Initialized', `Redirecting to OPay checkout for ${purpose}...`);
+      const result = await initializePaystackPayment(config);
+      success('Payment Initialized', `Redirecting to Paystack checkout for ${purpose}...`);
       
       // Simulate successful return
       setTimeout(() => {
@@ -95,7 +94,7 @@ const PaymentsPage = () => {
       <div>
         <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Payments & Dues</h1>
         <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-          Pay your department dues and class fees securely via OPay gateway.
+          Pay your department dues and class fees securely via Paystack gateway.
         </p>
       </div>
 

@@ -87,7 +87,7 @@ const GiveBackPage = () => {
           <div className="space-y-4">
             <div>
               <h4 className="font-semibold text-base">{selectedFund.title}</h4>
-              <p className="text-xs text-surface-500">Provide financial aid support via OPay gateway transfer.</p>
+              <p className="text-xs text-surface-500">Provide financial aid support via Paystack gateway transfer.</p>
             </div>
             <div className="space-y-4 pt-4 border-t border-surface-200 dark:border-surface-800">
               <Input

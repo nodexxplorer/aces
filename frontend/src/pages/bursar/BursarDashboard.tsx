@@ -18,8 +18,8 @@ const trendData = [
 ];
 
 const mockRecentPayments = [
-  { id: '1', studentName: 'John Doe', matricNumber: 'ENG/2021/001', purpose: 'Department Dues', amount: 15000, reference: 'OPAY-REF-01', status: 'completed', createdAt: '2026-06-20T12:00:00Z' },
-  { id: '2', studentName: 'Jane Smith', matricNumber: 'ENG/2021/002', purpose: 'Class Dues', amount: 5000, reference: 'OPAY-REF-02', status: 'completed', createdAt: '2026-06-20T13:00:00Z' },
+  { id: '1', studentName: 'John Doe', matricNumber: 'ENG/2021/001', purpose: 'Department Dues', amount: 15000, reference: 'PAYSTACK-REF-01', status: 'completed', createdAt: '2026-06-20T12:00:00Z' },
+  { id: '2', studentName: 'Jane Smith', matricNumber: 'ENG/2021/002', purpose: 'Class Dues', amount: 5000, reference: 'PAYSTACK-REF-02', status: 'completed', createdAt: '2026-06-20T13:00:00Z' },
 ];
 
 const BursarDashboard = () => {

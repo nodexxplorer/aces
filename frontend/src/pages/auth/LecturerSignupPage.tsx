@@ -16,9 +16,10 @@ const lecturerSignupSchema = z
     firstName: z.string().min(2, 'First name is too short'),
     lastName: z.string().min(2, 'Last name is too short'),
     email: z.string().email('Please enter a valid email address'),
-    staffId: z.string().refine(isValidStaffId, {
-      message: 'Format must be like ENG/12345',
-    }),
+    staffId: z.string(),
+    // .refine(isValidStaffId, {
+    //   message: 'Invalid staff ID format',
+    // }),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     confirmPassword: z.string(),
   })

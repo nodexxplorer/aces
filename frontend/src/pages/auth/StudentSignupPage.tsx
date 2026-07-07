@@ -17,9 +17,10 @@ const studentSignupSchema = z
     firstName: z.string().min(2, 'First name is too short'),
     lastName: z.string().min(2, 'Last name is too short'),
     email: z.string().email('Please enter a valid email address'),
-    matricNumber: z.string().refine(isValidMatricNumber, {
-      message: 'Format must be like ENG/2022/123',
-    }),
+    matricNumber: z.string(),
+    // .refine(isValidMatricNumber, {
+    //   message: 'Format must be like ENG/2022/123',
+    // }),
     level: z.string().min(1, 'Please select your current level'),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     confirmPassword: z.string(),

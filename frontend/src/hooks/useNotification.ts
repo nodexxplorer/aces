@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useNotificationStore } from '../stores/notificationStore';
-import type { Notification } from '../types';
+import type { AppNotification } from '../types';
 
 let toastId = 0;
 
@@ -8,7 +8,7 @@ export const useNotification = () => {
   const { notifications, unreadCount, addNotification, markAsRead, markAllAsRead, removeNotification } = useNotificationStore();
 
   const toast = useCallback((title: string, message: string, type: string = 'info') => {
-    const notification: Notification = {
+    const notification: AppNotification = {
       id: `toast-${++toastId}`,
       userId: '',
       type,

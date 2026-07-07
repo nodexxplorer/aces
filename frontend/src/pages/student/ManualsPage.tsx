@@ -32,7 +32,7 @@ const ManualsPage = () => {
     setCheckingOut(true);
     try {
       await new Promise((r) => setTimeout(r, 1500));
-      success('Purchase Successful', `Bought ${getItemCount()} manuals. Added to download vault.`);
+      success('Purchase Successful', `Bought ${getItemCount()} manuals. Added to download vault. Get them from your Classrep`);
       clearCart();
       setCartOpen(false);
     } catch {

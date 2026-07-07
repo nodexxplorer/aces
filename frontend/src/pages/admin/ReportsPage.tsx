@@ -45,7 +45,7 @@ const ReportsPage = () => {
             <div className="flex-1">
               <h3 className="font-semibold text-lg text-surface-900 dark:text-white mb-2">Financial Collection Audit</h3>
               <p className="text-xs text-surface-500 mb-4">
-                A summary of department association dues, OPay checkout reconciliation logs, and defaulter list counts.
+                A summary of department association dues, Paystack checkout reconciliation logs, and defaulter list counts.
               </p>
               <Button size="sm" leftIcon={<Download className="w-4 h-4" />} onClick={() => handleGenerate('Financial Collection Audit')}>
                 Download PDF

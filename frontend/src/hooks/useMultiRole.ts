@@ -3,12 +3,12 @@ import { useAuthStore } from '../stores/authStore';
 import type { UserRole } from '../types';
 
 export const useMultiRole = () => {
-  const { availableRoles, activeRole, setActiveRole } = useRoleStore();
+  const { availableRoles } = useRoleStore();
+  const activeRole = useAuthStore((s) => s.user?.activeRole ?? 'student');
   const switchRole = useAuthStore((s) => s.switchRole);
 
   const handleSwitch = (role: UserRole) => {
     if (availableRoles.includes(role)) {
-      setActiveRole(role);
       switchRole(role);
     }
   };
