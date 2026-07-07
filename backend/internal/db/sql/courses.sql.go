@@ -65,6 +65,16 @@ func (q *Queries) CreateCourse(ctx context.Context, arg CreateCourseParams) (Cou
 	return i, err
 }
 
+const deleteCourse = `-- name: DeleteCourse :exec
+DELETE FROM courses
+WHERE id = $1
+`
+
+func (q *Queries) DeleteCourse(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteCourse, id)
+	return err
+}
+
 const getCourse = `-- name: GetCourse :one
 SELECT id, code, title, description, unit, level, semester, lecturer_id, prerequisite_id, max_credit_hours, is_active, created_at, updated_at FROM courses
 WHERE id = $1 LIMIT 1
