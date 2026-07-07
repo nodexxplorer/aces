@@ -13,9 +13,65 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-// ==================== DUES ====================
+const addToCart = `-- name: AddToCart :one
+
+INSERT INTO payment_cart (
+    student_id, due_id, amount
+) VALUES (
+    $1, $2, $3
+) RETURNING id, student_id, due_id, amount, added_at
+`
+
+type AddToCartParams struct {
+	StudentID uuid.UUID       `json:"student_id"`
+	DueID     uuid.UUID       `json:"due_id"`
+	Amount    decimal.Decimal `json:"amount"`
+}
+
+// ==================== PAYMENT CART ====================
+func (q *Queries) AddToCart(ctx context.Context, arg AddToCartParams) (PaymentCart, error) {
+	row := q.db.QueryRow(ctx, addToCart, arg.StudentID, arg.DueID, arg.Amount)
+	var i PaymentCart
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.DueID,
+		&i.Amount,
+		&i.AddedAt,
+	)
+	return i, err
+}
+
+const checkDuePaid = `-- name: CheckDuePaid :one
+SELECT EXISTS(
+    SELECT 1 FROM payments
+    WHERE student_id = $1 AND due_id = $2 AND status = 'completed'
+) AS is_paid
+`
+
+type CheckDuePaidParams struct {
+	StudentID uuid.UUID `json:"student_id"`
+	DueID     uuid.UUID `json:"due_id"`
+}
+
+func (q *Queries) CheckDuePaid(ctx context.Context, arg CheckDuePaidParams) (bool, error) {
+	row := q.db.QueryRow(ctx, checkDuePaid, arg.StudentID, arg.DueID)
+	var is_paid bool
+	err := row.Scan(&is_paid)
+	return is_paid, err
+}
+
+const clearStudentCart = `-- name: ClearStudentCart :exec
+DELETE FROM payment_cart WHERE student_id = $1
+`
+
+func (q *Queries) ClearStudentCart(ctx context.Context, studentID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, clearStudentCart, studentID)
+	return err
+}
 
 const createDue = `-- name: CreateDue :one
+
 INSERT INTO dues (
     name, description, type, amount, level, session_id, semester_id, deadline, created_by
 ) VALUES (
@@ -35,6 +91,7 @@ type CreateDueParams struct {
 	CreatedBy   uuid.UUID          `json:"created_by"`
 }
 
+// ==================== DUES ====================
 func (q *Queries) CreateDue(ctx context.Context, arg CreateDueParams) (Due, error) {
 	row := q.db.QueryRow(ctx, createDue,
 		arg.Name,
@@ -65,6 +122,114 @@ func (q *Queries) CreateDue(ctx context.Context, arg CreateDueParams) (Due, erro
 	return i, err
 }
 
+const createPayment = `-- name: CreatePayment :one
+
+INSERT INTO payments (
+    student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, 'pending'
+) RETURNING id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at
+`
+
+type CreatePaymentParams struct {
+	StudentID         uuid.UUID       `json:"student_id"`
+	BatchID           pgtype.UUID     `json:"batch_id"`
+	DueID             uuid.UUID       `json:"due_id"`
+	Type              PaymentType     `json:"type"`
+	ItemName          string          `json:"item_name"`
+	Amount            decimal.Decimal `json:"amount"`
+	PaystackReference *string         `json:"paystack_reference"`
+}
+
+// ==================== PAYMENTS ====================
+func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (Payment, error) {
+	row := q.db.QueryRow(ctx, createPayment,
+		arg.StudentID,
+		arg.BatchID,
+		arg.DueID,
+		arg.Type,
+		arg.ItemName,
+		arg.Amount,
+		arg.PaystackReference,
+	)
+	var i Payment
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.BatchID,
+		&i.DueID,
+		&i.Type,
+		&i.ItemName,
+		&i.Amount,
+		&i.PaystackReference,
+		&i.Status,
+		&i.VerifiedBy,
+		&i.VerifiedAt,
+		&i.PaidAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createPaymentBatch = `-- name: CreatePaymentBatch :one
+
+INSERT INTO payment_batches (
+    student_id, total_amount, paystack_reference, status
+) VALUES (
+    $1, $2, $3, 'pending'
+) RETURNING id, student_id, total_amount, paystack_reference, status, receipt_url, paid_at, created_at
+`
+
+type CreatePaymentBatchParams struct {
+	StudentID         uuid.UUID       `json:"student_id"`
+	TotalAmount       decimal.Decimal `json:"total_amount"`
+	PaystackReference *string         `json:"paystack_reference"`
+}
+
+// ==================== PAYMENT BATCHES ====================
+func (q *Queries) CreatePaymentBatch(ctx context.Context, arg CreatePaymentBatchParams) (PaymentBatch, error) {
+	row := q.db.QueryRow(ctx, createPaymentBatch, arg.StudentID, arg.TotalAmount, arg.PaystackReference)
+	var i PaymentBatch
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.TotalAmount,
+		&i.PaystackReference,
+		&i.Status,
+		&i.ReceiptUrl,
+		&i.PaidAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const deleteDue = `-- name: DeleteDue :exec
+UPDATE dues SET is_active = false WHERE id = $1
+`
+
+func (q *Queries) DeleteDue(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteDue, id)
+	return err
+}
+
+const getCartItem = `-- name: GetCartItem :one
+SELECT id, student_id, due_id, amount, added_at FROM payment_cart
+WHERE id = $1 LIMIT 1
+`
+
+func (q *Queries) GetCartItem(ctx context.Context, id uuid.UUID) (PaymentCart, error) {
+	row := q.db.QueryRow(ctx, getCartItem, id)
+	var i PaymentCart
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.DueID,
+		&i.Amount,
+		&i.AddedAt,
+	)
+	return i, err
+}
+
 const getDue = `-- name: GetDue :one
 SELECT id, name, description, type, amount, level, session_id, semester_id, deadline, is_active, created_by, created_at FROM dues
 WHERE id = $1 LIMIT 1
@@ -88,6 +253,122 @@ func (q *Queries) GetDue(ctx context.Context, id uuid.UUID) (Due, error) {
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const getPayment = `-- name: GetPayment :one
+SELECT id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at FROM payments
+WHERE id = $1 LIMIT 1
+`
+
+func (q *Queries) GetPayment(ctx context.Context, id uuid.UUID) (Payment, error) {
+	row := q.db.QueryRow(ctx, getPayment, id)
+	var i Payment
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.BatchID,
+		&i.DueID,
+		&i.Type,
+		&i.ItemName,
+		&i.Amount,
+		&i.PaystackReference,
+		&i.Status,
+		&i.VerifiedBy,
+		&i.VerifiedAt,
+		&i.PaidAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getPaymentBatch = `-- name: GetPaymentBatch :one
+SELECT id, student_id, total_amount, paystack_reference, status, receipt_url, paid_at, created_at FROM payment_batches
+WHERE id = $1 LIMIT 1
+`
+
+func (q *Queries) GetPaymentBatch(ctx context.Context, id uuid.UUID) (PaymentBatch, error) {
+	row := q.db.QueryRow(ctx, getPaymentBatch, id)
+	var i PaymentBatch
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.TotalAmount,
+		&i.PaystackReference,
+		&i.Status,
+		&i.ReceiptUrl,
+		&i.PaidAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getStudentPaymentSummary = `-- name: GetStudentPaymentSummary :one
+SELECT
+    COUNT(*) FILTER (WHERE status = 'completed') AS total_paid,
+    COUNT(*) FILTER (WHERE status = 'pending') AS total_pending,
+    COALESCE(SUM(amount) FILTER (WHERE status = 'completed'), 0)::DECIMAL(10,2) AS amount_paid,
+    COALESCE(SUM(amount) FILTER (WHERE status = 'pending'), 0)::DECIMAL(10,2) AS amount_pending
+FROM payments
+WHERE student_id = $1
+`
+
+type GetStudentPaymentSummaryRow struct {
+	TotalPaid     int64           `json:"total_paid"`
+	TotalPending  int64           `json:"total_pending"`
+	AmountPaid    decimal.Decimal `json:"amount_paid"`
+	AmountPending decimal.Decimal `json:"amount_pending"`
+}
+
+func (q *Queries) GetStudentPaymentSummary(ctx context.Context, studentID uuid.UUID) (GetStudentPaymentSummaryRow, error) {
+	row := q.db.QueryRow(ctx, getStudentPaymentSummary, studentID)
+	var i GetStudentPaymentSummaryRow
+	err := row.Scan(
+		&i.TotalPaid,
+		&i.TotalPending,
+		&i.AmountPaid,
+		&i.AmountPending,
+	)
+	return i, err
+}
+
+const listBatchPayments = `-- name: ListBatchPayments :many
+SELECT id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at FROM payments
+WHERE batch_id = $1
+ORDER BY created_at
+`
+
+func (q *Queries) ListBatchPayments(ctx context.Context, batchID pgtype.UUID) ([]Payment, error) {
+	rows, err := q.db.Query(ctx, listBatchPayments, batchID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Payment{}
+	for rows.Next() {
+		var i Payment
+		if err := rows.Scan(
+			&i.ID,
+			&i.StudentID,
+			&i.BatchID,
+			&i.DueID,
+			&i.Type,
+			&i.ItemName,
+			&i.Amount,
+			&i.PaystackReference,
+			&i.Status,
+			&i.VerifiedBy,
+			&i.VerifiedAt,
+			&i.PaidAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listDues = `-- name: ListDues :many
@@ -174,6 +455,136 @@ func (q *Queries) ListDuesByLevel(ctx context.Context, level *int32) ([]Due, err
 	return items, nil
 }
 
+const listStudentCart = `-- name: ListStudentCart :many
+SELECT id, student_id, due_id, amount, added_at FROM payment_cart
+WHERE student_id = $1
+ORDER BY added_at DESC
+`
+
+func (q *Queries) ListStudentCart(ctx context.Context, studentID uuid.UUID) ([]PaymentCart, error) {
+	rows, err := q.db.Query(ctx, listStudentCart, studentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []PaymentCart{}
+	for rows.Next() {
+		var i PaymentCart
+		if err := rows.Scan(
+			&i.ID,
+			&i.StudentID,
+			&i.DueID,
+			&i.Amount,
+			&i.AddedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStudentPaymentBatches = `-- name: ListStudentPaymentBatches :many
+SELECT id, student_id, total_amount, paystack_reference, status, receipt_url, paid_at, created_at FROM payment_batches
+WHERE student_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListStudentPaymentBatchesParams struct {
+	StudentID uuid.UUID `json:"student_id"`
+	Limit     int32     `json:"limit"`
+	Offset    int32     `json:"offset"`
+}
+
+func (q *Queries) ListStudentPaymentBatches(ctx context.Context, arg ListStudentPaymentBatchesParams) ([]PaymentBatch, error) {
+	rows, err := q.db.Query(ctx, listStudentPaymentBatches, arg.StudentID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []PaymentBatch{}
+	for rows.Next() {
+		var i PaymentBatch
+		if err := rows.Scan(
+			&i.ID,
+			&i.StudentID,
+			&i.TotalAmount,
+			&i.PaystackReference,
+			&i.Status,
+			&i.ReceiptUrl,
+			&i.PaidAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStudentPayments = `-- name: ListStudentPayments :many
+SELECT id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at FROM payments
+WHERE student_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListStudentPaymentsParams struct {
+	StudentID uuid.UUID `json:"student_id"`
+	Limit     int32     `json:"limit"`
+	Offset    int32     `json:"offset"`
+}
+
+func (q *Queries) ListStudentPayments(ctx context.Context, arg ListStudentPaymentsParams) ([]Payment, error) {
+	rows, err := q.db.Query(ctx, listStudentPayments, arg.StudentID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Payment{}
+	for rows.Next() {
+		var i Payment
+		if err := rows.Scan(
+			&i.ID,
+			&i.StudentID,
+			&i.BatchID,
+			&i.DueID,
+			&i.Type,
+			&i.ItemName,
+			&i.Amount,
+			&i.PaystackReference,
+			&i.Status,
+			&i.VerifiedBy,
+			&i.VerifiedAt,
+			&i.PaidAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const removeFromCart = `-- name: RemoveFromCart :exec
+DELETE FROM payment_cart WHERE id = $1
+`
+
+func (q *Queries) RemoveFromCart(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, removeFromCart, id)
+	return err
+}
+
 const updateDue = `-- name: UpdateDue :one
 UPDATE dues
 SET
@@ -228,215 +639,6 @@ func (q *Queries) UpdateDue(ctx context.Context, arg UpdateDueParams) (Due, erro
 	return i, err
 }
 
-const deleteDue = `-- name: DeleteDue :exec
-UPDATE dues SET is_active = false WHERE id = $1
-`
-
-func (q *Queries) DeleteDue(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, deleteDue, id)
-	return err
-}
-
-// ==================== PAYMENT CART ====================
-
-const addToCart = `-- name: AddToCart :one
-INSERT INTO payment_cart (
-    student_id, due_id, amount
-) VALUES (
-    $1, $2, $3
-) RETURNING id, student_id, due_id, amount, added_at
-`
-
-type AddToCartParams struct {
-	StudentID uuid.UUID       `json:"student_id"`
-	DueID     uuid.UUID       `json:"due_id"`
-	Amount    decimal.Decimal `json:"amount"`
-}
-
-func (q *Queries) AddToCart(ctx context.Context, arg AddToCartParams) (PaymentCart, error) {
-	row := q.db.QueryRow(ctx, addToCart,
-		arg.StudentID,
-		arg.DueID,
-		arg.Amount,
-	)
-	var i PaymentCart
-	err := row.Scan(
-		&i.ID,
-		&i.StudentID,
-		&i.DueID,
-		&i.Amount,
-		&i.AddedAt,
-	)
-	return i, err
-}
-
-const getCartItem = `-- name: GetCartItem :one
-SELECT id, student_id, due_id, amount, added_at FROM payment_cart
-WHERE id = $1 LIMIT 1
-`
-
-func (q *Queries) GetCartItem(ctx context.Context, id uuid.UUID) (PaymentCart, error) {
-	row := q.db.QueryRow(ctx, getCartItem, id)
-	var i PaymentCart
-	err := row.Scan(
-		&i.ID,
-		&i.StudentID,
-		&i.DueID,
-		&i.Amount,
-		&i.AddedAt,
-	)
-	return i, err
-}
-
-const listStudentCart = `-- name: ListStudentCart :many
-SELECT id, student_id, due_id, amount, added_at FROM payment_cart
-WHERE student_id = $1
-ORDER BY added_at DESC
-`
-
-func (q *Queries) ListStudentCart(ctx context.Context, studentID uuid.UUID) ([]PaymentCart, error) {
-	rows, err := q.db.Query(ctx, listStudentCart, studentID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []PaymentCart{}
-	for rows.Next() {
-		var i PaymentCart
-		if err := rows.Scan(
-			&i.ID,
-			&i.StudentID,
-			&i.DueID,
-			&i.Amount,
-			&i.AddedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const removeFromCart = `-- name: RemoveFromCart :exec
-DELETE FROM payment_cart WHERE id = $1
-`
-
-func (q *Queries) RemoveFromCart(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, removeFromCart, id)
-	return err
-}
-
-const clearStudentCart = `-- name: ClearStudentCart :exec
-DELETE FROM payment_cart WHERE student_id = $1
-`
-
-func (q *Queries) ClearStudentCart(ctx context.Context, studentID uuid.UUID) error {
-	_, err := q.db.Exec(ctx, clearStudentCart, studentID)
-	return err
-}
-
-// ==================== PAYMENT BATCHES ====================
-
-const createPaymentBatch = `-- name: CreatePaymentBatch :one
-INSERT INTO payment_batches (
-    student_id, total_amount, paystack_reference, status
-) VALUES (
-    $1, $2, $3, 'pending'
-) RETURNING id, student_id, total_amount, paystack_reference, status, receipt_url, paid_at, created_at
-`
-
-type CreatePaymentBatchParams struct {
-	StudentID         uuid.UUID       `json:"student_id"`
-	TotalAmount       decimal.Decimal `json:"total_amount"`
-	PaystackReference *string         `json:"paystack_reference"`
-}
-
-func (q *Queries) CreatePaymentBatch(ctx context.Context, arg CreatePaymentBatchParams) (PaymentBatch, error) {
-	row := q.db.QueryRow(ctx, createPaymentBatch,
-		arg.StudentID,
-		arg.TotalAmount,
-		arg.PaystackReference,
-	)
-	var i PaymentBatch
-	err := row.Scan(
-		&i.ID,
-		&i.StudentID,
-		&i.TotalAmount,
-		&i.PaystackReference,
-		&i.Status,
-		&i.ReceiptUrl,
-		&i.PaidAt,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const getPaymentBatch = `-- name: GetPaymentBatch :one
-SELECT id, student_id, total_amount, paystack_reference, status, receipt_url, paid_at, created_at FROM payment_batches
-WHERE id = $1 LIMIT 1
-`
-
-func (q *Queries) GetPaymentBatch(ctx context.Context, id uuid.UUID) (PaymentBatch, error) {
-	row := q.db.QueryRow(ctx, getPaymentBatch, id)
-	var i PaymentBatch
-	err := row.Scan(
-		&i.ID,
-		&i.StudentID,
-		&i.TotalAmount,
-		&i.PaystackReference,
-		&i.Status,
-		&i.ReceiptUrl,
-		&i.PaidAt,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const listStudentPaymentBatches = `-- name: ListStudentPaymentBatches :many
-SELECT id, student_id, total_amount, paystack_reference, status, receipt_url, paid_at, created_at FROM payment_batches
-WHERE student_id = $1
-ORDER BY created_at DESC
-LIMIT $2 OFFSET $3
-`
-
-type ListStudentPaymentBatchesParams struct {
-	StudentID uuid.UUID `json:"student_id"`
-	Limit     int32     `json:"limit"`
-	Offset    int32     `json:"offset"`
-}
-
-func (q *Queries) ListStudentPaymentBatches(ctx context.Context, arg ListStudentPaymentBatchesParams) ([]PaymentBatch, error) {
-	rows, err := q.db.Query(ctx, listStudentPaymentBatches, arg.StudentID, arg.Limit, arg.Offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []PaymentBatch{}
-	for rows.Next() {
-		var i PaymentBatch
-		if err := rows.Scan(
-			&i.ID,
-			&i.StudentID,
-			&i.TotalAmount,
-			&i.PaystackReference,
-			&i.Status,
-			&i.ReceiptUrl,
-			&i.PaidAt,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const updatePaymentBatchStatus = `-- name: UpdatePaymentBatchStatus :one
 UPDATE payment_batches
 SET
@@ -475,168 +677,6 @@ func (q *Queries) UpdatePaymentBatchStatus(ctx context.Context, arg UpdatePaymen
 	return i, err
 }
 
-// ==================== PAYMENTS ====================
-
-const createPayment = `-- name: CreatePayment :one
-INSERT INTO payments (
-    student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status
-) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, 'pending'
-) RETURNING id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at
-`
-
-type CreatePaymentParams struct {
-	StudentID         uuid.UUID       `json:"student_id"`
-	BatchID           pgtype.UUID     `json:"batch_id"`
-	DueID             uuid.UUID       `json:"due_id"`
-	Type              PaymentType     `json:"type"`
-	ItemName          string          `json:"item_name"`
-	Amount            decimal.Decimal `json:"amount"`
-	PaystackReference *string         `json:"paystack_reference"`
-}
-
-func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (Payment, error) {
-	row := q.db.QueryRow(ctx, createPayment,
-		arg.StudentID,
-		arg.BatchID,
-		arg.DueID,
-		arg.Type,
-		arg.ItemName,
-		arg.Amount,
-		arg.PaystackReference,
-	)
-	var i Payment
-	err := row.Scan(
-		&i.ID,
-		&i.StudentID,
-		&i.BatchID,
-		&i.DueID,
-		&i.Type,
-		&i.ItemName,
-		&i.Amount,
-		&i.PaystackReference,
-		&i.Status,
-		&i.VerifiedBy,
-		&i.VerifiedAt,
-		&i.PaidAt,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const getPayment = `-- name: GetPayment :one
-SELECT id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at FROM payments
-WHERE id = $1 LIMIT 1
-`
-
-func (q *Queries) GetPayment(ctx context.Context, id uuid.UUID) (Payment, error) {
-	row := q.db.QueryRow(ctx, getPayment, id)
-	var i Payment
-	err := row.Scan(
-		&i.ID,
-		&i.StudentID,
-		&i.BatchID,
-		&i.DueID,
-		&i.Type,
-		&i.ItemName,
-		&i.Amount,
-		&i.PaystackReference,
-		&i.Status,
-		&i.VerifiedBy,
-		&i.VerifiedAt,
-		&i.PaidAt,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const listStudentPayments = `-- name: ListStudentPayments :many
-SELECT id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at FROM payments
-WHERE student_id = $1
-ORDER BY created_at DESC
-LIMIT $2 OFFSET $3
-`
-
-type ListStudentPaymentsParams struct {
-	StudentID uuid.UUID `json:"student_id"`
-	Limit     int32     `json:"limit"`
-	Offset    int32     `json:"offset"`
-}
-
-func (q *Queries) ListStudentPayments(ctx context.Context, arg ListStudentPaymentsParams) ([]Payment, error) {
-	rows, err := q.db.Query(ctx, listStudentPayments, arg.StudentID, arg.Limit, arg.Offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Payment{}
-	for rows.Next() {
-		var i Payment
-		if err := rows.Scan(
-			&i.ID,
-			&i.StudentID,
-			&i.BatchID,
-			&i.DueID,
-			&i.Type,
-			&i.ItemName,
-			&i.Amount,
-			&i.PaystackReference,
-			&i.Status,
-			&i.VerifiedBy,
-			&i.VerifiedAt,
-			&i.PaidAt,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listBatchPayments = `-- name: ListBatchPayments :many
-SELECT id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at FROM payments
-WHERE batch_id = $1
-ORDER BY created_at
-`
-
-func (q *Queries) ListBatchPayments(ctx context.Context, batchID pgtype.UUID) ([]Payment, error) {
-	rows, err := q.db.Query(ctx, listBatchPayments, batchID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Payment{}
-	for rows.Next() {
-		var i Payment
-		if err := rows.Scan(
-			&i.ID,
-			&i.StudentID,
-			&i.BatchID,
-			&i.DueID,
-			&i.Type,
-			&i.ItemName,
-			&i.Amount,
-			&i.PaystackReference,
-			&i.Status,
-			&i.VerifiedBy,
-			&i.VerifiedAt,
-			&i.PaidAt,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const updatePaymentStatus = `-- name: UpdatePaymentStatus :one
 UPDATE payments
 SET
@@ -653,11 +693,7 @@ type UpdatePaymentStatusParams struct {
 }
 
 func (q *Queries) UpdatePaymentStatus(ctx context.Context, arg UpdatePaymentStatusParams) (Payment, error) {
-	row := q.db.QueryRow(ctx, updatePaymentStatus,
-		arg.ID,
-		arg.Status,
-		arg.PaidAt,
-	)
+	row := q.db.QueryRow(ctx, updatePaymentStatus, arg.ID, arg.Status, arg.PaidAt)
 	var i Payment
 	err := row.Scan(
 		&i.ID,
@@ -688,8 +724,13 @@ WHERE id = $1
 RETURNING id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at
 `
 
-func (q *Queries) VerifyPayment(ctx context.Context, id uuid.UUID, verifiedBy uuid.UUID) (Payment, error) {
-	row := q.db.QueryRow(ctx, verifyPayment, id, verifiedBy)
+type VerifyPaymentParams struct {
+	ID         uuid.UUID   `json:"id"`
+	VerifiedBy pgtype.UUID `json:"verified_by"`
+}
+
+func (q *Queries) VerifyPayment(ctx context.Context, arg VerifyPaymentParams) (Payment, error) {
+	row := q.db.QueryRow(ctx, verifyPayment, arg.ID, arg.VerifiedBy)
 	var i Payment
 	err := row.Scan(
 		&i.ID,
@@ -707,52 +748,4 @@ func (q *Queries) VerifyPayment(ctx context.Context, id uuid.UUID, verifiedBy uu
 		&i.CreatedAt,
 	)
 	return i, err
-}
-
-const getStudentPaymentSummary = `-- name: GetStudentPaymentSummary :one
-SELECT
-    COUNT(*) FILTER (WHERE status = 'completed') AS total_paid,
-    COUNT(*) FILTER (WHERE status = 'pending') AS total_pending,
-    COALESCE(SUM(amount) FILTER (WHERE status = 'completed'), 0)::DECIMAL(10,2) AS amount_paid,
-    COALESCE(SUM(amount) FILTER (WHERE status = 'pending'), 0)::DECIMAL(10,2) AS amount_pending
-FROM payments
-WHERE student_id = $1
-`
-
-type GetStudentPaymentSummaryRow struct {
-	TotalPaid     int64           `json:"total_paid"`
-	TotalPending  int64           `json:"total_pending"`
-	AmountPaid    decimal.Decimal `json:"amount_paid"`
-	AmountPending decimal.Decimal `json:"amount_pending"`
-}
-
-func (q *Queries) GetStudentPaymentSummary(ctx context.Context, studentID uuid.UUID) (GetStudentPaymentSummaryRow, error) {
-	row := q.db.QueryRow(ctx, getStudentPaymentSummary, studentID)
-	var i GetStudentPaymentSummaryRow
-	err := row.Scan(
-		&i.TotalPaid,
-		&i.TotalPending,
-		&i.AmountPaid,
-		&i.AmountPending,
-	)
-	return i, err
-}
-
-const checkDuePaid = `-- name: CheckDuePaid :one
-SELECT EXISTS(
-    SELECT 1 FROM payments
-    WHERE student_id = $1 AND due_id = $2 AND status = 'completed'
-) AS is_paid
-`
-
-type CheckDuePaidParams struct {
-	StudentID uuid.UUID `json:"student_id"`
-	DueID     uuid.UUID `json:"due_id"`
-}
-
-func (q *Queries) CheckDuePaid(ctx context.Context, arg CheckDuePaidParams) (bool, error) {
-	row := q.db.QueryRow(ctx, checkDuePaid, arg.StudentID, arg.DueID)
-	var isPaid bool
-	err := row.Scan(&isPaid)
-	return isPaid, err
 }
