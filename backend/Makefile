@@ -6,12 +6,8 @@ DB_PASSWORD    ?= incorrect
 # Wallet / Custody DB
 WALLET_DB_NAME  := chainvault
 WALLET_DB_URL   := "postgresql://$(DB_USER):$(DB_PASSWORD)@localhost:5432/$(WALLET_DB_NAME)?sslmode=disable"
-WALLET_MIG_DIR  := pkg/db/migration/wallet
+WALLET_MIG_DIR  := internal/db/migrations
 
-# Trading DB
-TRADING_DB_NAME := chainvault_trading
-TRADING_DB_URL  := "postgresql://$(DB_USER):$(DB_PASSWORD)@localhost:5432/$(TRADING_DB_NAME)?sslmode=disable"
-TRADING_MIG_DIR := pkg/db/migration/trading
 
 # Backup helpers
 NOW                   := $(shell date +%Y%m%d_%H%M%S)
@@ -169,4 +165,4 @@ host_frontend:
 	docker_build_wallet docker_build_monitor docker_build_sweeper \
 	docker_build_admin docker_build_frontend docker_build_team docker_build_all \
 	serve monitor monitor_all settle deploy_evm deploy_tron \
-	Init start host_frontend
+	Init start host_frontend add_migration
