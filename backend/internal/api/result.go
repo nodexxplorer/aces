@@ -411,3 +411,18 @@ func (server *Server) listStudentCarryoverCourses(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, carryovers)
 }
+
+func (server *Server) deleteCarryoverCourse(ctx *gin.Context) {
+	id, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid carryover course id"})
+		return
+	}
+
+	if err := server.store.DeleteCarryoverCourse(ctx, id); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "carryover course deleted successfully"})
+}

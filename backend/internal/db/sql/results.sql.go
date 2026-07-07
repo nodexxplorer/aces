@@ -160,6 +160,16 @@ func (q *Queries) CreateResultAuditLog(ctx context.Context, arg CreateResultAudi
 	return i, err
 }
 
+const deleteCarryoverCourse = `-- name: DeleteCarryoverCourse :exec
+DELETE FROM carryover_courses
+WHERE id = $1
+`
+
+func (q *Queries) DeleteCarryoverCourse(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteCarryoverCourse, id)
+	return err
+}
+
 const getCarryoverCourse = `-- name: GetCarryoverCourse :one
 SELECT id, student_id, course_id, original_result_id, original_session_id, attempt_count, max_attempts, is_resolved, resolved_result_id, created_at FROM carryover_courses
 WHERE id = $1 LIMIT 1
