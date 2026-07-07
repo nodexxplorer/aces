@@ -237,3 +237,47 @@ func (server *Server) deleteRegisteredCourse(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "registered course deleted successfully"})
 }
+
+type updateRegisteredCourseRequest struct {
+	Status            string `json:"status" binding:"required"`
+	IsCarryover       bool   `json:"is_carryover"`
+	PreviousAttemptID string `json:"previous_attempt_id" binding:"omitempty,uuid"`
+}
+
+func (server *Server) updateRegisteredCourse(ctx *gin.Context) {
+	idStr := ctx.Param("registered_course_id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid registered course id"})
+		return
+	}
+
+	var req updateRegisteredCourseRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	arg := db.UpdateRegisteredCourseParams{
+		ID:          id,
+		Status:      req.Status,
+		IsCarryover: req.IsCarryover,
+	}
+
+	if req.PreviousAttemptID != "" {
+		prevID, err := uuid.Parse(req.PreviousAttemptID)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid previous_attempt_id"})
+			return
+		}
+		arg.PreviousAttemptID = pgtype.UUID{Bytes: prevID, Valid: true}
+	}
+
+	registeredCourse, err := server.store.UpdateRegisteredCourse(ctx, arg)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, registeredCourse)
+}

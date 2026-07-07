@@ -251,3 +251,40 @@ func (q *Queries) UpdateCourseRegistration(ctx context.Context, arg UpdateCourse
 	)
 	return i, err
 }
+
+const updateRegisteredCourse = `-- name: UpdateRegisteredCourse :one
+UPDATE registered_courses
+SET
+    status = $2,
+    is_carryover = $3,
+    previous_attempt_id = $4
+WHERE id = $1
+RETURNING id, registration_id, course_id, status, is_carryover, previous_attempt_id, created_at
+`
+
+type UpdateRegisteredCourseParams struct {
+	ID                uuid.UUID   `json:"id"`
+	Status            string      `json:"status"`
+	IsCarryover       bool        `json:"is_carryover"`
+	PreviousAttemptID pgtype.UUID `json:"previous_attempt_id"`
+}
+
+func (q *Queries) UpdateRegisteredCourse(ctx context.Context, arg UpdateRegisteredCourseParams) (RegisteredCourse, error) {
+	row := q.db.QueryRow(ctx, updateRegisteredCourse,
+		arg.ID,
+		arg.Status,
+		arg.IsCarryover,
+		arg.PreviousAttemptID,
+	)
+	var i RegisteredCourse
+	err := row.Scan(
+		&i.ID,
+		&i.RegistrationID,
+		&i.CourseID,
+		&i.Status,
+		&i.IsCarryover,
+		&i.PreviousAttemptID,
+		&i.CreatedAt,
+	)
+	return i, err
+}
