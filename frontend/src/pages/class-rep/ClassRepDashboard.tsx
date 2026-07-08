@@ -1,7 +1,7 @@
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import KpiCard from '../../components/data-display/KpiCard';
 import Button from '../../components/ui/Button';
-import { Users, ClipboardList, ShieldCheck, Printer, ArrowRight } from 'lucide-react';
+import { Users, ClipboardList, ShieldCheck, Printer } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { useNotification } from '../../hooks/useNotification';

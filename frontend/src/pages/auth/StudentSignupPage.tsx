@@ -9,7 +9,7 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
-import { Mail, Lock, User, UserCheck } from 'lucide-react';
+import { Mail, Lock, User, UserCheck, MapPin } from 'lucide-react';
 import { isValidMatricNumber } from '../../utils/validators';
 
 const studentSignupSchema = z
@@ -22,6 +22,8 @@ const studentSignupSchema = z
     //   message: 'Format must be like ENG/2022/123',
     // }),
     level: z.string().min(1, 'Please select your current level'),
+    gender: z.string().min(1, 'Please select your gender'),
+    address: z.string().min(5, 'Address must be at least 5 characters'),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     confirmPassword: z.string(),
   })
@@ -58,8 +60,11 @@ const StudentSignupPage = () => {
         activeRole: 'student' as const,
         matricNumber: data.matricNumber,
         level: parseInt(data.level),
+        gender: data.gender,
+        address: data.address,
         isApproved: false,
         approvalStatus: 'pending' as const,
+        onboardingCompleted: false,
         createdAt: new Date().toISOString(),
       };
 
@@ -134,6 +139,25 @@ const StudentSignupPage = () => {
               ]}
               error={errors.level?.message}
               {...register('level')}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label="Gender"
+              placeholder="Select Gender"
+              options={[
+                { value: 'male', label: 'Male' },
+                { value: 'female', label: 'Female' },
+              ]}
+              error={errors.gender?.message}
+              {...register('gender')}
+            />
+            <Input
+              label="Address"
+              placeholder="e.g. 123 Main St"
+              leftIcon={<MapPin className="w-4 h-4" />}
+              error={errors.address?.message}
+              {...register('address')}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">

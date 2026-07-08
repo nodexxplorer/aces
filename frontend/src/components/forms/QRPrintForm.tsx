@@ -25,7 +25,7 @@ const QRPrintForm = ({ onSubmit, isLoading }: QRPrintFormProps) => {
         label="Target Manual ID / Code"
         placeholder="e.g. m-1"
         value={manualId}
-        onChange={(e) => setManualId(e.target.value)} // Wait, userId state is not defined, we should use setManualId!
+        onChange={(e) => setManualId(e.target.value)}
         required
       />
       <Input

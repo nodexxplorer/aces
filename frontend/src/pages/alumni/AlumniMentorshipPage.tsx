@@ -4,7 +4,7 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Modal from '../../components/ui/Modal';
 import { useNotification } from '../../hooks/useNotification';
-import { Search, GraduationCap, Send, BookOpen } from 'lucide-react';
+import { Search, GraduationCap, Send } from 'lucide-react';
 
 interface Mentor {
   id: string;

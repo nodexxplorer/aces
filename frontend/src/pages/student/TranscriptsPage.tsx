@@ -30,7 +30,18 @@ const TranscriptsPage = () => {
   const handleDownloadUnofficial = async () => {
     setIsDownloading(true);
     try {
-      const blob = await generateTranscriptPDF('stud-1');
+      const blob = await generateTranscriptPDF({
+        studentName: 'John Doe',
+        matricNumber: 'ENG/2021/001',
+        department: 'Computer Engineering',
+        semester: 'First',
+        session: '2025/2026',
+        courses: [
+          { code: 'ENG101', title: 'Engineering Mathematics', credit: 3, grade: 'A' },
+          { code: 'ENG102', title: 'Programming Fundamentals', credit: 3, grade: 'B' },
+        ],
+        cgpa: '4.20',
+      });
       downloadBlob(blob, 'unofficial_transcript.pdf');
       success('Download Successful', 'Unofficial transcript PDF downloaded.');
     } catch {

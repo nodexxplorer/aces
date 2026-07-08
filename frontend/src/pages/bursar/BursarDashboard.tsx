@@ -2,9 +2,9 @@ import Card, { CardHeader, CardTitle, CardDescription } from '../../components/u
 import KpiCard from '../../components/data-display/KpiCard';
 import DataTable from '../../components/data-display/DataTable';
 import StatusBadge from '../../components/data-display/StatusBadge';
-import { formatCurrency, formatDate } from '../../utils/formatters';
+import { formatCurrency } from '../../utils/formatters';
 import { useNotification } from '../../hooks/useNotification';
-import { DollarSign, Users, ShieldAlert, ArrowUpRight } from 'lucide-react';
+import { DollarSign, Users, ShieldAlert } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
 import { useState } from 'react';
 
