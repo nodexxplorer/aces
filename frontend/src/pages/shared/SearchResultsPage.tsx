@@ -1,5 +1,5 @@
 import { useSearchParams } from 'react-router-dom';
-import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
+import Card from '../../components/ui/Card';
 
 const SearchResultsPage = () => {
   const [params] = useSearchParams();

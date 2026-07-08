@@ -2,7 +2,7 @@ import { useAuth } from '../../hooks/useAuth';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import KpiCard from '../../components/data-display/KpiCard';
 import Button from '../../components/ui/Button';
-import { Briefcase, Users, DollarSign, Calendar, ArrowRight } from 'lucide-react';
+import { Briefcase, Users, DollarSign, Calendar } from 'lucide-react';
 import { useState } from 'react';
 import { useNotification } from '../../hooks/useNotification';
 import { Link } from 'react-router-dom';

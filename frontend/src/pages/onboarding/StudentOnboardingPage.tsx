@@ -9,11 +9,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
-import { User, Phone, CheckCircle, ArrowRight, ArrowLeft } from 'lucide-react';
+import { User, Phone, Image, CheckCircle, ArrowRight, ArrowLeft } from 'lucide-react';
 import { isValidPhone } from '../../utils/validators';
 
 const onboardingSchema = z.object({
   bio: z.string().min(10, 'Biography must be at least 10 characters'),
+  avatar: z.string().url('Please enter a valid URL').or(z.literal('')),
+  phone: z.string().refine(isValidPhone, {
+    message: 'Please enter a valid phone number',
+  }),
   emergencyName: z.string().min(3, 'Emergency contact name is required'),
   emergencyRelation: z.string().min(2, 'Relation type is required (e.g. Father)'),
   emergencyPhone: z.string().refine(isValidPhone, {
@@ -40,7 +44,7 @@ const StudentOnboardingPage = () => {
 
   const nextStep = async () => {
     if (step === 1) {
-      const valid = await trigger('bio');
+      const valid = await trigger(['bio', 'avatar', 'phone']);
       if (valid) setStep(2);
     }
   };
@@ -53,7 +57,10 @@ const StudentOnboardingPage = () => {
     try {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       updateUser({
+        onboardingCompleted: true,
         bio: data.bio,
+        avatar: data.avatar || undefined,
+        phone: data.phone,
         emergencyContact: {
           name: data.emergencyName,
           relation: data.emergencyRelation,
@@ -75,7 +82,7 @@ const StudentOnboardingPage = () => {
             <User className="w-6 h-6" />
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight">Set Up Profile</CardTitle>
-          <CardDescription>Step {step} of 2 — Customize your profile settings</CardDescription>
+          <CardDescription>Step {step} of 2 — Complete your profile</CardDescription>
         </CardHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -94,11 +101,25 @@ const StudentOnboardingPage = () => {
                   </label>
                   <textarea
                     placeholder="Enter a brief biography, academic interests, or skills..."
-                    className="w-full h-32 rounded-lg border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-900 text-sm text-surface-900 dark:text-surface-100 p-3 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all resize-none"
+                    className="w-full h-28 rounded-lg border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-900 text-sm text-surface-900 dark:text-surface-100 p-3 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all resize-none"
                     {...register('bio')}
                   />
                   {errors.bio && <p className="text-xs text-danger-500">{errors.bio.message}</p>}
                 </div>
+                <Input
+                  label="Profile Image URL"
+                  placeholder="https://example.com/avatar.jpg"
+                  leftIcon={<Image className="w-4 h-4" />}
+                  error={errors.avatar?.message}
+                  {...register('avatar')}
+                />
+                <Input
+                  label="Phone Number"
+                  placeholder="e.g. 08012345678"
+                  leftIcon={<Phone className="w-4 h-4" />}
+                  error={errors.phone?.message}
+                  {...register('phone')}
+                />
                 <Button type="button" className="w-full mt-4" onClick={nextStep} rightIcon={<ArrowRight className="w-4 h-4" />}>
                   Continue
                 </Button>

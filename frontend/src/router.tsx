@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from 'react';
-import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
+import { createBrowserRouter, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
 import type { UserRole } from './types';
 
@@ -131,7 +131,16 @@ const SuspenseWrapper = ({ children }: { children: ReactNode }) => (
 /* ── Route guards ────────────────────────────── */
 const ProtectedRoute = () => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const user = useAuthStore((s) => s.user);
+  const location = useLocation();
+
   if (!isAuthenticated) return <Navigate to="/login" replace />;
+
+  const onboardingRoutes = ['/onboarding', '/login/celebration'];
+  if (user && user.onboardingCompleted === false && !onboardingRoutes.includes(location.pathname)) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
   return <SuspenseWrapper><Outlet /></SuspenseWrapper>;
 };
 
@@ -167,11 +176,11 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       { path: '/login/celebration', element: <SuspenseWrapper><LoginCelebrationPage /></SuspenseWrapper> },
+      { path: '/onboarding', element: <SuspenseWrapper><StudentOnboardingPage /></SuspenseWrapper> },
       {
         element: <AppShell />,
         children: [
           { path: '/dashboard', element: <Dashboard /> },
-          { path: '/onboarding', element: <StudentOnboardingPage /> },
 
           // Student routes
           { path: '/results', element: <ResultsPage /> },

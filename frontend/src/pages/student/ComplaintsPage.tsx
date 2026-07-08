@@ -6,7 +6,7 @@ import Select from '../../components/ui/Select';
 import DataTable from '../../components/data-display/DataTable';
 import StatusBadge from '../../components/data-display/StatusBadge';
 import { useNotification } from '../../hooks/useNotification';
-import { HelpCircle, Send } from 'lucide-react';
+import { Send } from 'lucide-react';
 import type { Complaint } from '../../types';
 
 const mockComplaints: Complaint[] = [

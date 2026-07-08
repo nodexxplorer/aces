@@ -42,6 +42,8 @@ export interface User extends BaseEntity {
   otherNames?: string;
   phone?: string;
   avatar?: string;
+  gender?: string;
+  address?: string;
   roles: UserRole[];
   activeRole: UserRole;
   accountType?: AccountType;
@@ -49,6 +51,7 @@ export interface User extends BaseEntity {
   approvalStatus: ApprovalStatus;
   lastLogin?: string;
   rejectionReason?: string;
+  onboardingCompleted?: boolean;
   bio?: string;
   emergencyContact?: {
     name: string;
