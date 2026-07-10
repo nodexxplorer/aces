@@ -669,7 +669,10 @@ func (server *Server) verifyPayment(ctx *gin.Context) {
 		return
 	}
 
-	payment, err := server.store.VerifyPayment(ctx, id, verifiedBy)
+	payment, err := server.store.VerifyPayment(ctx, db.VerifyPaymentParams{
+		ID:         id,
+		VerifiedBy: pgtype.UUID{Bytes: verifiedBy, Valid: true},
+	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

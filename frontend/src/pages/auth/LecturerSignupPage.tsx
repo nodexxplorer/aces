@@ -10,6 +10,7 @@ import Input from '../../components/ui/Input';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import { Mail, Lock, User, Briefcase } from 'lucide-react';
 import { isValidStaffId } from '../../utils/validators';
+import { lecturerSignup } from '../../api/signup';
 
 const lecturerSignupSchema = z
   .object({
@@ -45,33 +46,20 @@ const LecturerSignupPage = () => {
 
   const onSubmit = async (data: LecturerSignupValues) => {
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      
-      const mockUser = {
-        id: 'lecturer-new',
+      const response = await lecturerSignup({
         email: data.email,
+        password: data.password,
         firstName: data.firstName,
         lastName: data.lastName,
-        roles: ['lecturer'] as any,
-        activeRole: 'lecturer' as const,
         staffId: data.staffId,
-        officeRoom: '',
-        isApproved: false,
-        approvalStatus: 'pending' as const,
-        createdAt: new Date().toISOString(),
-      };
+        department: 'Computer Engineering', // Default for ACES
+      });
 
-      const mockTokens = {
-        accessToken: 'new-lecturer-token',
-        refreshToken: 'new-lecturer-refresh-token',
-        expiresAt: new Date(Date.now() + 3600 * 1000).toISOString(),
-      };
-
-      login(mockUser, mockTokens);
+      login(response.user, response.tokens);
       success('Registration Successful', 'Your lecturer account has been queued for Head of Department (HOD) approval.');
       navigate('/dashboard');
-    } catch {
-      error('Registration Failed', 'An error occurred during account registration.');
+    } catch (err) {
+      error('Registration Failed', err instanceof Error ? err.message : 'An error occurred during account registration.');
     }
   };
 

@@ -130,6 +130,36 @@ CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_role ON users(role);
 CREATE INDEX idx_users_active ON users(is_active) WHERE is_active = true;
 
+-- ==================== ACADEMIC TABLES ====================
+-- Sessions and semesters must be created before students (FK dependency)
+
+CREATE TABLE sessions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(20) NOT NULL UNIQUE,
+    start_date TIMESTAMPTZ NOT NULL,
+    end_date TIMESTAMPTZ NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    is_archived BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_sessions_name ON sessions(name);
+CREATE INDEX idx_sessions_active ON sessions(is_active);
+
+CREATE TABLE semesters (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    name semester_season NOT NULL,
+    start_date TIMESTAMPTZ NOT NULL,
+    end_date TIMESTAMPTZ NOT NULL,
+    registration_deadline TIMESTAMPTZ,
+    is_active BOOLEAN NOT NULL DEFAULT true
+);
+
+CREATE INDEX idx_semesters_session ON semesters(session_id);
+
+-- ==================== CORE TABLES (continued) ====================
+
 CREATE TABLE students (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
@@ -184,33 +214,6 @@ CREATE TABLE admin_permissions (
 
 CREATE INDEX idx_admin_permissions_user ON admin_permissions(user_id);
 CREATE INDEX idx_admin_permissions_granted_by ON admin_permissions(granted_by_hod_id);
-
--- ==================== ACADEMIC TABLES ====================
-
-CREATE TABLE sessions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(20) NOT NULL UNIQUE,
-    start_date TIMESTAMPTZ NOT NULL,
-    end_date TIMESTAMPTZ NOT NULL,
-    is_active BOOLEAN NOT NULL DEFAULT true,
-    is_archived BOOLEAN NOT NULL DEFAULT false,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_sessions_name ON sessions(name);
-CREATE INDEX idx_sessions_active ON sessions(is_active);
-
-CREATE TABLE semesters (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-    name semester_season NOT NULL,
-    start_date TIMESTAMPTZ NOT NULL,
-    end_date TIMESTAMPTZ NOT NULL,
-    registration_deadline TIMESTAMPTZ,
-    is_active BOOLEAN NOT NULL DEFAULT true
-);
-
-CREATE INDEX idx_semesters_session ON semesters(session_id);
 
 CREATE TABLE courses (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

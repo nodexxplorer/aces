@@ -1,9 +1,47 @@
 package api
 
 import (
+	"net/http"
+	"strings"
+
 	"github.com/aces/backend/internal/db/sql"
 	"github.com/gin-gonic/gin"
 )
+
+// corsMiddleware handles Cross-Origin Resource Sharing.
+func corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		origin := c.Request.Header.Get("Origin")
+
+		// Allow localhost origins for development
+		allowedOrigins := []string{
+			"http://localhost:5173",
+			"http://localhost:3000",
+			"http://127.0.0.1:5173",
+			"http://localhost:5175",
+			"http://127.0.0.1:5175",
+		}
+
+		for _, allowed := range allowedOrigins {
+			if strings.EqualFold(origin, allowed) {
+				c.Header("Access-Control-Allow-Origin", origin)
+				break
+			}
+		}
+
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+		c.Header("Access-Control-Allow-Credentials", "true")
+		c.Header("Access-Control-Max-Age", "86400")
+
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+
+		c.Next()
+	}
+}
 
 // Server serves HTTP requests for the backend service.
 type Server struct {
@@ -15,6 +53,19 @@ type Server struct {
 func NewServer(store db.Querier) *Server {
 	server := &Server{store: store}
 	router := gin.Default()
+
+	// Enable CORS
+	router.Use(corsMiddleware())
+
+	// Auth routes
+	auth := router.Group("/auth")
+	{
+		auth.POST("/signup/student", server.studentSignup)
+		auth.POST("/signup/lecturer", server.lecturerSignup)
+		auth.POST("/login", server.login)
+		auth.GET("/me", server.getMe)
+		auth.POST("/logout", server.logout)
+	}
 
 	// Sessions routes
 	sessions := router.Group("/sessions")
@@ -95,7 +146,7 @@ func NewServer(store db.Querier) *Server {
 		// Assignment Grades
 		assignments.POST("/grades", server.createAssignmentGrade)
 		assignments.GET("/grades/lookup", server.getAssignmentGrade) // expects ?assignment_id=X&student_id=Y
-		assignments.GET("/:assignment_id/grades", server.listAssignmentGrades)
+		assignments.GET("/:id/grades", server.listAssignmentGrades)
 		assignments.GET("/grades/student/:student_id", server.listStudentAssignmentGrades)
 		assignments.PUT("/grades/:id", server.updateAssignmentGrade)
 		assignments.DELETE("/grades/:id", server.deleteAssignmentGrade)

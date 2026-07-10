@@ -8,6 +8,7 @@ import (
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // ─── Request/Response types ───────────────────────────────────────────────────
@@ -93,9 +94,9 @@ func (server *Server) createTimetableEntry(ctx *gin.Context) {
 
 	entry, err := server.store.CreateTimetableEntry(ctx, db.CreateTimetableEntryParams{
 		CourseID:        courseID,
-		ExamDate:        examDate,
-		StartTime:       startTime,
-		EndTime:         endTime,
+		ExamDate:        pgtype.Timestamptz{Time: examDate, Valid: true},
+		StartTime:       pgtype.Timestamptz{Time: startTime, Valid: true},
+		EndTime:         pgtype.Timestamptz{Time: endTime, Valid: true},
 		Venue:           req.Venue,
 		SessionID:       sessionID,
 		SemesterID:      semesterID,
@@ -194,9 +195,9 @@ func (server *Server) updateTimetableEntry(ctx *gin.Context) {
 
 	entry, err := server.store.UpdateTimetableEntry(ctx, db.UpdateTimetableEntryParams{
 		ID:              id,
-		ExamDate:        examDate,
-		StartTime:       startTime,
-		EndTime:         endTime,
+		ExamDate:        pgtype.Timestamptz{Time: examDate, Valid: true},
+		StartTime:       pgtype.Timestamptz{Time: startTime, Valid: true},
+		EndTime:         pgtype.Timestamptz{Time: endTime, Valid: true},
 		Venue:           req.Venue,
 		HasConflict:     req.HasConflict,
 		ConflictDetails: req.ConflictDetails,

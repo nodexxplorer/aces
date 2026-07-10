@@ -163,7 +163,7 @@ func (server *Server) listAdminPermissions(ctx *gin.Context) {
 
 	permissions, err := server.store.ListAdminPermissions(ctx, arg)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
