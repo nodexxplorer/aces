@@ -146,7 +146,19 @@ const ProtectedRoute = () => {
 
 const PublicOnlyRoute = () => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  const user = useAuthStore((s) => s.user);
+
+  if (isAuthenticated) {
+    if (user && user.onboardingCompleted === false) {
+      return <Navigate to="/onboarding" replace />;
+    }
+    const justLoggedIn = sessionStorage.getItem('just_logged_in') === 'true';
+    if (justLoggedIn) {
+      sessionStorage.removeItem('just_logged_in');
+      return <Navigate to="/login/celebration" replace />;
+    }
+    return <Navigate to="/dashboard" replace />;
+  }
   return <SuspenseWrapper><Outlet /></SuspenseWrapper>;
 };
 

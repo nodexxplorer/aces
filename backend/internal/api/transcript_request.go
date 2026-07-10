@@ -32,7 +32,7 @@ func (server *Server) createTranscriptRequest(ctx *gin.Context) {
 		Purpose:   req.Purpose,
 		Status:    db.TranscriptStatusRequested,
 		FeePaid:   req.FeePaid,
-		FeeAmount: req.FeeAmount,
+		FeeAmount: decimalToNumeric(req.FeeAmount),
 	}
 
 	transcriptReq, err := server.store.CreateTranscriptRequest(ctx, arg)

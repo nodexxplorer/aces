@@ -29,8 +29,11 @@ out/
 
 ### Environment ###
 .env
-.env.*
+.env.local
+.env.production
+.env.development
 app.env
+!.env.example
 
 ### IDE / OS ###
 .vscode/

@@ -34,6 +34,7 @@ const LoginPage = () => {
   const onSubmit = async (data: LoginFormValues) => {
     try {
       const { user: userData, tokens } = await apiLogin({ email: data.identifier, password: data.password });
+      sessionStorage.setItem('just_logged_in', 'true');
       login(userData, tokens);
       navigate('/login/celebration');
     } catch (err) {

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"math/big"
 	"net/http"
 	"strings"
 	"time"
@@ -11,6 +12,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/shopspring/decimal"
 )
+
+// decimalToNumeric converts a shopspring/decimal.Decimal to pgtype.Numeric.
+func decimalToNumeric(d decimal.Decimal) pgtype.Numeric {
+	coeff := d.Coefficient()
+	exp := d.Exponent()
+	return pgtype.Numeric{
+		Int:   new(big.Int).Set(coeff),
+		Exp:   exp,
+		Valid: true,
+	}
+}
 
 type createAssignmentRequest struct {
 	CourseID              string   `json:"course_id" binding:"required,uuid"`
@@ -204,7 +216,7 @@ func (server *Server) createAssignmentGrade(ctx *gin.Context) {
 	arg := db.CreateAssignmentGradeParams{
 		AssignmentID: assignmentID,
 		StudentID:    studentID,
-		Score:        req.Score,
+		Score:        decimalToNumeric(req.Score),
 		Feedback:     req.Feedback,
 		IsLate:       req.IsLate,
 		GradedBy:     gradedBy,
@@ -243,7 +255,7 @@ func (server *Server) getAssignmentGrade(ctx *gin.Context) {
 }
 
 func (server *Server) listAssignmentGrades(ctx *gin.Context) {
-	assignmentID, err := uuid.Parse(ctx.Param("assignment_id"))
+	assignmentID, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid assignment id"})
 		return
@@ -298,7 +310,7 @@ func (server *Server) updateAssignmentGrade(ctx *gin.Context) {
 
 	arg := db.UpdateAssignmentGradeParams{
 		ID:       id,
-		Score:    req.Score,
+		Score:    decimalToNumeric(req.Score),
 		Feedback: req.Feedback,
 		IsLate:   req.IsLate,
 		GradedBy: gradedBy,

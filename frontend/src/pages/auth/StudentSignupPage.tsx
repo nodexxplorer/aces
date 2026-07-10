@@ -11,6 +11,7 @@ import Select from '../../components/ui/Select';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import { Mail, Lock, User, UserCheck, MapPin } from 'lucide-react';
 import { isValidMatricNumber } from '../../utils/validators';
+import { studentSignup } from '../../api/signup';
 
 const studentSignupSchema = z
   .object({
@@ -49,36 +50,21 @@ const StudentSignupPage = () => {
 
   const onSubmit = async (data: StudentSignupValues) => {
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      
-      const mockUser = {
-        id: 'student-new',
+      const response = await studentSignup({
         email: data.email,
+        password: data.password,
         firstName: data.firstName,
         lastName: data.lastName,
-        roles: ['student'] as any,
-        activeRole: 'student' as const,
         matricNumber: data.matricNumber,
         level: parseInt(data.level),
-        gender: data.gender,
-        address: data.address,
-        isApproved: false,
-        approvalStatus: 'pending' as const,
-        onboardingCompleted: false,
-        createdAt: new Date().toISOString(),
-      };
+        department: 'Computer Engineering', // Default for ACES
+      });
 
-      const mockTokens = {
-        accessToken: 'new-student-token',
-        refreshToken: 'new-student-refresh-token',
-        expiresAt: new Date(Date.now() + 3600 * 1000).toISOString(),
-      };
-
-      login(mockUser, mockTokens);
+      login({ ...response.user, onboardingCompleted: false }, response.tokens);
       success('Sign Up Successful', 'Welcome to ACES Zone! Please complete your profile onboarding.');
       navigate('/onboarding');
-    } catch {
-      error('Sign Up Failed', 'An error occurred during account registration.');
+    } catch (err) {
+      error('Sign Up Failed', err instanceof Error ? err.message : 'An error occurred during account registration.');
     }
   };
 

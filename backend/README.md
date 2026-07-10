@@ -1,12 +1,29 @@
-# ACES Project
+# ACES Backend
 
-Welcome to the ACES repository. This is a monorepo containing both the frontend and backend components of the platform.
+Go backend server for the ACES platform.
 
-## Repository Structure
+## Prerequisites
 
-- [**`frontend/`**](./frontend): The frontend application built with React, Vite, TypeScript, and TailwindCSS.
-- [**`backend/`**](./backend): The backend server built with Go.
+- Go 1.x
+- PostgreSQL running locally (or a remote instance)
+
+## Environment Variables
+
+Copy `.env.example` to `.env` and adjust values:
+
+| Variable         | Description                  | Default                                      |
+|------------------|------------------------------|----------------------------------------------|
+| `DB_SOURCE`      | PostgreSQL connection string | `postgresql://molu:incorrect@localhost:5432/chainvault?sslmode=disable` |
+| `SERVER_ADDRESS` | Server listen address        | `0.0.0.0:8080`                               |
 
 ## Getting Started
 
-Refer to the respective README files in the `frontend` and `backend` directories for specific setup and running instructions.
+```bash
+# Copy environment file
+cp .env.example .env
+
+# Run the server
+go run cmd/server/main.go
+```
+
+The server starts on `http://localhost:8080` by default.
