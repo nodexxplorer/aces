@@ -1,11 +1,11 @@
 package api
 
 import (
+	db "github.com/aces/backend/internal/db/sql"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/aces/backend/internal/db/sql"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -201,10 +201,13 @@ func (server *Server) createAssignmentGrade(ctx *gin.Context) {
 	studentID, _ := uuid.Parse(req.StudentID)
 	gradedBy, _ := uuid.Parse(req.GradedBy)
 
+	var score pgtype.Numeric
+	_ = score.Scan(req.Score.String())
+
 	arg := db.CreateAssignmentGradeParams{
 		AssignmentID: assignmentID,
 		StudentID:    studentID,
-		Score:        req.Score,
+		Score:        score,
 		Feedback:     req.Feedback,
 		IsLate:       req.IsLate,
 		GradedBy:     gradedBy,
@@ -296,9 +299,12 @@ func (server *Server) updateAssignmentGrade(ctx *gin.Context) {
 
 	gradedBy, _ := uuid.Parse(req.GradedBy)
 
+	var score pgtype.Numeric
+	_ = score.Scan(req.Score.String())
+
 	arg := db.UpdateAssignmentGradeParams{
 		ID:       id,
-		Score:    req.Score,
+		Score:    score,
 		Feedback: req.Feedback,
 		IsLate:   req.IsLate,
 		GradedBy: gradedBy,
