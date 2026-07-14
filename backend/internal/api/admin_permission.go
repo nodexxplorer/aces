@@ -4,7 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/aces/backend/internal/db/sql"
+	db "github.com/aces/backend/internal/db/sql"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -163,7 +164,7 @@ func (server *Server) listAdminPermissions(ctx *gin.Context) {
 
 	permissions, err := server.store.ListAdminPermissions(ctx, arg)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
