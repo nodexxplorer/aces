@@ -8,4 +8,14 @@ export default defineConfig({
       '@': '/src',
     },
   },
+  server: {
+    proxy: {
+      // Proxy all /api requests to the Go backend (strips the /api prefix)
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
+  },
 })
