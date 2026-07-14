@@ -2,10 +2,10 @@ package api
 
 import (
 	"errors"
+	db "github.com/aces/backend/internal/db/sql"
 	"net/http"
 	"time"
 
-	"github.com/aces/backend/internal/db/sql"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
