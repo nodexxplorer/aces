@@ -1,10 +1,11 @@
 package api
 
 import (
+	db "github.com/aces/backend/internal/db/sql"
 	"net/http"
 	"strings"
+	"time"
 
-	"github.com/aces/backend/internal/db/sql"
 	"github.com/aces/backend/internal/util"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -70,6 +71,91 @@ func (server *Server) createUser(ctx *gin.Context) {
 	user.PasswordHash = ""
 
 	ctx.JSON(http.StatusOK, user)
+}
+
+type loginUserRequest struct {
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required"`
+}
+
+type loginUserResponse struct {
+	AccessToken  string  `json:"access_token"`
+	RefreshToken string  `json:"refresh_token"`
+	User         db.User `json:"user"`
+}
+
+func (server *Server) loginUser(ctx *gin.Context) {
+	var req loginUserRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	user, err := server.store.GetUserByEmail(ctx, strings.ToLower(req.Email))
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+		return
+	}
+
+	err = util.CheckPassword(req.Password, user.PasswordHash)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+		return
+	}
+
+	accessToken, err := server.tokenMaker.CreateToken(user.ID, string(user.Role), 15*time.Minute)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "could not create access token"})
+		return
+	}
+
+	refreshToken, err := server.tokenMaker.CreateToken(user.ID, string(user.Role), 7*24*time.Hour)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "could not create refresh token"})
+		return
+	}
+
+	user.PasswordHash = ""
+
+	rsp := loginUserResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		User:         user,
+	}
+
+	ctx.JSON(http.StatusOK, rsp)
+}
+
+type renewAccessTokenRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
+type renewAccessTokenResponse struct {
+	AccessToken string `json:"access_token"`
+}
+
+func (server *Server) renewAccessToken(ctx *gin.Context) {
+	var req renewAccessTokenRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	payload, err := server.tokenMaker.VerifyToken(req.RefreshToken)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid refresh token"})
+		return
+	}
+
+	accessToken, err := server.tokenMaker.CreateToken(payload.UserID, payload.Role, 15*time.Minute)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "could not create access token"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, renewAccessTokenResponse{
+		AccessToken: accessToken,
+	})
 }
 
 func (server *Server) getUser(ctx *gin.Context) {
@@ -184,4 +270,3 @@ func (server *Server) deleteUser(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{"status": "user deleted"})
 }
-
