@@ -2,11 +2,11 @@ package api
 
 import (
 	"errors"
+	db "github.com/aces/backend/internal/db/sql"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/aces/backend/internal/db/sql"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -55,7 +55,7 @@ func (server *Server) createSession(ctx *gin.Context) {
 
 func (server *Server) getSession(ctx *gin.Context) {
 	idStr := ctx.Param("id")
-	
+
 	if idStr == "active" {
 		session, err := server.store.GetActiveSession(ctx)
 		if err != nil {
@@ -69,7 +69,7 @@ func (server *Server) getSession(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, session)
 		return
 	}
-	
+
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid session id"})
