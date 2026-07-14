@@ -7,6 +7,7 @@ import (
 
 	"github.com/aces/backend/internal/api"
 	"github.com/aces/backend/internal/db/sql"
+	"github.com/aces/backend/internal/token"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -43,8 +44,18 @@ func main() {
 	// 3. Setup the store
 	store := db.New(connPool)
 
-	// 4. Initialize server
-	server := api.NewServer(store)
+	// 4. Initialize token maker
+	tokenSymmetricKey := os.Getenv("TOKEN_SYMMETRIC_KEY")
+	if len(tokenSymmetricKey) < 32 {
+		tokenSymmetricKey = "12345678901234567890123456789012" // 32 chars default for dev
+	}
+	tokenMaker, err := token.NewJWTMaker(tokenSymmetricKey)
+	if err != nil {
+		log.Fatalf("cannot create token maker: %v", err)
+	}
+
+	// 5. Initialize server
+	server := api.NewServer(store, tokenMaker)
 
 	// 5. Start the server
 	log.Printf("Starting HTTP server on %s", serverAddress)
