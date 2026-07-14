@@ -1,10 +1,10 @@
 package api
 
 import (
+	db "github.com/aces/backend/internal/db/sql"
 	"net/http"
 	"time"
 
-	"github.com/aces/backend/internal/db/sql"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -27,12 +27,15 @@ func (server *Server) createTranscriptRequest(ctx *gin.Context) {
 
 	studentID, _ := uuid.Parse(req.StudentID)
 
+	var feeAmount pgtype.Numeric
+	_ = feeAmount.Scan(req.FeeAmount.String())
+
 	arg := db.CreateTranscriptRequestParams{
 		StudentID: studentID,
 		Purpose:   req.Purpose,
 		Status:    db.TranscriptStatusRequested,
 		FeePaid:   req.FeePaid,
-		FeeAmount: req.FeeAmount,
+		FeeAmount: feeAmount,
 	}
 
 	transcriptReq, err := server.store.CreateTranscriptRequest(ctx, arg)
