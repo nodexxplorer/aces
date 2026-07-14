@@ -1,23 +1,52 @@
 package api
 
 import (
-	"github.com/aces/backend/internal/db/sql"
+	db "github.com/aces/backend/internal/db/sql"
+	"github.com/aces/backend/internal/token"
+
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
 // Server serves HTTP requests for the backend service.
 type Server struct {
-	store  db.Querier
-	router *gin.Engine
+	store      db.Querier
+	tokenMaker token.Maker
+	router     *gin.Engine
 }
 
 // NewServer creates a new HTTP server and sets up routing.
-func NewServer(store db.Querier) *Server {
-	server := &Server{store: store}
+func NewServer(store db.Querier, tokenMaker token.Maker) *Server {
+	server := &Server{
+		store:      store,
+		tokenMaker: tokenMaker,
+	}
 	router := gin.Default()
 
+	// Allow all origins (CORS disabled for development)
+	router.Use(cors.Default())
+
+	// Public routes
+	users := router.Group("/users")
+	{
+		users.POST("", server.createUser)            // Public: Registration
+		users.POST("/login", server.loginUser)       // Public: Login
+		users.POST("/refresh", server.renewAccessToken) // Public: Refresh Token
+	}
+
+	staff := router.Group("/staff")
+	{
+		staff.POST("", server.createStaff) // Public: Registration
+	}
+
+	router.POST("/students", server.createStudent) // Public: Registration
+
+	// Protected routes
+	authRoutes := router.Group("/")
+	authRoutes.Use(AuthMiddleware(server.tokenMaker))
+
 	// Sessions routes
-	sessions := router.Group("/sessions")
+	sessions := authRoutes.Group("/sessions")
 	{
 		sessions.POST("", server.createSession)
 		sessions.GET("", server.listSessions)
@@ -27,7 +56,7 @@ func NewServer(store db.Querier) *Server {
 	}
 
 	// Semesters routes
-	semesters := router.Group("/semesters")
+	semesters := authRoutes.Group("/semesters")
 	{
 		semesters.POST("", server.createSemester)
 		semesters.GET("/session/:session_id", server.listSessionSemesters)
@@ -36,32 +65,27 @@ func NewServer(store db.Querier) *Server {
 		semesters.DELETE("/:id", server.deleteSemester)
 	}
 
-	// Staff routes
-	staff := router.Group("/staff")
+	// Staff routes (Protected)
+	staffProtected := authRoutes.Group("/staff")
 	{
-		staff.POST("", server.createStaff)
-		staff.GET("", server.listStaff)
-		staff.GET("/:id", server.getStaff)
-		staff.GET("/user/:user_id", server.getStaffByUserID)
-		staff.PUT("/:id", server.updateStaff)
-		staff.DELETE("/:id", server.deleteStaff)
+		staffProtected.GET("", server.listStaff)
+		staffProtected.GET("/:id", server.getStaff)
+		staffProtected.GET("/user/:user_id", server.getStaffByUserID)
+		staffProtected.PUT("/:id", server.updateStaff)
+		staffProtected.DELETE("/:id", server.deleteStaff)
 	}
 
-	// Users routes
-	users := router.Group("/users")
+	// Users routes (Protected)
+	usersProtected := authRoutes.Group("/users")
 	{
-		users.POST("", server.createUser)
-		users.GET("", server.listUsers)
-		users.GET("/:id", server.getUser)
-		users.PUT("/:id", server.updateUser)
-		users.DELETE("/:id", server.deleteUser)
+		usersProtected.GET("", server.listUsers)
+		usersProtected.GET("/:id", server.getUser)
+		usersProtected.PUT("/:id", server.updateUser)
+		usersProtected.DELETE("/:id", server.deleteUser)
 	}
-
-	// Students routes
-	router.POST("/students", server.createStudent)
 
 	// Attendance routes
-	attendance := router.Group("/attendance")
+	attendance := authRoutes.Group("/attendance")
 	{
 		attendance.POST("", server.createAttendanceSheet)
 		attendance.GET("/course", server.listCourseAttendanceSheets)
@@ -74,7 +98,7 @@ func NewServer(store db.Querier) *Server {
 	}
 
 	// Courses routes
-	courses := router.Group("/courses")
+	courses := authRoutes.Group("/courses")
 	{
 		courses.POST("", server.createCourse)
 		courses.GET("", server.listCourses)
@@ -84,14 +108,14 @@ func NewServer(store db.Querier) *Server {
 	}
 
 	// Assignments routes
-	assignments := router.Group("/assignments")
+	assignments := authRoutes.Group("/assignments")
 	{
 		assignments.POST("", server.createAssignment)
 		assignments.GET("/course/:course_id/session/:session_id", server.listCourseAssignments)
 		assignments.GET("/:id", server.getAssignment)
 		assignments.PUT("/:id", server.updateAssignment)
 		assignments.DELETE("/:id", server.deleteAssignment)
-		
+
 		// Assignment Grades
 		assignments.POST("/grades", server.createAssignmentGrade)
 		assignments.GET("/grades/lookup", server.getAssignmentGrade) // expects ?assignment_id=X&student_id=Y
@@ -102,13 +126,13 @@ func NewServer(store db.Querier) *Server {
 	}
 
 	// Course Registration routes
-	courseRegistrations := router.Group("/course-registrations")
+	courseRegistrations := authRoutes.Group("/course-registrations")
 	{
 		courseRegistrations.POST("", server.createCourseRegistration)
 		courseRegistrations.GET("/student/:student_id", server.listStudentCourseRegistrations)
 		courseRegistrations.GET("/:id", server.getCourseRegistration)
 		courseRegistrations.PUT("/:id", server.updateCourseRegistration)
-		
+
 		// Registered Courses under a registration
 		courseRegistrations.POST("/:id/courses", server.createRegisteredCourse)
 		courseRegistrations.GET("/:id/courses", server.listRegisteredCourses)
@@ -117,7 +141,7 @@ func NewServer(store db.Querier) *Server {
 	}
 
 	// Result routes
-	results := router.Group("/results")
+	results := authRoutes.Group("/results")
 	{
 		results.POST("", server.createResult)
 		results.GET("/:id", server.getResult)
@@ -125,13 +149,13 @@ func NewServer(store db.Querier) *Server {
 		results.GET("/course/:course_id/session/:session_id", server.listCourseResults)
 		results.PUT("/:id", server.updateResult)
 		results.PUT("/:id/status", server.updateResultStatus)
-		
+
 		results.POST("/:id/audit-logs", server.createResultAuditLog)
 		results.GET("/:id/audit-logs", server.listResultAuditLogs)
 	}
 
 	// Carryover routes
-	carryovers := router.Group("/carryovers")
+	carryovers := authRoutes.Group("/carryovers")
 	{
 		carryovers.POST("", server.createCarryoverCourse)
 		carryovers.GET("/:id", server.getCarryoverCourse)
@@ -141,7 +165,7 @@ func NewServer(store db.Querier) *Server {
 	}
 
 	// Announcement routes
-	announcements := router.Group("/announcements")
+	announcements := authRoutes.Group("/announcements")
 	{
 		announcements.POST("", server.createAnnouncement)
 		announcements.GET("", server.listActiveAnnouncements)
@@ -151,7 +175,7 @@ func NewServer(store db.Querier) *Server {
 	}
 
 	// Notification routes
-	notifications := router.Group("/notifications")
+	notifications := authRoutes.Group("/notifications")
 	{
 		notifications.POST("", server.createNotification)
 		notifications.GET("/user/:user_id", server.listUserNotifications)
@@ -161,7 +185,7 @@ func NewServer(store db.Querier) *Server {
 	}
 
 	// Timetable routes
-	timetables := router.Group("/timetable")
+	timetables := authRoutes.Group("/timetable")
 	{
 		timetables.POST("", server.createTimetableEntry)
 		timetables.GET("", server.listTimetableEntries)
@@ -171,7 +195,7 @@ func NewServer(store db.Querier) *Server {
 	}
 
 	// Payment routes
-	payments := router.Group("/payments")
+	payments := authRoutes.Group("/payments")
 	{
 		// Dues
 		payments.POST("/dues", server.createDue)
@@ -205,7 +229,7 @@ func NewServer(store db.Querier) *Server {
 	}
 
 	// Transcript Requests routes
-	transcripts := router.Group("/transcript-requests")
+	transcripts := authRoutes.Group("/transcript-requests")
 	{
 		transcripts.POST("", server.createTranscriptRequest)
 		transcripts.GET("/pending", server.listPendingTranscriptRequests)
@@ -216,7 +240,7 @@ func NewServer(store db.Querier) *Server {
 	}
 
 	// Profile Update Requests routes
-	profileUpdates := router.Group("/profile-update-requests")
+	profileUpdates := authRoutes.Group("/profile-update-requests")
 	{
 		profileUpdates.POST("", server.createProfileUpdateRequest)
 		profileUpdates.GET("/pending", server.listPendingProfileUpdateRequests)
@@ -227,7 +251,7 @@ func NewServer(store db.Querier) *Server {
 	}
 
 	// Admin Permissions routes
-	adminPermissions := router.Group("/admin-permissions")
+	adminPermissions := authRoutes.Group("/admin-permissions")
 	{
 		adminPermissions.POST("", server.grantAdminPermission)
 		adminPermissions.GET("", server.listAdminPermissions)
@@ -244,3 +268,4 @@ func NewServer(store db.Querier) *Server {
 func (server *Server) Start(address string) error {
 	return server.router.Run(address)
 }
+
