@@ -2,10 +2,10 @@ package api
 
 import (
 	"errors"
+	db "github.com/aces/backend/internal/db/sql"
 	"net/http"
 	"strings"
 
-	"github.com/aces/backend/internal/db/sql"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -64,11 +64,7 @@ func (server *Server) createCourse(ctx *gin.Context) {
 		arg.PrerequisiteID = pgtype.UUID{Valid: false}
 	}
 
-	if req.MaxCreditHours != nil {
-		arg.MaxCreditHours = pgtype.Int4{Int32: *req.MaxCreditHours, Valid: true}
-	} else {
-		arg.MaxCreditHours = pgtype.Int4{Valid: false}
-	}
+	arg.MaxCreditHours = req.MaxCreditHours
 
 	course, err := server.store.CreateCourse(ctx, arg)
 	if err != nil {
