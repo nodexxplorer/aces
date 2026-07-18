@@ -1,15 +1,13 @@
 package api
 
 import (
-	"errors"
+	"fmt"
 	"net/http"
-	"strings"
 
-	"github.com/aces/backend/internal/db/sql"
+	db "github.com/aces/backend/internal/db/sql"
+	"github.com/aces/backend/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type createCourseRequest struct {
@@ -23,6 +21,7 @@ type createCourseRequest struct {
 	PrerequisiteID *string `json:"prerequisite_id" binding:"omitempty,uuid"`
 	MaxCreditHours *int32  `json:"max_credit_hours" binding:"omitempty,min=1"`
 	IsActive       bool    `json:"is_active"`
+	CourseType     string  `json:"course_type" binding:"omitempty,oneof=departmental non_departmental"`
 }
 
 func (server *Server) createCourse(ctx *gin.Context) {
@@ -32,79 +31,37 @@ func (server *Server) createCourse(ctx *gin.Context) {
 		return
 	}
 
-	arg := db.CreateCourseParams{
-		Code:        strings.ToUpper(strings.TrimSpace(req.Code)),
-		Title:       strings.TrimSpace(req.Title),
-		Description: req.Description,
-		Unit:        req.Unit,
-		Level:       req.Level,
-		Semester:    db.SemesterSeason(req.Semester),
-		IsActive:    req.IsActive,
-	}
-
-	if req.LecturerID != nil {
-		id, err := uuid.Parse(*req.LecturerID)
-		if err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid lecturer_id"})
-			return
-		}
-		arg.LecturerID = pgtype.UUID{Bytes: id, Valid: true}
-	} else {
-		arg.LecturerID = pgtype.UUID{Valid: false}
-	}
-
-	if req.PrerequisiteID != nil {
-		id, err := uuid.Parse(*req.PrerequisiteID)
-		if err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid prerequisite_id"})
-			return
-		}
-		arg.PrerequisiteID = pgtype.UUID{Bytes: id, Valid: true}
-	} else {
-		arg.PrerequisiteID = pgtype.UUID{Valid: false}
-	}
-
-	arg.MaxCreditHours = req.MaxCreditHours
-
-	course, err := server.store.CreateCourse(ctx, arg)
+	course, err := server.courses.Create(ctx, service.CreateCourseInput{
+		Code:           req.Code,
+		Title:          req.Title,
+		Description:    req.Description,
+		Unit:           req.Unit,
+		Level:          req.Level,
+		Semester:       req.Semester,
+		LecturerID:     req.LecturerID,
+		PrerequisiteID: req.PrerequisiteID,
+		MaxCreditHours: req.MaxCreditHours,
+		IsActive:       req.IsActive,
+		CourseType:     req.CourseType,
+	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, course)
+	ctx.JSON(http.StatusOK, gin.H{"data": course})
 }
 
 func (server *Server) getCourse(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 
-	id, err := uuid.Parse(idStr)
+	course, err := server.courses.GetByIDOrCode(ctx, idStr)
 	if err != nil {
-		// It might be a course code
-		course, err := server.store.GetCourseByCode(ctx, strings.ToUpper(idStr))
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				ctx.JSON(http.StatusNotFound, gin.H{"error": "course not found"})
-				return
-			}
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		ctx.JSON(http.StatusOK, course)
+		ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
 
-	course, err := server.store.GetCourse(ctx, id)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "course not found"})
-			return
-		}
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, course)
+	ctx.JSON(http.StatusOK, gin.H{"data": course})
 }
 
 type listCoursesRequest struct {
@@ -119,28 +76,27 @@ func (server *Server) listCourses(ctx *gin.Context) {
 		return
 	}
 
-	arg := db.ListCoursesParams{
-		Limit:  req.PageSize,
-		Offset: (req.PageID - 1) * req.PageSize,
-	}
-
-	courses, err := server.store.ListCourses(ctx, arg)
+	courses, err := server.courses.List(ctx, req.PageSize, (req.PageID-1)*req.PageSize)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, courses)
+	ctx.JSON(http.StatusOK, gin.H{"data": courses, "total": len(courses), "page": req.PageID, "perPage": req.PageSize, "totalPages": 1})
 }
 
 type updateCourseRequest struct {
-	Title       string  `json:"title" binding:"required"`
-	Description *string `json:"description" binding:"omitempty"`
-	Unit        int32   `json:"unit" binding:"required,min=1"`
-	Level       int32   `json:"level" binding:"required,min=100"`
-	Semester    string  `json:"semester" binding:"required,oneof=harmattan rain"`
-	LecturerID  *string `json:"lecturer_id" binding:"omitempty,uuid"`
-	IsActive    bool    `json:"is_active"`
+	Title           *string `json:"title"`
+	TitleCamel      *string `json:"titleCamel"`
+	Description     *string `json:"description"`
+	Unit            *int32  `json:"unit"`
+	Level           *int32  `json:"level"`
+	Semester        *string `json:"semester"`
+	LecturerID      *string `json:"lecturer_id"`
+	LecturerIDCamel *string `json:"lecturerId"`
+	IsActive        *bool   `json:"is_active"`
+	IsActiveCamel   *bool   `json:"isActive"`
+	CourseType      *string `json:"course_type"`
 }
 
 func (server *Server) updateCourse(ctx *gin.Context) {
@@ -157,34 +113,81 @@ func (server *Server) updateCourse(ctx *gin.Context) {
 		return
 	}
 
-	arg := db.UpdateCourseParams{
-		ID:          id,
-		Title:       strings.TrimSpace(req.Title),
-		Description: req.Description,
-		Unit:        req.Unit,
-		Level:       req.Level,
-		Semester:    db.SemesterSeason(req.Semester),
-		IsActive:    req.IsActive,
+	existing, err := server.courses.GetByID(ctx, id)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "course not found"})
+		return
 	}
 
+	title := existing.Title
+	if req.Title != nil {
+		title = *req.Title
+	} else if req.TitleCamel != nil {
+		title = *req.TitleCamel
+	}
+
+	description := existing.Description
+	if req.Description != nil {
+		description = req.Description
+	}
+
+	unit := existing.Unit
+	if req.Unit != nil {
+		unit = *req.Unit
+	}
+
+	level := existing.Level
+	if req.Level != nil {
+		level = *req.Level
+	}
+
+	semester := string(existing.Semester)
+	if req.Semester != nil {
+		semester = *req.Semester
+	}
+
+	var lecturerID *string
 	if req.LecturerID != nil {
-		lecturerID, err := uuid.Parse(*req.LecturerID)
-		if err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid lecturer_id"})
-			return
-		}
-		arg.LecturerID = pgtype.UUID{Bytes: lecturerID, Valid: true}
-	} else {
-		arg.LecturerID = pgtype.UUID{Valid: false}
+		lecturerID = req.LecturerID
+	} else if req.LecturerIDCamel != nil {
+		lecturerID = req.LecturerIDCamel
+	} else if existing.LecturerID.Valid {
+		uid := uuid.UUID(existing.LecturerID.Bytes).String()
+		lecturerID = &uid
 	}
 
-	course, err := server.store.UpdateCourse(ctx, arg)
+	if (req.LecturerID != nil && *req.LecturerID == "") || (req.LecturerIDCamel != nil && *req.LecturerIDCamel == "") {
+		lecturerID = nil
+	}
+
+	isActive := existing.IsActive
+	if req.IsActive != nil {
+		isActive = *req.IsActive
+	} else if req.IsActiveCamel != nil {
+		isActive = *req.IsActiveCamel
+	}
+
+	courseType := existing.CourseType
+	if req.CourseType != nil {
+		courseType = *req.CourseType
+	}
+
+	course, err := server.courses.Update(ctx, id, service.UpdateCourseInput{
+		Title:       title,
+		Description: description,
+		Unit:        unit,
+		Level:       level,
+		Semester:    semester,
+		LecturerID:  lecturerID,
+		IsActive:    isActive,
+		CourseType:  courseType,
+	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, course)
+	ctx.JSON(http.StatusOK, gin.H{"data": course})
 }
 
 func (server *Server) deleteCourse(ctx *gin.Context) {
@@ -195,11 +198,52 @@ func (server *Server) deleteCourse(ctx *gin.Context) {
 		return
 	}
 
-	err = server.store.DeleteCourse(ctx, id)
+	err = server.courses.Delete(ctx, id)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"status": "course deleted"})
+}
+
+func (server *Server) listCoursesByLevelAndSemester(ctx *gin.Context) {
+	levelStr := ctx.Query("level")
+	semester := ctx.Query("semester")
+
+	if levelStr == "" || semester == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "level and semester query params required"})
+		return
+	}
+
+	var level int32
+	if _, err := fmt.Sscanf(levelStr, "%d", &level); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid level"})
+		return
+	}
+
+	if semester != "harmattan" && semester != "rain" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "semester must be harmattan or rain"})
+		return
+	}
+
+	courses, err := server.store.ListCoursesByLevelAndSemester(ctx, db.ListCoursesByLevelAndSemesterParams{
+		Level:    level,
+		Semester: db.SemesterSeason(semester),
+	})
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"data": courses})
+}
+
+func (server *Server) countCourses(ctx *gin.Context) {
+	count, err := server.store.CountCourses(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"count": count})
 }

@@ -1,34 +1,59 @@
-import { useState } from 'react';
-import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
-import DataTable from '../../components/data-display/DataTable';
-import Input from '../../components/ui/Input';
+import { useState, useEffect } from 'react';
+import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { useNotification } from '../../hooks/useNotification';
-import { Search, UserPlus } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
+import { getStudentDirectory, sendConnectionRequest } from '../../api/campus-connect';
+import { Search, UserPlus, Loader2 } from 'lucide-react';
 
-const mockStudents = [
-  { id: '1', name: 'John Doe', level: 5, matricNumber: 'ENG/2021/001' },
-  { id: '2', name: 'Jane Smith', level: 5, matricNumber: 'ENG/2021/002' },
-];
+interface Student {
+  id: string;
+  full_name: string;
+  avatar_url?: string;
+  email: string;
+  matric_number: string;
+  level: number;
+}
 
 const StudentDirectoryPage = () => {
-  const { success } = useNotification();
+  const { user } = useAuth();
+  const { success, error } = useNotification();
   const [search, setSearch] = useState('');
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sendingId, setSendingId] = useState<string | null>(null);
 
-  const columns = [
-    { key: 'matricNumber', label: 'Matric' },
-    { key: 'name', label: 'Name' },
-    { key: 'level', label: 'Level', render: (val: unknown) => `${(val as number) * 100} Level` },
-    {
-      key: 'action',
-      label: 'Action',
-      render: (_: unknown, row: any) => (
-        <Button size="xs" variant="outline" leftIcon={<UserPlus className="w-3.5 h-3.5" />} onClick={() => success('Connection Request Sent', `Dispatched connection request to ${row.name}`)}>
-          Connect
-        </Button>
-      ),
-    },
-  ];
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        const data = await getStudentDirectory();
+        setStudents(data);
+      } catch {
+        error('Failed to load', 'Could not fetch student directory.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStudents();
+  }, [error]);
+
+  const filtered = students.filter(
+    (s) =>
+      s.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+      s.matric_number?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleConnect = async (student: Student) => {
+    setSendingId(student.id);
+    try {
+      await sendConnectionRequest(student.id);
+      success('Connection Request Sent', `Request sent to ${student.full_name}.`);
+    } catch {
+      error('Request Failed', 'Could not send connection request.');
+    } finally {
+      setSendingId(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -53,7 +78,49 @@ const StudentDirectoryPage = () => {
       </div>
 
       <Card>
-        <DataTable columns={columns} data={mockStudents} />
+        {loading ? (
+          <div className="flex items-center justify-center p-12 text-surface-400">
+            <Loader2 className="w-6 h-6 animate-spin mr-2" />
+            Loading students...
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="p-12 text-center text-surface-400 text-sm">No students found.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-surface-200 dark:border-surface-700">
+                  <th className="text-left p-3 font-medium text-surface-500">Name</th>
+                  <th className="text-left p-3 font-medium text-surface-500">Matric Number</th>
+                  <th className="text-left p-3 font-medium text-surface-500">Level</th>
+                  <th className="text-right p-3 font-medium text-surface-500">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((s) => (
+                  <tr key={s.id} className="border-b border-surface-100 dark:border-surface-800 last:border-0">
+                    <td className="p-3 font-medium text-surface-900 dark:text-white">{s.full_name}</td>
+                    <td className="p-3 text-surface-600 dark:text-surface-400">{s.matric_number}</td>
+                    <td className="p-3 text-surface-600 dark:text-surface-400">{s.level ? `${s.level}00 Level` : '—'}</td>
+                    <td className="p-3 text-right">
+                      {user?.id !== s.id && (
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          leftIcon={sendingId === s.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserPlus className="w-3.5 h-3.5" />}
+                          onClick={() => handleConnect(s)}
+                          disabled={sendingId === s.id}
+                        >
+                          Connect
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
     </div>
   );

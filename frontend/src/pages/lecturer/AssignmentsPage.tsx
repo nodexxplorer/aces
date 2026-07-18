@@ -1,74 +1,96 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
-import Select from '../../components/ui/Select';
 import Button from '../../components/ui/Button';
 import DataTable from '../../components/data-display/DataTable';
-import StatusBadge from '../../components/data-display/StatusBadge';
+import { createAssignment, getAssignments, deleteAssignment } from '../../api/assignments';
+import { getCourses } from '../../api/courses';
 import { useNotification } from '../../hooks/useNotification';
-import { Save, Plus, ArrowLeft, Download, Check } from 'lucide-react';
-import type { Assignment } from '../../types';
-
-const mockAssignments: Assignment[] = [
-  {
-    id: 'asg-1',
-    courseId: 'c-1',
-    title: 'Embedded System GPIO Architecture Report',
-    description: 'Explain GPIO input/output modes and write assembly program configurations.',
-    dueDate: '2026-06-25T23:59:59Z',
-    maxPoints: 100,
-    isClosed: false,
-    createdAt: '',
-  },
-];
-
-const mockSubmissions = [
-  { id: 'sub-1', studentName: 'John Doe', matricNumber: 'ENG/2021/001', submittedAt: '2026-06-20T12:00:00Z', status: 'pending', score: '', feedback: '' },
-];
+import { Save, Plus, ArrowLeft, Trash2 } from 'lucide-react';
+import type { Assignment, Course } from '../../types';
 
 const AssignmentsPage = () => {
-  const { success } = useNotification();
-  const [assignments, setAssignments] = useState<Assignment[]>(mockAssignments);
-  const [submissions, setSubmissions] = useState(mockSubmissions);
+  const { success, error: notifyError } = useNotification();
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [selectedCourseId, setSelectedCourseId] = useState('');
+  const [sessionId, setSessionId] = useState('');
   const [createMode, setCreateMode] = useState(false);
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
-  const [points, setPoints] = useState('100');
   const [dueDate, setDueDate] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const handleCreate = (e: React.FormEvent) => {
+  useEffect(() => {
+    getCourses()
+      .then((res) => {
+        const list = Array.isArray(res) ? res : res?.data ?? [];
+        setCourses(list);
+        if (list.length > 0) setSelectedCourseId(list[0].id);
+      })
+      .catch(() => notifyError('Error', 'Failed to load courses'));
+  }, []);
+
+  useEffect(() => {
+    if (!selectedCourseId || !sessionId) {
+      setAssignments([]);
+      return;
+    }
+    setLoading(true);
+    getAssignments(selectedCourseId, sessionId)
+      .then(setAssignments)
+      .catch(() => setAssignments([]))
+      .finally(() => setLoading(false));
+  }, [selectedCourseId, sessionId]);
+
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !dueDate) return;
-    const newAsg: Assignment = {
-      id: `asg-${Date.now()}`,
-      courseId: 'c-1',
-      title,
-      description: desc,
-      dueDate,
-      maxPoints: parseInt(points),
-      isClosed: false,
-      createdAt: new Date().toISOString(),
-    };
-    setAssignments((prev) => [newAsg, ...prev]);
-    setCreateMode(false);
-    setTitle('');
-    setDesc('');
-    success('Assignment Created', 'Successfully broadcasted assignment task to all registered students.');
+    if (!title || !selectedCourseId || !sessionId) return;
+    setSaving(true);
+    try {
+      await createAssignment({
+        courseId: selectedCourseId,
+        sessionId,
+        title,
+        description: desc,
+        dueDate,
+      });
+      setCreateMode(false);
+      setTitle('');
+      setDesc('');
+      setDueDate('');
+      success('Assignment Created', 'Successfully published assignment.');
+      getAssignments(selectedCourseId, sessionId).then(setAssignments);
+    } catch {
+      notifyError('Error', 'Failed to create assignment.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleGradeSubmission = (idx: number, score: string, feedback: string) => {
-    setSubmissions((prev) => {
-      const copy = [...prev];
-      copy[idx] = { ...copy[idx], score, feedback, status: 'graded' };
-      return copy;
-    });
-    success('Submission Graded', 'Score and feedback applied successfully.');
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteAssignment(id);
+      setAssignments((prev) => prev.filter((a) => a.id !== id));
+      success('Deleted', 'Assignment removed.');
+    } catch {
+      notifyError('Error', 'Failed to delete assignment.');
+    }
   };
 
   const columns = [
     { key: 'title', label: 'Assignment Title', render: (val: unknown) => <span className="font-semibold">{val as string}</span> },
-    { key: 'dueDate', label: 'Due Date', render: (val: unknown) => new Date(val as string).toLocaleDateString() },
-    { key: 'maxPoints', label: 'Points' },
+    { key: 'dueDate', label: 'Due Date', render: (val: unknown) => val ? new Date(val as string).toLocaleDateString() : 'N/A' },
+    {
+      key: 'action',
+      label: 'Action',
+      render: (_: unknown, row: Assignment) => (
+        <Button variant="danger" size="xs" leftIcon={<Trash2 className="w-3.5 h-3.5" />} onClick={() => handleDelete(row.id)}>
+          Delete
+        </Button>
+      ),
+    },
   ];
 
   return (
@@ -85,6 +107,24 @@ const AssignmentsPage = () => {
         </Button>
       </div>
 
+      <div className="flex gap-4 max-w-xl">
+        <select
+          className="flex-1 px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg"
+          value={selectedCourseId}
+          onChange={(e) => setSelectedCourseId(e.target.value)}
+        >
+          {courses.map((c) => (
+            <option key={c.id} value={c.id}>{c.code} - {c.title}</option>
+          ))}
+        </select>
+        <Input
+          label="Session ID"
+          placeholder="e.g. 2025/2026"
+          value={sessionId}
+          onChange={(e) => setSessionId(e.target.value)}
+        />
+      </div>
+
       {createMode ? (
         <div className="max-w-xl mx-auto">
           <Card>
@@ -93,7 +133,6 @@ const AssignmentsPage = () => {
             </CardHeader>
             <form onSubmit={handleCreate} className="p-4 pt-0 space-y-4">
               <Input label="Assignment Title" placeholder="e.g. GPIO Port Config Report" value={title} onChange={(e) => setTitle(e.target.value)} required />
-              <Input label="Max Points" type="number" value={points} onChange={(e) => setPoints(e.target.value)} required />
               <Input label="Due Date & Time" type="datetime-local" value={dueDate} onChange={(e) => setDueDate(e.target.value)} required />
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Instructions</label>
@@ -104,49 +143,20 @@ const AssignmentsPage = () => {
                   onChange={(e) => setDesc(e.target.value)}
                 />
               </div>
-              <Button type="submit" className="w-full" leftIcon={<Save className="w-4 h-4" />}>
+              <Button type="submit" className="w-full" isLoading={saving} leftIcon={<Save className="w-4 h-4" />}>
                 Publish Assignment
               </Button>
             </form>
           </Card>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Task List</CardTitle>
-              </CardHeader>
-              <DataTable columns={columns} data={assignments as unknown as Record<string, unknown>[]} />
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Grading Queue</CardTitle>
-              <CardDescription>Evaluate recent files submitted by students</CardDescription>
-            </CardHeader>
-            <div className="p-4 pt-0 space-y-4">
-              {submissions.map((sub, idx) => (
-                <div key={sub.id} className="p-4 bg-surface-50 dark:bg-surface-800/40 rounded-xl border border-surface-200/50 space-y-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-semibold text-sm">{sub.studentName}</h4>
-                      <p className="text-[10px] text-surface-500">{sub.matricNumber}</p>
-                    </div>
-                    <StatusBadge status={sub.status} />
-                  </div>
-                  <Button variant="outline" size="xs" className="w-full justify-center" leftIcon={<Download className="w-3.5 h-3.5" />}>
-                    Download Document
-                  </Button>
-                  <div className="flex gap-2">
-                    <Input placeholder="Score /100" value={sub.score} onChange={(e) => handleGradeSubmission(idx, e.target.value, '')} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Task List</CardTitle>
+            <CardDescription>{loading ? 'Loading...' : `${assignments.length} assignment(s)`}</CardDescription>
+          </CardHeader>
+          <DataTable columns={columns} data={assignments as unknown as Record<string, unknown>[]} />
+        </Card>
       )}
     </div>
   );

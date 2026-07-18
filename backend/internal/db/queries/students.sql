@@ -32,3 +32,13 @@ SET
     updated_at = NOW()
 WHERE id = $1
 RETURNING *;
+
+-- name: UpdateStudentOnboarding :one
+UPDATE students
+SET
+    admission_mode = $2,
+    year_admitted = $3,
+    onboarding_completed = $4,
+    updated_at = NOW()
+WHERE user_id = $1
+RETURNING *;

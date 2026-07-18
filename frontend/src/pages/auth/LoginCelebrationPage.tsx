@@ -15,6 +15,10 @@ const roleConfig: Record<UserRole, { label: string; color: string }> = {
   class_bursar: { label: 'Class Bursar', color: 'bg-secondary-500/20 text-secondary-400 border-secondary-500/30' },
   dept_bursar: { label: 'Departmental Bursar', color: 'bg-secondary-500/20 text-secondary-400 border-secondary-500/30' },
   alumni: { label: 'Alumni', color: 'bg-primary-500/20 text-primary-300 border-primary-500/30' },
+  project_coordinator: { label: 'Project Coordinator', color: 'bg-primary-500/20 text-primary-300 border-primary-500/30' },
+  event_coordinator: { label: 'Event Coordinator', color: 'bg-primary-500/20 text-primary-300 border-primary-500/30' },
+  alumni_rep: { label: 'Alumni Representative', color: 'bg-primary-500/20 text-primary-300 border-primary-500/30' },
+  admin: { label: 'Admin', color: 'bg-primary-500/20 text-primary-300 border-primary-500/30' },
 };
 
 const particles = Array.from({ length: 24 }, (_, i) => ({
@@ -53,6 +57,10 @@ const LoginCelebrationPage = () => {
   const config = roleConfig[role] ?? roleConfig.student;
 
   useEffect(() => {
+    sessionStorage.removeItem('just_logged_in');
+  }, []);
+
+  useEffect(() => {
     if (countdown > 0) {
       const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
       return () => clearTimeout(timer);
@@ -64,6 +72,22 @@ const LoginCelebrationPage = () => {
   const initials = useMemo(() => {
     if (!user) return 'A';
     return `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase() || 'A';
+  }, [user]);
+
+  const displayName = useMemo(() => {
+    if (!user) return 'aboard';
+    const name = user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim();
+    if (!name) return user.email;
+    if (name.includes('@')) {
+      const part = name.split('@')[0];
+      return part
+        .replace(/[^a-zA-Z]/g, ' ')
+        .split(' ')
+        .filter(Boolean)
+        .map((s: string) => s.charAt(0).toUpperCase() + s.slice(1))
+        .join(' ');
+    }
+    return name;
   }, [user]);
 
   return (
@@ -123,7 +147,7 @@ const LoginCelebrationPage = () => {
           {/* Welcome text */}
           <motion.div className="text-center mb-6" variants={itemVariants}>
             <h1 className="text-3xl font-bold text-white mb-1 tracking-tight">
-              Welcome{user?.firstName ? `, ${user.firstName}` : ' aboard'}!
+              Welcome, {displayName}!
             </h1>
             <p className="text-white/50 text-sm">You've successfully signed in to <span className="text-accent-400 font-semibold">ACES Zone</span></p>
           </motion.div>

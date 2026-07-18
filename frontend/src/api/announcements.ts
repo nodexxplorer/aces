@@ -1,31 +1,28 @@
-import apiClient from './client';
-import type { Announcement, PaginationParams, PaginatedResponse } from '../types';
+import apiClient, { unwrap } from './client';
+import type { Announcement } from '../types';
 
-export const getAnnouncements = async (params?: PaginationParams) => {
-  const { data } = await apiClient.get<{ data: PaginatedResponse<Announcement> }>('/announcements', { params });
-  return data.data;
+export const getAnnouncements = async (params?: { limit?: number; offset?: number }) => {
+  const res = await apiClient.get('/announcements', {
+    params: { limit: params?.limit || 50, offset: params?.offset || 0 },
+  });
+  return unwrap<Announcement[]>(res);
 };
 
-export const getMyAnnouncements = async () => {
-  const { data } = await apiClient.get<{ data: Announcement[] }>('/announcements/my');
-  return data.data;
+export const getAnnouncement = async (announcementId: string) => {
+  const res = await apiClient.get(`/announcements/${announcementId}`);
+  return unwrap<Announcement>(res);
 };
 
-export const createAnnouncement = async (payload: Omit<Announcement, 'id' | 'createdAt' | 'updatedAt'>) => {
-  const { data } = await apiClient.post<{ data: Announcement }>('/announcements', payload);
-  return data.data;
+export const createAnnouncement = async (payload: { title: string; content: string; target_audience?: string[]; target_level?: number; is_pinned?: boolean; expires_at?: string; created_by: string }) => {
+  const res = await apiClient.post('/announcements', payload);
+  return unwrap<Announcement>(res);
 };
 
 export const updateAnnouncement = async (announcementId: string, payload: Partial<Announcement>) => {
-  const { data } = await apiClient.put<{ data: Announcement }>(`/announcements/${announcementId}`, payload);
-  return data.data;
+  const res = await apiClient.put(`/announcements/${announcementId}`, payload);
+  return unwrap<Announcement>(res);
 };
 
 export const deleteAnnouncement = async (announcementId: string) => {
   await apiClient.delete(`/announcements/${announcementId}`);
-};
-
-export const pinAnnouncement = async (announcementId: string) => {
-  const { data } = await apiClient.post<{ data: Announcement }>(`/announcements/${announcementId}/pin`);
-  return data.data;
 };

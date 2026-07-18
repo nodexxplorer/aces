@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { purchaseManuals } from '../api/manuals';
+import { purchaseManual } from '../api/manuals';
 
 export const useManualEnrollment = () => {
   const [isEnrolling, setIsEnrolling] = useState(false);
@@ -9,7 +9,7 @@ export const useManualEnrollment = () => {
     setIsEnrolling(true);
     setEnrollmentStatus('idle');
     try {
-      await purchaseManuals([manualId]);
+      await purchaseManual(manualId);
       setEnrollmentStatus('success');
     } catch {
       setEnrollmentStatus('error');

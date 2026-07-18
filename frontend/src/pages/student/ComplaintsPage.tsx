@@ -1,64 +1,59 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import DataTable from '../../components/data-display/DataTable';
 import StatusBadge from '../../components/data-display/StatusBadge';
+import { submitComplaint, getAllComplaints } from '../../api/complaints';
+import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
 import { Send } from 'lucide-react';
 import type { Complaint } from '../../types';
 
-const mockComplaints: Complaint[] = [
-  {
-    id: 'comp-1',
-    studentId: 'stud-1',
-    category: 'Result Error',
-    title: 'Grade mismatch for CPE 511',
-    description: 'My portal shows an F, but my physical exam score script is 68 (B).',
-    status: 'resolved',
-    createdAt: '2026-06-10T12:00:00Z',
-  },
-  {
-    id: 'comp-2',
-    studentId: 'stud-1',
-    category: 'Payment Issue',
-    title: 'Class dues double charged',
-    description: 'I was charged twice on my Paystack account reference ACES-2026-X1.',
-    status: 'pending',
-    createdAt: '2026-06-20T14:30:00Z',
-  },
-];
-
 const ComplaintsPage = () => {
-  const { success, error } = useNotification();
-  const [complaints, setComplaints] = useState<Complaint[]>(mockComplaints);
+  const { user } = useAuth();
+  const { success, error: notifyError } = useNotification();
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [category, setCategory] = useState('Result Error');
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    getAllComplaints()
+      .then((res) => {
+        const list = Array.isArray(res) ? res : ((res as { data?: Complaint[] } | undefined)?.data ?? []);
+        setComplaints(list);
+      })
+      .catch(() => notifyError('Error', 'Failed to load complaints'))
+      .finally(() => setLoading(false));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !desc) return;
     setSubmitting(true);
     try {
-      await new Promise((r) => setTimeout(r, 1200));
-      const newComp: Complaint = {
-        id: `comp-${Date.now()}`,
-        studentId: 'stud-1',
-        category,
-        title,
+      await submitComplaint({
+        subject: title,
         description: desc,
-        status: 'pending',
-        createdAt: new Date().toISOString(),
-      };
-      setComplaints((prev) => [newComp, ...prev]);
+        category,
+        priority: 'medium',
+      });
       setTitle('');
       setDesc('');
       success('Ticket Opened', 'Your complaint ticket has been submitted to department administration.');
+      if (user?.id) {
+        getAllComplaints().then((res) => {
+          const list = Array.isArray(res) ? res : ((res as { data?: Complaint[] } | undefined)?.data ?? []);
+          setComplaints(list);
+        });
+      }
     } catch {
-      error('Failed', 'Unable to submit ticket.');
+      notifyError('Failed', 'Unable to submit ticket.');
     } finally {
       setSubmitting(false);
     }
@@ -66,8 +61,8 @@ const ComplaintsPage = () => {
 
   const columns = [
     { key: 'category', label: 'Category' },
-    { key: 'title', label: 'Subject', render: (val: unknown) => <span className="font-medium">{val as string}</span> },
-    { key: 'createdAt', label: 'Filed Date', render: (val: unknown) => new Date(val as string).toLocaleDateString() },
+    { key: 'subject', label: 'Subject', render: (val: unknown) => <span className="font-medium">{(val as string) || 'N/A'}</span> },
+    { key: 'createdAt', label: 'Filed Date', render: (val: unknown) => val ? new Date(val as string).toLocaleDateString() : 'N/A' },
     { key: 'status', label: 'Status', render: (val: unknown) => <StatusBadge status={val as string} /> },
   ];
 

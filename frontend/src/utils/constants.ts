@@ -11,7 +11,7 @@ export const COLORS = {
 } as const;
 
 export const LEVELS = [1, 2, 3, 4, 5] as const;
-export const SEMESTERS = ['first', 'second'] as const;
+export const SEMESTERS = ['harmattan', 'rain'] as const;
 
 export const GRADE_POINTS: Record<string, number> = {
   A: 5.0, B: 4.0, C: 3.0, D: 2.0, E: 1.0, F: 0.0,
@@ -31,6 +31,10 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   dept_bursar: 'Dept Bursar',
   student: 'Student',
   alumni: 'Alumni',
+  project_coordinator: 'Project Coordinator',
+  event_coordinator: 'Event Coordinator',
+  alumni_rep: 'Alumni Representative',
+  admin: 'Admin',
 };
 
 export const ROLE_COLORS: Record<UserRole, string> = {
@@ -42,6 +46,10 @@ export const ROLE_COLORS: Record<UserRole, string> = {
   dept_bursar: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
   student: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
   alumni: 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300',
+  project_coordinator: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300',
+  event_coordinator: 'bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900/30 dark:text-fuchsia-300',
+  alumni_rep: 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300',
+  admin: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
 };
 
 export const SKILL_CATEGORIES = [

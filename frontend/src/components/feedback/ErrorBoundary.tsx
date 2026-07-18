@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
 interface Props { children: ReactNode; fallback?: ReactNode }
 interface State { hasError: boolean; error: Error | null }
@@ -13,9 +13,19 @@ class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('[ErrorBoundary]', error, info.componentStack);
+    if (import.meta.env.PROD) {
+      console.error('Production error:', {
+        message: error.message,
+        stack: error.stack,
+        componentStack: info.componentStack,
+      });
+    }
   }
 
   handleReset = () => this.setState({ hasError: false, error: null });
+  handleHome = () => {
+    window.location.href = '/dashboard';
+  };
 
   render() {
     if (this.state.hasError) {
@@ -31,13 +41,22 @@ class ErrorBoundary extends Component<Props, State> {
               {this.state.error?.message ?? 'An unexpected error occurred. Please try reloading.'}
             </p>
           </div>
-          <button
-            onClick={this.handleReset}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Try Again
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={this.handleReset}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Try Again
+            </button>
+            <button
+              onClick={this.handleHome}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-surface-200 dark:bg-surface-700 text-surface-700 dark:text-surface-300 rounded-lg text-sm font-medium hover:bg-surface-300 dark:hover:bg-surface-600 transition-colors"
+            >
+              <Home className="w-4 h-4" />
+              Go Home
+            </button>
+          </div>
         </div>
       );
     }

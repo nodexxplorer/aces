@@ -1,5 +1,6 @@
 import { useAuthStore } from '../stores/authStore';
 import { useRoleStore } from '../stores/roleStore';
+import { logout as apiLogout } from '../api/auth';
 import type { UserRole } from '../types';
 
 export const useAuth = () => {
@@ -17,7 +18,12 @@ export const useAuth = () => {
     switchRole(role);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await apiLogout();
+    } catch {
+      // Logout even if server call fails
+    }
     logout();
     setAvailableRoles(['student']);
   };

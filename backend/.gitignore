@@ -49,21 +49,10 @@ yarn-debug.log*
 yarn-error.log*
 
 ### Project Binaries ###
-# Explicitly list compiled Go binaries in the root or subdirectories
-/chainvault
+# Compiled Go binaries
+/bin/
+/server
 /main
-/monitor
-/settle
-/signtx
-/sweeper
-/test_settle
-/trading_binary
-/trading_svc
-/vault-rotator
-/vault.test
-/wallet-bin
-/wallet_bin
-/vault-plugin/vault-plugin
 
 # Project-specific ignored paths and secrets
 .vault_secrets

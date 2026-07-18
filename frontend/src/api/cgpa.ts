@@ -2,12 +2,12 @@ import apiClient from './client';
 import type { CGPAConfig } from '../types';
 
 export const getCGPAConfig = async () => {
-  const { data } = await apiClient.get<{ data: CGPAConfig }>('/cgpa/config');
+  const { data } = await apiClient.get<{ data: CGPAConfig }>('/cgpa/settings');
   return data.data;
 };
 
 export const updateCGPAConfig = async (payload: Partial<CGPAConfig>) => {
-  const { data } = await apiClient.put<{ data: CGPAConfig }>('/cgpa/config', payload);
+  const { data } = await apiClient.put<{ data: CGPAConfig }>('/cgpa/settings', payload);
   return data.data;
 };
 

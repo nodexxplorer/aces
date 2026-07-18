@@ -24,6 +24,8 @@ const ProfilePage = lazy(() => import('./pages/student/ProfilePage'));
 const ManualsPage = lazy(() => import('./pages/student/ManualsPage'));
 const MyManualsPage = lazy(() => import('./pages/student/MyManualsPage'));
 const PracticalDetailsPage = lazy(() => import('./pages/student/PracticalDetailsPage'));
+const StudentJobBoardPage = lazy(() => import('./pages/student/StudentJobBoardPage'));
+const MyApplicationsPage = lazy(() => import('./pages/student/MyApplicationsPage'));
 
 // Lecturer
 const LecturerDashboard = lazy(() => import('./pages/lecturer/LecturerDashboard'));
@@ -54,6 +56,7 @@ const UserManagementPage = lazy(() => import('./pages/admin/UserManagementPage')
 const PendingApprovalsPage = lazy(() => import('./pages/admin/PendingApprovalsPage'));
 const RoleManagementPage = lazy(() => import('./pages/admin/RoleManagementPage'));
 const DelegateAdminPage = lazy(() => import('./pages/admin/DelegateAdminPage'));
+const DelegateStudentRolePage = lazy(() => import('./pages/admin/DelegateStudentRolePage'));
 const AnalyticsPage = lazy(() => import('./pages/admin/AnalyticsPage'));
 const SessionManagementPage = lazy(() => import('./pages/admin/SessionManagementPage'));
 const CourseManagementPage = lazy(() => import('./pages/admin/CourseManagementPage'));
@@ -68,8 +71,17 @@ const TimetableManagePage = lazy(() => import('./pages/admin/TimetableManagePage
 const ManualsManagementPage = lazy(() => import('./pages/admin/ManualsManagementPage'));
 const ManualPrintQueuePage = lazy(() => import('./pages/admin/ManualPrintQueuePage'));
 const AlumniManagementPage = lazy(() => import('./pages/admin/AlumniManagementPage'));
+const BulkResultsUploadPage = lazy(() => import('./pages/admin/BulkResultsUploadPage'));
 const CGPASettingsPage = lazy(() => import('./pages/admin/CGPASettingsPage'));
 const SettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
+const StudentDetailPage = lazy(() => import('./pages/admin/StudentDetailPage'));
+const ManualDetailPage = lazy(() => import('./pages/admin/ManualDetailPage'));
+const AdminJobModerationPage = lazy(() => import('./pages/admin/AdminJobModerationPage'));
+const UserDetailPage = lazy(() => import('./pages/admin/UserDetailPage'));
+const EditStudentPage = lazy(() => import('./pages/admin/EditStudentPage'));
+const DocumentVerificationPage = lazy(() => import('./pages/admin/DocumentVerificationPage'));
+const CourseDetailPage = lazy(() => import('./pages/admin/CourseDetailPage'));
+const LecturerManagementPage = lazy(() => import('./pages/admin/LecturerManagementPage'));
 
 // Campus Connect
 const CampusConnectPage = lazy(() => import('./pages/campus-connect/CampusConnectPage'));
@@ -95,11 +107,12 @@ const RatingsPage = lazy(() => import('./pages/skills-trade/RatingsPage'));
 // Alumni
 const AlumniDashboard = lazy(() => import('./pages/alumni/AlumniDashboard'));
 const MentorshipHubPage = lazy(() => import('./pages/alumni/MentorshipHubPage'));
-const JobBoardPage = lazy(() => import('./pages/alumni/JobBoardPage'));
+const AlumniJobsPage = lazy(() => import('./pages/alumni/AlumniJobsPage'));
 const MyJobPostsPage = lazy(() => import('./pages/alumni/MyJobPostsPage'));
 const AlumniNetworkPage = lazy(() => import('./pages/alumni/AlumniNetworkPage'));
 const GiveBackPage = lazy(() => import('./pages/alumni/GiveBackPage'));
 const AlumniEventsPage = lazy(() => import('./pages/alumni/AlumniEventsPage'));
+const AlumniProfilePage = lazy(() => import('./pages/alumni/AlumniProfilePage'));
 
 // Shared
 const NotificationsPage = lazy(() => import('./pages/shared/NotificationsPage'));
@@ -132,7 +145,10 @@ const SuspenseWrapper = ({ children }: { children: ReactNode }) => (
 const ProtectedRoute = () => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
+  const hasHydrated = useAuthStore((s) => s._hasHydrated);
   const location = useLocation();
+
+  if (!hasHydrated) return <PageLoader />;
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
@@ -147,6 +163,9 @@ const ProtectedRoute = () => {
 const PublicOnlyRoute = () => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
+  const hasHydrated = useAuthStore((s) => s._hasHydrated);
+
+  if (!hasHydrated) return <PageLoader />;
 
   if (isAuthenticated) {
     if (user && user.onboardingCompleted === false) {
@@ -154,7 +173,6 @@ const PublicOnlyRoute = () => {
     }
     const justLoggedIn = sessionStorage.getItem('just_logged_in') === 'true';
     if (justLoggedIn) {
-      sessionStorage.removeItem('just_logged_in');
       return <Navigate to="/login/celebration" replace />;
     }
     return <Navigate to="/dashboard" replace />;
@@ -206,6 +224,8 @@ export const router = createBrowserRouter([
           { path: '/manuals', element: <ManualsPage /> },
           { path: '/manuals/my', element: <MyManualsPage /> },
           { path: '/practicals', element: <PracticalDetailsPage /> },
+          { path: '/student/jobs', element: <StudentJobBoardPage /> },
+          { path: '/student/applications', element: <MyApplicationsPage /> },
 
           // Lecturer routes
           {
@@ -246,18 +266,20 @@ export const router = createBrowserRouter([
 
           // Admin routes
           {
-            element: <RoleRoute roles={['hod', 'delegated_admin']} />,
+            element: <RoleRoute roles={['hod', 'delegated_admin', 'admin']} />,
             children: [
               { path: '/admin', element: <AdminDashboard /> },
               { path: '/admin/results', element: <ResultApprovalPage /> },
+              { path: '/admin/results/bulk-upload', element: <BulkResultsUploadPage /> },
               { path: '/admin/users', element: <UserManagementPage /> },
               { path: '/admin/approvals', element: <PendingApprovalsPage /> },
               { path: '/admin/roles', element: <RoleManagementPage /> },
               { path: '/admin/delegate', element: <DelegateAdminPage /> },
+              { path: '/admin/delegate-student-roles', element: <DelegateStudentRolePage /> },
               { path: '/admin/analytics', element: <AnalyticsPage /> },
               { path: '/admin/sessions', element: <SessionManagementPage /> },
               { path: '/admin/courses', element: <CourseManagementPage /> },
-              { path: '/admin/course-subcategories', element: <CourseSubcategoryPage /> },
+              { path: '/admin/subcategories', element: <CourseSubcategoryPage /> },
               { path: '/admin/announcements', element: <AnnouncementsPage /> },
               { path: '/admin/transcripts', element: <TranscriptQueuePage /> },
               { path: '/admin/graduation', element: <GraduationCheckPage /> },
@@ -270,6 +292,14 @@ export const router = createBrowserRouter([
               { path: '/admin/alumni', element: <AlumniManagementPage /> },
               { path: '/admin/cgpa-settings', element: <CGPASettingsPage /> },
               { path: '/admin/settings', element: <SettingsPage /> },
+              { path: '/admin/students/:id', element: <StudentDetailPage /> },
+              { path: '/admin/users/:id', element: <UserDetailPage /> },
+              { path: '/admin/users/:id/edit', element: <EditStudentPage /> },
+              { path: '/admin/documents', element: <DocumentVerificationPage /> },
+              { path: '/admin/courses/:id', element: <CourseDetailPage /> },
+              { path: '/admin/manuals/:id', element: <ManualDetailPage /> },
+              { path: '/admin/job-moderation', element: <AdminJobModerationPage /> },
+              { path: '/admin/lecturers', element: <LecturerManagementPage /> },
             ],
           },
 
@@ -299,8 +329,9 @@ export const router = createBrowserRouter([
             element: <RoleRoute roles={['alumni', 'hod', 'delegated_admin']} />,
             children: [
               { path: '/alumni', element: <AlumniDashboard /> },
+              { path: '/alumni/profile', element: <AlumniProfilePage /> },
               { path: '/alumni/mentorship', element: <MentorshipHubPage /> },
-              { path: '/alumni/jobs', element: <JobBoardPage /> },
+              { path: '/alumni/jobs', element: <AlumniJobsPage /> },
               { path: '/alumni/my-jobs', element: <MyJobPostsPage /> },
               { path: '/alumni/network', element: <AlumniNetworkPage /> },
               { path: '/alumni/give-back', element: <GiveBackPage /> },

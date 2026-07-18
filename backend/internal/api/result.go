@@ -2,12 +2,11 @@ package api
 
 import (
 	"net/http"
-	"time"
 
 	db "github.com/aces/backend/internal/db/sql"
+	"github.com/aces/backend/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/shopspring/decimal"
 )
 
@@ -32,39 +31,19 @@ func (server *Server) createResult(ctx *gin.Context) {
 		return
 	}
 
-	studentID, _ := uuid.Parse(req.StudentID)
-	courseID, _ := uuid.Parse(req.CourseID)
-	sessionID, _ := uuid.Parse(req.SessionID)
-	semesterID, _ := uuid.Parse(req.SemesterID)
-
-	status := req.Status
-	if status == "" {
-		status = "pending"
-	}
-
-	arg := db.CreateResultParams{
-		StudentID:   studentID,
-		CourseID:    courseID,
-		SessionID:   sessionID,
-		SemesterID:  semesterID,
+	result, err := server.results.Create(ctx, service.CreateResultInput{
+		StudentID:   req.StudentID,
+		CourseID:    req.CourseID,
+		SessionID:   req.SessionID,
+		SemesterID:  req.SemesterID,
 		CaScore:     req.CaScore,
 		ExamScore:   req.ExamScore,
 		TotalScore:  req.TotalScore,
-		Status:      db.ResultStatus(status),
+		Grade:       req.Grade,
+		GradePoint:  req.GradePoint,
+		Status:      req.Status,
 		IsCarryover: req.IsCarryover,
-	}
-
-	if req.Grade != "" {
-		arg.Grade = db.NullGrade{Grade: db.Grade(req.Grade), Valid: true}
-	}
-	
-	// Convert float64 grade point to numeric type
-	var err error
-	arg.GradePoint.Int.SetInt64(int64(req.GradePoint * 100)) // Assuming 2 decimal places max
-	arg.GradePoint.Exp = -2
-	arg.GradePoint.Valid = true
-
-	result, err := server.store.CreateResult(ctx, arg)
+	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -80,7 +59,7 @@ func (server *Server) getResult(ctx *gin.Context) {
 		return
 	}
 
-	result, err := server.store.GetResult(ctx, id)
+	result, err := server.results.GetByID(ctx, id)
 	if err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "result not found"})
 		return
@@ -96,7 +75,7 @@ func (server *Server) listStudentResults(ctx *gin.Context) {
 		return
 	}
 
-	results, err := server.store.ListStudentResults(ctx, studentID)
+	results, err := server.results.ListByStudent(ctx, studentID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -118,12 +97,7 @@ func (server *Server) listCourseResults(ctx *gin.Context) {
 		return
 	}
 
-	arg := db.ListCourseResultsParams{
-		CourseID:  courseID,
-		SessionID: sessionID,
-	}
-
-	results, err := server.store.ListCourseResults(ctx, arg)
+	results, err := server.results.ListByCourse(ctx, courseID, sessionID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -154,23 +128,14 @@ func (server *Server) updateResult(ctx *gin.Context) {
 		return
 	}
 
-	arg := db.UpdateResultParams{
-		ID:         id,
+	result, err := server.results.Update(ctx, id, service.UpdateResultInput{
 		CaScore:    req.CaScore,
 		ExamScore:  req.ExamScore,
 		TotalScore: req.TotalScore,
-		Status:     db.ResultStatus(req.Status),
-	}
-
-	if req.Grade != "" {
-		arg.Grade = db.NullGrade{Grade: db.Grade(req.Grade), Valid: true}
-	}
-
-	arg.GradePoint.Int.SetInt64(int64(req.GradePoint * 100))
-	arg.GradePoint.Exp = -2
-	arg.GradePoint.Valid = true
-
-	result, err := server.store.UpdateResult(ctx, arg)
+		Grade:      req.Grade,
+		GradePoint: req.GradePoint,
+		Status:     req.Status,
+	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -182,7 +147,6 @@ func (server *Server) updateResult(ctx *gin.Context) {
 type updateResultStatusRequest struct {
 	Status          string `json:"status" binding:"required"`
 	ApprovedBy      string `json:"approved_by" binding:"omitempty,uuid"`
-	ApprovedAt      string `json:"approved_at" binding:"omitempty"` // RFC3339
 	RejectionReason string `json:"rejection_reason" binding:"omitempty"`
 }
 
@@ -199,36 +163,38 @@ func (server *Server) updateResultStatus(ctx *gin.Context) {
 		return
 	}
 
-	arg := db.UpdateResultStatusParams{
-		ID:     id,
-		Status: db.ResultStatus(req.Status),
-	}
-
+	var approvedBy *uuid.UUID
 	if req.ApprovedBy != "" {
-		approvedByID, _ := uuid.Parse(req.ApprovedBy)
-		arg.ApprovedBy = pgtype.UUID{Bytes: approvedByID, Valid: true}
+		id, _ := uuid.Parse(req.ApprovedBy)
+		approvedBy = &id
 	}
 
-	if req.ApprovedAt != "" {
-		parsedDate, err := time.Parse(time.RFC3339, req.ApprovedAt)
-		if err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid approved_at date, expected RFC3339"})
-			return
-		}
-		arg.ApprovedAt = pgtype.Timestamptz{Time: parsedDate, Valid: true}
-	}
-
+	var rejectionReason *string
 	if req.RejectionReason != "" {
-		arg.RejectionReason = &req.RejectionReason
+		rejectionReason = &req.RejectionReason
 	}
 
-	result, err := server.store.UpdateResultStatus(ctx, arg)
+	result, err := server.results.UpdateStatus(ctx, id, req.Status, approvedBy, rejectionReason)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	ctx.JSON(http.StatusOK, result)
+}
+
+func (server *Server) listAllResults(ctx *gin.Context) {
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
+		return
+	}
+	results, err := queries.ListAllResults(ctx, 100, 0)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"data": results, "total": len(results)})
 }
 
 type createResultAuditLogRequest struct {
@@ -256,18 +222,7 @@ func (server *Server) createResultAuditLog(ctx *gin.Context) {
 
 	editedBy, _ := uuid.Parse(req.EditedBy)
 
-	arg := db.CreateResultAuditLogParams{
-		ResultID:     resultID,
-		FieldChanged: req.FieldChanged,
-		OldValue:     req.OldValue,
-		NewValue:     req.NewValue,
-		Reason:       req.Reason,
-		EditedBy:     editedBy,
-		IpAddress:    req.IpAddress,
-		UserAgent:    req.UserAgent,
-	}
-
-	auditLog, err := server.store.CreateResultAuditLog(ctx, arg)
+	auditLog, err := server.results.CreateAuditLog(ctx, resultID, req.FieldChanged, req.OldValue, req.NewValue, req.Reason, editedBy, req.IpAddress, req.UserAgent)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -283,7 +238,7 @@ func (server *Server) listResultAuditLogs(ctx *gin.Context) {
 		return
 	}
 
-	auditLogs, err := server.store.ListResultAuditLogs(ctx, resultID)
+	auditLogs, err := server.results.ListAuditLogs(ctx, resultID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -308,31 +263,14 @@ func (server *Server) createCarryoverCourse(ctx *gin.Context) {
 		return
 	}
 
-	studentID, _ := uuid.Parse(req.StudentID)
-	courseID, _ := uuid.Parse(req.CourseID)
-	originalResultID, _ := uuid.Parse(req.OriginalResultID)
-	originalSessionID, _ := uuid.Parse(req.OriginalSessionID)
-
-	maxAttempts := req.MaxAttempts
-	if maxAttempts <= 0 {
-		maxAttempts = 3
-	}
-
-	attemptCount := req.AttemptCount
-	if attemptCount <= 0 {
-		attemptCount = 1
-	}
-
-	arg := db.CreateCarryoverCourseParams{
-		StudentID:         studentID,
-		CourseID:          courseID,
-		OriginalResultID:  originalResultID,
-		OriginalSessionID: originalSessionID,
-		AttemptCount:      attemptCount,
-		MaxAttempts:       maxAttempts,
-	}
-
-	carryover, err := server.store.CreateCarryoverCourse(ctx, arg)
+	carryover, err := server.results.CreateCarryover(ctx, service.CreateCarryoverInput{
+		StudentID:         req.StudentID,
+		CourseID:          req.CourseID,
+		OriginalResultID:  req.OriginalResultID,
+		OriginalSessionID: req.OriginalSessionID,
+		AttemptCount:      req.AttemptCount,
+		MaxAttempts:       req.MaxAttempts,
+	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -348,7 +286,7 @@ func (server *Server) getCarryoverCourse(ctx *gin.Context) {
 		return
 	}
 
-	carryover, err := server.store.GetCarryoverCourse(ctx, id)
+	carryover, err := server.results.GetCarryover(ctx, id)
 	if err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "carryover course not found"})
 		return
@@ -376,18 +314,12 @@ func (server *Server) updateCarryoverCourse(ctx *gin.Context) {
 		return
 	}
 
-	arg := db.UpdateCarryoverCourseParams{
-		ID:           id,
-		AttemptCount: req.AttemptCount,
-		IsResolved:   req.IsResolved,
-	}
-
+	var resolvedResultID *string
 	if req.ResolvedResultID != "" {
-		resolvedID, _ := uuid.Parse(req.ResolvedResultID)
-		arg.ResolvedResultID = pgtype.UUID{Bytes: resolvedID, Valid: true}
+		resolvedResultID = &req.ResolvedResultID
 	}
 
-	carryover, err := server.store.UpdateCarryoverCourse(ctx, arg)
+	carryover, err := server.results.UpdateCarryover(ctx, id, req.AttemptCount, req.IsResolved, resolvedResultID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -403,7 +335,7 @@ func (server *Server) listStudentCarryoverCourses(ctx *gin.Context) {
 		return
 	}
 
-	carryovers, err := server.store.ListStudentCarryoverCourses(ctx, studentID)
+	carryovers, err := server.results.ListCarryovers(ctx, studentID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -419,7 +351,7 @@ func (server *Server) deleteCarryoverCourse(ctx *gin.Context) {
 		return
 	}
 
-	if err := server.store.DeleteCarryoverCourse(ctx, id); err != nil {
+	if err := server.results.DeleteCarryover(ctx, id); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

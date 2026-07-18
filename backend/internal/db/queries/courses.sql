@@ -1,8 +1,8 @@
 -- name: CreateCourse :one
 INSERT INTO courses (
-    code, title, description, unit, level, semester, lecturer_id, prerequisite_id, max_credit_hours, is_active
+    code, title, description, unit, level, semester, lecturer_id, prerequisite_id, max_credit_hours, is_active, course_type
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
 ) RETURNING *;
 
 -- name: GetCourse :one
@@ -18,6 +18,14 @@ SELECT * FROM courses
 ORDER BY level, code
 LIMIT $1 OFFSET $2;
 
+-- name: ListCoursesByLevelAndSemester :many
+SELECT * FROM courses
+WHERE is_active = true AND level = $1 AND semester = $2
+ORDER BY code;
+
+-- name: CountCourses :one
+SELECT COUNT(*)::int FROM courses;
+
 -- name: UpdateCourse :one
 UPDATE courses
 SET
@@ -28,6 +36,7 @@ SET
     semester = $6,
     lecturer_id = $7,
     is_active = $8,
+    course_type = $9,
     updated_at = NOW()
 WHERE id = $1
 RETURNING *;

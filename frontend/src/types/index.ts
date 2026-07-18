@@ -3,14 +3,14 @@
    ────────────────────────────────────────────── */
 
 // ───── Enums ─────
-export type UserRole = 'hod' | 'delegated_admin' | 'lecturer' | 'class_rep' | 'class_bursar' | 'dept_bursar' | 'student' | 'alumni';
+export type UserRole = 'hod' | 'delegated_admin' | 'lecturer' | 'class_rep' | 'class_bursar' | 'dept_bursar' | 'student' | 'alumni' | 'project_coordinator' | 'event_coordinator' | 'alumni_rep' | 'admin';
 export type AccountType = 'staff' | 'student' | 'graduate';
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded';
 export type PaymentMethod = 'paystack' | 'manual';
 export type ComplaintStatus = 'open' | 'in_progress' | 'resolved' | 'closed' | 'pending';
 export type ComplaintPriority = 'low' | 'medium' | 'high' | 'critical';
-export type TranscriptStatus = 'pending' | 'processing' | 'ready' | 'collected';
+export type TranscriptStatus = 'pending' | 'processing' | 'ready' | 'collected' | 'approved' | 'printed';
 export type ConnectionStatus = 'pending' | 'accepted' | 'rejected' | 'blocked';
 export type TradeStatus = 'pending' | 'accepted' | 'rejected' | 'completed' | 'cancelled';
 export type SkillLevel = 'beginner' | 'intermediate' | 'expert';
@@ -24,7 +24,7 @@ export type EventAttendeeStatus = 'registered' | 'attended' | 'cancelled';
 export type GroupType = 'study' | 'project' | 'interest' | 'alumni';
 export type GroupMemberRole = 'admin' | 'moderator' | 'member';
 export type CourseSubcategory = 'core' | 'elective' | 'general' | 'practical';
-export type Semester = 'first' | 'second';
+export type Semester = 'harmattan' | 'rain';
 export type Grade = 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
 
 // ───── Base ─────
@@ -37,17 +37,23 @@ export interface BaseEntity {
 // ───── Auth ─────
 export interface User extends BaseEntity {
   email: string;
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  full_name?: string;
   otherNames?: string;
   phone?: string;
   avatar?: string;
+  avatarUrl?: string;
+  avatar_url?: string;
   gender?: string;
   address?: string;
   roles: UserRole[];
   activeRole: UserRole;
+  role: UserRole;
   accountType?: AccountType;
   isApproved: boolean;
+  isActive: boolean;
   approvalStatus: ApprovalStatus;
   lastLogin?: string;
   rejectionReason?: string;
@@ -58,6 +64,27 @@ export interface User extends BaseEntity {
     relation: string;
     phone: string;
   };
+  // Student-specific fields (may be populated from student record)
+  matricNumber?: string;
+  matric_number?: string;
+  level?: number;
+  cgpa?: number;
+  admissionMode?: string;
+  admission_mode?: string;
+  yearAdmitted?: number;
+  year_admitted?: number;
+  academicStanding?: string;
+  academic_standing?: string;
+  dateOfBirth?: string;
+  date_of_birth?: string;
+  homeAddress?: string;
+  home_address?: string;
+  emergencyContactName?: string;
+  emergency_contact?: string;
+  emergencyContactPhone?: string;
+  emergency_contact_phone?: string;
+  profilePhotoUrl?: string;
+  profile_photo_url?: string;
 }
 
 export interface AuthTokens {
@@ -94,22 +121,41 @@ export interface LecturerSignupPayload extends SignupPayload {
 // ───── Academic ─────
 export interface Session extends BaseEntity {
   name: string;
-  startYear: number;
-  endYear: number;
-  isActive: boolean;
+  start_date?: string;
+  end_date?: string;
+  is_active: boolean;
+  is_archived?: boolean;
+  // Legacy camelCase (optional, for backward compat)
+  startYear?: number;
+  endYear?: number;
+  isActive?: boolean;
+}
+
+export interface SemesterEntry extends BaseEntity {
+  session_id: string;
+  name: 'harmattan' | 'rain';
+  start_date?: string;
+  end_date?: string;
+  registration_deadline?: string;
+  is_active: boolean;
 }
 
 export interface Course extends BaseEntity {
   code: string;
   title: string;
+  description?: string;
+  unit: number;
   creditUnits: number;
   level: number;
   semester: Semester;
+  courseType: string;
   subcategory: CourseSubcategory;
   lecturerId?: string;
   lecturerName?: string;
   department: string;
   isActive: boolean;
+  maxCreditHours?: number;
+  prerequisiteId?: string;
 }
 
 export interface Student extends BaseEntity {
@@ -157,6 +203,20 @@ export interface CGPAConfig extends BaseEntity {
   gradePoints: Record<Grade, number>;
   passMark: number;
   maxCreditsPerSemester: number;
+  scale?: number;
+  maxScale?: number;
+  passingCGPA?: number;
+  minimumPassing?: number;
+  firstClass?: number;
+  secondClassUpper?: number;
+  secondClassLower?: number;
+  thirdClass?: number;
+  gradeBoundaries?: {
+    firstClass?: number;
+    secondClassUpper?: number;
+    secondClassLower?: number;
+    thirdClass?: number;
+  };
 }
 
 // ───── Attendance ─────
@@ -194,28 +254,46 @@ export interface Assignment extends BaseEntity {
 }
 
 // ───── Payments ─────
+export type PaymentType = 'dept_dues' | 'class_dues' | 'manual' | 'materials' | 'transcript_fee' | 'other';
+
 export interface Payment extends BaseEntity {
-  userId: string;
+  student_id: string;
+  batch_id?: string;
+  due_id: string;
+  type: PaymentType;
+  item_name: string;
   amount: number;
-  currency: string;
-  purpose: string;
-  reference: string;
+  paystack_reference?: string;
   status: PaymentStatus;
-  method: PaymentMethod;
-  paidAt?: string;
-  verifiedBy?: string;
-  receiptUrl?: string;
+  verified_by?: string;
+  verified_at?: string;
+  paid_at?: string;
+  // Joined fields
+  matric_number?: string;
+  student_name?: string;
+  due_name?: string;
 }
 
 export interface DuePayment extends BaseEntity {
-  title: string;
+  name: string;
+  description?: string;
+  type: PaymentType;
   amount: number;
-  description: string;
   level?: number;
-  dueDate: string;
-  createdBy: string;
-  isPaid: boolean;
-  paymentId?: string;
+  session_id?: string;
+  semester_id?: string;
+  deadline?: string;
+  is_active: boolean;
+  created_by: string;
+}
+
+export interface Defaulter {
+  student_id: string;
+  full_name: string;
+  matric_number: string;
+  level: number;
+  unpaid_dues_count: number;
+  total_outstanding: number;
 }
 
 // ───── Complaints ─────
@@ -246,19 +324,54 @@ export interface TranscriptRequest extends BaseEntity {
   student?: Student;
   destination?: string;
   paymentStatus?: string;
+  studentName?: string;
+  purpose?: string;
+  copies?: number;
 }
 
 
 // ───── Timetable ─────
-export interface TimetableEntry extends BaseEntity {
-  courseId: string;
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
+export type EntryType = 'class' | 'exam';
+export type ClassType = 'lecture' | 'lab' | 'tutorial' | 'seminar';
+export type ExamType = 'main' | 'carryover';
+
+export interface TimetableEntry {
+  id: string;
+  course_id: string;
+  day_of_week?: number;
+  start_time: string;
+  end_time: string;
   venue: string;
-  semester: Semester;
-  sessionId: string;
+  level?: number;
+  courseCode: string;
+  courseTitle: string;
+  entry_type: EntryType;
+  class_type?: ClassType;
+  exam_type?: ExamType;
+  lecturer_id?: string;
+  lecturer_name?: string;
+  invigilators?: string;
+  is_published: boolean;
+  has_conflict: boolean;
+  conflict_details?: string;
+  exam_date?: string;
+  session_id?: string;
+  semester_id?: string;
+  created_by?: string;
+  created_at?: string;
   course?: Course;
+  // Legacy aliases for backward compat
+  courseId?: string;
+  dayOfWeek?: number;
+  startTime?: string;
+  endTime?: string;
+}
+
+export interface TimetableConflict {
+  type: string;
+  message: string;
+  entry1_id: string;
+  entry2_id: string;
 }
 
 // ───── Announcements ─────
@@ -288,27 +401,30 @@ export interface AppNotification extends BaseEntity {
 // ───── Manuals ─────
 export interface Manual extends BaseEntity {
   title: string;
-  description: string;
+  description?: string;
   price: number;
   level: number;
   coverImageUrl?: string;
   fileUrl?: string;
   isActive: boolean;
-  totalPurchases?: number;
-  totalPrinted?: number;
-  code?: string;
-  semester?: Semester;
-  authorId?: string;
+  courseId?: string;
+  sessionId?: string;
+  createdBy?: string;
 }
 
 export interface ManualPurchase extends BaseEntity {
   manualId: string;
-  userId: string;
-  paymentId: string;
-  isPrinted: boolean;
-  printedAt?: string;
-  qrCode?: string;
-  manual?: Manual;
+  manualTitle?: string;
+  manualLevel?: number;
+  price: number;
+  isCollected: boolean;
+  collectedAt?: string;
+  purchasedAt?: string;
+  qrCodeData?: string;
+  qrCodeUrl?: string;
+  studentName?: string;
+  matricNumber?: string;
+  matric_number?: string;
 }
 
 // ───── Campus Connect ─────
@@ -382,6 +498,7 @@ export interface SkillListing extends BaseEntity {
   category?: SkillCategory;
   averageRating?: number;
   totalReviews?: number;
+  portfolioUrl?: string;
 }
 
 export interface TradeOffer extends BaseEntity {
@@ -440,6 +557,82 @@ export interface AlumniStatus extends BaseEntity {
   user?: User;
 }
 
+export interface AlumniProfile extends BaseEntity {
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  regNo?: string;
+  department?: string;
+  graduationYear: number;
+  isVerified: boolean;
+}
+
+export interface AlumniFullProfile {
+  id: string;
+  user_id: string;
+  graduation_year: number;
+  graduation_class?: string;
+  verification_status: string;
+  is_mentor_available: boolean;
+  mentor_specialization?: string;
+  current_company?: string;
+  current_position?: string;
+  linkedin_url?: string;
+  bio?: string;
+  created_at: string;
+  updated_at: string;
+  location?: string;
+  portfolio_url?: string;
+  privacy_level?: string;
+  mentorship_topics?: string[];
+  skills?: string[];
+  willing_to_speak?: boolean;
+  event_interests?: string[];
+  industry?: string;
+  full_name?: string;
+  email?: string;
+  avatar_url?: string;
+}
+
+export interface AlumniDirectoryItem {
+  id: string;
+  user_id: string;
+  graduation_year: number;
+  graduation_class?: string;
+  current_company?: string;
+  current_position?: string;
+  industry?: string;
+  location?: string;
+  is_mentor_available: boolean;
+  privacy_level?: string;
+  full_name: string;
+  email: string;
+  avatar_url?: string;
+  bio?: string;
+  linkedin_url?: string;
+}
+
+export interface AlumniDashboardStats {
+  total_alumni: number;
+  active_this_year: number;
+  new_this_session: number;
+  active_jobs: number;
+  active_mentors: number;
+  active_mentorships: number;
+  upcoming_events: number;
+  pending_mentorship_requests: number;
+  total_donations: number;
+}
+
+export interface AlumniMyStats {
+  connection_count: number;
+  active_mentees: number;
+  completed_sessions: number;
+  jobs_posted: number;
+  events_attended: number;
+}
+
 export interface MentorshipRequest extends BaseEntity {
   alumniId: string;
   studentId: string;
@@ -452,6 +645,33 @@ export interface MentorshipRequest extends BaseEntity {
   student?: User;
 }
 
+export interface MentorshipRequestItem {
+  id: string;
+  student_id: string;
+  mentor_id: string;
+  topic: string;
+  status: string;
+  message?: string;
+  student_name: string;
+  created_at: string;
+}
+
+export interface MentorItem {
+  id: string;
+  user_id: string;
+  graduation_year: number;
+  graduation_class?: string;
+  is_mentor_available: boolean;
+  mentor_specialization?: string;
+  current_company?: string;
+  current_position?: string;
+  bio?: string;
+  full_name: string;
+  email: string;
+  industry?: string;
+  location?: string;
+}
+
 export interface JobPost extends BaseEntity {
   postedBy: string;
   title: string;
@@ -460,6 +680,7 @@ export interface JobPost extends BaseEntity {
   type: JobType;
   description: string;
   requirements?: string;
+  responsibilities?: string;
   salaryRange?: string;
   applicationUrl?: string;
   applicationEmail?: string;
@@ -468,6 +689,14 @@ export interface JobPost extends BaseEntity {
   viewCount: number;
   applicationCount: number;
   poster?: User;
+  job_type?: string;
+  salary_range?: string;
+  application_url?: string;
+  poster_name?: string;
+  industry?: string;
+  views_count?: number;
+  applications_count?: number;
+  is_active?: boolean;
 }
 
 export interface JobApplication extends BaseEntity {
@@ -496,6 +725,24 @@ export interface AlumniEvent extends BaseEntity {
   creator?: User;
 }
 
+export interface AlumniEventItem {
+  id: string;
+  title: string;
+  description?: string;
+  event_type: string;
+  location?: string;
+  is_virtual: boolean;
+  virtual_link?: string;
+  start_date: string;
+  end_date: string;
+  max_attendees?: number;
+  is_active: boolean;
+  created_by: string;
+  target_audience?: string;
+  status?: string;
+  attendee_count?: number;
+}
+
 export interface EventAttendee extends BaseEntity {
   eventId: string;
   userId: string;
@@ -503,6 +750,32 @@ export interface EventAttendee extends BaseEntity {
   registeredAt: string;
   user?: User;
 }
+
+export interface AlumniDonation {
+  id: string;
+  donor_id: string;
+  channel: string;
+  amount: number;
+  currency: string;
+  message?: string;
+  is_anonymous: boolean;
+  recognized_tier: string;
+  status: string;
+  created_at: string;
+  donor_name?: string;
+}
+
+export interface DonationStats {
+  total_donations: number;
+  donation_count: number;
+  platinum_count: number;
+  gold_count: number;
+  silver_count: number;
+  bronze_count: number;
+}
+
+export type DonationChannel = 'general' | 'scholarship' | 'project' | 'event_sponsorship' | 'emergency';
+export type DonationTier = 'none' | 'bronze' | 'silver' | 'gold' | 'platinum';
 
 // ───── Analytics ─────
 export interface AnalyticsData {
@@ -529,6 +802,7 @@ export interface ApiResponse<T> {
 
 export interface PaginatedResponse<T> {
   data: T[];
+  items?: T[];
   total: number;
   page: number;
   perPage: number;
@@ -541,6 +815,10 @@ export interface PaginationParams {
   search?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  limit?: number;
+  offset?: number;
+  page_id?: number;
+  page_size?: number;
 }
 
 // ───── UI ─────
@@ -579,3 +857,32 @@ export interface FilterConfig {
 }
 
 export type ThemeMode = 'light' | 'dark' | 'system';
+
+// ==================== DELEGATE STUDENT ROLES ====================
+
+export interface RoleAssignmentLog {
+  id: string;
+  user_name: string;
+  user_id: string;
+  role: UserRole;
+  action: 'assigned' | 'removed';
+  performed_by_name: string;
+  performed_by_id: string;
+  performed_by_role: string | null;
+  previous_roles: string[];
+  new_roles: string[];
+  reason: string | null;
+  ip_address: string | null;
+  created_at: string;
+}
+
+export interface StudentForRoleManagement {
+  id: string;
+  email: string;
+  full_name: string;
+  avatar_url: string | null;
+  student_id: string;
+  matric_number: string | null;
+  level: number | null;
+  roles: UserRole[];
+}

@@ -146,3 +146,42 @@ SELECT EXISTS(
     SELECT 1 FROM payments
     WHERE student_id = $1 AND due_id = $2 AND status = 'completed'
 ) AS is_paid;
+
+-- name: ListAllPayments :many
+SELECT p.*, s.matric_number, u.full_name AS student_name, d.name AS due_name
+FROM payments p
+JOIN students s ON s.id = p.student_id
+JOIN users u ON u.id = s.user_id
+LEFT JOIN dues d ON d.id = p.due_id
+ORDER BY p.created_at DESC
+LIMIT $1 OFFSET $2;
+
+-- name: GetPaymentByReference :one
+SELECT p.*, s.matric_number, u.full_name AS student_name, d.name AS due_name
+FROM payments p
+JOIN students s ON s.id = p.student_id
+JOIN users u ON u.id = s.user_id
+LEFT JOIN dues d ON d.id = p.due_id
+WHERE p.paystack_reference = $1
+LIMIT 1;
+
+-- name: ListDefaultersByLevel :many
+SELECT
+    s.id AS student_id,
+    u.full_name,
+    s.matric_number,
+    s.level,
+    COUNT(d.id)::INT AS unpaid_dues_count,
+    COALESCE(SUM(d.amount), 0)::DECIMAL(10,2) AS total_outstanding
+FROM students s
+JOIN users u ON u.id = s.user_id
+CROSS JOIN dues d
+WHERE d.is_active = true
+  AND (d.level IS NULL OR d.level = s.level)
+  AND NOT EXISTS (
+    SELECT 1 FROM payments p
+    WHERE p.student_id = s.id AND p.due_id = d.id AND p.status = 'completed'
+  )
+GROUP BY s.id, u.full_name, s.matric_number, s.level
+HAVING COUNT(d.id) > 0
+ORDER BY total_outstanding DESC;

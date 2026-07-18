@@ -8,7 +8,9 @@ import {
   Calendar, User, BookMarked, Users, Award, ShieldAlert,
   Settings, Briefcase, GraduationCap, DollarSign, Database,
   TrendingUp, ClipboardList, Printer, MessageSquare, ListTodo,
-  ChevronLeft, ChevronDown, LogOut, X, Download
+  ChevronLeft, ChevronDown, LogOut, X,
+  BarChart3, Clock, UserCheck, Megaphone,
+  FileOutput, BookCopy
 } from 'lucide-react';
 import type { UserRole } from '../../types';
 
@@ -37,7 +39,7 @@ interface NavSection {
 }
 
 const menuItems: MenuItem[] = [
-  { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+  { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['student', 'lecturer', 'class_rep', 'class_bursar', 'dept_bursar', 'alumni'] },
 
   { label: 'My Results', path: '/results', icon: Award, roles: ['student'] },
   { label: 'Course Registration', path: '/courses/register', icon: BookMarked, roles: ['student'] },
@@ -45,7 +47,11 @@ const menuItems: MenuItem[] = [
   { label: 'Practicals & Lab', path: '/practicals', icon: ClipboardList, roles: ['student'] },
   { label: 'Timetable', path: '/timetable', icon: Calendar, roles: ['student'] },
   { label: 'Manuals Marketplace', path: '/manuals', icon: BookOpen, roles: ['student'] },
+  { label: 'My Manuals', path: '/manuals/my', icon: BookMarked, roles: ['student'] },
   { label: 'Complaints', path: '/complaints', icon: HelpCircle, roles: ['student'] },
+
+  { label: 'Job Board', path: '/student/jobs', icon: Briefcase, roles: ['student'] },
+  { label: 'My Applications', path: '/student/applications', icon: FileText, roles: ['student'] },
 
   { label: 'Payments & Dues', path: '/payments', icon: CreditCard, roles: ['student'] },
 
@@ -54,6 +60,7 @@ const menuItems: MenuItem[] = [
 
   { label: 'Alumni Portal', path: '/alumni', icon: GraduationCap, roles: ['student', 'alumni', 'hod', 'delegated_admin'] },
   { label: 'Job Board', path: '/alumni/jobs', icon: Briefcase, roles: ['alumni', 'hod', 'delegated_admin'] },
+  { label: 'My Job Posts', path: '/alumni/my-jobs', icon: ClipboardList, roles: ['alumni', 'hod', 'delegated_admin'] },
   { label: 'Mentorship Hub', path: '/alumni/mentorship', icon: Users, roles: ['alumni', 'hod', 'delegated_admin'] },
   { label: 'Give Back', path: '/alumni/give-back', icon: DollarSign, roles: ['alumni', 'hod', 'delegated_admin'] },
 
@@ -69,16 +76,38 @@ const menuItems: MenuItem[] = [
   { label: 'Pending Registrations', path: '/class-rep/pending', icon: ShieldAlert, roles: ['class_rep'] },
 
   { label: 'Bursar Portal', path: '/bursar', icon: LayoutDashboard, roles: ['class_bursar', 'dept_bursar'] },
+  { label: 'Department Dues', path: '/bursar/dept-dues', icon: DollarSign, roles: ['dept_bursar', 'hod', 'delegated_admin'] },
+  { label: 'Class Dues', path: '/bursar/class-dues', icon: DollarSign, roles: ['class_bursar', 'hod', 'delegated_admin'] },
   { label: 'Verify Payments', path: '/bursar/verify', icon: DollarSign, roles: ['class_bursar', 'dept_bursar'] },
   { label: 'Defaulters List', path: '/bursar/defaulters', icon: ShieldAlert, roles: ['class_bursar', 'dept_bursar'] },
 
-  { label: 'Admin Portal', path: '/admin', icon: LayoutDashboard, roles: ['hod', 'delegated_admin'] },
-  { label: 'Results Approval', path: '/admin/results', icon: ClipboardList, roles: ['hod', 'delegated_admin'] },
-  { label: 'User Directory', path: '/admin/users', icon: Users, roles: ['hod', 'delegated_admin'] },
-  { label: 'Dues & Sessions', path: '/admin/sessions', icon: Settings, roles: ['hod', 'delegated_admin'] },
-  { label: 'Print Queue', path: '/admin/print-queue', icon: Printer, roles: ['hod', 'delegated_admin'] },
-  { label: 'Download Vault', path: '/manuals/my', icon: Download, roles: ['hod', 'delegated_admin'] },
-  { label: 'Backups', path: '/admin/backups', icon: Database, roles: ['hod', 'delegated_admin'] },
+  { label: 'Admin Portal', path: '/admin', icon: LayoutDashboard, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Results Approval', path: '/admin/results', icon: ClipboardList, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Bulk Results Upload', path: '/admin/results/bulk-upload', icon: Database, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'User Directory', path: '/admin/users', icon: Users, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Pending Approvals', path: '/admin/approvals', icon: UserCheck, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Role Management', path: '/admin/roles', icon: ShieldAlert, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Delegate Admin', path: '/admin/delegate', icon: UserCheck, roles: ['hod'] },
+  { label: 'Delegate Student Roles', path: '/admin/delegate-student-roles', icon: UserCheck, roles: ['hod'] },
+  { label: 'Analytics', path: '/admin/analytics', icon: BarChart3, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Course Management', path: '/admin/courses', icon: BookOpen, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Lecturer Management', path: '/admin/lecturers', icon: Users, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Subcategories', path: '/admin/subcategories', icon: BookCopy, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Dues & Sessions', path: '/admin/sessions', icon: Calendar, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Announcements', path: '/admin/announcements', icon: Megaphone, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Transcript Queue', path: '/admin/transcripts', icon: FileOutput, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Graduation Check', path: '/admin/graduation', icon: GraduationCap, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Reports', path: '/admin/reports', icon: BarChart3, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Complaints', path: '/admin/complaints', icon: HelpCircle, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Timetable', path: '/admin/timetable', icon: Clock, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Manuals', path: '/admin/manuals', icon: BookOpen, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Print Queue', path: '/admin/print-queue', icon: Printer, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Alumni Mgmt', path: '/admin/alumni', icon: GraduationCap, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Job Moderation', path: '/admin/job-moderation', icon: Briefcase, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Document Verification', path: '/admin/documents', icon: FileText, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'CGPA Settings', path: '/admin/cgpa-settings', icon: Settings, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Backups', path: '/admin/backups', icon: Database, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Settings', path: '/admin/settings', icon: Settings, roles: ['hod', 'delegated_admin', 'admin'] },
 
   { label: 'Profile', path: '/profile', icon: User },
 ];
@@ -96,6 +125,9 @@ const mobileSections: NavSection[] = [
       { label: 'Practicals & Lab', path: '/practicals', icon: ClipboardList },
       { label: 'Timetable', path: '/timetable', icon: Calendar },
       { label: 'Manuals Marketplace', path: '/manuals', icon: BookOpen },
+      { label: 'My Manuals', path: '/manuals/my', icon: BookMarked },
+      { label: 'Job Board', path: '/student/jobs', icon: Briefcase },
+      { label: 'My Applications', path: '/student/applications', icon: FileText },
     ],
   },
   {
@@ -187,12 +219,12 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
                 {user.avatar ? (
                   <img src={user.avatar} alt="" className="w-full h-full rounded-full object-cover" />
                 ) : (
-                  `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`
+                  `${(user.firstName || '').charAt(0)}${(user.lastName || '').charAt(0)}`
                 )}
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-surface-900 dark:text-surface-100 truncate">
-                  {user.firstName} {user.lastName}
+                  {user.firstName || 'User'} {user.lastName || ''}
                 </p>
                 <p className="text-xs text-surface-500 dark:text-surface-400 capitalize">{activeRole.replace('_', ' ')}</p>
               </div>

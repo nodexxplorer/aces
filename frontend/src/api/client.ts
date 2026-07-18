@@ -1,13 +1,15 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.aceszone.uniuyo.edu.ng/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_PREFIX = '/api/v1';
 
 const apiClient = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: API_BASE_URL + API_PREFIX,
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true,
 });
 
 export async function safeRequest<T>(request: () => Promise<{ data: { data: T } }>): Promise<T> {
@@ -15,24 +17,25 @@ export async function safeRequest<T>(request: () => Promise<{ data: { data: T } 
     const response = await request();
     return response.data.data;
   } catch (err) {
-    if (axios.isAxiosError(err) && err.response?.data?.message) {
-      throw new Error(err.response.data.message);
+    if (axios.isAxiosError(err)) {
+      if (err.code === 'ECONNABORTED') {
+        throw new Error('Request timed out. Please try again.');
+      }
+      if (!err.response) {
+        throw new Error('Network error. Please check your connection.');
+      }
+      if (err.response.data?.error) {
+        throw new Error(err.response.data.error);
+      }
+      if (err.response.data?.message) {
+        throw new Error(err.response.data.message);
+      }
+      throw new Error(`Request failed with status ${err.response.status}`);
     }
     if (err instanceof Error) throw err;
     throw new Error('An unexpected error occurred');
   }
 }
-
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('aces_access_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
 
 apiClient.interceptors.response.use(
   (response) => response,
@@ -41,22 +44,21 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        const refreshToken = localStorage.getItem('aces_refresh_token');
-        if (refreshToken) {
-          const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
-          localStorage.setItem('aces_access_token', data.data.accessToken);
-          localStorage.setItem('aces_refresh_token', data.data.refreshToken);
-          originalRequest.headers.Authorization = `Bearer ${data.data.accessToken}`;
-          return apiClient(originalRequest);
-        }
+        await axios.post(`${API_BASE_URL}${API_PREFIX}/auth/refresh`, {}, { withCredentials: true });
+        return apiClient(originalRequest);
       } catch {
-        localStorage.removeItem('aces_access_token');
-        localStorage.removeItem('aces_refresh_token');
         window.location.href = '/login';
       }
     }
     return Promise.reject(error);
   }
 );
+
+export function unwrap<T>(response: { data: any }): T {
+  const body = response.data;
+  if (Array.isArray(body)) return body as T;
+  if (body && typeof body === 'object' && 'data' in body) return body.data as T;
+  return body as T;
+}
 
 export default apiClient;

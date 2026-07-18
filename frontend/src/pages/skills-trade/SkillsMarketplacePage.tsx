@@ -1,64 +1,67 @@
-import { useState } from 'react';
-import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
-import Select from '../../components/ui/Select';
 import SkillCard from '../../components/ui/SkillCard';
-import Modal from '../../components/ui/Modal';
 import { useNotification } from '../../hooks/useNotification';
-import { Search, Plus, ArrowRightLeft } from 'lucide-react';
-import type { SkillListing } from '../../types';
+import { Search, Plus, Loader2 } from 'lucide-react';
+import { getSkillListings, getSkillCategories } from '../../api/skills-trade';
+import type { SkillListing, SkillCategory } from '../../types';
 
-const mockSkills: SkillListing[] = [
-  {
-    id: 's-1',
-    title: 'React & TypeScript Development',
-    description: 'Help build high performance web interfaces. Open to swap with UI design principles.',
-    level: 'expert',
-    isBarterAvailable: true,
-    isPaid: false,
-    user: { id: 'u-1', firstName: 'John', lastName: 'Doe', email: '', roles: [], activeRole: 'student', isApproved: true, approvalStatus: 'approved', createdAt: '' },
-    category: { id: 'cat-1', name: 'Software Development' },
-    averageRating: 4.8,
-  },
-];
+const mapListing = (raw: any): SkillListing => ({
+  id: raw.id,
+  title: raw.title,
+  description: raw.description,
+  level: raw.skill_level || raw.level || 'beginner',
+  isPaid: raw.is_free !== undefined ? !raw.is_free : raw.isPaid ?? false,
+  price: raw.price,
+  isBarterAvailable: raw.barter_available ?? raw.isBarterAvailable ?? false,
+  barterPreferences: raw.barter_description || raw.barterPreferences,
+  userId: raw.user_id || raw.userId,
+  categoryId: raw.category_id || raw.categoryId,
+  isActive: raw.is_active ?? raw.isActive ?? true,
+  createdAt: raw.created_at || raw.createdAt,
+  updatedAt: raw.updated_at || raw.updatedAt,
+  user: raw.user,
+  category: raw.category,
+  averageRating: raw.average_rating ?? raw.averageRating,
+  totalReviews: raw.total_reviews ?? raw.totalReviews,
+});
 
 const SkillsMarketplacePage = () => {
-  const { success } = useNotification();
+  const { error: notifyError } = useNotification();
+  const navigate = useNavigate();
+  const [listings, setListings] = useState<SkillListing[]>([]);
+  const [categories, setCategories] = useState<SkillCategory[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [listings, setListings] = useState<SkillListing[]>(mockSkills);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [offerOpen, setOfferOpen] = useState(false);
-  const [selectedSkill, setSelectedSkill] = useState<SkillListing | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [levelFilter, setLevelFilter] = useState('');
 
-  const [newTitle, setNewTitle] = useState('');
-  const [newDesc, setNewDesc] = useState('');
-  const [newLevel, setNewLevel] = useState('intermediate');
-
-  const handleCreateListing = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTitle || !newDesc) return;
-    const newSkill: SkillListing = {
-      id: `s-${Date.now()}`,
-      title: newTitle,
-      description: newDesc,
-      level: newLevel as any,
-      isBarterAvailable: true,
-      isPaid: false,
-      user: { id: 'me', firstName: 'Aces', lastName: 'Member', email: '', roles: [], activeRole: 'student', isApproved: true, approvalStatus: 'approved', createdAt: '' },
-      category: { id: 'cat-1', name: 'Software Development' },
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        const [rawListings, cats] = await Promise.all([
+          getSkillListings(),
+          getSkillCategories(),
+        ]);
+        setListings(Array.isArray(rawListings) ? rawListings.map(mapListing) : []);
+        setCategories(Array.isArray(cats) ? cats : []);
+      } catch (err: any) {
+        notifyError('Load Failed', err?.message || 'Could not load marketplace');
+      } finally {
+        setLoading(false);
+      }
     };
-    setListings((prev) => [newSkill, ...prev]);
-    setCreateOpen(false);
-    setNewTitle('');
-    setNewDesc('');
-    success('Skill Listed', 'Your skill has been added to the trade marketplace.');
-  };
+    load();
+  }, []);
 
-  const handleSendOffer = () => {
-    success('Offer Submitted', 'Barter trade request dispatched to the skill provider.');
-    setOfferOpen(false);
-  };
+  const filtered = listings.filter((s) => {
+    const matchesSearch = !search || s.title.toLowerCase().includes(search.toLowerCase());
+    const matchesCategory = !categoryFilter || s.categoryId === categoryFilter;
+    const matchesLevel = !levelFilter || s.level === levelFilter;
+    return matchesSearch && matchesCategory && matchesLevel;
+  });
 
   return (
     <div className="space-y-6">
@@ -69,12 +72,14 @@ const SkillsMarketplacePage = () => {
             Swap practical engineering skills, design talent, or study guides via barter deals.
           </p>
         </div>
-        <Button leftIcon={<Plus className="w-4 h-4" />} onClick={() => setCreateOpen(true)}>
-          Add Skill Listing
-        </Button>
+        <Link to="/skills/create">
+          <Button leftIcon={<Plus className="w-4 h-4" />}>
+            List a Skill
+          </Button>
+        </Link>
       </div>
 
-      <div className="flex gap-4 max-w-xl">
+      <div className="flex flex-col sm:flex-row gap-4 max-w-2xl">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
           <input
@@ -85,79 +90,48 @@ const SkillsMarketplacePage = () => {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        <select
+          className="px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+        >
+          <option value="">All Categories</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+        <select
+          className="px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+          value={levelFilter}
+          onChange={(e) => setLevelFilter(e.target.value)}
+        >
+          <option value="">All Levels</option>
+          <option value="beginner">Beginner</option>
+          <option value="intermediate">Intermediate</option>
+          <option value="advanced">Advanced</option>
+          <option value="expert">Expert</option>
+        </select>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {listings.map((s) => (
-          <SkillCard
-            key={s.id}
-            skill={s}
-            onClick={() => {
-              setSelectedSkill(s);
-              setOfferOpen(true);
-            }}
-          />
-        ))}
-      </div>
-
-      <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title="Add Skill Listing">
-        <form onSubmit={handleCreateListing} className="space-y-4">
-          <Input label="Skill Title" placeholder="e.g. PCB Design with Altium" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} required />
-          <Select
-            label="Skill Level"
-            options={[
-              { value: 'beginner', label: 'Beginner' },
-              { value: 'intermediate', label: 'Intermediate' },
-              { value: 'expert', label: 'Expert' },
-            ]}
-            value={newLevel}
-            onChange={(e) => setNewLevel(e.target.value)}
-          />
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Description</label>
-            <textarea
-              placeholder="Detail what you offer and what you are looking to swap..."
-              className="w-full h-24 rounded-lg border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-900 text-sm p-3 focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none"
-              value={newDesc}
-              onChange={(e) => setNewDesc(e.target.value)}
-              required
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-20">
+          <p className="text-surface-500 dark:text-surface-400">No skills found matching your filters.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filtered.map((s) => (
+            <SkillCard
+              key={s.id}
+              skill={s}
+              onClick={() => navigate(`/skills/${s.id}`)}
             />
-          </div>
-          <Button type="submit" className="w-full" leftIcon={<Plus className="w-4 h-4" />}>
-            Publish Listing
-          </Button>
-        </form>
-      </Modal>
-
-      <Modal isOpen={offerOpen} onClose={() => setOfferOpen(false)} title="Initiate Barter Deal">
-        {selectedSkill && (
-          <div className="space-y-4">
-            <div>
-              <h4 className="font-semibold text-base">{selectedSkill.title}</h4>
-              <p className="text-xs text-surface-500">Provider: {selectedSkill.user?.firstName} {selectedSkill.user?.lastName}</p>
-              <p className="text-sm text-surface-700 dark:text-surface-300 mt-2">{selectedSkill.description}</p>
-            </div>
-            <div className="border-t border-surface-200 dark:border-surface-800 pt-4 space-y-4">
-              <Select
-                label="Offer One of Your Listed Skills"
-                options={[
-                  { value: 'my-1', label: 'UI Design Fundamentals' },
-                ]}
-              />
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Proposal Details</label>
-                <textarea
-                  placeholder="Explain why this swap is mutually beneficial..."
-                  className="w-full h-20 rounded-lg border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-900 text-sm p-3 focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none"
-                />
-              </div>
-              <Button className="w-full" leftIcon={<ArrowRightLeft className="w-4 h-4" />} onClick={handleSendOffer}>
-                Submit Proposal
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
