@@ -16,7 +16,7 @@ const TradeCard = ({ trade, onClick }: TradeCardProps) => (
     <div className="flex items-center gap-3">
       <div className="flex-1 text-center">
         <div className="w-10 h-10 mx-auto rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-xs font-semibold mb-1">
-          {trade.offerer ? getInitials(trade.offerer.firstName, trade.offerer.lastName) : '??'}
+          {trade.offerer ? getInitials(trade.offerer.firstName || '', trade.offerer.lastName || '') : '??'}
         </div>
         <p className="text-xs font-medium text-surface-900 dark:text-surface-100 truncate">{trade.offerer?.firstName}</p>
         <p className="text-[10px] text-surface-500 truncate">{trade.offererSkill?.title || 'Offering skill'}</p>
@@ -24,7 +24,7 @@ const TradeCard = ({ trade, onClick }: TradeCardProps) => (
       <ArrowLeftRight className="w-5 h-5 text-primary-500 shrink-0" />
       <div className="flex-1 text-center">
         <div className="w-10 h-10 mx-auto rounded-full bg-gradient-to-br from-accent-400 to-accent-600 flex items-center justify-center text-white text-xs font-semibold mb-1">
-          {trade.recipient ? getInitials(trade.recipient.firstName, trade.recipient.lastName) : '??'}
+          {trade.recipient ? getInitials(trade.recipient.firstName || '', trade.recipient.lastName || '') : '??'}
         </div>
         <p className="text-xs font-medium text-surface-900 dark:text-surface-100 truncate">{trade.recipient?.firstName}</p>
         <p className="text-[10px] text-surface-500 truncate">{trade.recipientSkill?.title || 'Requesting skill'}</p>

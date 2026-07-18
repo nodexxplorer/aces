@@ -7,6 +7,7 @@ interface AuthState {
   tokens: AuthTokens | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  _hasHydrated: boolean;
   setUser: (user: User) => void;
   setTokens: (tokens: AuthTokens) => void;
   login: (user: User, tokens: AuthTokens) => void;
@@ -14,6 +15,7 @@ interface AuthState {
   updateUser: (partial: Partial<User>) => void;
   switchRole: (role: UserRole) => void;
   setLoading: (loading: boolean) => void;
+  setHasHydrated: (v: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -23,22 +25,15 @@ export const useAuthStore = create<AuthState>()(
       tokens: null,
       isAuthenticated: false,
       isLoading: true,
+      _hasHydrated: false,
       setUser: (user) => set({ user }),
       setTokens: (tokens) => {
-        if (tokens) {
-          localStorage.setItem('aces_access_token', tokens.accessToken);
-          localStorage.setItem('aces_refresh_token', tokens.refreshToken);
-        }
         set({ tokens });
       },
       login: (user, tokens) => {
-        localStorage.setItem('aces_access_token', tokens.accessToken);
-        localStorage.setItem('aces_refresh_token', tokens.refreshToken);
         set({ user, tokens, isAuthenticated: true, isLoading: false });
       },
       logout: () => {
-        localStorage.removeItem('aces_access_token');
-        localStorage.removeItem('aces_refresh_token');
         set({ user: null, tokens: null, isAuthenticated: false, isLoading: false });
       },
       updateUser: (partial) =>
@@ -50,14 +45,28 @@ export const useAuthStore = create<AuthState>()(
           user: state.user ? { ...state.user, activeRole: role } : null,
         })),
       setLoading: (loading) => set({ isLoading: loading }),
+      setHasHydrated: (v) => set({ _hasHydrated: v }),
     }),
     {
       name: 'aces-auth',
       partialize: (state) => ({
         user: state.user,
-        tokens: state.tokens,
         isAuthenticated: state.isAuthenticated,
       }),
+      onRehydrateStorage: () => (_state, error) => {
+        if (!error) {
+          // Mark hydration as complete
+          useAuthStore.getState().setHasHydrated(true);
+        } else {
+          // Even on error, mark as hydrated to avoid indefinite loading
+          useAuthStore.getState().setHasHydrated(true);
+        }
+      },
     }
   )
 );
+
+// Ensure hydration is triggered
+if (typeof window !== 'undefined') {
+  useAuthStore.persist.rehydrate();
+}

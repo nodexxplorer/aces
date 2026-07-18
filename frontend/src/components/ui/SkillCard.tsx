@@ -12,7 +12,7 @@ const SkillCard = ({ skill, onClick }: SkillCardProps) => (
   <Card hover onClick={onClick}>
     <div className="flex items-start gap-3 mb-3">
       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent-400 to-primary-500 flex items-center justify-center text-white text-xs font-semibold shrink-0">
-        {skill.user ? getInitials(skill.user.firstName, skill.user.lastName) : '??'}
+        {skill.user ? getInitials(skill.user.firstName || '', skill.user.lastName || '') : '??'}
       </div>
       <div className="flex-1 min-w-0">
         <h4 className="font-semibold text-surface-900 dark:text-surface-100 truncate">{skill.title}</h4>

@@ -6,10 +6,16 @@ export const useAlumniStatus = () => {
   const alumni = useAlumniStore();
   const user = useAuthStore((s) => s.user);
 
+  const status = alumni.status as {
+    graduation_year?: number;
+    has_carryover?: boolean;
+    dues_cleared?: boolean;
+  };
+
   const eligibility = checkAlumniEligibility(
-    alumni.status?.graduationYear ? 5 : 3,
-    alumni.status?.hasCarryover ?? false,
-    alumni.status?.duesCleared ?? false
+    status?.graduation_year ? 5 : 3,
+    status?.has_carryover ?? false,
+    status?.dues_cleared ?? false
   );
 
   const isAlumni = user?.roles.includes('alumni') ?? false;

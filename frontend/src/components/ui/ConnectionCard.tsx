@@ -17,7 +17,7 @@ const ConnectionCard = ({ user, connectionStatus = 'none', matchScore, onConnect
   <Card hover className="flex flex-col" onClick={onViewProfile}>
     <div className="flex items-start gap-3 mb-3">
       <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white font-semibold text-sm shrink-0">
-        {user.avatar ? <img src={user.avatar} alt="" className="w-full h-full rounded-full object-cover" /> : getInitials(user.firstName, user.lastName)}
+        {user.avatar ? <img src={user.avatar} alt="" className="w-full h-full rounded-full object-cover" /> : getInitials(user.firstName || '', user.lastName || '')}
       </div>
       <div className="flex-1 min-w-0">
         <h4 className="font-semibold text-surface-900 dark:text-surface-100 truncate">{user.firstName} {user.lastName}</h4>

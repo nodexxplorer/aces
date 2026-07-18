@@ -1,44 +1,68 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
 import ManualCard from '../../components/ui/ManualCard';
-import Modal from '../../components/ui/Modal';
-import { useCartStore } from '../../stores/cartStore';
 import { useNotification } from '../../hooks/useNotification';
-import { ShoppingCart, Search, Trash2, CheckCircle } from 'lucide-react';
-import type { Manual } from '../../types';
-
-const mockManuals: Manual[] = [
-  { id: 'm-1', title: 'CPE 511: Embedded Systems Design', description: 'Lab workbook and theory overview for CPE 511 course instruction.', price: 3500, level: 5, semester: 'first', isActive: true, coverImageUrl: '', authorId: 'lec-1', code: 'CPE511-M', createdAt: '' },
-  { id: 'm-2', title: 'CPE 513: Computer Architecture II', description: 'Lecture companion notes covering pipelining, hazards, and microcode.', price: 4000, level: 5, semester: 'first', isActive: true, coverImageUrl: '', authorId: 'lec-1', code: 'CPE513-M', createdAt: '' },
-  { id: 'm-3', title: 'EEE 511: Control Engineering I', description: 'Reference handbook on transfer functions, bode plots, and controllers.', price: 3000, level: 5, semester: 'first', isActive: true, coverImageUrl: '', authorId: 'lec-2', code: 'EEE511-M', createdAt: '' },
-];
+import { ShoppingCart, Search, CheckCircle, Loader2 } from 'lucide-react';
+import { getManuals, purchaseManual, getMyPurchases } from '../../api/manuals';
+import type { Manual } from '../../api/manuals';
 
 const ManualsPage = () => {
-  const { items, addItem, removeItem, clearCart, getTotal, getItemCount } = useCartStore();
-  const { success, error } = useNotification();
-  const [level, setLevel] = useState('5');
+  const { success, error: notifyError } = useNotification();
+  const [manuals, setManuals] = useState<Manual[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [level, setLevel] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [cartOpen, setCartOpen] = useState(false);
-  const [checkingOut, setCheckingOut] = useState(false);
+  const [purchasedIds, setPurchasedIds] = useState<Set<string>>(new Set());
+  const [buyingId, setBuyingId] = useState<string | null>(null);
 
-  const filtered = mockManuals.filter(
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [manualsData, purchasesData] = await Promise.allSettled([
+        getManuals(level ? { level: parseInt(level) } : undefined),
+        getMyPurchases(),
+      ]);
+      if (manualsData.status === 'fulfilled') {
+        setManuals(Array.isArray(manualsData.value) ? manualsData.value : []);
+      }
+      if (purchasesData.status === 'fulfilled') {
+        const items = Array.isArray(purchasesData.value) ? purchasesData.value : [];
+        setPurchasedIds(new Set(items.map((p) => p.manual_id)));
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filtered = manuals.filter(
     (m) =>
-      m.level === parseInt(level) &&
-      m.title.toLowerCase().includes(searchQuery.toLowerCase())
+      m.is_active &&
+      (!level || m.level === parseInt(level)) &&
+      (!searchQuery || m.title.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const handleCheckout = async () => {
-    setCheckingOut(true);
+  const handleBuy = async (manual: Manual) => {
     try {
-      await new Promise((r) => setTimeout(r, 1500));
-      success('Purchase Successful', `Bought ${getItemCount()} manuals. Added to download vault. Get them from your Classrep`);
-      clearCart();
-      setCartOpen(false);
-    } catch {
-      error('Checkout Error', 'Gateway timeout.');
+      setBuyingId(manual.id);
+      await purchaseManual(manual.id);
+      setPurchasedIds((prev) => new Set([...prev, manual.id]));
+      success('Purchase Successful', `"${manual.title}" purchased. Check "My Manuals" for your QR code.`);
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || err?.message || 'Purchase failed';
+      if (msg.includes('already purchased')) {
+        notifyError('Already Purchased', 'You have already purchased this manual.');
+      } else {
+        notifyError('Purchase Failed', msg);
+      }
     } finally {
-      setCheckingOut(false);
+      setBuyingId(null);
     }
   };
 
@@ -51,9 +75,6 @@ const ManualsPage = () => {
             Purchase recommended textbooks and laboratory manuals.
           </p>
         </div>
-        <Button variant="outline" leftIcon={<ShoppingCart className="w-4 h-4" />} onClick={() => setCartOpen(true)}>
-          Cart ({getItemCount()})
-        </Button>
       </div>
 
       <div className="flex gap-4 max-w-xl">
@@ -69,6 +90,7 @@ const ManualsPage = () => {
         </div>
         <Select
           options={[
+            { value: '', label: 'All Levels' },
             { value: '1', label: '100 Level' },
             { value: '2', label: '200 Level' },
             { value: '3', label: '300 Level' },
@@ -76,44 +98,40 @@ const ManualsPage = () => {
             { value: '5', label: '500 Level' },
           ]}
           value={level}
-          onChange={(e) => setLevel(e.target.value)}
+          onChange={(e) => { setLevel(e.target.value); }}
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filtered.map((m) => (
-          <ManualCard key={m.id} manual={m} onPurchase={() => addItem(m)} />
-        ))}
-      </div>
-
-      <Modal isOpen={cartOpen} onClose={() => setCartOpen(false)} title="Shopping Cart">
-        {items.length === 0 ? (
-          <p className="text-sm text-surface-400 text-center py-6">Your shopping cart is empty.</p>
-        ) : (
-          <div className="space-y-4">
-            <div className="divide-y divide-surface-150 dark:divide-surface-800">
-              {items.map(({ manual }) => (
-                <div key={manual.id} className="flex justify-between items-center py-3">
-                  <div>
-                    <h5 className="text-sm font-semibold">{manual.title}</h5>
-                    <p className="text-xs text-primary-500 font-semibold">{manual.price} NGN</p>
-                  </div>
-                  <button onClick={() => removeItem(manual.id)} className="p-1 text-danger-500 hover:bg-danger-50 dark:hover:bg-danger-900/20 rounded-lg">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="pt-4 border-t border-surface-200 dark:border-surface-800 flex justify-between items-center">
-              <span className="text-sm font-semibold">Total Balance</span>
-              <span className="text-lg font-bold text-primary-500">{getTotal()} NGN</span>
-            </div>
-            <Button className="w-full mt-4" isLoading={checkingOut} onClick={handleCheckout} leftIcon={<CheckCircle className="w-4 h-4" />}>
-              Pay & Checkout
-            </Button>
-          </div>
-        )}
-      </Modal>
+      {loading ? (
+        <div className="flex items-center justify-center p-12">
+          <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
+          <span className="ml-2 text-sm text-surface-500">Loading manuals...</span>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12 text-surface-500">
+          <p>No manuals found.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filtered.map((m) => (
+            <ManualCard
+              key={m.id}
+              manual={{
+                id: m.id,
+                title: m.title,
+                description: m.description || '',
+                price: m.price,
+                level: m.level,
+                isActive: m.is_active,
+                coverImageUrl: m.cover_image_url,
+                createdAt: m.created_at,
+              }}
+              isPurchased={purchasedIds.has(m.id)}
+              onPurchase={purchasedIds.has(m.id) ? undefined : () => handleBuy(m)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };

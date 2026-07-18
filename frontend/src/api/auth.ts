@@ -8,12 +8,10 @@ export const login = async (payload: LoginPayload) => {
 
 export const logout = async () => {
   await apiClient.post('/auth/logout');
-  localStorage.removeItem('aces_access_token');
-  localStorage.removeItem('aces_refresh_token');
 };
 
-export const refreshToken = async (refreshToken: string) => {
-  const { data } = await apiClient.post<{ data: AuthTokens }>('/auth/refresh', { refreshToken });
+export const refreshToken = async () => {
+  const { data } = await apiClient.post<{ data: AuthTokens }>('/auth/refresh', {});
   return data.data;
 };
 

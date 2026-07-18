@@ -1,75 +1,45 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import DataTable from '../../components/data-display/DataTable';
 import StatusBadge from '../../components/data-display/StatusBadge';
-import { generateTranscriptPDF, downloadBlob } from '../../utils/pdf';
+import { requestTranscript, getStudentTranscriptRequests } from '../../api/transcripts';
+import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
-import { FileText, Download, Send } from 'lucide-react';
+import { FileText, Send } from 'lucide-react';
 import type { TranscriptRequest } from '../../types';
 
-const mockRequests: TranscriptRequest[] = [
-  {
-    id: 'req-1',
-    studentId: 'stud-1',
-    destination: 'MIT Registrar, Cambridge MA',
-    status: 'processing',
-    paymentStatus: 'paid',
-    createdAt: '2026-06-15T09:00:00Z',
-  },
-];
-
 const TranscriptsPage = () => {
-  const { success, error } = useNotification();
-  const [requests, setRequests] = useState<TranscriptRequest[]>(mockRequests);
+  const { user } = useAuth();
+  const { success, error: notifyError } = useNotification();
+  const [requests, setRequests] = useState<TranscriptRequest[]>([]);
   const [dest, setDest] = useState('');
-  const [isDownloading, setIsDownloading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const handleDownloadUnofficial = async () => {
-    setIsDownloading(true);
-    try {
-      const blob = await generateTranscriptPDF({
-        studentName: 'John Doe',
-        matricNumber: 'ENG/2021/001',
-        department: 'Computer Engineering',
-        semester: 'First',
-        session: '2025/2026',
-        courses: [
-          { code: 'ENG101', title: 'Engineering Mathematics', credit: 3, grade: 'A' },
-          { code: 'ENG102', title: 'Programming Fundamentals', credit: 3, grade: 'B' },
-        ],
-        cgpa: '4.20',
-      });
-      downloadBlob(blob, 'unofficial_transcript.pdf');
-      success('Download Successful', 'Unofficial transcript PDF downloaded.');
-    } catch {
-      error('Download Failed', 'Failed to generate transcript PDF.');
-    } finally {
-      setIsDownloading(false);
-    }
-  };
+  useEffect(() => {
+    if (!user?.id) return;
+    setLoading(true);
+    getStudentTranscriptRequests(user.id)
+      .then(setRequests)
+      .catch(() => notifyError('Error', 'Failed to load transcript requests'))
+      .finally(() => setLoading(false));
+  }, [user?.id]);
 
   const handleRequestOfficial = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!dest) return;
     setSubmitting(true);
     try {
-      await new Promise((r) => setTimeout(r, 1200));
-      const newReq: TranscriptRequest = {
-        id: `req-${Date.now()}`,
-        studentId: 'stud-1',
-        destination: dest,
-        status: 'pending',
-        paymentStatus: 'paid',
-        createdAt: new Date().toISOString(),
-      };
-      setRequests((prev) => [newReq, ...prev]);
+      await requestTranscript({ destination: dest });
       setDest('');
       success('Request Submitted', 'Official transcript request queued for processing.');
+      if (user?.id) {
+        getStudentTranscriptRequests(user.id).then(setRequests);
+      }
     } catch {
-      error('Submission Failed', 'Something went wrong.');
+      notifyError('Submission Failed', 'Something went wrong.');
     } finally {
       setSubmitting(false);
     }
@@ -77,7 +47,7 @@ const TranscriptsPage = () => {
 
   const columns = [
     { key: 'destination', label: 'Recipient Institution' },
-    { key: 'createdAt', label: 'Date Requested', render: (val: unknown) => new Date(val as string).toLocaleDateString() },
+    { key: 'createdAt', label: 'Date Requested', render: (val: unknown) => val ? new Date(val as string).toLocaleDateString() : 'N/A' },
     { key: 'status', label: 'Status', render: (val: unknown) => <StatusBadge status={val as string} /> },
   ];
 
@@ -110,7 +80,7 @@ const TranscriptsPage = () => {
             <p className="text-xs text-surface-500 mb-4 leading-relaxed">
               Generate and download an unofficial copy of your results transcript for personal reference or internship applications.
             </p>
-            <Button className="w-full" isLoading={isDownloading} onClick={handleDownloadUnofficial} leftIcon={<Download className="w-4 h-4" />}>
+            <Button className="w-full" onClick={() => notifyError('Info', 'Unofficial transcript generation requires results data.')} leftIcon={<FileText className="w-4 h-4" />}>
               Download Copy
             </Button>
           </Card>

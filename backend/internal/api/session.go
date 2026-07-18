@@ -1,22 +1,19 @@
 package api
 
 import (
-	"errors"
 	"net/http"
-	"strings"
-	"time"
 
-	"github.com/aces/backend/internal/db/sql"
+	"github.com/aces/backend/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type createSessionRequest struct {
-	Name      string `json:"name" binding:"required"`
-	StartDate string `json:"start_date" binding:"required"`
-	EndDate   string `json:"end_date" binding:"required"`
+	Name           string `json:"name" binding:"required"`
+	StartDate      string `json:"start_date"`
+	EndDate        string `json:"end_date"`
+	StartDateCamel string `json:"startDate"`
+	EndDateCamel   string `json:"endDate"`
 }
 
 func (server *Server) createSession(ctx *gin.Context) {
@@ -26,27 +23,23 @@ func (server *Server) createSession(ctx *gin.Context) {
 		return
 	}
 
-	startDate, err := time.Parse(time.RFC3339, req.StartDate)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid start_date format, must be RFC3339"})
+	startDate := req.StartDate
+	if startDate == "" {
+		startDate = req.StartDateCamel
+	}
+	endDate := req.EndDate
+	if endDate == "" {
+		endDate = req.EndDateCamel
+	}
+
+	if startDate == "" || endDate == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "start_date/startDate and end_date/endDate are required"})
 		return
 	}
 
-	endDate, err := time.Parse(time.RFC3339, req.EndDate)
+	session, err := server.sessions.Create(ctx, req.Name, startDate, endDate)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid end_date format, must be RFC3339"})
-		return
-	}
-
-	arg := db.CreateSessionParams{
-		Name:      strings.TrimSpace(req.Name),
-		StartDate: pgtype.Timestamptz{Time: startDate, Valid: true},
-		EndDate:   pgtype.Timestamptz{Time: endDate, Valid: true},
-	}
-
-	session, err := server.store.CreateSession(ctx, arg)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -55,34 +48,14 @@ func (server *Server) createSession(ctx *gin.Context) {
 
 func (server *Server) getSession(ctx *gin.Context) {
 	idStr := ctx.Param("id")
-	
-	if idStr == "active" {
-		session, err := server.store.GetActiveSession(ctx)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				ctx.JSON(http.StatusNotFound, gin.H{"error": "no active session found"})
-				return
-			}
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		ctx.JSON(http.StatusOK, session)
-		return
-	}
-	
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid session id"})
-		return
-	}
 
-	session, err := server.store.GetSession(ctx, id)
+	session, err := server.sessions.GetByIDOrActive(ctx, idStr)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
-			return
+		status := http.StatusNotFound
+		if err.Error() == "invalid session id" {
+			status = http.StatusBadRequest
 		}
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(status, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -101,12 +74,7 @@ func (server *Server) listSessions(ctx *gin.Context) {
 		return
 	}
 
-	arg := db.ListSessionsParams{
-		Limit:  req.PageSize,
-		Offset: (req.PageID - 1) * req.PageSize,
-	}
-
-	sessions, err := server.store.ListSessions(ctx, arg)
+	sessions, err := server.sessions.List(ctx, req.PageSize, (req.PageID-1)*req.PageSize)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -116,11 +84,15 @@ func (server *Server) listSessions(ctx *gin.Context) {
 }
 
 type updateSessionRequest struct {
-	Name       string `json:"name" binding:"required"`
-	StartDate  string `json:"start_date" binding:"required"`
-	EndDate    string `json:"end_date" binding:"required"`
-	IsActive   bool   `json:"is_active"`
-	IsArchived bool   `json:"is_archived"`
+	Name            string `json:"name"`
+	StartDate       string `json:"start_date"`
+	EndDate         string `json:"end_date"`
+	StartDateCamel  string `json:"startDate"`
+	EndDateCamel    string `json:"endDate"`
+	IsActive        *bool  `json:"is_active"`
+	IsActiveCamel   *bool  `json:"isActive"`
+	IsArchived      *bool  `json:"is_archived"`
+	IsArchivedCamel *bool  `json:"isArchived"`
 }
 
 func (server *Server) updateSession(ctx *gin.Context) {
@@ -137,30 +109,33 @@ func (server *Server) updateSession(ctx *gin.Context) {
 		return
 	}
 
-	startDate, err := time.Parse(time.RFC3339, req.StartDate)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid start_date format, must be RFC3339"})
-		return
+	startDate := req.StartDate
+	if startDate == "" {
+		startDate = req.StartDateCamel
+	}
+	endDate := req.EndDate
+	if endDate == "" {
+		endDate = req.EndDateCamel
 	}
 
-	endDate, err := time.Parse(time.RFC3339, req.EndDate)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid end_date format, must be RFC3339"})
-		return
+	isActive := req.IsActive
+	if isActive == nil {
+		isActive = req.IsActiveCamel
+	}
+	isArchived := req.IsArchived
+	if isArchived == nil {
+		isArchived = req.IsArchivedCamel
 	}
 
-	arg := db.UpdateSessionParams{
-		ID:         id,
-		Name:       strings.TrimSpace(req.Name),
-		StartDate:  pgtype.Timestamptz{Time: startDate, Valid: true},
-		EndDate:    pgtype.Timestamptz{Time: endDate, Valid: true},
-		IsActive:   req.IsActive,
-		IsArchived: req.IsArchived,
-	}
-
-	session, err := server.store.UpdateSession(ctx, arg)
+	session, err := server.sessions.Update(ctx, id, service.UpdateSessionInput{
+		Name:       req.Name,
+		StartDate:  startDate,
+		EndDate:    endDate,
+		IsActive:   isActive,
+		IsArchived: isArchived,
+	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -175,7 +150,7 @@ func (server *Server) deleteSession(ctx *gin.Context) {
 		return
 	}
 
-	err = server.store.DeleteSession(ctx, id)
+	err = server.sessions.Delete(ctx, id)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

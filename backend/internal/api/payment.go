@@ -1,10 +1,12 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
 	db "github.com/aces/backend/internal/db/sql"
+	"github.com/aces/backend/internal/payment"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -733,3 +735,140 @@ func (server *Server) checkDuePaid(ctx *gin.Context) {
 		"is_paid":    isPaid,
 	})
 }
+
+type listAllPaymentsQuery struct {
+	Limit  int32 `form:"limit"  binding:"required,min=1,max=100"`
+	Offset int32 `form:"offset" binding:"min=0"`
+}
+
+type getPaymentByReferenceQuery struct {
+	Reference string `form:"reference" binding:"required"`
+}
+
+type checkoutRequest struct {
+	PaymentID string `json:"payment_id" binding:"required,uuid"`
+	Email     string `json:"email"      binding:"required,email"`
+}
+
+// initializeCheckout POST /payments/checkout
+func (server *Server) initializeCheckout(ctx *gin.Context) {
+	var req checkoutRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	paymentID, err := uuid.Parse(req.PaymentID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid payment_id"})
+		return
+	}
+
+	// Fetch payment
+	paymentRecord, err := server.store.GetPayment(ctx, paymentID)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "payment not found"})
+		return
+	}
+
+	if paymentRecord.Status == "completed" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "payment already completed"})
+		return
+	}
+
+	// Determine reference
+	reference := ""
+	if paymentRecord.PaystackReference != nil && *paymentRecord.PaystackReference != "" {
+		reference = *paymentRecord.PaystackReference
+	} else {
+		reference = fmt.Sprintf("ACES-%s-%d", paymentRecord.ID.String()[:8], time.Now().Unix())
+		// Update reference in DB using raw query via GetDB
+		if q, ok := server.store.(interface { GetDB() db.DBTX }); ok {
+			_, err = q.GetDB().Exec(ctx, "UPDATE payments SET paystack_reference = $1 WHERE id = $2", reference, paymentRecord.ID)
+			if err != nil {
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save reference: " + err.Error()})
+				return
+			}
+		}
+	}
+
+	// Initialize Paystack payment
+	amountKobo := paymentRecord.Amount.Mul(decimal.NewFromInt(100)).IntPart()
+	paystackClient := payment.NewPaystackClient(server.config.PaystackSecretKey, server.config.PaystackPublicKey)
+
+	paystackReq := payment.InitPaymentRequest{
+		Email:       req.Email,
+		Amount:      amountKobo,
+		Reference:   reference,
+		CallbackURL: fmt.Sprintf("%s/payments/verify", server.config.ServerAddress),
+		Metadata: payment.Metadata{
+			"payment_id": paymentRecord.ID.String(),
+			"student_id": paymentRecord.StudentID.String(),
+		},
+	}
+
+	resp, err := paystackClient.InitializePayment(paystackReq)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to initialize paystack: " + err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status":  true,
+		"message": "checkout initialized",
+		"data": gin.H{
+			"authorization_url": resp.Data.AuthorizationURL,
+			"reference":         resp.Data.Reference,
+			"access_code":       resp.Data.AccessCode,
+		},
+	})
+}
+
+// listAllPayments GET /payments
+func (server *Server) listAllPayments(ctx *gin.Context) {
+	var q listAllPaymentsQuery
+	if err := ctx.ShouldBindQuery(&q); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	payments, err := server.store.ListAllPayments(ctx, db.ListAllPaymentsParams{
+		Limit:  q.Limit,
+		Offset: q.Offset,
+	})
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, payments)
+}
+
+// getPaymentByReference GET /payments/by-reference?reference=XXX
+func (server *Server) getPaymentByReference(ctx *gin.Context) {
+	var q getPaymentByReferenceQuery
+	if err := ctx.ShouldBindQuery(&q); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	payment, err := server.store.GetPaymentByReference(ctx, &q.Reference)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "payment not found for this reference"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, payment)
+}
+
+// listDefaulters GET /payments/defaulters
+func (server *Server) listDefaulters(ctx *gin.Context) {
+	defaulters, err := server.store.ListDefaultersByLevel(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, defaulters)
+}
+

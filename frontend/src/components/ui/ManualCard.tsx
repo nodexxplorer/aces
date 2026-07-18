@@ -16,7 +16,7 @@ const ManualCard = ({ manual, onPurchase, isPurchased }: ManualCardProps) => (
       )}
     </div>
     <h4 className="font-semibold text-surface-900 dark:text-surface-100 text-sm mb-1 line-clamp-2">{manual.title}</h4>
-    <p className="text-xs text-surface-500 mb-2 line-clamp-2">{manual.description}</p>
+    <p className="text-xs text-surface-500 mb-2 line-clamp-2">{manual.description || 'No description'}</p>
     <div className="flex items-center justify-between">
       <span className="text-lg font-bold text-primary-600 dark:text-primary-400">{formatCurrency(manual.price)}</span>
       <Badge variant="outline">Level {manual.level}</Badge>

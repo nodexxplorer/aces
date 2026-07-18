@@ -39,7 +39,7 @@ const CourseRegistrationForm = ({ availableCourses, onSubmit, isLoading }: Cours
                 {c.code}: {c.title}
               </span>
               <span className="text-xs text-surface-500 dark:text-surface-400">
-                Credits: {c.creditUnits} | Level {c.level} | Semester: {c.semester}
+                Credits: {c.unit} | Level {c.level} | Semester: {c.semester}
               </span>
             </label>
           </div>

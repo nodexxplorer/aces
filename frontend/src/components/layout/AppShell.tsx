@@ -1,19 +1,22 @@
 import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import ThemeToggle from '../ui/ThemeToggle';
 import { ToastContainer } from '../feedback/Toast';
 import CookieConsent from '../feedback/CookieConsent';
+import AdminMobileGuard from './AdminMobileGuard';
 import OfflineBanner from '../feedback/OfflineBanner';
 
 const AppShell = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const { pathname } = useLocation();
+  const isAdmin = pathname.startsWith('/admin');
 
   return (
-    <div className="min-h-screen bg-surface-50 dark:bg-surface-950 flex flex-col overflow-x-hidden">
+    <div className="h-dvh bg-surface-50 dark:bg-surface-950 flex flex-col overflow-hidden">
       <div className="flex-1 flex w-full min-h-0">
         <Sidebar
           collapsed={sidebarCollapsed}
@@ -24,7 +27,7 @@ const AppShell = () => {
         <div className="flex flex-col flex-1 min-w-0">
           <Navbar onMenuClick={() => setMobileSidebarOpen(true)} />
           <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
-            <Outlet />
+            {isAdmin ? <AdminMobileGuard><Outlet /></AdminMobileGuard> : <Outlet />}
           </main>
           <Footer />
         </div>

@@ -34,3 +34,13 @@ RETURNING *;
 -- name: DeleteUser :exec
 DELETE FROM users
 WHERE id = $1;
+
+-- name: ApproveUserStatus :one
+UPDATE users
+SET
+    is_approved = $2,
+    approved_by = $3,
+    approved_at = $4,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING *;

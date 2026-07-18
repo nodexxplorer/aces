@@ -281,3 +281,111 @@ func (server *Server) updateRegisteredCourse(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, registeredCourse)
 }
+
+type submitRegistrationRequest struct {
+	SessionID  string   `json:"session_id" binding:"required,uuid"`
+	SemesterID string   `json:"semester_id" binding:"required,uuid"`
+	CourseIDs  []string `json:"course_ids" binding:"required,min=1"`
+}
+
+func (server *Server) submitRegistration(ctx *gin.Context) {
+	var req submitRegistrationRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID := getUserID(ctx)
+
+	// Resolve student ID from user ID
+	student, err := server.store.GetStudentByUserId(ctx, userID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "student profile not found"})
+		return
+	}
+
+	sessionID, err := uuid.Parse(req.SessionID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid session_id"})
+		return
+	}
+
+	semesterID, err := uuid.Parse(req.SemesterID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid semester_id"})
+		return
+	}
+
+	// Check for existing confirmed registration for this session+semester
+	existingRegs, err := server.store.ListStudentCourseRegistrations(ctx, student.ID)
+	if err == nil {
+		for _, reg := range existingRegs {
+			if reg.SessionID == sessionID && reg.SemesterID == semesterID && (reg.Status == "submitted" || reg.Status == "approved") {
+				ctx.JSON(http.StatusConflict, gin.H{"error": "you already have a confirmed registration for this semester"})
+				return
+			}
+		}
+	}
+
+	// Calculate total units
+	var totalUnits int32
+	courseUUIDs := make([]uuid.UUID, 0, len(req.CourseIDs))
+	for _, cid := range req.CourseIDs {
+		courseID, err := uuid.Parse(cid)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid course_id: " + cid})
+			return
+		}
+		course, err := server.store.GetCourse(ctx, courseID)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "course not found: " + cid})
+			return
+		}
+		totalUnits += course.Unit
+		courseUUIDs = append(courseUUIDs, courseID)
+	}
+
+	// Validate credit load
+	if totalUnits < 12 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "minimum credit load is 12 units"})
+		return
+	}
+	if totalUnits > 24 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "maximum credit load is 24 units"})
+		return
+	}
+
+	// Create the registration header
+	registration, err := server.store.CreateCourseRegistration(ctx, db.CreateCourseRegistrationParams{
+		StudentID:  student.ID,
+		SessionID:  sessionID,
+		SemesterID: semesterID,
+		TotalUnits: totalUnits,
+		Status:     "submitted",
+	})
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create registration: " + err.Error()})
+		return
+	}
+
+	// Register each course
+	registeredCourses := make([]db.RegisteredCourse, 0, len(courseUUIDs))
+	for _, courseID := range courseUUIDs {
+		rc, err := server.store.CreateRegisteredCourse(ctx, db.CreateRegisteredCourseParams{
+			RegistrationID: registration.ID,
+			CourseID:       courseID,
+			Status:         "enrolled",
+			IsCarryover:    false,
+		})
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to register course: " + err.Error()})
+			return
+		}
+		registeredCourses = append(registeredCourses, rc)
+	}
+
+	ctx.JSON(http.StatusCreated, gin.H{
+		"registration":     registration,
+		"registered_courses": registeredCourses,
+	})
+}

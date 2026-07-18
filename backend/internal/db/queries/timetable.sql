@@ -9,9 +9,17 @@ INSERT INTO timetable (
     semester_id,
     has_conflict,
     conflict_details,
-    created_by
+    created_by,
+    day_of_week,
+    level,
+    entry_type,
+    class_type,
+    exam_type,
+    lecturer_id,
+    invigilators,
+    is_published
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
 ) RETURNING *;
 
 -- name: GetTimetableEntry :one

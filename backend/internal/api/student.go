@@ -4,10 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/aces/backend/internal/db/sql"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type createStudentRequest struct {
@@ -32,30 +30,7 @@ func (server *Server) createStudent(ctx *gin.Context) {
 		return
 	}
 
-	arg := db.CreateStudentParams{
-		UserID:       userID,
-		MatricNumber: strings.ToUpper(strings.TrimSpace(req.MatricNumber)), // standardize matric numbers to uppercase
-		Level:        req.Level,
-		EntryYear:    req.EntryYear,
-	}
-
-	if req.CurrentSessionID != "" {
-		sessionID, err := uuid.Parse(req.CurrentSessionID)
-		if err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid current_session_id"})
-			return
-		}
-		arg.CurrentSessionID = pgtype.UUID{Bytes: sessionID, Valid: true}
-	}
-
-	if req.CurrentSemester != "" {
-		arg.CurrentSemester = db.NullSemesterSeason{
-			SemesterSeason: db.SemesterSeason(req.CurrentSemester),
-			Valid:          true,
-		}
-	}
-
-	student, err := server.store.CreateStudent(ctx, arg)
+	student, err := server.students.Create(ctx, userID, strings.ToUpper(strings.TrimSpace(req.MatricNumber)), req.Level)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

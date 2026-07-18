@@ -1,73 +1,34 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Select from '../../components/ui/Select';
 import DataTable from '../../components/data-display/DataTable';
 import GradeBadge from '../../components/data-display/GradeBadge';
 import { calculateGPA } from '../../utils/cgpa';
+import { getStudentResults } from '../../api/results';
+import { useAuth } from '../../hooks/useAuth';
+import { useNotification } from '../../hooks/useNotification';
 import type { Result } from '../../types';
 import Button from '../../components/ui/Button';
 import { Printer } from 'lucide-react';
 
-const mockResults: Result[] = [
-  {
-    id: 'res-1',
-    studentId: 'stud-1',
-    courseId: 'c-1',
-    sessionId: '2025/2026',
-    semester: 'first',
-    caScore: 28,
-    examScore: 54,
-    totalScore: 82,
-    grade: 'A',
-    gradePoints: 5,
-    isApproved: true,
-    createdAt: '',
-    course: {
-      id: 'c-1',
-      code: 'CPE 513',
-      title: 'Computer Architecture II',
-      creditUnits: 3,
-      level: 5,
-      semester: 'first',
-      subcategory: 'core',
-      department: 'Computer Eng',
-      isActive: true,
-      createdAt: '',
-    },
-  },
-  {
-    id: 'res-2',
-    studentId: 'stud-1',
-    courseId: 'c-2',
-    sessionId: '2025/2026',
-    semester: 'first',
-    caScore: 22,
-    examScore: 41,
-    totalScore: 63,
-    grade: 'B',
-    gradePoints: 4,
-    isApproved: true,
-    createdAt: '',
-    course: {
-      id: 'c-2',
-      code: 'EEE 511',
-      title: 'Control Engineering I',
-      creditUnits: 3,
-      level: 5,
-      semester: 'first',
-      subcategory: 'core',
-      department: 'Electrical Eng',
-      isActive: true,
-      createdAt: '',
-    },
-  },
-];
-
 const ResultsPage = () => {
+  const { user } = useAuth();
+  const { error: notifyError } = useNotification();
   const [level, setLevel] = useState('5');
-  const [semester, setSemester] = useState('first');
+  const [semester, setSemester] = useState('harmattan');
+  const [results, setResults] = useState<Result[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredResults = mockResults.filter(
+  useEffect(() => {
+    if (!user?.id) return;
+    setLoading(true);
+    getStudentResults(user.id)
+      .then(setResults)
+      .catch(() => notifyError('Error', 'Failed to load results'))
+      .finally(() => setLoading(false));
+  }, [user?.id]);
+
+  const filteredResults = results.filter(
     (r) => r.course?.level === parseInt(level) && r.semester === semester
   );
 
@@ -120,8 +81,8 @@ const ResultsPage = () => {
               <Select
                 placeholder="Semester"
                 options={[
-                  { value: 'first', label: 'First Semester' },
-                  { value: 'second', label: 'Second Semester' },
+                  { value: 'harmattan', label: 'Harmattan (First Semester)' },
+                  { value: 'rain', label: 'Rain (Second Semester)' },
                 ]}
                 value={semester}
                 onChange={(e) => setSemester(e.target.value)}
@@ -132,8 +93,8 @@ const ResultsPage = () => {
           <DataTable
             columns={columns as any}
             data={filteredResults as any}
-            emptyTitle="No results found for selection"
-            emptyDescription="Ensure you have completed registration and your course scores have been entered and approved."
+            emptyTitle={loading ? 'Loading results...' : 'No results found for selection'}
+            emptyDescription={loading ? 'Please wait while we fetch your results.' : 'Ensure you have completed registration and your course scores have been entered and approved.'}
           />
         </Card>
 

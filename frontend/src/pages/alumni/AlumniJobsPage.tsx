@@ -1,68 +1,77 @@
-import { useState } from 'react';
-import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
+import { useState, useEffect } from 'react';
+import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
-import Select from '../../components/ui/Select';
-import JobCard from '../../components/ui/JobCard';
+import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
+import Input from '../../components/ui/Input';
 import { useNotification } from '../../hooks/useNotification';
-import { Search, Plus, Briefcase } from 'lucide-react';
-import type { JobPost } from '../../types';
+import { Search, Plus, Briefcase, MapPin, ExternalLink } from 'lucide-react';
+import { getJobPosts, createJobPost, trackJobView } from '../../api/alumni';
 
-const mockJobs: JobPost[] = [
-  {
-    id: 'job-1',
-    title: 'Junior Embedded Systems Engineer',
-    company: 'Verve Technologies',
-    description: 'Design PCB schematics, write bare metal C drivers, and assemble lab prototypes.',
-    type: 'full_time',
-    location: 'Lagos, Nigeria',
-    salaryRange: '₦350,000 - ₦500,000 / month',
-    deadline: '2026-07-15T00:00:00Z',
-    postedBy: 'alumni-1',
-    isActive: true,
-    applicationCount: 4,
-    viewCount: 22,
-    createdAt: '',
-  },
-];
+const typeLabels: Record<string, string> = { full_time: 'Full Time', part_time: 'Part Time', internship: 'Internship', contract: 'Contract', remote: 'Remote' };
+const typeColors: Record<string, string> = { full_time: 'primary', part_time: 'info', internship: 'success', contract: 'warning', remote: 'info' };
 
 const AlumniJobsPage = () => {
-  const { success } = useNotification();
+  const { success, error: notifyError } = useNotification();
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [jobs, setJobs] = useState<JobPost[]>(mockJobs);
   const [createOpen, setCreateOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<any>(null);
 
   const [title, setTitle] = useState('');
   const [company, setCompany] = useState('');
-  const [type, setType] = useState('full_time');
+  const [jobType, setJobType] = useState('full_time');
   const [location, setLocation] = useState('');
+  const [industry, setIndustry] = useState('');
   const [salary, setSalary] = useState('');
   const [desc, setDesc] = useState('');
+  const [requirements, setRequirements] = useState('');
+  const [responsibilities, setResponsibilities] = useState('');
+  const [appUrl, setAppUrl] = useState('');
 
-  const handleCreate = (e: React.FormEvent) => {
+  useEffect(() => {
+    setLoading(true);
+    getJobPosts()
+      .then((data) => setJobs(Array.isArray(data) ? data : []))
+      .catch(() => notifyError('Error', 'Failed to load jobs'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = jobs.filter((j) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return j.title?.toLowerCase().includes(q) || j.company?.toLowerCase().includes(q) || j.industry?.toLowerCase().includes(q);
+  });
+
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !company) return;
-    const newJob: JobPost = {
-      id: `job-${Date.now()}`,
-      title,
-      company,
-      description: desc,
-      type: type as any,
-      location,
-      salaryRange: salary,
-      postedBy: 'me',
-      isActive: true,
-      applicationCount: 0,
-      viewCount: 0,
-      createdAt: new Date().toISOString(),
-    };
-    setJobs((prev) => [newJob, ...prev]);
-    setCreateOpen(false);
-    setTitle('');
-    setCompany('');
-    setDesc('');
-    success('Job Posted', 'Job referral vacancy published on the Alumni Board.');
+    if (!title || !company || !desc) return;
+    try {
+      setSubmitting(true);
+      await createJobPost({
+        title, company, job_type: jobType, location: location || undefined,
+        industry: industry || undefined,
+        description: desc, requirements: requirements || undefined,
+        responsibilities: responsibilities || undefined,
+        salary_range: salary || undefined, application_url: appUrl || undefined,
+      });
+      setCreateOpen(false);
+      setTitle(''); setCompany(''); setDesc(''); setRequirements(''); setResponsibilities(''); setLocation(''); setIndustry(''); setSalary(''); setAppUrl('');
+      success('Job Posted', 'Your job listing is now live');
+      const refreshed = await getJobPosts();
+      setJobs(Array.isArray(refreshed) ? refreshed : []);
+    } catch (err: any) {
+      notifyError('Failed', err?.response?.data?.error || err?.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleViewJob = async (job: any) => {
+    setSelectedJob(job);
+    try { await trackJobView(job.id); } catch { /* silent */ }
   };
 
   return (
@@ -70,68 +79,126 @@ const AlumniJobsPage = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Alumni Job Board</h1>
-          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-            Access internal job postings, internships, and entry-level engineering referrals.
-          </p>
+          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Post and discover job opportunities from the alumni network</p>
         </div>
-        <Button leftIcon={<Plus className="w-4 h-4" />} onClick={() => setCreateOpen(true)}>
-          Post Job Referral
-        </Button>
+        <Button leftIcon={<Plus className="w-4 h-4" />} onClick={() => setCreateOpen(true)}>Post Job</Button>
       </div>
 
-      <div className="flex gap-4 max-w-xl">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
-          <input
-            type="text"
-            placeholder="Search job titles or companies..."
-            className="w-full pl-10 pr-4 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
+        <input type="text" placeholder="Search by title, company, or industry..." className="w-full pl-10 pr-4 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20" value={search} onChange={(e) => setSearch(e.target.value)} />
+      </div>
+
+      {loading ? (
+        <Card><div className="p-12 text-center text-sm text-surface-500">Loading...</div></Card>
+      ) : filtered.length === 0 ? (
+        <Card><div className="p-12 text-center text-sm text-surface-400">No job listings found</div></Card>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filtered.map((job) => {
+            const type = (job.job_type || job.type || 'full_time') as string;
+            return (
+              <Card key={job.id} hover className="p-5 flex flex-col" onClick={() => handleViewJob(job)}>
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-surface-900 dark:text-surface-100 truncate">{job.title}</h4>
+                    <p className="text-sm text-surface-500">{job.company}</p>
+                  </div>
+                  <Badge variant={(typeColors[type] || 'primary') as any}>{typeLabels[type] || type}</Badge>
+                </div>
+                <div className="flex items-center gap-3 text-xs text-surface-500 mb-3 flex-wrap">
+                  {job.location && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {job.location}</span>}
+                  {(job.salary_range || job.salaryRange) && <span className="flex items-center gap-1"><Briefcase className="w-3.5 h-3.5" /> {job.salary_range || job.salaryRange}</span>}
+                  {job.industry && <Badge variant="outline">{job.industry}</Badge>}
+                </div>
+                <p className="text-sm text-surface-600 dark:text-surface-400 line-clamp-3 flex-1">{job.description}</p>
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-surface-100 dark:border-surface-700">
+                  {job.poster_name && <p className="text-[10px] text-surface-400">by {job.poster_name}</p>}
+                  {(job.views_count || job.applications_count) && (
+                    <p className="text-[10px] text-surface-400">{job.views_count || 0} views &bull; {job.applications_count || 0} apps</p>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
         </div>
-      </div>
+      )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {jobs.map((j) => (
-          <JobCard key={j.id} job={j} onClick={() => success('Application Sent', 'Your student resume referral profile has been submitted.')} />
-        ))}
-      </div>
+      {selectedJob && (
+        <Modal isOpen={!!selectedJob} onClose={() => setSelectedJob(null)} title={selectedJob.title} size="lg">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Badge variant="primary">{selectedJob.company}</Badge>
+              <Badge variant="outline">{typeLabels[selectedJob.job_type] || selectedJob.job_type}</Badge>
+              {selectedJob.industry && <Badge variant="info">{selectedJob.industry}</Badge>}
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              {selectedJob.location && <p className="flex items-center gap-1"><MapPin className="w-4 h-4" /> {selectedJob.location}</p>}
+              {selectedJob.salary_range && <p className="flex items-center gap-1"><Briefcase className="w-4 h-4" /> {selectedJob.salary_range}</p>}
+            </div>
+            <div>
+              <h4 className="font-semibold text-sm mb-1">Description</h4>
+              <p className="text-sm text-surface-600 dark:text-surface-400 whitespace-pre-wrap">{selectedJob.description}</p>
+            </div>
+            {selectedJob.requirements && (
+              <div>
+                <h4 className="font-semibold text-sm mb-1">Requirements</h4>
+                <p className="text-sm text-surface-600 dark:text-surface-400 whitespace-pre-wrap">{selectedJob.requirements}</p>
+              </div>
+            )}
+            {selectedJob.responsibilities && (
+              <div>
+                <h4 className="font-semibold text-sm mb-1">Responsibilities</h4>
+                <p className="text-sm text-surface-600 dark:text-surface-400 whitespace-pre-wrap">{selectedJob.responsibilities}</p>
+              </div>
+            )}
+            <div className="flex gap-3 pt-2">
+              {selectedJob.application_url && (
+                <a href={selectedJob.application_url} target="_blank" rel="noopener noreferrer">
+                  <Button leftIcon={<ExternalLink className="w-4 h-4" />}>Apply Now</Button>
+                </a>
+              )}
+              <Button variant="outline" onClick={() => setSelectedJob(null)}>Close</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
-      <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title="Post Job Vacancy">
-        <form onSubmit={handleCreate} className="space-y-4">
+      <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title="Post a Job" size="lg">
+        <form onSubmit={handleCreate} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Job Title" placeholder="e.g. Firmware Engineer" value={title} onChange={(e) => setTitle(e.target.value)} required />
-            <Input label="Company Name" placeholder="e.g. Verve Tech" value={company} onChange={(e) => setCompany(e.target.value)} required />
+            <Input label="Job Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+            <Input label="Company" value={company} onChange={(e) => setCompany(e.target.value)} required />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Select
-              label="Contract Type"
-              options={[
-                { value: 'full_time', label: 'Full Time' },
-                { value: 'part_time', label: 'Part Time' },
-                { value: 'internship', label: 'Internship' },
-                { value: 'contract', label: 'Contract' },
-              ]}
-              value={type}
-              onChange={(e) => setType(e.target.value)}
-            />
-            <Input label="Office Location" placeholder="e.g. Lagos (Remote)" value={location} onChange={(e) => setLocation(e.target.value)} />
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Type</label>
+              <select className="w-full mt-1 px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg" value={jobType} onChange={(e) => setJobType(e.target.value)}>
+                <option value="full_time">Full Time</option>
+                <option value="part_time">Part Time</option>
+                <option value="internship">Internship</option>
+                <option value="contract">Contract</option>
+                <option value="remote">Remote</option>
+              </select>
+            </div>
+            <Input label="Location" placeholder="Lagos, Remote" value={location} onChange={(e) => setLocation(e.target.value)} />
+            <Input label="Industry" placeholder="e.g. Tech" value={industry} onChange={(e) => setIndustry(e.target.value)} />
           </div>
-          <Input label="Salary / Compensation" placeholder="e.g. ₦300,000 / month" value={salary} onChange={(e) => setSalary(e.target.value)} />
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Description</label>
-            <textarea
-              placeholder="Detail job tasks, qualifications required..."
-              className="w-full h-24 rounded-lg border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-900 text-sm p-3 focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none"
-              value={desc}
-              onChange={(e) => setDesc(e.target.value)}
-              required
-            />
+          <Input label="Salary Range" value={salary} onChange={(e) => setSalary(e.target.value)} />
+          <div>
+            <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Description *</label>
+            <textarea className="w-full mt-1 h-24 rounded-lg border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-900 text-sm p-3 focus:outline-none resize-none" value={desc} onChange={(e) => setDesc(e.target.value)} required />
           </div>
-          <Button type="submit" className="w-full" leftIcon={<Briefcase className="w-4 h-4" />}>
-            Publish Vacancy
-          </Button>
+          <div>
+            <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Requirements</label>
+            <textarea className="w-full mt-1 h-20 rounded-lg border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-900 text-sm p-3 focus:outline-none resize-none" value={requirements} onChange={(e) => setRequirements(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Responsibilities</label>
+            <textarea className="w-full mt-1 h-20 rounded-lg border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-900 text-sm p-3 focus:outline-none resize-none" value={responsibilities} onChange={(e) => setResponsibilities(e.target.value)} />
+          </div>
+          <Input label="Application URL" placeholder="https://..." value={appUrl} onChange={(e) => setAppUrl(e.target.value)} />
+          <Button type="submit" className="w-full" isLoading={submitting}>Publish Job</Button>
         </form>
       </Modal>
     </div>

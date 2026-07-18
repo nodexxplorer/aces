@@ -1,0 +1,5 @@
+ALTER TABLE timetable DROP COLUMN IF EXISTS day_of_week;
+ALTER TABLE timetable DROP COLUMN IF EXISTS level;
+ALTER TABLE timetable ALTER COLUMN session_id SET NOT NULL;
+ALTER TABLE timetable ALTER COLUMN semester_id SET NOT NULL;
+ALTER TABLE timetable ALTER COLUMN created_by SET NOT NULL;

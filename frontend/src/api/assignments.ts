@@ -1,8 +1,8 @@
 import apiClient from './client';
 import type { Assignment } from '../types';
 
-export const getAssignments = async (courseId?: string) => {
-  const { data } = await apiClient.get<{ data: Assignment[] }>('/assignments', { params: { courseId } });
+export const getAssignments = async (courseId: string, sessionId: string) => {
+  const { data } = await apiClient.get<{ data: Assignment[] }>(`/assignments/course/${courseId}/session/${sessionId}`);
   return data.data;
 };
 
@@ -11,20 +11,13 @@ export const getAssignment = async (assignmentId: string) => {
   return data.data;
 };
 
-export const createAssignment = async (payload: Omit<Assignment, 'id' | 'createdAt' | 'updatedAt'>) => {
+export const createAssignment = async (payload: { courseId: string; sessionId: string; title: string; description?: string; dueDate?: string }) => {
   const { data } = await apiClient.post<{ data: Assignment }>('/assignments', payload);
   return data.data;
 };
 
-export const uploadAssignment = async (courseId: string, file: File, title: string, dueDate: string) => {
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('courseId', courseId);
-  formData.append('title', title);
-  formData.append('dueDate', dueDate);
-  const { data } = await apiClient.post<{ data: Assignment }>('/assignments/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+export const updateAssignment = async (assignmentId: string, payload: Partial<Assignment>) => {
+  const { data } = await apiClient.put<{ data: Assignment }>(`/assignments/${assignmentId}`, payload);
   return data.data;
 };
 

@@ -1,53 +1,55 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
-import Select from '../../components/ui/Select';
-import Button from '../../components/ui/Button';
 import DataTable from '../../components/data-display/DataTable';
+import { getDefaulters } from '../../api/payments';
 import { useNotification } from '../../hooks/useNotification';
-import { Send, Download } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
-
-interface Defaulter {
-  id: string;
-  name: string;
-  matricNumber: string;
-  level: number;
-  outstandingBalance: number;
-}
-
-const mockDefaulters: Defaulter[] = [
-  { id: '1', name: 'Bob Alabi', matricNumber: 'ENG/2021/003', level: 5, outstandingBalance: 5000 },
-  { id: '2', name: 'Victor Udoh', matricNumber: 'ENG/2021/018', level: 5, outstandingBalance: 15000 },
-];
+import type { Defaulter } from '../../types';
 
 const DefaultersPage = () => {
-  const { success } = useNotification();
-  const [level, setLevel] = useState('5');
-  const [list, setList] = useState<Defaulter[]>(mockDefaulters);
+  const { error: notifyError } = useNotification();
+  const [list, setList] = useState<Defaulter[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [levelFilter, setLevelFilter] = useState<number | ''>('');
 
-  const handleReminder = async (name: string) => {
+  useEffect(() => {
+    fetchDefaulters();
+  }, []);
+
+  const fetchDefaulters = async () => {
     try {
-      await new Promise((r) => setTimeout(r, 800));
-      success('Reminder Dispatched', `Sent direct push notification reminder to ${name} to clear their outstanding balance.`);
+      setLoading(true);
+      const items = await getDefaulters();
+      setList(Array.isArray(items) ? items : []);
     } catch {
-      //
+      notifyError('Error', 'Failed to load defaulters');
+    } finally {
+      setLoading(false);
     }
   };
 
+  const filtered = levelFilter !== '' ? list.filter((d) => d.level === levelFilter) : list;
+
+  const handleExport = () => {
+    const csv = ['Matric Number,Name,Level,Unpaid Dues,Outstanding (₦)', ...filtered.map(
+      (d) => `${d.matric_number},${d.full_name},${d.level * 100},${d.unpaid_dues_count},${d.total_outstanding}`
+    )].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `defaulters_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const columns = [
-    { key: 'matricNumber', label: 'Matric Number', sortable: true },
-    { key: 'name', label: 'Student Name', sortable: true },
+    { key: 'matric_number', label: 'Matric Number', sortable: true },
+    { key: 'full_name', label: 'Student Name', sortable: true },
     { key: 'level', label: 'Level', render: (val: unknown) => `${(val as number) * 100} Level` },
-    { key: 'outstandingBalance', label: 'Dues Outstanding', render: (val: unknown) => formatCurrency(val as number) },
-    {
-      key: 'action',
-      label: 'Action',
-      render: (_: unknown, row: Defaulter) => (
-        <Button size="xs" variant="outline" leftIcon={<Send className="w-3.5 h-3.5" />} onClick={() => handleReminder(row.name)}>
-          Remind
-        </Button>
-      ),
-    },
+    { key: 'unpaid_dues_count', label: 'Unpaid Dues' },
+    { key: 'total_outstanding', label: 'Outstanding', render: (val: unknown) => formatCurrency(val as number) },
   ];
 
   return (
@@ -56,33 +58,31 @@ const DefaultersPage = () => {
         <div>
           <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Dues Defaulters List</h1>
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-            Track and contact students with unpaid association and class dues.
+            Students with unpaid dues — auto-computed from active dues vs completed payments.
           </p>
         </div>
-        <Button variant="outline" leftIcon={<Download className="w-4 h-4" />}>
-          Export Defaulters Sheet
-        </Button>
+        <button onClick={handleExport} className="inline-flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-medium hover:bg-surface-50 dark:hover:bg-surface-800">
+          <Download className="w-4 h-4" />
+          Export CSV
+        </button>
       </div>
 
       <Card>
         <CardHeader className="flex-row items-center justify-between gap-4">
           <div>
             <CardTitle>Defaulter Registry</CardTitle>
-            <CardDescription>Roster details filtered by level</CardDescription>
+            <CardDescription>{loading ? 'Loading...' : `${filtered.length} student(s)`}</CardDescription>
           </div>
-          <Select
-            options={[
-              { value: '1', label: '100 Level' },
-              { value: '2', label: '200 Level' },
-              { value: '3', label: '300 Level' },
-              { value: '4', label: '400 Level' },
-              { value: '5', label: '500 Level' },
-            ]}
-            value={level}
-            onChange={(e) => setLevel(e.target.value)}
-          />
+          <select
+            className="px-3 py-2 border rounded-lg text-sm dark:bg-surface-800 dark:border-surface-600"
+            value={levelFilter}
+            onChange={(e) => setLevelFilter(e.target.value ? parseInt(e.target.value) : '')}
+          >
+            <option value="">All Levels</option>
+            {[1,2,3,4,5].map((l) => <option key={l} value={l}>{l * 100} Level</option>)}
+          </select>
         </CardHeader>
-        <DataTable columns={columns} data={list as unknown as Record<string, unknown>[]} />
+        <DataTable columns={columns} data={filtered as unknown as Record<string, unknown>[]} />
       </Card>
     </div>
   );

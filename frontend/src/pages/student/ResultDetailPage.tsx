@@ -1,27 +1,51 @@
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import { getResult } from '../../api/results';
+import { useNotification } from '../../hooks/useNotification';
 import { ArrowLeft, BookOpen, User, Award, Calendar } from 'lucide-react';
 import GradeBadge from '../../components/data-display/GradeBadge';
-
-const mockCourseDetails = {
-  code: 'CPE 513',
-  title: 'Computer Architecture II',
-  creditUnits: 3,
-  level: 5,
-  semester: 'first',
-  lecturerName: 'Dr. John Doe',
-  grade: 'A' as const,
-  caScore: 28,
-  examScore: 54,
-  totalScore: 82,
-  remarks: 'Excellent comprehension of computer architecture and assembly programming tasks.',
-  dateApproved: 'June 18, 2026',
-};
+import type { Result } from '../../types';
 
 const ResultDetailPage = () => {
   const { id } = useParams();
+  const { error: notifyError } = useNotification();
+  const [result, setResult] = useState<Result | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!id) return;
+    setLoading(true);
+    getResult(id)
+      .then(setResult)
+      .catch(() => notifyError('Error', 'Failed to load result details'))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <p className="text-sm text-surface-400">Loading result details...</p>
+      </div>
+    );
+  }
+
+  if (!result) {
+    return (
+      <div className="space-y-6">
+        <Link to="/results">
+          <Button variant="outline" size="sm" leftIcon={<ArrowLeft className="w-4 h-4" />}>
+            Back to Results
+          </Button>
+        </Link>
+        <p className="text-sm text-surface-400">Result not found.</p>
+      </div>
+    );
+  }
+
+  const course = result.course;
 
   return (
     <div className="space-y-6">
@@ -36,34 +60,34 @@ const ResultDetailPage = () => {
           <CardHeader className="border-b border-surface-200 dark:border-surface-700/50 pb-6 mb-6">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
-                <Badge variant="primary">{mockCourseDetails.code}</Badge>
+                <Badge variant="primary">{course?.code || 'N/A'}</Badge>
                 <span className="text-xs text-surface-400">Approved Result</span>
               </div>
-              <CardTitle className="text-2xl font-bold">{mockCourseDetails.title}</CardTitle>
+              <CardTitle className="text-2xl font-bold">{course?.title || 'Course'}</CardTitle>
               <CardDescription>Comprehensive score metrics for ID: {id}</CardDescription>
             </div>
-            <GradeBadge grade={mockCourseDetails.grade} />
+            <GradeBadge grade={result.grade} />
           </CardHeader>
 
           <div className="grid grid-cols-2 gap-6 mb-6">
             <div className="space-y-4">
               <div className="flex items-center gap-2.5 text-sm text-surface-600 dark:text-surface-400">
                 <BookOpen className="w-4 h-4 text-primary-500" />
-                <span>Credits: {mockCourseDetails.creditUnits} Units</span>
+                <span>Credits: {course?.creditUnits || 'N/A'} Units</span>
               </div>
               <div className="flex items-center gap-2.5 text-sm text-surface-600 dark:text-surface-400">
                 <User className="w-4 h-4 text-primary-500" />
-                <span>Lecturer: {mockCourseDetails.lecturerName}</span>
+                <span>Session: {result.sessionId}</span>
               </div>
             </div>
             <div className="space-y-4">
               <div className="flex items-center gap-2.5 text-sm text-surface-600 dark:text-surface-400">
                 <Award className="w-4 h-4 text-primary-500" />
-                <span>Total Score: {mockCourseDetails.totalScore} / 100</span>
+                <span>Total Score: {result.totalScore} / 100</span>
               </div>
               <div className="flex items-center gap-2.5 text-sm text-surface-600 dark:text-surface-400">
                 <Calendar className="w-4 h-4 text-primary-500" />
-                <span>Approved: {mockCourseDetails.dateApproved}</span>
+                <span>Semester: {result.semester === 'harmattan' ? 'Harmattan (First)' : 'Rain (Second)'}</span>
               </div>
             </div>
           </div>
@@ -76,21 +100,15 @@ const ResultDetailPage = () => {
               <div className="p-4 bg-surface-50 dark:bg-surface-800/40 rounded-xl border border-surface-200/50">
                 <p className="text-xs text-surface-400 font-medium">CA Score (30)</p>
                 <p className="text-xl font-bold text-surface-900 dark:text-surface-100 mt-1">
-                  {mockCourseDetails.caScore}
+                  {result.caScore}
                 </p>
               </div>
               <div className="p-4 bg-surface-50 dark:bg-surface-800/40 rounded-xl border border-surface-200/50">
                 <p className="text-xs text-surface-400 font-medium">Exam Score (70)</p>
                 <p className="text-xl font-bold text-surface-900 dark:text-surface-100 mt-1">
-                  {mockCourseDetails.examScore}
+                  {result.examScore}
                 </p>
               </div>
-            </div>
-            <div className="p-4 bg-surface-50 dark:bg-surface-800/40 rounded-xl border border-surface-200/50">
-              <p className="text-xs text-surface-400 font-medium mb-1">Lecturer's Remarks</p>
-              <p className="text-xs text-surface-700 dark:text-surface-300 leading-relaxed">
-                {mockCourseDetails.remarks}
-              </p>
             </div>
           </div>
         </Card>

@@ -1,0 +1,76 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_SOURCE=postgres://${POSTGRES_USER:-aces_user}:${POSTGRES_PASSWORD:-aces_pass}@db:5432/${POSTGRES_DB:-aces_zone}?sslmode=disable
+      - SERVER_ADDRESS=0.0.0.0:8080
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ACCESS_MINUTES=60
+      - JWT_REFRESH_DAYS=10080
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
+      - PAYSTACK_SECRET_KEY=${PAYSTACK_SECRET_KEY:-}
+      - PAYSTACK_PUBLIC_KEY=${PAYSTACK_PUBLIC_KEY:-}
+      - STORAGE_LOCAL_PATH=./uploads
+      - REDIS_ADDRESS=redis:6379
+      - REDIS_PASSWORD=
+      - SMTP_HOST=mailhog
+      - SMTP_PORT=1025
+      - SMTP_USERNAME=
+      - SMTP_PASSWORD=
+      - SMTP_FROM=no-reply@aces.zone
+      - SMTP_MOCK=true
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aces_zone}
+      POSTGRES_USER: ${POSTGRES_USER:-aces_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aces_pass}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aces_user} -d ${POSTGRES_DB:-aces_zone}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    image: migrate/migrate
+    volumes:
+      - ./internal/db/migrations:/migrations
+    command: ["-path", "/migrations", "-database", "postgres://${POSTGRES_USER:-aces_user}:${POSTGRES_PASSWORD:-aces_pass}@db:5432/${POSTGRES_DB:-aces_zone}?sslmode=disable", "up"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  postgres_data:

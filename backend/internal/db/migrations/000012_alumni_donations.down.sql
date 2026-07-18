@@ -1,0 +1,15 @@
+ALTER TABLE alumni_status DROP COLUMN IF EXISTS status;
+ALTER TABLE alumni_status DROP COLUMN IF EXISTS events_attended_count;
+ALTER TABLE alumni_status DROP COLUMN IF EXISTS jobs_posted_count;
+ALTER TABLE alumni_status DROP COLUMN IF EXISTS mentorship_sessions_count;
+ALTER TABLE alumni_status DROP COLUMN IF EXISTS donation_total;
+ALTER TABLE alumni_status DROP COLUMN IF EXISTS privacy_level;
+ALTER TABLE alumni_status DROP COLUMN IF EXISTS event_interests;
+ALTER TABLE alumni_status DROP COLUMN IF EXISTS willing_to_speak;
+ALTER TABLE alumni_status DROP COLUMN IF EXISTS mentorship_topics;
+ALTER TABLE alumni_status DROP COLUMN IF EXISTS skills;
+ALTER TABLE alumni_status DROP COLUMN IF EXISTS portfolio_url;
+ALTER TABLE alumni_status DROP COLUMN IF EXISTS location;
+DROP TABLE IF EXISTS alumni_donations;
+DROP TYPE IF EXISTS donation_tier;
+DROP TYPE IF EXISTS donation_channel;

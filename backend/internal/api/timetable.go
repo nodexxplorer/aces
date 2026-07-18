@@ -1,48 +1,43 @@
 package api
 
 import (
-	"encoding/json"
 	"net/http"
-	"time"
+	"strconv"
 
 	db "github.com/aces/backend/internal/db/sql"
+	"github.com/aces/backend/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// ─── Request/Response types ───────────────────────────────────────────────────
-
 type createTimetableEntryRequest struct {
-	CourseID        string          `json:"course_id" binding:"required,uuid"`
-	ExamDate        string          `json:"exam_date" binding:"required"` // RFC3339
-	StartTime       string          `json:"start_time" binding:"required"` // RFC3339
-	EndTime         string          `json:"end_time" binding:"required"` // RFC3339
-	Venue           string          `json:"venue" binding:"required"`
-	SessionID       string          `json:"session_id" binding:"required,uuid"`
-	SemesterID      string          `json:"semester_id" binding:"required,uuid"`
-	HasConflict     bool            `json:"has_conflict"`
-	ConflictDetails json.RawMessage `json:"conflict_details"`
-	CreatedBy       string          `json:"created_by" binding:"required,uuid"`
-}
-
-type listTimetableQuery struct {
-	SessionID  string `form:"session_id" binding:"required,uuid"`
-	SemesterID string `form:"semester_id" binding:"required,uuid"`
+	CourseID     string  `json:"courseId" binding:"required"`
+	DayOfWeek    int32   `json:"dayOfWeek" binding:"required,min=1,max=5"`
+	StartTime    string  `json:"startTime" binding:"required"`
+	EndTime      string  `json:"endTime" binding:"required"`
+	Venue        string  `json:"venue" binding:"required"`
+	Level        int32   `json:"level" binding:"required"`
+	EntryType    string  `json:"entryType" binding:"required,oneof=class exam"`
+	ClassType    *string `json:"classType"`
+	ExamType     *string `json:"examType"`
+	LecturerID   *string `json:"lecturerId"`
+	Invigilators *string `json:"invigilators"`
 }
 
 type updateTimetableEntryRequest struct {
-	ExamDate        string          `json:"exam_date" binding:"required"` // RFC3339
-	StartTime       string          `json:"start_time" binding:"required"` // RFC3339
-	EndTime         string          `json:"end_time" binding:"required"` // RFC3339
-	Venue           string          `json:"venue" binding:"required"`
-	HasConflict     bool            `json:"has_conflict"`
-	ConflictDetails json.RawMessage `json:"conflict_details"`
+	CourseID     string  `json:"courseId" binding:"required"`
+	DayOfWeek    int32   `json:"dayOfWeek" binding:"required,min=1,max=5"`
+	StartTime    string  `json:"startTime" binding:"required"`
+	EndTime      string  `json:"endTime" binding:"required"`
+	Venue        string  `json:"venue" binding:"required"`
+	Level        int32   `json:"level" binding:"required"`
+	EntryType    string  `json:"entryType" binding:"required,oneof=class exam"`
+	ClassType    *string `json:"classType"`
+	ExamType     *string `json:"examType"`
+	LecturerID   *string `json:"lecturerId"`
+	Invigilators *string `json:"invigilators"`
 }
 
-// ─── Handlers ─────────────────────────────────────────────────────────────────
-
-// createTimetableEntry POST /timetable
 func (server *Server) createTimetableEntry(ctx *gin.Context) {
 	var req createTimetableEntryRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -52,67 +47,47 @@ func (server *Server) createTimetableEntry(ctx *gin.Context) {
 
 	courseID, err := uuid.Parse(req.CourseID)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid course_id"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid courseId"})
 		return
 	}
 
-	sessionID, err := uuid.Parse(req.SessionID)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid session_id"})
-		return
+	var lecturerID *uuid.UUID
+	if req.LecturerID != nil {
+		lid, err := uuid.Parse(*req.LecturerID)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid lecturerId"})
+			return
+		}
+		lecturerID = &lid
 	}
 
-	semesterID, err := uuid.Parse(req.SemesterID)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid semester_id"})
-		return
-	}
-
-	createdBy, err := uuid.Parse(req.CreatedBy)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid created_by"})
-		return
-	}
-
-	examDate, err := time.Parse(time.RFC3339, req.ExamDate)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid exam_date, expected RFC3339"})
-		return
-	}
-
-	startTime, err := time.Parse(time.RFC3339, req.StartTime)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid start_time, expected RFC3339"})
-		return
-	}
-
-	endTime, err := time.Parse(time.RFC3339, req.EndTime)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid end_time, expected RFC3339"})
-		return
-	}
-
-	entry, err := server.store.CreateTimetableEntry(ctx, db.CreateTimetableEntryParams{
-		CourseID:        courseID,
-		ExamDate:        pgtype.Timestamptz{Time: examDate, Valid: true},
-		StartTime:       pgtype.Timestamptz{Time: startTime, Valid: true},
-		EndTime:         pgtype.Timestamptz{Time: endTime, Valid: true},
-		Venue:           req.Venue,
-		SessionID:       sessionID,
-		SemesterID:      semesterID,
-		HasConflict:     req.HasConflict,
-		ConflictDetails: req.ConflictDetails,
-		CreatedBy:       createdBy,
+	id, err := server.timetables.Create(ctx, service.CreateTimetableInput{
+		CourseID:     courseID,
+		DayOfWeek:    req.DayOfWeek,
+		StartTime:    req.StartTime,
+		EndTime:      req.EndTime,
+		Venue:        req.Venue,
+		Level:        req.Level,
+		EntryType:    req.EntryType,
+		ClassType:    req.ClassType,
+		ExamType:     req.ExamType,
+		LecturerID:   lecturerID,
+		Invigilators: req.Invigilators,
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
+	entry, err := server.timetables.GetByID(ctx, id)
+	if err != nil {
+		ctx.JSON(http.StatusCreated, gin.H{"id": id})
+		return
+	}
+
 	ctx.JSON(http.StatusCreated, entry)
 }
 
-// getTimetableEntry GET /timetable/:id
 func (server *Server) getTimetableEntry(ctx *gin.Context) {
 	id, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
@@ -120,7 +95,7 @@ func (server *Server) getTimetableEntry(ctx *gin.Context) {
 		return
 	}
 
-	entry, err := server.store.GetTimetableEntry(ctx, id)
+	entry, err := server.timetables.GetByID(ctx, id)
 	if err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "timetable entry not found"})
 		return
@@ -129,39 +104,44 @@ func (server *Server) getTimetableEntry(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, entry)
 }
 
-// listTimetableEntries GET /timetable
 func (server *Server) listTimetableEntries(ctx *gin.Context) {
-	var q listTimetableQuery
-	if err := ctx.ShouldBindQuery(&q); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	entryType := ctx.DefaultQuery("entryType", "")
+	levelStr := ctx.DefaultQuery("level", "")
+
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
 		return
 	}
 
-	sessionID, err := uuid.Parse(q.SessionID)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid session_id"})
+	if entryType == "class" || entryType == "exam" {
+		var level *int32
+		if levelStr != "" {
+			if v, err := strconv.ParseInt(levelStr, 10, 32); err == nil {
+				l := int32(v)
+				level = &l
+			}
+		}
+		entries, err := queries.ListTimetableByType(ctx, db.ListTimetableByTypeParams{
+			EntryType: entryType,
+			Level:     level,
+		})
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		ctx.JSON(http.StatusOK, entries)
 		return
 	}
 
-	semesterID, err := uuid.Parse(q.SemesterID)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid semester_id"})
-		return
-	}
-
-	entries, err := server.store.ListTimetableEntries(ctx, db.ListTimetableEntriesParams{
-		SessionID:  sessionID,
-		SemesterID: semesterID,
-	})
+	entries, err := queries.ListAllTimetableEntries(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
 	ctx.JSON(http.StatusOK, entries)
 }
 
-// updateTimetableEntry PUT /timetable/:id
 func (server *Server) updateTimetableEntry(ctx *gin.Context) {
 	id, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
@@ -175,42 +155,49 @@ func (server *Server) updateTimetableEntry(ctx *gin.Context) {
 		return
 	}
 
-	examDate, err := time.Parse(time.RFC3339, req.ExamDate)
+	courseID, err := uuid.Parse(req.CourseID)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid exam_date, expected RFC3339"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid courseId"})
 		return
 	}
 
-	startTime, err := time.Parse(time.RFC3339, req.StartTime)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid start_time, expected RFC3339"})
-		return
+	var lecturerID *uuid.UUID
+	if req.LecturerID != nil {
+		lid, err := uuid.Parse(*req.LecturerID)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid lecturerId"})
+			return
+		}
+		lecturerID = &lid
 	}
 
-	endTime, err := time.Parse(time.RFC3339, req.EndTime)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid end_time, expected RFC3339"})
-		return
-	}
-
-	entry, err := server.store.UpdateTimetableEntry(ctx, db.UpdateTimetableEntryParams{
-		ID:              id,
-		ExamDate:        pgtype.Timestamptz{Time: examDate, Valid: true},
-		StartTime:       pgtype.Timestamptz{Time: startTime, Valid: true},
-		EndTime:         pgtype.Timestamptz{Time: endTime, Valid: true},
-		Venue:           req.Venue,
-		HasConflict:     req.HasConflict,
-		ConflictDetails: req.ConflictDetails,
+	_ = courseID
+	err = server.timetables.Update(ctx, id, service.UpdateTimetableInput{
+		DayOfWeek:    req.DayOfWeek,
+		StartTime:    req.StartTime,
+		EndTime:      req.EndTime,
+		Venue:        req.Venue,
+		Level:        req.Level,
+		EntryType:    req.EntryType,
+		ClassType:    req.ClassType,
+		ExamType:     req.ExamType,
+		LecturerID:   lecturerID,
+		Invigilators: req.Invigilators,
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
+	entry, err := server.timetables.GetByID(ctx, id)
+	if err != nil {
+		ctx.JSON(http.StatusOK, gin.H{"id": id})
+		return
+	}
+
 	ctx.JSON(http.StatusOK, entry)
 }
 
-// deleteTimetableEntry DELETE /timetable/:id
 func (server *Server) deleteTimetableEntry(ctx *gin.Context) {
 	id, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
@@ -218,10 +205,175 @@ func (server *Server) deleteTimetableEntry(ctx *gin.Context) {
 		return
 	}
 
-	if err := server.store.DeleteTimetableEntry(ctx, id); err != nil {
+	if err := server.timetables.Delete(ctx, id); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "timetable entry deleted successfully"})
+}
+
+type publishRequest struct {
+	EntryType string `json:"entry_type" binding:"required,oneof=class exam"`
+	Publish   bool   `json:"publish"`
+}
+
+func (server *Server) publishTimetable(ctx *gin.Context) {
+	var req publishRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
+		return
+	}
+
+	if req.Publish {
+		err := queries.PublishTimetableByType(ctx, req.EntryType)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		ctx.JSON(http.StatusOK, gin.H{"message": req.EntryType + " timetable published"})
+	} else {
+		err := queries.UnpublishTimetableByType(ctx, req.EntryType)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		ctx.JSON(http.StatusOK, gin.H{"message": req.EntryType + " timetable unpublished"})
+	}
+}
+
+type checkConflictsRequest struct {
+	EntryType string `json:"entry_type" binding:"required,oneof=class exam"`
+	Level     *int32 `json:"level"`
+}
+
+func (server *Server) checkTimetableConflicts(ctx *gin.Context) {
+	entryType := ctx.Query("entryType")
+	if entryType == "" {
+		entryType = "class"
+	}
+
+	var level *int32
+	if levelStr := ctx.Query("level"); levelStr != "" {
+		if v, err := strconv.ParseInt(levelStr, 10, 32); err == nil {
+			l := int32(v)
+			level = &l
+		}
+	}
+
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
+		return
+	}
+
+	entries, err := queries.CheckTimetableConflicts(ctx, db.ListTimetableByTypeParams{
+		EntryType: entryType,
+		Level:     level,
+	})
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	type conflict struct {
+		Type     string `json:"type"`
+		Message  string `json:"message"`
+		Entry1ID string `json:"entry1_id"`
+		Entry2ID string `json:"entry2_id"`
+	}
+
+	conflicts := []conflict{}
+
+	// Detect venue + day + time overlaps
+	for i := 0; i < len(entries); i++ {
+		for j := i + 1; j < len(entries); j++ {
+			a, b := entries[i], entries[j]
+
+			// Same day check for class timetable
+			if a.DayOfWeek != nil && b.DayOfWeek != nil {
+				if *a.DayOfWeek != *b.DayOfWeek {
+					continue
+				}
+			}
+
+			// Time overlap check (string comparison works for HH:MM format)
+			if a.StartTime < b.EndTime && b.StartTime < a.EndTime {
+				// Venue clash
+				if a.Venue == b.Venue {
+					conflicts = append(conflicts, conflict{
+						Type:     "venue_clash",
+						Message:  a.CourseCode + " and " + b.CourseCode + " both in " + a.Venue + " at overlapping times",
+						Entry1ID: a.ID.String(),
+						Entry2ID: b.ID.String(),
+					})
+				}
+
+				// Level clash
+				if a.Level != nil && b.Level != nil && *a.Level == *b.Level {
+					conflicts = append(conflicts, conflict{
+						Type:     "level_clash",
+						Message:  strconv.Itoa(int(*a.Level)) + "L has " + a.CourseCode + " and " + b.CourseCode + " at overlapping times",
+						Entry1ID: a.ID.String(),
+						Entry2ID: b.ID.String(),
+					})
+				}
+
+				// Lecturer clash
+				if a.LecturerID != nil && b.LecturerID != nil && *a.LecturerID == *b.LecturerID {
+					conflicts = append(conflicts, conflict{
+						Type:     "lecturer_clash",
+						Message:  "Lecturer assigned to both " + a.CourseCode + " and " + b.CourseCode + " at overlapping times",
+						Entry1ID: a.ID.String(),
+						Entry2ID: b.ID.String(),
+					})
+				}
+			}
+		}
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"conflict_count": len(conflicts),
+		"conflicts":      conflicts,
+	})
+}
+
+func (server *Server) bulkDeleteTimetable(ctx *gin.Context) {
+	entryType := ctx.Query("entryType")
+	levelStr := ctx.Query("level")
+
+	if entryType == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "entryType is required"})
+		return
+	}
+
+	query := "DELETE FROM timetable WHERE entry_type = $1"
+	args := []interface{}{entryType}
+	idx := 2
+	if levelStr != "" {
+		if _, err := strconv.ParseInt(levelStr, 10, 32); err == nil {
+			query += " AND level = $" + strconv.Itoa(idx)
+			args = append(args, levelStr)
+			idx++
+		}
+	}
+
+	if dbq, ok := server.store.(interface{ GetDB() db.DBTX }); ok {
+		result, err := dbq.GetDB().Exec(ctx, query, args...)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		rowsAffected := result.RowsAffected()
+		ctx.JSON(http.StatusOK, gin.H{"deleted": rowsAffected})
+		return
+	}
+
+	ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
 }

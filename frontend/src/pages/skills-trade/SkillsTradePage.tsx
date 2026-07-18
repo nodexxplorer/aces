@@ -17,7 +17,7 @@ const mockSkills: SkillListing[] = [
     level: 'expert',
     isBarterAvailable: true,
     isPaid: false,
-    user: { id: 'u-1', firstName: 'John', lastName: 'Doe', email: '', roles: [], activeRole: 'student', isApproved: true, approvalStatus: 'approved', createdAt: '' },
+    user: { id: 'u-1', firstName: 'John', lastName: 'Doe', email: '', roles: [], role: 'student', activeRole: 'student', isApproved: true, approvalStatus: 'approved', isActive: true, createdAt: '' },
     category: { id: 'cat-1', name: 'Software Development' },
     averageRating: 4.8,
   },
@@ -45,7 +45,7 @@ const SkillsTradePage = () => {
       level: newLevel as any,
       isBarterAvailable: true,
       isPaid: false,
-      user: { id: 'me', firstName: 'Aces', lastName: 'Member', email: '', roles: [], activeRole: 'student', isApproved: true, approvalStatus: 'approved', createdAt: '' },
+      user: { id: 'me', firstName: 'Aces', lastName: 'Member', email: '', roles: [], role: 'student', activeRole: 'student', isApproved: true, approvalStatus: 'approved', isActive: true, createdAt: '' },
       category: { id: 'cat-1', name: 'Software Development' },
     };
     setListings((prev) => [newSkill, ...prev]);

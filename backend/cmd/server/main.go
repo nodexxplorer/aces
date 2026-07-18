@@ -3,53 +3,66 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/aces/backend/internal/api"
-	"github.com/aces/backend/internal/db/sql"
+	"github.com/aces/backend/internal/config"
+	db "github.com/aces/backend/internal/db/sql"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
-	// Setup context
-	ctx := context.Background()
+	cfg := config.Load()
 
-	// 1. Get configuration
-	dbSource := os.Getenv("DB_SOURCE")
-	if dbSource == "" {
-		// Fallback to the DB settings from Makefile
-		dbSource = "postgresql://molu:incorrect@localhost:5432/chainvault?sslmode=disable"
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	serverAddress := os.Getenv("SERVER_ADDRESS")
-	if serverAddress == "" {
-		serverAddress = "0.0.0.0:8080"
-	}
-
-	// 2. Connect to the database
-	log.Printf("Connecting to database...")
-	connPool, err := pgxpool.New(ctx, dbSource)
+	log.Println("Connecting to database...")
+	connPool, err := pgxpool.New(ctx, cfg.DBSource)
 	if err != nil {
 		log.Fatalf("cannot connect to db: %v", err)
 	}
 	defer connPool.Close()
 
-	// Verify connection
 	if err := connPool.Ping(ctx); err != nil {
 		log.Fatalf("database ping failed: %v", err)
 	}
 	log.Println("Database connection established")
 
-	// 3. Setup the store
 	store := db.New(connPool)
+	server := api.NewServer(store, connPool, cfg)
 
-	// 4. Initialize server
-	server := api.NewServer(store)
-
-	// 5. Start the server
-	log.Printf("Starting HTTP server on %s", serverAddress)
-	err = server.Start(serverAddress)
-	if err != nil {
-		log.Fatalf("cannot start server: %v", err)
+	srv := &http.Server{
+		Addr:         cfg.ServerAddress,
+		Handler:      server.Router(),
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		log.Printf("Starting HTTP server on %s", cfg.ServerAddress)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("cannot start server: %v", err)
+		}
+	}()
+
+	<-quit
+	log.Println("Shutting down server...")
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("server forced shutdown: %v", err)
+	}
+
+	log.Println("Server stopped")
 }

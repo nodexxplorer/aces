@@ -6,7 +6,7 @@ export const useRBAC = () => {
   const { hasRole, hasAnyRole } = useRoleStore();
   const activeRole = useAuthStore((s) => s.user?.activeRole ?? 'student');
 
-  const isAdmin = hasAnyRole(['hod', 'delegated_admin']);
+  const isAdmin = hasAnyRole(['hod', 'delegated_admin', 'admin']);
   const isStaff = hasAnyRole(['hod', 'delegated_admin', 'lecturer']);
   const isStudent = hasRole('student');
   const isAlumni = hasRole('alumni');
