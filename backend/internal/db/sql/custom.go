@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -608,27 +609,27 @@ func (q *Queries) UpdateBackupStatus(ctx context.Context, id uuid.UUID, status s
 // ==================== LECTURER MANAGEMENT ====================
 
 type LecturerProfile struct {
-	ID               uuid.UUID      `json:"id"`
-	UserID           uuid.UUID      `json:"user_id"`
-	StaffID          string         `json:"staff_id"`
-	Department       string         `json:"department"`
-	Title            sql.NullString `json:"title"`
-	FirstName        sql.NullString `json:"first_name"`
-	LastName         sql.NullString `json:"last_name"`
-	FullName         string         `json:"full_name"`
-	Email            string         `json:"email"`
-	Phone            sql.NullString `json:"phone"`
-	AvatarURL        sql.NullString `json:"avatar_url"`
-	Rank             sql.NullString `json:"rank"`
-	Specialization   sql.NullString `json:"specialization"`
-	EmploymentType   sql.NullString `json:"employment_type"`
-	EmploymentStatus sql.NullString `json:"employment_status"`
-	Qualifications   []byte         `json:"qualifications"`
-	Bio              sql.NullString `json:"bio"`
-	OfficeLocation   sql.NullString `json:"office_location"`
-	OfficeHours      []byte         `json:"office_hours"`
-	DateJoined       sql.NullTime   `json:"date_joined"`
-	CreatedAt        sql.NullTime   `json:"created_at"`
+	ID               uuid.UUID  `json:"id"`
+	UserID           uuid.UUID  `json:"user_id"`
+	StaffID          string     `json:"staff_id"`
+	Department       string     `json:"department"`
+	Title            *string    `json:"title"`
+	FirstName        *string    `json:"first_name"`
+	LastName         *string    `json:"last_name"`
+	FullName         string     `json:"full_name"`
+	Email            string     `json:"email"`
+	Phone            *string    `json:"phone"`
+	AvatarURL        *string    `json:"avatar_url"`
+	Rank             *string    `json:"rank"`
+	Specialization   *string    `json:"specialization"`
+	EmploymentType   *string    `json:"employment_type"`
+	EmploymentStatus *string    `json:"employment_status"`
+	Qualifications   []byte     `json:"qualifications"`
+	Bio              *string    `json:"bio"`
+	OfficeLocation   *string    `json:"office_location"`
+	OfficeHours      []byte     `json:"office_hours"`
+	DateJoined       *time.Time `json:"date_joined"`
+	CreatedAt        *time.Time `json:"created_at"`
 }
 
 func (q *Queries) ListLecturers(ctx context.Context) ([]LecturerProfile, error) {

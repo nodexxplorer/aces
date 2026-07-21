@@ -105,7 +105,7 @@ const menuItems: MenuItem[] = [
   { label: 'Analytics', path: '/admin/analytics', icon: BarChart3, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Course Management', path: '/admin/courses', icon: BookOpen, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Course Registrations', path: '/admin/course-registrations', icon: BookMarked, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Lecturer Management', path: '/admin/lecturers', icon: Users, roles: ['hod', 'delegated_admin', 'admin'] },
+  // { label: 'Lecturer Management', path: '/admin/lecturers', icon: Users, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Subcategories', path: '/admin/subcategories', icon: BookCopy, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Dues & Sessions', path: '/admin/sessions', icon: Calendar, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Announcements', path: '/admin/announcements', icon: Megaphone, roles: ['hod', 'delegated_admin', 'admin'] },
@@ -127,12 +127,12 @@ const menuItems: MenuItem[] = [
   { label: 'Revenue Forecast', path: '/admin/revenue-forecast', icon: TrendingUp, roles: ['hod', 'delegated_admin', 'admin', 'dept_bursar', 'class_bursar'] },
   { label: 'Grade Distribution', path: '/admin/grade-distribution', icon: BarChart3, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Calendar', path: '/admin/calendar', icon: Calendar, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Expenses', path: '/admin/expenses', icon: DollarSign, roles: ['hod', 'delegated_admin', 'admin', 'bursar_dept'] },
+  { label: 'Expenses', path: '/admin/expenses', icon: DollarSign, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Feature Flags', path: '/admin/feature-flags', icon: ShieldAlert, roles: ['hod', 'admin'] },
   { label: 'User Feedback', path: '/admin/feedback', icon: MessageSquare, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Help Center', path: '/help', icon: HelpCircle },
 
-  { label: 'AI Blueprint', path: '/ai-blueprint', icon: Brain, roles: ['hod', 'delegated_admin', 'admin'] },
+  // { label: 'AI Blueprint', path: '/ai-blueprint', icon: Brain, roles: ['hod', 'delegated_admin', 'admin'] },
 
   { label: 'Profile', path: '/profile', icon: User },
 ];
