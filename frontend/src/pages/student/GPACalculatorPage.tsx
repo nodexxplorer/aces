@@ -326,7 +326,7 @@ export default function GPACalculatorPage() {
                       </p>
                       <p className="text-xs text-surface-500 dark:text-surface-400">
                         GPA: {(scenario as any).gpa?.toFixed(2) ?? 'N/A'} &middot;{' '}
-                        {new Date(scenario.createdAt).toLocaleDateString()}
+                        {new Date(scenario.created_at).toLocaleDateString()}
                       </p>
                     </div>
                     <button
