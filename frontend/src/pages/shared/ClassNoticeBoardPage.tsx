@@ -59,8 +59,8 @@ export default function ClassNoticeBoardPage() {
     }
   };
 
-  const pinnedNotices = notices.filter((n) => n.isPinned);
-  const regularNotices = notices.filter((n) => !n.isPinned);
+  const pinnedNotices = notices.filter((n) => n.is_pinned);
+  const regularNotices = notices.filter((n) => !n.is_pinned);
 
   const renderNotice = (notice: ClassNotice) => {
     const isExpanded = expandedNoticeId === notice.id;
@@ -70,7 +70,7 @@ export default function ClassNoticeBoardPage() {
       <div
         key={notice.id}
         className={`bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm overflow-hidden transition-all ${
-          notice.isPinned ? 'border-l-4 border-yellow-400 bg-yellow-50 dark:bg-yellow-950/20' : ''
+          notice.is_pinned ? 'border-l-4 border-yellow-400 bg-yellow-50 dark:bg-yellow-950/20' : ''
         }`}
       >
         <button
@@ -83,7 +83,7 @@ export default function ClassNoticeBoardPage() {
                 <h3 className="text-base font-semibold text-surface-900 dark:text-white truncate">
                   {notice.title}
                 </h3>
-                {notice.isPinned && (
+                {notice.is_pinned && (
                   <span className="inline-flex items-center gap-1 text-xs font-medium text-yellow-700 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30 px-2 py-0.5 rounded-full">
                     <Pin className="w-3 h-3" />
                     Pinned
@@ -98,10 +98,10 @@ export default function ClassNoticeBoardPage() {
           </div>
 
           <div className="flex items-center gap-4 mt-3 text-xs text-surface-400">
-            <span className="font-medium text-surface-600 dark:text-surface-300">{notice.authorName}</span>
+            <span className="font-medium text-surface-600 dark:text-surface-300">{notice.author_name}</span>
             <span className="flex items-center gap-1">
               <Clock className="w-3 h-3" />
-              {new Date(notice.createdAt).toLocaleDateString()}
+              {new Date(notice.created_at).toLocaleDateString()}
             </span>
             <span className="flex items-center gap-1">
               <MessageSquare className="w-3 h-3" />
