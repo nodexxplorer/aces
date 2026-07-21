@@ -5,7 +5,7 @@ import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
 import Select from '../../components/ui/Select';
 import { useNotification } from '../../hooks/useNotification';
-import { Search, Loader2, Users, BookOpen, Calendar, X, ChevronRight, Trash2, Check, Ban } from 'lucide-react';
+import { Search, Loader2, Users, BookOpen, Calendar, ChevronRight, Trash2, Check, Ban } from 'lucide-react';
 import { listLecturers, getLecturerProfile, assignCourseToLecturer, listLecturerAssignments, removeCourseAssignment, listAllLeaveRequests, updateLeaveStatus } from '../../api/lecturers';
 import { getCourses } from '../../api/courses';
 import type { LecturerProfile, LecturerAssignment, LecturerLeave } from '../../api/lecturers';
@@ -45,7 +45,7 @@ const LecturerManagementPage = () => {
   const [assignCourseId, setAssignCourseId] = useState('');
   const [assigning, setAssigning] = useState(false);
 
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [, setProfileModalOpen] = useState(false);
 
   useEffect(() => {
     fetchAll();
@@ -78,8 +78,6 @@ const LecturerManagementPage = () => {
       (l.department || '').toLowerCase().includes(q)
     );
   });
-
-  const assignedCourseIds = new Set(courses.filter((c) => c.lecturerId).map((c) => c.id));
 
   const unassignedCourses = courses.filter((c) => !c.lecturerId && c.isActive);
 

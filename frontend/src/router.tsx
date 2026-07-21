@@ -82,7 +82,7 @@ const UserDetailPage = lazy(() => import('./pages/admin/UserDetailPage'));
 const EditStudentPage = lazy(() => import('./pages/admin/EditStudentPage'));
 const DocumentVerificationPage = lazy(() => import('./pages/admin/DocumentVerificationPage'));
 const CourseDetailPage = lazy(() => import('./pages/admin/CourseDetailPage'));
-const LecturerManagementPage = lazy(() => import('./pages/admin/LecturerManagementPage'));
+// const LecturerManagementPage = lazy(() => import('./pages/admin/LecturerManagementPage'));
 const AdminCourseRegistrationsPage = lazy(() => import('./pages/admin/AdminCourseRegistrationsPage'));
 
 // AI Predictions
@@ -350,7 +350,7 @@ export const router = createBrowserRouter([
               { path: '/admin/courses/:id', element: <CourseDetailPage /> },
               { path: '/admin/manuals/:id', element: <ManualDetailPage /> },
               { path: '/admin/job-moderation', element: <AdminJobModerationPage /> },
-              { path: '/admin/lecturers', element: <LecturerManagementPage /> },
+              // { path: '/admin/lecturers', element: <LecturerManagementPage /> },
               { path: '/admin/course-registrations', element: <AdminCourseRegistrationsPage /> },
             ],
           },
@@ -412,7 +412,7 @@ export const router = createBrowserRouter([
     ],
   },
   { path: '/privacy-policy', element: <SuspenseWrapper><PrivacyPolicyPage /></SuspenseWrapper> },
-  { path: '/ai-blueprint', element: <SuspenseWrapper><AIBlueprintPage /></SuspenseWrapper> },
+  // { path: '/ai-blueprint', element: <SuspenseWrapper><AIBlueprintPage /></SuspenseWrapper> },
   { path: '/', element: <Navigate to="/dashboard" replace /> },
   { path: '*', element: <SuspenseWrapper><NotFoundPage /></SuspenseWrapper> },
 ]);

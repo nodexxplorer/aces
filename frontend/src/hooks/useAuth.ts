@@ -3,14 +3,22 @@ import { useRoleStore } from '../stores/roleStore';
 import { logout as apiLogout, getMe } from '../api/auth';
 import type { UserRole } from '../types';
 
+type LoginUserData = {
+  allRoles?: UserRole[];
+  roles?: UserRole[];
+  [key: string]: unknown;
+};
+
+type LoginTokens = Record<string, unknown>;
+
 export const useAuth = () => {
   const { user, isAuthenticated, isLoading, login, logout, updateUser, switchRole } = useAuthStore();
   const { availableRoles, setAvailableRoles } = useRoleStore();
 
   const activeRole = user?.activeRole ?? 'student';
 
-  const handleLogin = (userData: any, tokens: any) => {
-    login(userData, tokens);
+  const handleLogin = (userData: LoginUserData, tokens: LoginTokens) => {
+    login(userData as any, tokens);
     setAvailableRoles(userData.allRoles || userData.roles || ['student']);
   };
 
