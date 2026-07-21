@@ -43,7 +43,7 @@ function mapCourse(c: BackendCourse): Course {
 export const getCourses = async (params?: { page?: number; perPage?: number; level?: number; semester?: string }) => {
   const queryParams = {
     page_id: params?.page || 1,
-    page_size: params?.perPage || 100,
+    page_size: Math.min(params?.perPage || 100, 100),
   };
   const res = await apiClient.get('/courses', { params: queryParams });
   const raw = unwrap<BackendCourse[] | { data: BackendCourse[] }>(res);

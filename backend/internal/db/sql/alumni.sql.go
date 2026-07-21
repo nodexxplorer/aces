@@ -187,18 +187,19 @@ func (q *Queries) CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) 
 
 const createDonation = `-- name: CreateDonation :one
 
-INSERT INTO alumni_donations (donor_id, channel, amount, currency, message, is_anonymous, recognized_tier)
-VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, donor_id, channel, amount, currency, payment_id, receipt_url, message, is_anonymous, recognized_tier, status, created_at, updated_at
+INSERT INTO alumni_donations (donor_id, channel, amount, currency, message, is_anonymous, recognized_tier, status, paystack_reference)
+VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8) RETURNING id, donor_id, channel, amount, currency, payment_id, receipt_url, message, is_anonymous, recognized_tier, status, created_at, updated_at, paystack_reference
 `
 
 type CreateDonationParams struct {
-	DonorID        uuid.UUID       `json:"donor_id"`
-	Channel        DonationChannel `json:"channel"`
-	Amount         decimal.Decimal `json:"amount"`
-	Currency       string          `json:"currency"`
-	Message        *string         `json:"message"`
-	IsAnonymous    bool            `json:"is_anonymous"`
-	RecognizedTier DonationTier    `json:"recognized_tier"`
+	DonorID           uuid.UUID       `json:"donor_id"`
+	Channel           DonationChannel `json:"channel"`
+	Amount            decimal.Decimal `json:"amount"`
+	Currency          string          `json:"currency"`
+	Message           *string         `json:"message"`
+	IsAnonymous       bool            `json:"is_anonymous"`
+	RecognizedTier    DonationTier    `json:"recognized_tier"`
+	PaystackReference *string         `json:"paystack_reference"`
 }
 
 // ==================== DONATIONS ====================
@@ -211,6 +212,7 @@ func (q *Queries) CreateDonation(ctx context.Context, arg CreateDonationParams) 
 		arg.Message,
 		arg.IsAnonymous,
 		arg.RecognizedTier,
+		arg.PaystackReference,
 	)
 	var i AlumniDonation
 	err := row.Scan(
@@ -227,6 +229,7 @@ func (q *Queries) CreateDonation(ctx context.Context, arg CreateDonationParams) 
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PaystackReference,
 	)
 	return i, err
 }
@@ -570,6 +573,32 @@ func (q *Queries) GetAlumniStatus(ctx context.Context, userID uuid.UUID) (Alumni
 	return i, err
 }
 
+const getDonationByReference = `-- name: GetDonationByReference :one
+SELECT id, donor_id, channel, amount, currency, payment_id, receipt_url, message, is_anonymous, recognized_tier, status, created_at, updated_at, paystack_reference FROM alumni_donations WHERE paystack_reference = $1 LIMIT 1
+`
+
+func (q *Queries) GetDonationByReference(ctx context.Context, paystackReference *string) (AlumniDonation, error) {
+	row := q.db.QueryRow(ctx, getDonationByReference, paystackReference)
+	var i AlumniDonation
+	err := row.Scan(
+		&i.ID,
+		&i.DonorID,
+		&i.Channel,
+		&i.Amount,
+		&i.Currency,
+		&i.PaymentID,
+		&i.ReceiptUrl,
+		&i.Message,
+		&i.IsAnonymous,
+		&i.RecognizedTier,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PaystackReference,
+	)
+	return i, err
+}
+
 const getDonationStats = `-- name: GetDonationStats :one
 SELECT
     COALESCE(SUM(amount), 0)::NUMERIC AS total_donations,
@@ -745,7 +774,7 @@ func (q *Queries) IncrementJobViews(ctx context.Context, id uuid.UUID) error {
 }
 
 const listAllDonations = `-- name: ListAllDonations :many
-SELECT ad.id, ad.donor_id, ad.channel, ad.amount, ad.currency, ad.payment_id, ad.receipt_url, ad.message, ad.is_anonymous, ad.recognized_tier, ad.status, ad.created_at, ad.updated_at, u.full_name AS donor_name
+SELECT ad.id, ad.donor_id, ad.channel, ad.amount, ad.currency, ad.payment_id, ad.receipt_url, ad.message, ad.is_anonymous, ad.recognized_tier, ad.status, ad.created_at, ad.updated_at, ad.paystack_reference, u.full_name AS donor_name
 FROM alumni_donations ad JOIN users u ON ad.donor_id = u.id
 ORDER BY ad.created_at DESC LIMIT $1 OFFSET $2
 `
@@ -756,20 +785,21 @@ type ListAllDonationsParams struct {
 }
 
 type ListAllDonationsRow struct {
-	ID             uuid.UUID          `json:"id"`
-	DonorID        uuid.UUID          `json:"donor_id"`
-	Channel        DonationChannel    `json:"channel"`
-	Amount         decimal.Decimal    `json:"amount"`
-	Currency       string             `json:"currency"`
-	PaymentID      pgtype.UUID        `json:"payment_id"`
-	ReceiptUrl     *string            `json:"receipt_url"`
-	Message        *string            `json:"message"`
-	IsAnonymous    bool               `json:"is_anonymous"`
-	RecognizedTier DonationTier       `json:"recognized_tier"`
-	Status         string             `json:"status"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-	DonorName      string             `json:"donor_name"`
+	ID                uuid.UUID          `json:"id"`
+	DonorID           uuid.UUID          `json:"donor_id"`
+	Channel           DonationChannel    `json:"channel"`
+	Amount            decimal.Decimal    `json:"amount"`
+	Currency          string             `json:"currency"`
+	PaymentID         pgtype.UUID        `json:"payment_id"`
+	ReceiptUrl        *string            `json:"receipt_url"`
+	Message           *string            `json:"message"`
+	IsAnonymous       bool               `json:"is_anonymous"`
+	RecognizedTier    DonationTier       `json:"recognized_tier"`
+	Status            string             `json:"status"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	PaystackReference *string            `json:"paystack_reference"`
+	DonorName         string             `json:"donor_name"`
 }
 
 func (q *Queries) ListAllDonations(ctx context.Context, arg ListAllDonationsParams) ([]ListAllDonationsRow, error) {
@@ -795,6 +825,7 @@ func (q *Queries) ListAllDonations(ctx context.Context, arg ListAllDonationsPara
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.PaystackReference,
 			&i.DonorName,
 		); err != nil {
 			return nil, err
@@ -1035,7 +1066,7 @@ func (q *Queries) ListAlumniEvents(ctx context.Context, arg ListAlumniEventsPara
 }
 
 const listDonorDonations = `-- name: ListDonorDonations :many
-SELECT id, donor_id, channel, amount, currency, payment_id, receipt_url, message, is_anonymous, recognized_tier, status, created_at, updated_at FROM alumni_donations WHERE donor_id = $1 ORDER BY created_at DESC
+SELECT id, donor_id, channel, amount, currency, payment_id, receipt_url, message, is_anonymous, recognized_tier, status, created_at, updated_at, paystack_reference FROM alumni_donations WHERE donor_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListDonorDonations(ctx context.Context, donorID uuid.UUID) ([]AlumniDonation, error) {
@@ -1061,6 +1092,7 @@ func (q *Queries) ListDonorDonations(ctx context.Context, donorID uuid.UUID) ([]
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.PaystackReference,
 		); err != nil {
 			return nil, err
 		}
@@ -1887,6 +1919,20 @@ func (q *Queries) UpdateAlumniStatus(ctx context.Context, arg UpdateAlumniStatus
 		&i.ProfilePhoto,
 	)
 	return i, err
+}
+
+const updateDonationPaystackRef = `-- name: UpdateDonationPaystackRef :exec
+UPDATE alumni_donations SET paystack_reference = $1, updated_at = NOW() WHERE id = $2
+`
+
+type UpdateDonationPaystackRefParams struct {
+	PaystackReference *string   `json:"paystack_reference"`
+	ID                uuid.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateDonationPaystackRef(ctx context.Context, arg UpdateDonationPaystackRefParams) error {
+	_, err := q.db.Exec(ctx, updateDonationPaystackRef, arg.PaystackReference, arg.ID)
+	return err
 }
 
 const updateJobApplicationStatus = `-- name: UpdateJobApplicationStatus :one

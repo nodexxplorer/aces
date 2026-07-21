@@ -46,7 +46,7 @@ const GroupDiscoveryPage = () => {
     const fetchGroups = async () => {
       try {
         const data = await getGroups();
-        setGroups(data.map(normalizeGroupData));
+        setGroups(Array.isArray(data) ? data.map(normalizeGroupData) : []);
       } catch {
         error('Failed to load', 'Could not fetch groups.');
       } finally {

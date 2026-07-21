@@ -72,6 +72,10 @@ func RateLimit(limit int, window time.Duration) gin.HandlerFunc {
 	limiter := NewRateLimiter(limit, window)
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
+		if ip == "127.0.0.1" || ip == "::1" {
+			c.Next()
+			return
+		}
 		if !limiter.allow(ip) {
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
 				"error":       "rate limit exceeded",

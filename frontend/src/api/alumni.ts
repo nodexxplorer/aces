@@ -140,6 +140,26 @@ export const createJobPost = async (payload: {
   return unwrap<JobPost>(res);
 };
 
+export const updateJobPost = async (
+  jobId: string,
+  payload: {
+    title: string;
+    company: string;
+    location?: string;
+    job_type: string;
+    industry?: string;
+    description: string;
+    requirements?: string;
+    responsibilities?: string;
+    salary_range?: string;
+    application_url?: string;
+    application_deadline?: string;
+  }
+) => {
+  const res = await apiClient.put(`/alumni/jobs/${jobId}`, payload);
+  return unwrap<JobPost>(res);
+};
+
 export const listUserJobPosts = async (userId: string) => {
   const res = await apiClient.get(`/alumni/jobs/user/${userId}`);
   return unwrap<JobPost[]>(res);
@@ -203,7 +223,7 @@ export const createDonation = async (payload: {
   is_anonymous?: boolean;
 }) => {
   const res = await apiClient.post('/alumni/donations', payload);
-  return unwrap<{ message: string; tier: string; amount: number; channel: string }>(res);
+  return res.data.data as { authorization_url: string; reference: string; access_code: string };
 };
 
 export const listDonations = async () => {

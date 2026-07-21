@@ -1,11 +1,14 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/aces/backend/internal/auth"
 	db "github.com/aces/backend/internal/db/sql"
+	"github.com/aces/backend/internal/payment"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -57,6 +60,18 @@ type createJobPostReq struct {
 	Responsibilities *string `json:"responsibilities"`
 	SalaryRange    *string `json:"salary_range"`
 	ApplicationUrl *string `json:"application_url"`
+}
+
+type updateJobPostReq struct {
+	Title               string  `json:"title" binding:"required"`
+	Company             string  `json:"company" binding:"required"`
+	Location            *string `json:"location"`
+	JobType             string  `json:"job_type" binding:"required"`
+	Description         string  `json:"description" binding:"required"`
+	Requirements        *string `json:"requirements"`
+	SalaryRange         *string `json:"salary_range"`
+	ApplicationUrl      *string `json:"application_url"`
+	ApplicationDeadline *string `json:"application_deadline"`
 }
 
 type applyJobReq struct {
@@ -326,6 +341,79 @@ func (server *Server) createJobPost(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, job)
 }
 
+func (server *Server) updateJobPost(ctx *gin.Context) {
+	id, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid job post ID"})
+		return
+	}
+
+	var req updateJobPostReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Fetch existing job
+	job, err := server.alumni.GetJobPost(ctx, id)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "job post not found"})
+		return
+	}
+
+	// Auth check: Must be owner OR admin/hod/delegated_admin
+	userID := getUserID(ctx)
+	claimsVal, exists := ctx.Get("claims")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	claims, ok := claimsVal.(*auth.Claims)
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+		return
+	}
+
+	isOwner := job.PostedBy == userID
+	isAdmin := claims.HasAnyRole([]string{"hod", "admin", "delegated_admin"})
+	if !isOwner && !isAdmin {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "you are not authorized to edit this job post"})
+		return
+	}
+
+	var deadline pgtype.Timestamptz
+	if req.ApplicationDeadline != nil && *req.ApplicationDeadline != "" {
+		t, err := time.Parse(time.RFC3339, *req.ApplicationDeadline)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid application_deadline format, use RFC3339"})
+			return
+		}
+		deadline = pgtype.Timestamptz{Time: t, Valid: true}
+	} else {
+		deadline = pgtype.Timestamptz{Valid: false}
+	}
+
+	updatedJob, err := server.alumni.UpdateJobPost(ctx, db.UpdateJobPostParams{
+		ID:                  id,
+		Title:               req.Title,
+		Company:             req.Company,
+		Location:            req.Location,
+		JobType:             db.JobType(req.JobType),
+		Description:         req.Description,
+		Requirements:        req.Requirements,
+		SalaryRange:         req.SalaryRange,
+		ApplicationUrl:      req.ApplicationUrl,
+		ApplicationDeadline: deadline,
+		IsActive:            job.IsActive,
+	})
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, updatedJob)
+}
+
 func (server *Server) getJobPost(ctx *gin.Context) {
 	id, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
@@ -349,7 +437,7 @@ func (server *Server) listJobPosts(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, jobs)
+	ctx.JSON(http.StatusOK, gin.H{"data": jobs})
 }
 
 func (server *Server) listUserJobPosts(ctx *gin.Context) {
@@ -766,27 +854,51 @@ func (server *Server) createDonation(ctx *gin.Context) {
 		return
 	}
 
+	reference := fmt.Sprintf("ACES-GIVE-%s-%d", donorID.String()[:8], time.Now().Unix())
+
 	donation, err := queries.CreateDonation(ctx, db.CreateDonationParams{
-		DonorID:        donorID,
-		Channel:        db.DonationChannel(req.Channel),
-		Amount:         decimal.NewFromFloat(req.Amount),
-		Currency:       currency,
-		Message:        req.Message,
-		IsAnonymous:    req.IsAnonymous,
-		RecognizedTier: db.DonationTier(tier),
+		DonorID:           donorID,
+		Channel:           db.DonationChannel(req.Channel),
+		Amount:            decimal.NewFromFloat(req.Amount),
+		Currency:          currency,
+		Message:           req.Message,
+		IsAnonymous:       req.IsAnonymous,
+		RecognizedTier:    db.DonationTier(tier),
+		PaystackReference: &reference,
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	_ = donation
+	amountKobo := int64(req.Amount * 100)
+	paystackClient := payment.NewPaystackClient(server.config.PaystackSecretKey, server.config.PaystackPublicKey)
+
+	paystackReq := payment.InitPaymentRequest{
+		Email:       "donor@aces.ng",
+		Amount:      amountKobo,
+		Reference:   reference,
+		CallbackURL: fmt.Sprintf("%s/give-back/verify?ref=%s", server.config.ServerAddress, reference),
+		Metadata: payment.Metadata{
+			"donation_id": donation.ID.String(),
+			"channel":     req.Channel,
+			"tier":        tier,
+		},
+	}
+
+	resp, err := paystackClient.InitializePayment(paystackReq)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to initialize payment: " + err.Error()})
+		return
+	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"message":    "donation recorded successfully",
-		"tier":       tier,
-		"amount":     req.Amount,
-		"channel":    req.Channel,
+		"message": "checkout initialized",
+		"data": gin.H{
+			"authorization_url": resp.Data.AuthorizationURL,
+			"reference":         resp.Data.Reference,
+			"access_code":       resp.Data.AccessCode,
+		},
 	})
 }
 

@@ -45,7 +45,7 @@ type listDuesQuery struct {
 }
 
 type listDuesByLevelQuery struct {
-	Level int32 `form:"level" binding:"required"`
+	Level int32 `form:"level"`
 }
 
 // ── Cart ──
@@ -213,12 +213,23 @@ func (server *Server) listDues(ctx *gin.Context) {
 // listDuesByLevel GET /payments/dues/level
 func (server *Server) listDuesByLevel(ctx *gin.Context) {
 	var q listDuesByLevelQuery
-	if err := ctx.ShouldBindQuery(&q); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	_ = ctx.ShouldBindQuery(&q)
+
+	if q.Level > 0 {
+		dues, err := server.store.ListDuesByLevel(ctx, &q.Level)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		ctx.JSON(http.StatusOK, dues)
 		return
 	}
 
-	dues, err := server.store.ListDuesByLevel(ctx, &q.Level)
+	// No level specified - return all active dues
+	dues, err := server.store.ListDues(ctx, db.ListDuesParams{
+		Limit:  100,
+		Offset: 0,
+	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

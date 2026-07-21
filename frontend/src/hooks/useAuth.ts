@@ -1,6 +1,6 @@
 import { useAuthStore } from '../stores/authStore';
 import { useRoleStore } from '../stores/roleStore';
-import { logout as apiLogout } from '../api/auth';
+import { logout as apiLogout, getMe } from '../api/auth';
 import type { UserRole } from '../types';
 
 export const useAuth = () => {
@@ -9,9 +9,9 @@ export const useAuth = () => {
 
   const activeRole = user?.activeRole ?? 'student';
 
-  const handleLogin = (userData: Parameters<typeof login>[0], tokens: Parameters<typeof login>[1]) => {
+  const handleLogin = (userData: any, tokens: any) => {
     login(userData, tokens);
-    setAvailableRoles(userData.roles);
+    setAvailableRoles(userData.allRoles || userData.roles || ['student']);
   };
 
   const handleSwitchRole = (role: UserRole) => {
@@ -28,6 +28,20 @@ export const useAuth = () => {
     setAvailableRoles(['student']);
   };
 
+  const refreshUser = async () => {
+    try {
+      const latestUser = await getMe();
+      updateUser(latestUser);
+      if (latestUser.allRoles) {
+        setAvailableRoles(latestUser.allRoles);
+      } else if (latestUser.roles) {
+        setAvailableRoles(latestUser.roles);
+      }
+    } catch (err) {
+      console.error('Failed to refresh user info', err);
+    }
+  };
+
   return {
     user,
     isAuthenticated,
@@ -38,5 +52,6 @@ export const useAuth = () => {
     logout: handleLogout,
     updateUser,
     switchRole: handleSwitchRole,
+    refreshUser,
   };
 };

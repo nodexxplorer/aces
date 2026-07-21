@@ -4,7 +4,8 @@ import MessageBubble from '../../components/ui/MessageBubble';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../hooks/useAuth';
 import { getMyConnections, getConversation, sendMessage } from '../../api/campus-connect';
-import { Send, Users, MessageSquare, Loader2 } from 'lucide-react';
+import { toggleMessageReaction } from '../../api/campus-connect-v2';
+import { Send, Users, MessageSquare, Loader2, SmilePlus } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import type { Connection, Message } from '../../types';
 
@@ -48,6 +49,14 @@ const normalizeMessage = (message: Message): ChatMessage => ({
   created_at: message.createdAt || '',
 });
 
+const REACTION_OPTIONS = [
+  { type: 'like', emoji: '👍' },
+  { type: 'love', emoji: '❤️' },
+  { type: 'celebrate', emoji: '🎉' },
+  { type: 'insightful', emoji: '💡' },
+  { type: 'funny', emoji: '😂' },
+];
+
 const CampusConnectPage = () => {
   const { user } = useAuth();
   const { error } = useNotification();
@@ -61,6 +70,7 @@ const CampusConnectPage = () => {
   const [activeContactId, setActiveContactId] = useState<string>(initialUserId);
   const [messageText, setMessageText] = useState('');
   const [sending, setSending] = useState(false);
+  const [reactionTarget, setReactionTarget] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -107,6 +117,7 @@ const CampusConnectPage = () => {
   const handleSelectContact = (contactId: string) => {
     setActiveContactId(contactId);
     setSearchParams({ userId: contactId });
+    setReactionTarget(null);
   };
 
   const handleSend = async (e: React.FormEvent) => {
@@ -121,6 +132,15 @@ const CampusConnectPage = () => {
       error('Send Failed', 'Could not send message.');
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleReact = async (messageId: string, reactionType: string) => {
+    try {
+      await toggleMessageReaction(messageId, reactionType);
+      setReactionTarget(null);
+    } catch {
+      error('Reaction Failed', 'Could not add reaction.');
     }
   };
 
@@ -197,13 +217,34 @@ const CampusConnectPage = () => {
                 </div>
               ) : (
                 messages.map((msg) => (
-                  <MessageBubble
-                    key={msg.id}
-                    content={msg.content}
-                    senderName={msg.sender_id === user?.id ? 'You' : (activeContact ? getContactName(activeContact) : 'User')}
-                    timestamp={msg.created_at}
-                    isMine={msg.sender_id === user?.id}
-                  />
+                  <div key={msg.id} className="group relative">
+                    <MessageBubble
+                      content={msg.content}
+                      senderName={msg.sender_id === user?.id ? 'You' : (activeContact ? getContactName(activeContact) : 'User')}
+                      timestamp={msg.created_at}
+                      isMine={msg.sender_id === user?.id}
+                    />
+                    <button
+                      onClick={() => setReactionTarget(reactionTarget === msg.id ? null : msg.id)}
+                      className={`absolute -right-1 top-0 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700 ${msg.sender_id === user?.id ? '-left-7' : 'right-0'}`}
+                    >
+                      <SmilePlus className="w-3.5 h-3.5 text-surface-500" />
+                    </button>
+                    {reactionTarget === msg.id && (
+                      <div className={`absolute -top-2 z-10 flex gap-1 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-full px-2 py-1 shadow-lg ${msg.sender_id === user?.id ? 'right-0' : 'left-0'}`}>
+                        {REACTION_OPTIONS.map((r) => (
+                          <button
+                            key={r.type}
+                            onClick={() => handleReact(msg.id, r.type)}
+                            className="text-sm hover:scale-125 transition-transform"
+                            title={r.type}
+                          >
+                            {r.emoji}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ))
               )}
               <div ref={messagesEndRef} />

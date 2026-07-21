@@ -8,6 +8,7 @@ import { ToastContainer } from '../feedback/Toast';
 import CookieConsent from '../feedback/CookieConsent';
 import AdminMobileGuard from './AdminMobileGuard';
 import OfflineBanner from '../feedback/OfflineBanner';
+import ChatbotWidget from '../ai/ChatbotWidget';
 
 const AppShell = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -32,6 +33,7 @@ const AppShell = () => {
           <Footer />
         </div>
       </div>
+      <ChatbotWidget />
       <OfflineBanner />
       <ThemeToggle />
       <ToastContainer />

@@ -60,7 +60,26 @@ func (server *Server) handlePaystackWebhook(ctx *gin.Context) {
 			return
 		}
 
-		// Look up payment by reference
+		donation, err := server.store.GetDonationByReference(ctx, &reference)
+		if err == nil {
+			if string(donation.Status) == "completed" {
+				log.Printf("[paystack-webhook] Donation %s already completed, skipping", reference)
+				ctx.JSON(http.StatusOK, gin.H{"status": "already completed"})
+				return
+			}
+
+			if err := server.store.UpdateDonationStatus(ctx, db.UpdateDonationStatusParams{
+				ID:     donation.ID,
+				Status: "completed",
+			}); err != nil {
+				log.Printf("[paystack-webhook] Failed to update donation %s: %v", reference, err)
+			} else {
+				log.Printf("[paystack-webhook] Donation %s marked as completed", reference)
+			}
+			ctx.JSON(http.StatusOK, gin.H{"status": "donation updated"})
+			return
+		}
+
 		payment, err := server.store.GetPaymentByReference(ctx, &reference)
 		if err != nil {
 			log.Printf("[paystack-webhook] No payment found for reference %s: %v", reference, err)

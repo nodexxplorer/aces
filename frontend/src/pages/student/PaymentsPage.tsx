@@ -29,7 +29,7 @@ const PaymentsPage = () => {
     Promise.all([
       getStudentPayments(user.id),
       getStudentPaymentSummary(user.id).catch(() => null),
-      getMyDues().catch(() => []),
+      getMyDues((user as any)?.level).catch(() => []),
     ])
       .then(([pays, summ, duesData]) => {
         setPayments(pays);

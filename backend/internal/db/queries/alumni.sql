@@ -167,8 +167,14 @@ WHERE id = $1 RETURNING *;
 -- ==================== DONATIONS ====================
 
 -- name: CreateDonation :one
-INSERT INTO alumni_donations (donor_id, channel, amount, currency, message, is_anonymous, recognized_tier)
-VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *;
+INSERT INTO alumni_donations (donor_id, channel, amount, currency, message, is_anonymous, recognized_tier, status, paystack_reference)
+VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8) RETURNING *;
+
+-- name: GetDonationByReference :one
+SELECT * FROM alumni_donations WHERE paystack_reference = $1 LIMIT 1;
+
+-- name: UpdateDonationPaystackRef :exec
+UPDATE alumni_donations SET paystack_reference = $1, updated_at = NOW() WHERE id = $2;
 
 -- name: ListDonorDonations :many
 SELECT * FROM alumni_donations WHERE donor_id = $1 ORDER BY created_at DESC;

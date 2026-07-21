@@ -9,10 +9,18 @@ import (
 )
 
 type createComplaintRequest struct {
-	Category string `json:"category" binding:"required"`
-	Subject  string `json:"subject" binding:"required"`
-	Body     string `json:"body" binding:"required"`
-	Priority string `json:"priority"`
+	Category    string `json:"category" binding:"required"`
+	Subject     string `json:"subject" binding:"required"`
+	Body        string `json:"body"`
+	Description string `json:"description"`
+	Priority    string `json:"priority"`
+}
+
+func (r *createComplaintRequest) GetBody() string {
+	if r.Body != "" {
+		return r.Body
+	}
+	return r.Description
 }
 
 type updateComplaintRequest struct {
@@ -44,7 +52,7 @@ func (server *Server) createComplaint(ctx *gin.Context) {
 	complaint, err := server.complaints.Create(ctx, userID, service.CreateComplaintInput{
 		Category: req.Category,
 		Subject:  req.Subject,
-		Body:     req.Body,
+		Body:     req.GetBody(),
 		Priority: req.Priority,
 	})
 	if err != nil {
@@ -165,4 +173,32 @@ func (server *Server) resolveComplaint(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"data": complaint})
+}
+
+func (server *Server) listMyComplaints(ctx *gin.Context) {
+	userIDStr := ctx.GetString("userID")
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	student, err := server.store.GetStudentByUserId(ctx, userID)
+	if err != nil {
+		// Fallback: try using userID directly as student_id
+		complaints, cErr := server.complaints.ListByStudent(ctx, userID)
+		if cErr != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list complaints"})
+			return
+		}
+		ctx.JSON(http.StatusOK, gin.H{"data": complaints})
+		return
+	}
+
+	complaints, err := server.complaints.ListByStudent(ctx, student.ID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list complaints"})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"data": complaints})
 }

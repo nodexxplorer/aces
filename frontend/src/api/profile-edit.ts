@@ -136,7 +136,7 @@ export const listPendingDocuments = async (page = 1, perPage = 20) => {
   const res = await apiClient.get('/documents/pending', {
     params: { page, per_page: perPage },
   });
-  return unwrap<{ data: StudentDocument[]; total: number }>(res);
+  return res.data;
 };
 
 export const verifyDocument = async (docId: string) => {

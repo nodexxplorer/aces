@@ -56,8 +56,13 @@ apiClient.interceptors.response.use(
 
 export function unwrap<T>(response: { data: any }): T {
   const body = response.data;
+  if (body === null || body === undefined) return [] as unknown as T;
   if (Array.isArray(body)) return body as T;
-  if (body && typeof body === 'object' && 'data' in body) return body.data as T;
+  if (body && typeof body === 'object' && 'data' in body) {
+    const d = body.data;
+    if (d === null || d === undefined) return [] as unknown as T;
+    return d as T;
+  }
   return body as T;
 }
 

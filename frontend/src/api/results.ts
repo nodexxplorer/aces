@@ -37,14 +37,7 @@ export const getResultAuditLogs = async (resultId: string) => {
 };
 
 export const getAllResults = async (params?: PaginationParams) => {
-  try {
-    const { data } = await apiClient.get<{ data: Result[] }>('/results', { params });
-    return data.data;
-  } catch {
-    return [
-      { id: '1', courseCode: 'CPE301', courseTitle: 'Digital Systems', lecturerName: 'Dr. Smith', studentCount: 45, status: 'pending', createdAt: new Date().toISOString() },
-      { id: '2', courseCode: 'CPE302', courseTitle: 'Microprocessors', lecturerName: 'Dr. Johnson', studentCount: 42, status: 'pending', createdAt: new Date().toISOString() }
-    ];
-  }
+  const { data } = await apiClient.get<{ data: Result[] }>('/results', { params });
+  return data.data;
 };
 

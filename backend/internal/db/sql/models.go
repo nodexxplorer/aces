@@ -58,6 +58,143 @@ func (ns NullAcademicStanding) Value() (driver.Value, error) {
 	return string(ns.AcademicStanding), nil
 }
 
+type AiFeature string
+
+const (
+	AiFeatureChatbot         AiFeature = "chatbot"
+	AiFeatureRecommendation  AiFeature = "recommendation"
+	AiFeaturePrediction      AiFeature = "prediction"
+	AiFeatureModeration      AiFeature = "moderation"
+	AiFeatureSearch          AiFeature = "search"
+	AiFeaturePlagiarism      AiFeature = "plagiarism"
+	AiFeatureFaceRecognition AiFeature = "face_recognition"
+	AiFeatureTranslation     AiFeature = "translation"
+)
+
+func (e *AiFeature) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AiFeature(s)
+	case string:
+		*e = AiFeature(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AiFeature: %T", src)
+	}
+	return nil
+}
+
+type NullAiFeature struct {
+	AiFeature AiFeature `json:"ai_feature"`
+	Valid     bool      `json:"valid"` // Valid is true if AiFeature is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAiFeature) Scan(value interface{}) error {
+	if value == nil {
+		ns.AiFeature, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AiFeature.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAiFeature) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AiFeature), nil
+}
+
+type AiModelStatus string
+
+const (
+	AiModelStatusActive     AiModelStatus = "active"
+	AiModelStatusDeprecated AiModelStatus = "deprecated"
+	AiModelStatusRetraining AiModelStatus = "retraining"
+)
+
+func (e *AiModelStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AiModelStatus(s)
+	case string:
+		*e = AiModelStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AiModelStatus: %T", src)
+	}
+	return nil
+}
+
+type NullAiModelStatus struct {
+	AiModelStatus AiModelStatus `json:"ai_model_status"`
+	Valid         bool          `json:"valid"` // Valid is true if AiModelStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAiModelStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.AiModelStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AiModelStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAiModelStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AiModelStatus), nil
+}
+
+type AiModelType string
+
+const (
+	AiModelTypeLlm       AiModelType = "llm"
+	AiModelTypeMl        AiModelType = "ml"
+	AiModelTypeNlp       AiModelType = "nlp"
+	AiModelTypeVision    AiModelType = "vision"
+	AiModelTypeSpeech    AiModelType = "speech"
+	AiModelTypeRuleBased AiModelType = "rule_based"
+)
+
+func (e *AiModelType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AiModelType(s)
+	case string:
+		*e = AiModelType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AiModelType: %T", src)
+	}
+	return nil
+}
+
+type NullAiModelType struct {
+	AiModelType AiModelType `json:"ai_model_type"`
+	Valid       bool        `json:"valid"` // Valid is true if AiModelType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAiModelType) Scan(value interface{}) error {
+	if value == nil {
+		ns.AiModelType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AiModelType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAiModelType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AiModelType), nil
+}
+
 type AlumniVerificationStatus string
 
 const (
@@ -99,6 +236,51 @@ func (ns NullAlumniVerificationStatus) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.AlumniVerificationStatus), nil
+}
+
+type AppealStatus string
+
+const (
+	AppealStatusSubmitted      AppealStatus = "submitted"
+	AppealStatusLecturerReview AppealStatus = "lecturer_review"
+	AppealStatusHodReview      AppealStatus = "hod_review"
+	AppealStatusResolved       AppealStatus = "resolved"
+	AppealStatusRejected       AppealStatus = "rejected"
+)
+
+func (e *AppealStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AppealStatus(s)
+	case string:
+		*e = AppealStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AppealStatus: %T", src)
+	}
+	return nil
+}
+
+type NullAppealStatus struct {
+	AppealStatus AppealStatus `json:"appeal_status"`
+	Valid        bool         `json:"valid"` // Valid is true if AppealStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAppealStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.AppealStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AppealStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAppealStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AppealStatus), nil
 }
 
 type ApplicationStatus string
@@ -188,6 +370,95 @@ func (ns NullBackupStatus) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.BackupStatus), nil
+}
+
+type BroadcastPriority string
+
+const (
+	BroadcastPriorityNormal   BroadcastPriority = "normal"
+	BroadcastPriorityUrgent   BroadcastPriority = "urgent"
+	BroadcastPriorityCritical BroadcastPriority = "critical"
+)
+
+func (e *BroadcastPriority) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = BroadcastPriority(s)
+	case string:
+		*e = BroadcastPriority(s)
+	default:
+		return fmt.Errorf("unsupported scan type for BroadcastPriority: %T", src)
+	}
+	return nil
+}
+
+type NullBroadcastPriority struct {
+	BroadcastPriority BroadcastPriority `json:"broadcast_priority"`
+	Valid             bool              `json:"valid"` // Valid is true if BroadcastPriority is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullBroadcastPriority) Scan(value interface{}) error {
+	if value == nil {
+		ns.BroadcastPriority, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.BroadcastPriority.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullBroadcastPriority) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.BroadcastPriority), nil
+}
+
+type CalendarEventType string
+
+const (
+	CalendarEventTypeExam     CalendarEventType = "exam"
+	CalendarEventTypeDeadline CalendarEventType = "deadline"
+	CalendarEventTypeMeeting  CalendarEventType = "meeting"
+	CalendarEventTypeHoliday  CalendarEventType = "holiday"
+	CalendarEventTypeEvent    CalendarEventType = "event"
+	CalendarEventTypeCustom   CalendarEventType = "custom"
+)
+
+func (e *CalendarEventType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = CalendarEventType(s)
+	case string:
+		*e = CalendarEventType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for CalendarEventType: %T", src)
+	}
+	return nil
+}
+
+type NullCalendarEventType struct {
+	CalendarEventType CalendarEventType `json:"calendar_event_type"`
+	Valid             bool              `json:"valid"` // Valid is true if CalendarEventType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullCalendarEventType) Scan(value interface{}) error {
+	if value == nil {
+		ns.CalendarEventType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.CalendarEventType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullCalendarEventType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.CalendarEventType), nil
 }
 
 type ChangeRequestStatus string
@@ -593,6 +864,138 @@ func (ns NullDonationTier) Value() (driver.Value, error) {
 	return string(ns.DonationTier), nil
 }
 
+type ExpenseStatus string
+
+const (
+	ExpenseStatusPending  ExpenseStatus = "pending"
+	ExpenseStatusApproved ExpenseStatus = "approved"
+	ExpenseStatusRejected ExpenseStatus = "rejected"
+	ExpenseStatusPaid     ExpenseStatus = "paid"
+)
+
+func (e *ExpenseStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ExpenseStatus(s)
+	case string:
+		*e = ExpenseStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ExpenseStatus: %T", src)
+	}
+	return nil
+}
+
+type NullExpenseStatus struct {
+	ExpenseStatus ExpenseStatus `json:"expense_status"`
+	Valid         bool          `json:"valid"` // Valid is true if ExpenseStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullExpenseStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.ExpenseStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ExpenseStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullExpenseStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ExpenseStatus), nil
+}
+
+type FeedbackStatus string
+
+const (
+	FeedbackStatusSubmitted   FeedbackStatus = "submitted"
+	FeedbackStatusUnderReview FeedbackStatus = "under_review"
+	FeedbackStatusPlanned     FeedbackStatus = "planned"
+	FeedbackStatusImplemented FeedbackStatus = "implemented"
+	FeedbackStatusDeclined    FeedbackStatus = "declined"
+)
+
+func (e *FeedbackStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = FeedbackStatus(s)
+	case string:
+		*e = FeedbackStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for FeedbackStatus: %T", src)
+	}
+	return nil
+}
+
+type NullFeedbackStatus struct {
+	FeedbackStatus FeedbackStatus `json:"feedback_status"`
+	Valid          bool           `json:"valid"` // Valid is true if FeedbackStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullFeedbackStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.FeedbackStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.FeedbackStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullFeedbackStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.FeedbackStatus), nil
+}
+
+type FeedbackType string
+
+const (
+	FeedbackTypeBug     FeedbackType = "bug"
+	FeedbackTypeFeature FeedbackType = "feature"
+	FeedbackTypeGeneral FeedbackType = "general"
+)
+
+func (e *FeedbackType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = FeedbackType(s)
+	case string:
+		*e = FeedbackType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for FeedbackType: %T", src)
+	}
+	return nil
+}
+
+type NullFeedbackType struct {
+	FeedbackType FeedbackType `json:"feedback_type"`
+	Valid        bool         `json:"valid"` // Valid is true if FeedbackType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullFeedbackType) Scan(value interface{}) error {
+	if value == nil {
+		ns.FeedbackType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.FeedbackType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullFeedbackType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.FeedbackType), nil
+}
+
 type Grade string
 
 const (
@@ -777,6 +1180,50 @@ func (ns NullLeaveType) Value() (driver.Value, error) {
 	return string(ns.LeaveType), nil
 }
 
+type MeetingStatus string
+
+const (
+	MeetingStatusScheduled  MeetingStatus = "scheduled"
+	MeetingStatusInProgress MeetingStatus = "in_progress"
+	MeetingStatusCompleted  MeetingStatus = "completed"
+	MeetingStatusCancelled  MeetingStatus = "cancelled"
+)
+
+func (e *MeetingStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = MeetingStatus(s)
+	case string:
+		*e = MeetingStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for MeetingStatus: %T", src)
+	}
+	return nil
+}
+
+type NullMeetingStatus struct {
+	MeetingStatus MeetingStatus `json:"meeting_status"`
+	Valid         bool          `json:"valid"` // Valid is true if MeetingStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullMeetingStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.MeetingStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.MeetingStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullMeetingStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.MeetingStatus), nil
+}
+
 type MentorshipStatus string
 
 const (
@@ -820,6 +1267,94 @@ func (ns NullMentorshipStatus) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.MentorshipStatus), nil
+}
+
+type ModerationContentType string
+
+const (
+	ModerationContentTypePost         ModerationContentType = "post"
+	ModerationContentTypeMessage      ModerationContentType = "message"
+	ModerationContentTypeComment      ModerationContentType = "comment"
+	ModerationContentTypeAssignment   ModerationContentType = "assignment"
+	ModerationContentTypeAnnouncement ModerationContentType = "announcement"
+)
+
+func (e *ModerationContentType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ModerationContentType(s)
+	case string:
+		*e = ModerationContentType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ModerationContentType: %T", src)
+	}
+	return nil
+}
+
+type NullModerationContentType struct {
+	ModerationContentType ModerationContentType `json:"moderation_content_type"`
+	Valid                 bool                  `json:"valid"` // Valid is true if ModerationContentType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullModerationContentType) Scan(value interface{}) error {
+	if value == nil {
+		ns.ModerationContentType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ModerationContentType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullModerationContentType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ModerationContentType), nil
+}
+
+type ModerationDecision string
+
+const (
+	ModerationDecisionAllow    ModerationDecision = "allow"
+	ModerationDecisionRemove   ModerationDecision = "remove"
+	ModerationDecisionEscalate ModerationDecision = "escalate"
+)
+
+func (e *ModerationDecision) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ModerationDecision(s)
+	case string:
+		*e = ModerationDecision(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ModerationDecision: %T", src)
+	}
+	return nil
+}
+
+type NullModerationDecision struct {
+	ModerationDecision ModerationDecision `json:"moderation_decision"`
+	Valid              bool               `json:"valid"` // Valid is true if ModerationDecision is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullModerationDecision) Scan(value interface{}) error {
+	if value == nil {
+		ns.ModerationDecision, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ModerationDecision.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullModerationDecision) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ModerationDecision), nil
 }
 
 type NotificationType string
@@ -961,6 +1496,53 @@ func (ns NullPaymentType) Value() (driver.Value, error) {
 	return string(ns.PaymentType), nil
 }
 
+type PredictionType string
+
+const (
+	PredictionTypeAtRisk     PredictionType = "at_risk"
+	PredictionTypePassRate   PredictionType = "pass_rate"
+	PredictionTypeRevenue    PredictionType = "revenue"
+	PredictionTypeDefaulter  PredictionType = "defaulter"
+	PredictionTypeGpa        PredictionType = "gpa"
+	PredictionTypeAttendance PredictionType = "attendance"
+	PredictionTypeCompletion PredictionType = "completion"
+)
+
+func (e *PredictionType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PredictionType(s)
+	case string:
+		*e = PredictionType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PredictionType: %T", src)
+	}
+	return nil
+}
+
+type NullPredictionType struct {
+	PredictionType PredictionType `json:"prediction_type"`
+	Valid          bool           `json:"valid"` // Valid is true if PredictionType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPredictionType) Scan(value interface{}) error {
+	if value == nil {
+		ns.PredictionType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PredictionType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPredictionType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PredictionType), nil
+}
+
 type ProfileChangeType string
 
 const (
@@ -1047,6 +1629,48 @@ func (ns NullReportStatus) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.ReportStatus), nil
+}
+
+type ResetChannel string
+
+const (
+	ResetChannelEmail ResetChannel = "email"
+	ResetChannelSms   ResetChannel = "sms"
+)
+
+func (e *ResetChannel) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ResetChannel(s)
+	case string:
+		*e = ResetChannel(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ResetChannel: %T", src)
+	}
+	return nil
+}
+
+type NullResetChannel struct {
+	ResetChannel ResetChannel `json:"reset_channel"`
+	Valid        bool         `json:"valid"` // Valid is true if ResetChannel is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullResetChannel) Scan(value interface{}) error {
+	if value == nil {
+		ns.ResetChannel, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ResetChannel.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullResetChannel) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ResetChannel), nil
 }
 
 type ResultStatus string
@@ -1269,6 +1893,93 @@ func (ns NullSubcategoryModule) Value() (driver.Value, error) {
 	return string(ns.SubcategoryModule), nil
 }
 
+type TaskPriority string
+
+const (
+	TaskPriorityHigh   TaskPriority = "high"
+	TaskPriorityMedium TaskPriority = "medium"
+	TaskPriorityLow    TaskPriority = "low"
+)
+
+func (e *TaskPriority) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = TaskPriority(s)
+	case string:
+		*e = TaskPriority(s)
+	default:
+		return fmt.Errorf("unsupported scan type for TaskPriority: %T", src)
+	}
+	return nil
+}
+
+type NullTaskPriority struct {
+	TaskPriority TaskPriority `json:"task_priority"`
+	Valid        bool         `json:"valid"` // Valid is true if TaskPriority is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullTaskPriority) Scan(value interface{}) error {
+	if value == nil {
+		ns.TaskPriority, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.TaskPriority.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullTaskPriority) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.TaskPriority), nil
+}
+
+type TaskStatus string
+
+const (
+	TaskStatusPending    TaskStatus = "pending"
+	TaskStatusInProgress TaskStatus = "in_progress"
+	TaskStatusCompleted  TaskStatus = "completed"
+	TaskStatusCancelled  TaskStatus = "cancelled"
+)
+
+func (e *TaskStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = TaskStatus(s)
+	case string:
+		*e = TaskStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for TaskStatus: %T", src)
+	}
+	return nil
+}
+
+type NullTaskStatus struct {
+	TaskStatus TaskStatus `json:"task_status"`
+	Valid      bool       `json:"valid"` // Valid is true if TaskStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullTaskStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.TaskStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.TaskStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullTaskStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.TaskStatus), nil
+}
+
 type TradeStatus string
 
 const (
@@ -1416,6 +2127,30 @@ type AcademicStandingRule struct {
 	IsActive bool            `json:"is_active"`
 }
 
+type AccountLockout struct {
+	ID             uuid.UUID          `json:"id"`
+	UserID         uuid.UUID          `json:"user_id"`
+	FailedAttempts int32              `json:"failed_attempts"`
+	LockedAt       pgtype.Timestamptz `json:"locked_at"`
+	UnlockAt       pgtype.Timestamptz `json:"unlock_at"`
+	IpAddresses    []byte             `json:"ip_addresses"`
+	IsLocked       bool               `json:"is_locked"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ActiveSession struct {
+	ID           uuid.UUID          `json:"id"`
+	UserID       uuid.UUID          `json:"user_id"`
+	SessionToken string             `json:"session_token"`
+	DeviceInfo   *string            `json:"device_info"`
+	IpAddress    *netip.Addr        `json:"ip_address"`
+	UserAgent    *string            `json:"user_agent"`
+	LastActiveAt pgtype.Timestamptz `json:"last_active_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
+}
+
 type AdminPermission struct {
 	ID                     uuid.UUID          `json:"id"`
 	UserID                 uuid.UUID          `json:"user_id"`
@@ -1432,6 +2167,64 @@ type AdminPermission struct {
 	IsActive               bool               `json:"is_active"`
 }
 
+type AiInteraction struct {
+	ID              uuid.UUID          `json:"id"`
+	UserID          uuid.UUID          `json:"user_id"`
+	Feature         AiFeature          `json:"feature"`
+	SessionID       *string            `json:"session_id"`
+	InputText       string             `json:"input_text"`
+	OutputText      string             `json:"output_text"`
+	ConfidenceScore *float64           `json:"confidence_score"`
+	WasAccurate     *bool              `json:"was_accurate"`
+	UserFeedback    *string            `json:"user_feedback"`
+	Context         []byte             `json:"context"`
+	ModelUsed       *string            `json:"model_used"`
+	ResponseTimeMs  *int32             `json:"response_time_ms"`
+	ReviewedBy      pgtype.UUID        `json:"reviewed_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
+type AiModel struct {
+	ID                  uuid.UUID          `json:"id"`
+	ModelName           string             `json:"model_name"`
+	ModelVersion        string             `json:"model_version"`
+	ModelType           AiModelType        `json:"model_type"`
+	TrainingDataSummary []byte             `json:"training_data_summary"`
+	AccuracyMetrics     []byte             `json:"accuracy_metrics"`
+	BiasAuditResults    []byte             `json:"bias_audit_results"`
+	DeploymentStatus    AiModelStatus      `json:"deployment_status"`
+	Config              []byte             `json:"config"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
+type AiPrediction struct {
+	ID                 uuid.UUID          `json:"id"`
+	PredictionType     PredictionType     `json:"prediction_type"`
+	TargetID           uuid.UUID          `json:"target_id"`
+	PredictedValue     json.RawMessage    `json:"predicted_value"`
+	ActualValue        []byte             `json:"actual_value"`
+	ConfidenceInterval *float64           `json:"confidence_interval"`
+	ModelVersion       *string            `json:"model_version"`
+	FeaturesUsed       []byte             `json:"features_used"`
+	WasReviewed        *bool              `json:"was_reviewed"`
+	ReviewedBy         pgtype.UUID        `json:"reviewed_by"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
+}
+
+type AiUserSetting struct {
+	ID                     uuid.UUID          `json:"id"`
+	UserID                 uuid.UUID          `json:"user_id"`
+	ChatbotEnabled         *bool              `json:"chatbot_enabled"`
+	PersonalizationEnabled *bool              `json:"personalization_enabled"`
+	FaceRecognitionEnabled *bool              `json:"face_recognition_enabled"`
+	DataCollectionConsent  *bool              `json:"data_collection_consent"`
+	PreferredLanguage      *string            `json:"preferred_language"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+}
+
 type AlumniAuditLog struct {
 	ID        uuid.UUID          `json:"id"`
 	AlumniID  uuid.UUID          `json:"alumni_id"`
@@ -1443,19 +2236,20 @@ type AlumniAuditLog struct {
 }
 
 type AlumniDonation struct {
-	ID             uuid.UUID          `json:"id"`
-	DonorID        uuid.UUID          `json:"donor_id"`
-	Channel        DonationChannel    `json:"channel"`
-	Amount         decimal.Decimal    `json:"amount"`
-	Currency       string             `json:"currency"`
-	PaymentID      pgtype.UUID        `json:"payment_id"`
-	ReceiptUrl     *string            `json:"receipt_url"`
-	Message        *string            `json:"message"`
-	IsAnonymous    bool               `json:"is_anonymous"`
-	RecognizedTier DonationTier       `json:"recognized_tier"`
-	Status         string             `json:"status"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	ID                uuid.UUID          `json:"id"`
+	DonorID           uuid.UUID          `json:"donor_id"`
+	Channel           DonationChannel    `json:"channel"`
+	Amount            decimal.Decimal    `json:"amount"`
+	Currency          string             `json:"currency"`
+	PaymentID         pgtype.UUID        `json:"payment_id"`
+	ReceiptUrl        *string            `json:"receipt_url"`
+	Message           *string            `json:"message"`
+	IsAnonymous       bool               `json:"is_anonymous"`
+	RecognizedTier    DonationTier       `json:"recognized_tier"`
+	Status            string             `json:"status"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	PaystackReference *string            `json:"paystack_reference"`
 }
 
 type AlumniEvent struct {
@@ -1528,15 +2322,62 @@ type AnalyticsSnapshot struct {
 }
 
 type Announcement struct {
+	ID                     uuid.UUID          `json:"id"`
+	Title                  string             `json:"title"`
+	Content                string             `json:"content"`
+	IsPinned               bool               `json:"is_pinned"`
+	TargetLevel            *int32             `json:"target_level"`
+	TargetAudience         []byte             `json:"target_audience"`
+	ExpiresAt              pgtype.Timestamptz `json:"expires_at"`
+	CreatedBy              uuid.UUID          `json:"created_by"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	Summary                *string            `json:"summary"`
+	Priority               interface{}        `json:"priority"`
+	Category               interface{}        `json:"category"`
+	TargetLevels           []byte             `json:"target_levels"`
+	TargetDepartments      []byte             `json:"target_departments"`
+	Attachments            []byte             `json:"attachments"`
+	RequiresAcknowledgment bool               `json:"requires_acknowledgment"`
+	Status                 interface{}        `json:"status"`
+	ScheduledFor           pgtype.Timestamptz `json:"scheduled_for"`
+	ReadCount              int32              `json:"read_count"`
+	AcknowledgedCount      int32              `json:"acknowledged_count"`
+	PinOrder               *int32             `json:"pin_order"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+}
+
+type AnnouncementComment struct {
+	ID              uuid.UUID          `json:"id"`
+	AnnouncementID  uuid.UUID          `json:"announcement_id"`
+	AuthorID        uuid.UUID          `json:"author_id"`
+	ParentCommentID pgtype.UUID        `json:"parent_comment_id"`
+	Content         string             `json:"content"`
+	IsHidden        bool               `json:"is_hidden"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type AnnouncementReadReceipt struct {
 	ID             uuid.UUID          `json:"id"`
-	Title          string             `json:"title"`
-	Content        string             `json:"content"`
-	IsPinned       bool               `json:"is_pinned"`
-	TargetLevel    *int32             `json:"target_level"`
-	TargetAudience []byte             `json:"target_audience"`
-	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
-	CreatedBy      uuid.UUID          `json:"created_by"`
+	AnnouncementID uuid.UUID          `json:"announcement_id"`
+	StudentID      uuid.UUID          `json:"student_id"`
+	ReadAt         pgtype.Timestamptz `json:"read_at"`
+	AcknowledgedAt pgtype.Timestamptz `json:"acknowledged_at"`
+	DeviceType     *string            `json:"device_type"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type AnnouncementTemplate struct {
+	ID                            uuid.UUID          `json:"id"`
+	Name                          string             `json:"name"`
+	DefaultTitle                  string             `json:"default_title"`
+	DefaultBody                   string             `json:"default_body"`
+	DefaultPriority               interface{}        `json:"default_priority"`
+	DefaultCategory               interface{}        `json:"default_category"`
+	DefaultRequiresAcknowledgment bool               `json:"default_requires_acknowledgment"`
+	CreatedBy                     pgtype.UUID        `json:"created_by"`
+	CreatedAt                     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                     pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Assignment struct {
@@ -1619,6 +2460,13 @@ type Backup struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type BroadcastAcknowledgment struct {
+	ID             uuid.UUID          `json:"id"`
+	BroadcastID    uuid.UUID          `json:"broadcast_id"`
+	UserID         uuid.UUID          `json:"user_id"`
+	AcknowledgedAt pgtype.Timestamptz `json:"acknowledged_at"`
+}
+
 type BursarAssignment struct {
 	ID         uuid.UUID          `json:"id"`
 	UserID     uuid.UUID          `json:"user_id"`
@@ -1629,6 +2477,34 @@ type BursarAssignment struct {
 	IsActive   bool               `json:"is_active"`
 	AssignedAt pgtype.Timestamptz `json:"assigned_at"`
 	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
+}
+
+type CampusProfile struct {
+	ID                 uuid.UUID          `json:"id"`
+	UserID             uuid.UUID          `json:"user_id"`
+	Bio                *string            `json:"bio"`
+	Interests          []byte             `json:"interests"`
+	Skills             []byte             `json:"skills"`
+	AvailabilityStatus string             `json:"availability_status"`
+	LastActiveAt       pgtype.Timestamptz `json:"last_active_at"`
+	ConnectionCount    int32              `json:"connection_count"`
+	PostCount          int32              `json:"post_count"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CampusReport struct {
+	ID          uuid.UUID          `json:"id"`
+	ReporterID  uuid.UUID          `json:"reporter_id"`
+	TargetType  string             `json:"target_type"`
+	TargetID    uuid.UUID          `json:"target_id"`
+	Reason      string             `json:"reason"`
+	Description *string            `json:"description"`
+	Status      ReportStatus       `json:"status"`
+	ReviewedBy  pgtype.UUID        `json:"reviewed_by"`
+	ReviewedAt  pgtype.Timestamptz `json:"reviewed_at"`
+	ActionTaken *string            `json:"action_taken"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 type CarryoverCourse struct {
@@ -1652,6 +2528,28 @@ type CgpaRule struct {
 	GradePoint decimal.Decimal    `json:"grade_point"`
 	IsActive   bool               `json:"is_active"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type ClassNotice struct {
+	ID            uuid.UUID          `json:"id"`
+	ClassRepID    uuid.UUID          `json:"class_rep_id"`
+	Title         string             `json:"title"`
+	Content       string             `json:"content"`
+	IsPinned      bool               `json:"is_pinned"`
+	PinnedOrder   *int32             `json:"pinned_order"`
+	AllowComments *bool              `json:"allow_comments"`
+	AttachmentUrl *string            `json:"attachment_url"`
+	ExpiresAt     pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ClassNoticeComment struct {
+	ID        uuid.UUID          `json:"id"`
+	NoticeID  uuid.UUID          `json:"notice_id"`
+	UserID    uuid.UUID          `json:"user_id"`
+	Content   string             `json:"content"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type ClassRepAssignment struct {
@@ -1714,6 +2612,14 @@ type ClassRepReport struct {
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
+type CommentReaction struct {
+	ID           uuid.UUID          `json:"id"`
+	CommentID    uuid.UUID          `json:"comment_id"`
+	UserID       uuid.UUID          `json:"user_id"`
+	ReactionType string             `json:"reaction_type"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
 type Complaint struct {
 	ID         uuid.UUID          `json:"id"`
 	StudentID  uuid.UUID          `json:"student_id"`
@@ -1738,6 +2644,30 @@ type Connection struct {
 	Message     *string            `json:"message"`
 	RespondedAt pgtype.Timestamptz `json:"responded_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type ConnectionStrike struct {
+	ID           uuid.UUID          `json:"id"`
+	UserID       uuid.UUID          `json:"user_id"`
+	Reason       string             `json:"reason"`
+	StrikeNumber int32              `json:"strike_number"`
+	IssuedBy     pgtype.UUID        `json:"issued_by"`
+	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type ContentModerationLog struct {
+	ID            uuid.UUID             `json:"id"`
+	ContentID     uuid.UUID             `json:"content_id"`
+	ContentType   ModerationContentType `json:"content_type"`
+	AiFlagged     *bool                 `json:"ai_flagged"`
+	AiConfidence  *float64              `json:"ai_confidence"`
+	AiReason      *string               `json:"ai_reason"`
+	HumanReviewed *bool                 `json:"human_reviewed"`
+	HumanDecision *ModerationDecision   `json:"human_decision"`
+	ReviewedBy    pgtype.UUID           `json:"reviewed_by"`
+	CreatedAt     pgtype.Timestamptz    `json:"created_at"`
+	ReviewedAt    pgtype.Timestamptz    `json:"reviewed_at"`
 }
 
 type Course struct {
@@ -1778,6 +2708,22 @@ type CourseSubcategory struct {
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }
 
+type DepartmentalEvent struct {
+	ID             uuid.UUID          `json:"id"`
+	CreatorID      uuid.UUID          `json:"creator_id"`
+	Title          string             `json:"title"`
+	Description    *string            `json:"description"`
+	EventType      CalendarEventType  `json:"event_type"`
+	StartTime      pgtype.Timestamptz `json:"start_time"`
+	EndTime        pgtype.Timestamptz `json:"end_time"`
+	Venue          *string            `json:"venue"`
+	TargetLevels   []byte             `json:"target_levels"`
+	TargetAudience []byte             `json:"target_audience"`
+	IsAllDay       *bool              `json:"is_all_day"`
+	Color          *string            `json:"color"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
 type Due struct {
 	ID          uuid.UUID          `json:"id"`
 	Name        string             `json:"name"`
@@ -1812,12 +2758,125 @@ type ElectionVote struct {
 	VotedAt    pgtype.Timestamptz `json:"voted_at"`
 }
 
+type EmergencyBroadcast struct {
+	ID                     uuid.UUID          `json:"id"`
+	SenderID               uuid.UUID          `json:"sender_id"`
+	Title                  string             `json:"title"`
+	Message                string             `json:"message"`
+	Priority               BroadcastPriority  `json:"priority"`
+	Template               *string            `json:"template"`
+	Channels               []byte             `json:"channels"`
+	TargetRoles            []byte             `json:"target_roles"`
+	RequiresAcknowledgment *bool              `json:"requires_acknowledgment"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+}
+
 type EventAttendee struct {
 	ID           uuid.UUID          `json:"id"`
 	EventID      uuid.UUID          `json:"event_id"`
 	UserID       uuid.UUID          `json:"user_id"`
 	RsvpStatus   string             `json:"rsvp_status"`
 	RegisteredAt pgtype.Timestamptz `json:"registered_at"`
+}
+
+type Expense struct {
+	ID              uuid.UUID          `json:"id"`
+	Description     string             `json:"description"`
+	Amount          decimal.Decimal    `json:"amount"`
+	Category        string             `json:"category"`
+	ExpenseDate     pgtype.Date        `json:"expense_date"`
+	ReceiptUrl      *string            `json:"receipt_url"`
+	Status          ExpenseStatus      `json:"status"`
+	SubmittedBy     uuid.UUID          `json:"submitted_by"`
+	ApprovedBy      pgtype.UUID        `json:"approved_by"`
+	ApprovedAt      pgtype.Timestamptz `json:"approved_at"`
+	RejectionReason *string            `json:"rejection_reason"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
+type ExpenseBudget struct {
+	ID             uuid.UUID          `json:"id"`
+	Category       string             `json:"category"`
+	SessionID      pgtype.UUID        `json:"session_id"`
+	BudgetAmount   decimal.Decimal    `json:"budget_amount"`
+	SpentAmount    decimal.Decimal    `json:"spent_amount"`
+	AlertThreshold *float64           `json:"alert_threshold"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type FeatureFlag struct {
+	ID           uuid.UUID          `json:"id"`
+	Name         string             `json:"name"`
+	Description  *string            `json:"description"`
+	IsEnabled    bool               `json:"is_enabled"`
+	TargetRoles  []byte             `json:"target_roles"`
+	TargetLevels []byte             `json:"target_levels"`
+	Percentage   *float64           `json:"percentage"`
+	CreatedBy    pgtype.UUID        `json:"created_by"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type FeedPost struct {
+	ID             uuid.UUID          `json:"id"`
+	AuthorID       uuid.UUID          `json:"author_id"`
+	PostType       string             `json:"post_type"`
+	Content        string             `json:"content"`
+	MediaUrls      []byte             `json:"media_urls"`
+	TargetAudience string             `json:"target_audience"`
+	GroupID        pgtype.UUID        `json:"group_id"`
+	LikeCount      int32              `json:"like_count"`
+	CommentCount   int32              `json:"comment_count"`
+	ShareCount     int32              `json:"share_count"`
+	IsPinned       bool               `json:"is_pinned"`
+	IsHidden       bool               `json:"is_hidden"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type FeedbackSubmission struct {
+	ID            uuid.UUID          `json:"id"`
+	UserID        uuid.UUID          `json:"user_id"`
+	FeedbackType  FeedbackType       `json:"feedback_type"`
+	Title         string             `json:"title"`
+	Description   string             `json:"description"`
+	Rating        *int32             `json:"rating"`
+	ScreenshotUrl *string            `json:"screenshot_url"`
+	DeviceInfo    []byte             `json:"device_info"`
+	Status        FeedbackStatus     `json:"status"`
+	AdminResponse *string            `json:"admin_response"`
+	RespondedAt   pgtype.Timestamptz `json:"responded_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+type GpaScenario struct {
+	ID        uuid.UUID          `json:"id"`
+	UserID    uuid.UUID          `json:"user_id"`
+	Name      string             `json:"name"`
+	Courses   json.RawMessage    `json:"courses"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type GradeAppeal struct {
+	ID               uuid.UUID          `json:"id"`
+	StudentID        uuid.UUID          `json:"student_id"`
+	CourseID         uuid.UUID          `json:"course_id"`
+	SemesterID       uuid.UUID          `json:"semester_id"`
+	SessionID        uuid.UUID          `json:"session_id"`
+	Reason           string             `json:"reason"`
+	EvidenceUrls     []byte             `json:"evidence_urls"`
+	Status           AppealStatus       `json:"status"`
+	LecturerResponse *string            `json:"lecturer_response"`
+	LecturerID       pgtype.UUID        `json:"lecturer_id"`
+	HodResponse      *string            `json:"hod_response"`
+	HodID            pgtype.UUID        `json:"hod_id"`
+	OriginalScore    *float64           `json:"original_score"`
+	RevisedScore     *float64           `json:"revised_score"`
+	ResolvedAt       pgtype.Timestamptz `json:"resolved_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Group struct {
@@ -1831,6 +2890,17 @@ type Group struct {
 	CreatedBy   uuid.UUID          `json:"created_by"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type GroupFile struct {
+	ID         uuid.UUID          `json:"id"`
+	GroupID    uuid.UUID          `json:"group_id"`
+	UploadedBy uuid.UUID          `json:"uploaded_by"`
+	FileName   string             `json:"file_name"`
+	FileUrl    string             `json:"file_url"`
+	FileType   *string            `json:"file_type"`
+	FileSize   *int64             `json:"file_size"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
 type GroupMember struct {
@@ -1847,6 +2917,19 @@ type GroupMessage struct {
 	SenderID  uuid.UUID          `json:"sender_id"`
 	Content   string             `json:"content"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type HelpArticle struct {
+	ID           uuid.UUID          `json:"id"`
+	Category     string             `json:"category"`
+	Title        string             `json:"title"`
+	Content      string             `json:"content"`
+	SortOrder    *int32             `json:"sort_order"`
+	IsPublished  *bool              `json:"is_published"`
+	ViewCount    *int32             `json:"view_count"`
+	HelpfulCount *int32             `json:"helpful_count"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
 type JobApplication struct {
@@ -1984,6 +3067,15 @@ type ManualPurchase struct {
 	PurchasedAt pgtype.Timestamptz `json:"purchased_at"`
 }
 
+type MeetingAttendee struct {
+	ID          uuid.UUID          `json:"id"`
+	MeetingID   uuid.UUID          `json:"meeting_id"`
+	UserID      uuid.UUID          `json:"user_id"`
+	Responded   *bool              `json:"responded"`
+	Attending   *bool              `json:"attending"`
+	RespondedAt pgtype.Timestamptz `json:"responded_at"`
+}
+
 type MentorshipRequest struct {
 	ID          uuid.UUID          `json:"id"`
 	StudentID   uuid.UUID          `json:"student_id"`
@@ -2019,6 +3111,14 @@ type Message struct {
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
+type MessageReaction struct {
+	ID           uuid.UUID          `json:"id"`
+	MessageID    uuid.UUID          `json:"message_id"`
+	UserID       uuid.UUID          `json:"user_id"`
+	ReactionType string             `json:"reaction_type"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
 type Notification struct {
 	ID        uuid.UUID          `json:"id"`
 	UserID    uuid.UUID          `json:"user_id"`
@@ -2028,6 +3128,17 @@ type Notification struct {
 	IsRead    bool               `json:"is_read"`
 	ActionUrl *string            `json:"action_url"`
 	EmailSent bool               `json:"email_sent"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type PasswordReset struct {
+	ID        uuid.UUID          `json:"id"`
+	UserID    uuid.UUID          `json:"user_id"`
+	Channel   ResetChannel       `json:"channel"`
+	OtpCode   string             `json:"otp_code"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	Used      bool               `json:"used"`
+	Attempts  int32              `json:"attempts"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
@@ -2070,6 +3181,32 @@ type PaymentCart struct {
 	DueID     uuid.UUID          `json:"due_id"`
 	Amount    decimal.Decimal    `json:"amount"`
 	AddedAt   pgtype.Timestamptz `json:"added_at"`
+}
+
+type PostBookmark struct {
+	ID        uuid.UUID          `json:"id"`
+	UserID    uuid.UUID          `json:"user_id"`
+	PostID    uuid.UUID          `json:"post_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type PostComment struct {
+	ID              uuid.UUID          `json:"id"`
+	PostID          uuid.UUID          `json:"post_id"`
+	AuthorID        uuid.UUID          `json:"author_id"`
+	ParentCommentID pgtype.UUID        `json:"parent_comment_id"`
+	Content         string             `json:"content"`
+	LikeCount       int32              `json:"like_count"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type PostReaction struct {
+	ID           uuid.UUID          `json:"id"`
+	PostID       uuid.UUID          `json:"post_id"`
+	UserID       uuid.UUID          `json:"user_id"`
+	ReactionType string             `json:"reaction_type"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
 type PracticalEnrollment struct {
@@ -2300,6 +3437,21 @@ type Staff struct {
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
+type StaffMeeting struct {
+	ID                uuid.UUID          `json:"id"`
+	OrganizerID       uuid.UUID          `json:"organizer_id"`
+	Title             string             `json:"title"`
+	Description       *string            `json:"description"`
+	MeetingDate       pgtype.Timestamptz `json:"meeting_date"`
+	DurationMinutes   int32              `json:"duration_minutes"`
+	Venue             *string            `json:"venue"`
+	IsRecurring       *bool              `json:"is_recurring"`
+	RecurrencePattern *string            `json:"recurrence_pattern"`
+	Status            MeetingStatus      `json:"status"`
+	MinutesUrl        *string            `json:"minutes_url"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
 type Student struct {
 	ID                   uuid.UUID          `json:"id"`
 	UserID               uuid.UUID          `json:"user_id"`
@@ -2336,6 +3488,38 @@ type StudentDocument struct {
 	RejectionReason *string            `json:"rejection_reason"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type StudentOnboarding struct {
+	ID                   uuid.UUID          `json:"id"`
+	UserID               uuid.UUID          `json:"user_id"`
+	MatricNumber         string             `json:"matric_number"`
+	VerificationRecordID pgtype.UUID        `json:"verification_record_id"`
+	MatchConfidence      *float32           `json:"match_confidence"`
+	SubmittedEmail       *string            `json:"submitted_email"`
+	SubmittedPhone       *string            `json:"submitted_phone"`
+	Status               interface{}        `json:"status"`
+	ReviewedBy           pgtype.UUID        `json:"reviewed_by"`
+	ReviewedAt           pgtype.Timestamptz `json:"reviewed_at"`
+	RejectionReason      *string            `json:"rejection_reason"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+type StudyTask struct {
+	ID                uuid.UUID          `json:"id"`
+	UserID            uuid.UUID          `json:"user_id"`
+	CourseID          pgtype.UUID        `json:"course_id"`
+	Title             string             `json:"title"`
+	Description       *string            `json:"description"`
+	Priority          TaskPriority       `json:"priority"`
+	Status            TaskStatus         `json:"status"`
+	DueDate           pgtype.Timestamptz `json:"due_date"`
+	ReminderAt        pgtype.Timestamptz `json:"reminder_at"`
+	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
+	IsSmartSuggestion *bool              `json:"is_smart_suggestion"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Subcategory struct {
@@ -2457,4 +3641,17 @@ type UserRoleAssignment struct {
 	AssignedBy pgtype.UUID        `json:"assigned_by"`
 	AssignedAt pgtype.Timestamptz `json:"assigned_at"`
 	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
+}
+
+type VerificationRecord struct {
+	ID           uuid.UUID          `json:"id"`
+	MatricNumber string             `json:"matric_number"`
+	FullName     string             `json:"full_name"`
+	Level        int32              `json:"level"`
+	EntrySession string             `json:"entry_session"`
+	Department   string             `json:"department"`
+	Status       string             `json:"status"`
+	ImportedAt   pgtype.Timestamptz `json:"imported_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }

@@ -17,7 +17,7 @@ INSERT INTO announcements (
     title, content, is_pinned, target_level, target_audience, expires_at, created_by
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7
-) RETURNING id, title, content, is_pinned, target_level, target_audience, expires_at, created_by, created_at
+) RETURNING id, title, content, is_pinned, target_level, target_audience, expires_at, created_by, created_at, summary, priority, category, target_levels, target_departments, attachments, requires_acknowledgment, status, scheduled_for, read_count, acknowledged_count, pin_order, updated_at
 `
 
 type CreateAnnouncementParams struct {
@@ -51,6 +51,19 @@ func (q *Queries) CreateAnnouncement(ctx context.Context, arg CreateAnnouncement
 		&i.ExpiresAt,
 		&i.CreatedBy,
 		&i.CreatedAt,
+		&i.Summary,
+		&i.Priority,
+		&i.Category,
+		&i.TargetLevels,
+		&i.TargetDepartments,
+		&i.Attachments,
+		&i.RequiresAcknowledgment,
+		&i.Status,
+		&i.ScheduledFor,
+		&i.ReadCount,
+		&i.AcknowledgedCount,
+		&i.PinOrder,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -122,7 +135,7 @@ func (q *Queries) DeleteNotification(ctx context.Context, arg DeleteNotification
 }
 
 const getAnnouncement = `-- name: GetAnnouncement :one
-SELECT id, title, content, is_pinned, target_level, target_audience, expires_at, created_by, created_at FROM announcements
+SELECT id, title, content, is_pinned, target_level, target_audience, expires_at, created_by, created_at, summary, priority, category, target_levels, target_departments, attachments, requires_acknowledgment, status, scheduled_for, read_count, acknowledged_count, pin_order, updated_at FROM announcements
 WHERE id = $1 LIMIT 1
 `
 
@@ -139,6 +152,19 @@ func (q *Queries) GetAnnouncement(ctx context.Context, id uuid.UUID) (Announceme
 		&i.ExpiresAt,
 		&i.CreatedBy,
 		&i.CreatedAt,
+		&i.Summary,
+		&i.Priority,
+		&i.Category,
+		&i.TargetLevels,
+		&i.TargetDepartments,
+		&i.Attachments,
+		&i.RequiresAcknowledgment,
+		&i.Status,
+		&i.ScheduledFor,
+		&i.ReadCount,
+		&i.AcknowledgedCount,
+		&i.PinOrder,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -166,7 +192,7 @@ func (q *Queries) GetNotification(ctx context.Context, id uuid.UUID) (Notificati
 }
 
 const listActiveAnnouncements = `-- name: ListActiveAnnouncements :many
-SELECT id, title, content, is_pinned, target_level, target_audience, expires_at, created_by, created_at FROM announcements
+SELECT id, title, content, is_pinned, target_level, target_audience, expires_at, created_by, created_at, summary, priority, category, target_levels, target_departments, attachments, requires_acknowledgment, status, scheduled_for, read_count, acknowledged_count, pin_order, updated_at FROM announcements
 WHERE (expires_at IS NULL OR expires_at > NOW())
 ORDER BY is_pinned DESC, created_at DESC
 LIMIT $1 OFFSET $2
@@ -196,6 +222,19 @@ func (q *Queries) ListActiveAnnouncements(ctx context.Context, arg ListActiveAnn
 			&i.ExpiresAt,
 			&i.CreatedBy,
 			&i.CreatedAt,
+			&i.Summary,
+			&i.Priority,
+			&i.Category,
+			&i.TargetLevels,
+			&i.TargetDepartments,
+			&i.Attachments,
+			&i.RequiresAcknowledgment,
+			&i.Status,
+			&i.ScheduledFor,
+			&i.ReadCount,
+			&i.AcknowledgedCount,
+			&i.PinOrder,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -300,7 +339,7 @@ SET
     target_audience = $6,
     expires_at = $7
 WHERE id = $1
-RETURNING id, title, content, is_pinned, target_level, target_audience, expires_at, created_by, created_at
+RETURNING id, title, content, is_pinned, target_level, target_audience, expires_at, created_by, created_at, summary, priority, category, target_levels, target_departments, attachments, requires_acknowledgment, status, scheduled_for, read_count, acknowledged_count, pin_order, updated_at
 `
 
 type UpdateAnnouncementParams struct {
@@ -334,6 +373,19 @@ func (q *Queries) UpdateAnnouncement(ctx context.Context, arg UpdateAnnouncement
 		&i.ExpiresAt,
 		&i.CreatedBy,
 		&i.CreatedAt,
+		&i.Summary,
+		&i.Priority,
+		&i.Category,
+		&i.TargetLevels,
+		&i.TargetDepartments,
+		&i.Attachments,
+		&i.RequiresAcknowledgment,
+		&i.Status,
+		&i.ScheduledFor,
+		&i.ReadCount,
+		&i.AcknowledgedCount,
+		&i.PinOrder,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

@@ -52,8 +52,8 @@ const MyConnectionsPage = () => {
           getMyConnections(),
           getPendingRequests(),
         ]);
-        setConnections(connData.map(normalizeConnectionData));
-        setPending(pendData.map(normalizeConnectionData));
+        setConnections(Array.isArray(connData) ? connData.map(normalizeConnectionData) : []);
+        setPending(Array.isArray(pendData) ? pendData.map(normalizeConnectionData) : []);
       } catch {
         error('Failed to load', 'Could not fetch connections.');
       } finally {

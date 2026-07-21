@@ -1,21 +1,23 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../hooks/useAuth';
-import { Plus, Loader2 } from 'lucide-react';
-import { createSkillListing, getSkillCategories } from '../../api/skills-trade';
+import { Plus, Edit, Loader2 } from 'lucide-react';
+import { createSkillListing, updateSkillListing, getSkillListing, getSkillCategories } from '../../api/skills-trade';
 import type { SkillCategory } from '../../types';
 
 const CreateSkillListingPage = () => {
+  const { id } = useParams<{ id: string }>();
+  const isEditMode = Boolean(id);
   const { success, error: notifyError } = useNotification();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [categories, setCategories] = useState<SkillCategory[]>([]);
-  const [loadingCategories, setLoadingCategories] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   const [title, setTitle] = useState('');
@@ -31,22 +33,39 @@ const CreateSkillListingPage = () => {
   useEffect(() => {
     const load = async () => {
       try {
+        setLoading(true);
         const cats = await getSkillCategories();
         setCategories(Array.isArray(cats) ? cats : []);
-      } catch {
+
+        if (id) {
+          const listing: any = await getSkillListing(id);
+          if (listing) {
+            setTitle(listing.title || '');
+            setDescription(listing.description || '');
+            setCategoryId(listing.category_id || listing.categoryId || '');
+            setSkillLevel(listing.skill_level || listing.skillLevel || 'intermediate');
+            setIsFree(listing.is_free ?? listing.isFree ?? true);
+            setPrice(listing.price ? String(listing.price) : '');
+            setBarterAvailable(listing.barter_available ?? listing.barterAvailable ?? false);
+            setBarterDescription(listing.barter_description || listing.barterDescription || '');
+            setPortfolioUrl(listing.portfolio_url || listing.portfolioUrl || '');
+          }
+        }
+      } catch (err: any) {
+        notifyError('Error', err?.message || 'Failed to load details');
       } finally {
-        setLoadingCategories(false);
+        setLoading(false);
       }
     };
     load();
-  }, []);
+  }, [id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !categoryId) return;
     try {
       setSubmitting(true);
-      await createSkillListing({
+      const payload = {
         category_id: categoryId,
         title: title.trim(),
         description: description.trim() || undefined,
@@ -56,28 +75,56 @@ const CreateSkillListingPage = () => {
         barter_available: barterAvailable,
         barter_description: barterAvailable ? barterDescription.trim() || undefined : undefined,
         portfolio_url: portfolioUrl.trim() || undefined,
-      });
-      success('Skill Listed', 'Your skill has been added to the marketplace.');
+      };
+
+      if (id) {
+        await updateSkillListing(id, {
+          title: payload.title,
+          description: payload.description,
+          skill_level: payload.skill_level,
+          price: payload.price,
+          is_free: payload.is_free,
+          barter_available: payload.barter_available,
+          barter_description: payload.barter_description,
+          portfolio_url: payload.portfolio_url,
+          is_active: true,
+        });
+        success('Skill Updated', 'Your skill listing has been updated.');
+      } else {
+        await createSkillListing(payload);
+        success('Skill Listed', 'Your skill has been added to the marketplace.');
+      }
       navigate('/skills/my-skills');
     } catch (err: any) {
-      notifyError('Failed', err?.message || 'Could not create listing');
+      notifyError('Failed', err?.message || (id ? 'Could not update listing' : 'Could not create listing'));
     } finally {
       setSubmitting(false);
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-12 gap-2 text-surface-500">
+        <Loader2 className="w-5 h-5 animate-spin text-primary-500" />
+        <span>Loading...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-xl mx-auto">
       <div>
-        <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Add Skill Listing</h1>
+        <h1 className="text-3xl font-bold text-surface-900 dark:text-white">
+          {isEditMode ? 'Edit Skill Listing' : 'Add Skill Listing'}
+        </h1>
         <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-          Advertise your technical or academic skills to exchange for others.
+          {isEditMode ? 'Update the details of your offered skill listing.' : 'Advertise your technical or academic skills to exchange for others.'}
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Skill Information</CardTitle>
+          <CardTitle>{isEditMode ? 'Edit Skill Details' : 'Skill Information'}</CardTitle>
           <CardDescription>Detail what you offer and what you are looking to swap</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit} className="p-4 pt-0 space-y-4">
@@ -94,6 +141,7 @@ const CreateSkillListingPage = () => {
             options={categories.map((c) => ({ value: c.id, label: c.name }))}
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
+            disabled={isEditMode}
           />
           <Select
             label="Skill Level"
@@ -171,9 +219,9 @@ const CreateSkillListingPage = () => {
             type="submit"
             className="w-full"
             disabled={submitting}
-            leftIcon={submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            leftIcon={submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : (isEditMode ? <Edit className="w-4 h-4" /> : <Plus className="w-4 h-4" />)}
           >
-            {submitting ? 'Publishing...' : 'Publish Listing'}
+            {submitting ? (isEditMode ? 'Updating...' : 'Publishing...') : (isEditMode ? 'Update Listing' : 'Publish Listing')}
           </Button>
         </form>
       </Card>

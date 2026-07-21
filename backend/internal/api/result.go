@@ -77,8 +77,17 @@ func (server *Server) listStudentResults(ctx *gin.Context) {
 
 	results, err := server.results.ListByStudent(ctx, studentID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		// Fallback: the provided ID might be a user_id, not a student_id
+		student, sErr := server.store.GetStudentByUserId(ctx, studentID)
+		if sErr != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		results, err = server.results.ListByStudent(ctx, student.ID)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	ctx.JSON(http.StatusOK, results)

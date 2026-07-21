@@ -27,7 +27,7 @@ const StudentDirectoryPage = () => {
     const fetchStudents = async () => {
       try {
         const data = await getStudentDirectory();
-        setStudents(data);
+        setStudents(Array.isArray(data) ? data : []);
       } catch {
         error('Failed to load', 'Could not fetch student directory.');
       } finally {

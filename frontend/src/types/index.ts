@@ -131,6 +131,8 @@ export interface Session extends BaseEntity {
   isActive?: boolean;
 }
 
+export type AcademicSession = Session;
+
 export interface SemesterEntry extends BaseEntity {
   session_id: string;
   name: 'harmattan' | 'rain';

@@ -68,6 +68,7 @@ type Server struct {
 	campusConnect *service.CampusConnectService
 	skillsTrade   *service.SkillsTradeService
 	alumni        *service.AlumniService
+	ai            *service.AIService
 	wsHub         *ws.Hub
 	storage       *storage.LocalStorage
 }
@@ -102,6 +103,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		campusConnect: service.NewCampusConnectService(store),
 		skillsTrade:   service.NewSkillsTradeService(store),
 		alumni:        service.NewAlumniService(store),
+		ai:            service.NewAIService(store, cfg),
 		wsHub:         hub,
 	}
 
@@ -132,6 +134,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		authProtected.GET("/me", server.getMe)
 		authProtected.POST("/logout", server.logout)
 		authProtected.POST("/onboarding", server.studentOnboarding)
+		authProtected.POST("/change-password", server.changePassword)
 	}
 
 	authPublic := v1.Group("/auth")
@@ -142,6 +145,9 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		authPublic.POST("/refresh", authRL, server.refreshToken)
 		authPublic.POST("/forgot-password", authRL, server.forgotPassword)
 		authPublic.POST("/reset-password", authRL, server.resetPassword)
+		authPublic.POST("/request-otp", authRL, server.requestPasswordReset)
+		authPublic.POST("/verify-otp", authRL, server.verifyPasswordResetOTP)
+		authPublic.POST("/reset-with-otp", authRL, server.resetPasswordWithOTP)
 	}
 
 	v1.POST("/signup/onboarding", server.studentOnboarding)
@@ -302,7 +308,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 
 	results := api.Group("/results")
 	{
-		results.GET("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listAllResults)
+		results.GET("", middleware.RequireRoles("lecturer", "hod", "admin", "delegated_admin"), server.listAllResults)
 		results.POST("", middleware.RequireRoles("lecturer", "hod", "delegated_admin"), server.createResult)
 		results.GET("/:id", server.getResult)
 		results.GET("/student/:student_id", server.listStudentResults)
@@ -324,11 +330,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 
 	announcements := api.Group("/announcements")
 	{
-		announcements.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createAnnouncement)
 		announcements.GET("", server.listActiveAnnouncements)
-		announcements.GET("/:id", server.getAnnouncement)
-		announcements.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateAnnouncement)
-		announcements.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteAnnouncement)
 	}
 
 	notifications := api.Group("/notifications")
@@ -435,6 +437,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 	}
 
 	api.POST("/complaints", middleware.RequireRoles("student"), server.createComplaint)
+	api.GET("/complaints/my", middleware.RequireRoles("student"), server.listMyComplaints)
 	api.GET("/complaints", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listComplaints)
 	api.GET("/complaints/:id", server.getComplaint)
 	api.PUT("/complaints/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateComplaint)
@@ -564,6 +567,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		alumniGroup.POST("/jobs", server.createJobPost)
 		alumniGroup.GET("/jobs", server.listJobPosts)
 		alumniGroup.GET("/jobs/:id", server.getJobPost)
+		alumniGroup.PUT("/jobs/:id", server.updateJobPost)
 		alumniGroup.GET("/jobs/user/:id", server.listUserJobPosts)
 		alumniGroup.POST("/jobs/:id/apply", server.applyForJob)
 		alumniGroup.GET("/jobs/:id/applications", server.listJobApplications)
@@ -647,6 +651,229 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		bursar.GET("/dashboard", middleware.RequireRoles("class_bursar", "dept_bursar", "hod", "delegated_admin"), server.getBursarDashboardStats)
 		bursar.POST("/record-payment", middleware.RequireRoles("class_bursar", "dept_bursar", "hod", "delegated_admin"), server.recordManualPayment)
 	}
+
+	// ── AI Integration ──
+	aiServer := NewAIServer(server.ai)
+	ai := api.Group("/ai")
+	{
+		ai.POST("/chat", aiServer.Chat)
+		ai.GET("/quick-actions", aiServer.GetQuickActions)
+		ai.POST("/feedback", aiServer.Feedback)
+		ai.GET("/history", aiServer.GetHistory)
+		ai.GET("/settings", aiServer.GetSettings)
+		ai.PUT("/settings", aiServer.UpdateSettings)
+	}
+
+	// ── AI Predictions ──
+	predictions := api.Group("/predictions")
+	{
+		predictions.GET("/gpa", middleware.RequireRoles("student"), server.getStudentGPAPrediction)
+		predictions.GET("/at-risk", middleware.RequireRoles("hod", "delegated_admin", "admin", "class_rep"), server.getAtRiskStudents)
+		predictions.GET("/revenue", middleware.RequireRoles("hod", "delegated_admin", "admin", "class_bursar", "dept_bursar"), server.getRevenueForecast)
+		predictions.GET("/grade-distribution", middleware.RequireRoles("hod", "delegated_admin", "admin", "lecturer"), server.getGradeDistribution)
+		predictions.GET("/pass-rate/:id", middleware.RequireRoles("hod", "delegated_admin", "admin", "lecturer"), server.getCoursePassRate)
+		predictions.POST("/store", middleware.RequireRoles("hod", "delegated_admin", "admin"), server.storeAIPrediction)
+	}
+
+	// ── Security: Sessions ──
+	sessionsAPI := api.Group("/sessions/security")
+	{
+		sessionsAPI.GET("", server.getMyActiveSessions)
+		sessionsAPI.DELETE("/:id", server.revokeSession)
+		sessionsAPI.DELETE("", server.revokeAllSessions)
+	}
+
+	// ── Grade Appeals ──
+	appeals := api.Group("/grade-appeals")
+	{
+		appeals.POST("", middleware.RequireRoles("student"), server.createGradeAppeal)
+		appeals.GET("/my", middleware.RequireRoles("student"), server.listMyAppeals)
+		appeals.GET("/pending", middleware.RequireRoles("hod", "admin", "lecturer", "delegated_admin"), server.listPendingAppeals)
+		appeals.GET("/:id", server.getGradeAppeal)
+		appeals.PUT("/:id/status", middleware.RequireRoles("hod", "admin", "lecturer", "delegated_admin"), server.updateAppealStatus)
+	}
+
+	// ── Study Planner ──
+	studyTasks := api.Group("/study-tasks")
+	{
+		studyTasks.POST("", server.createStudyTask)
+		studyTasks.GET("", server.listMyStudyTasks)
+		studyTasks.GET("/upcoming", server.getUpcomingTasks)
+		studyTasks.GET("/:id", server.getStudyTask)
+		studyTasks.PUT("/:id", server.updateStudyTask)
+		studyTasks.DELETE("/:id", server.deleteStudyTask)
+	}
+
+	// ── Class Notice Board ──
+	notices := api.Group("/class-notices")
+	{
+		notices.POST("", middleware.RequireRoles("class_rep", "hod", "admin"), server.createClassNotice)
+		notices.GET("", server.listClassNotices)
+		notices.GET("/:id", server.getClassNotice)
+		notices.PUT("/:id", middleware.RequireRoles("class_rep", "hod", "admin"), server.updateClassNotice)
+		notices.DELETE("/:id", middleware.RequireRoles("class_rep", "hod", "admin"), server.deleteClassNotice)
+		notices.POST("/:id/comments", server.createNoticeComment)
+		notices.GET("/:id/comments", server.listNoticeComments)
+	}
+
+	// ── Emergency Broadcasts ──
+	broadcasts := api.Group("/broadcasts")
+	{
+		broadcasts.POST("", middleware.RequireRoles("hod", "admin"), server.createBroadcast)
+		broadcasts.GET("", server.listBroadcasts)
+		broadcasts.GET("/:id", server.getBroadcast)
+		broadcasts.POST("/:id/ack", server.acknowledgeBroadcast)
+		broadcasts.GET("/:id/ack-count", server.getBroadcastAckCount)
+	}
+
+	// ── Departmental Calendar ──
+	calendar := api.Group("/calendar")
+	{
+		calendar.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createDepartmentalEvent)
+		calendar.GET("", server.listDepartmentalEvents)
+		calendar.GET("/:id", server.getDepartmentalEvent)
+		calendar.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteDepartmentalEvent)
+	}
+
+	// ── Expenses ──
+	expenses := api.Group("/expenses")
+	{
+		expenses.POST("", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.createExpense)
+		expenses.GET("", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.listExpenses)
+		expenses.GET("/summary", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.getExpenseSummary)
+		expenses.GET("/by-category", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.getExpensesByCategory)
+		expenses.GET("/:id", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.getExpense)
+		expenses.PUT("/:id/status", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateExpenseStatus)
+	}
+
+	// ── In-App Feedback ──
+	feedback := api.Group("/feedback")
+	{
+		feedback.POST("", server.createFeedback)
+		feedback.GET("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listFeedback)
+		feedback.GET("/my", server.listMyFeedback)
+		feedback.GET("/:id", server.getFeedback)
+		feedback.PUT("/:id/status", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateFeedbackStatus)
+	}
+
+	// ── Help Center ──
+	help := api.Group("/help")
+	{
+		help.GET("", server.listHelpArticles)
+		help.GET("/search", server.searchHelpArticles)
+		help.GET("/:id", server.getHelpArticle)
+		help.POST("/:id/helpful", server.markHelpArticleHelpful)
+		help.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createHelpArticle)
+		help.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateHelpArticle)
+		help.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteHelpArticle)
+	}
+
+	// ── GPA Calculator Scenarios ──
+	gpaScenarios := api.Group("/gpa-scenarios")
+	{
+		gpaScenarios.POST("", server.createGPAScenario)
+		gpaScenarios.GET("", server.listGPAScenarios)
+		gpaScenarios.GET("/:id", server.getGPAScenario)
+		gpaScenarios.PUT("/:id", server.updateGPAScenario)
+		gpaScenarios.DELETE("/:id", server.deleteGPAScenario)
+	}
+
+	// ── Universal Search ──
+	api.GET("/search", server.universalSearch)
+
+	// ── Campus Connect V2: Feed & Social ──
+	feed := api.Group("/feed")
+	{
+		feed.POST("", server.createFeedPost)
+		feed.GET("", server.listFeedPosts)
+		feed.GET("/suggestions", server.getConnectionSuggestions)
+		feed.GET("/bookmarks", server.listUserBookmarks)
+		feed.GET("/search", server.searchPeople)
+		feed.GET("/:id", server.getFeedPost)
+		feed.DELETE("/:id", server.deleteFeedPost)
+		feed.POST("/:id/hide", server.hideFeedPost)
+		feed.POST("/:id/react", server.togglePostReaction)
+		feed.GET("/:id/reactions", server.listPostReactions)
+		feed.POST("/:id/comments", server.createPostComment)
+		feed.GET("/:id/comments", server.listPostComments)
+		feed.POST("/:id/bookmark", server.togglePostBookmark)
+	}
+
+	// ── Campus Connect V2: Profiles ──
+	campusProfile := api.Group("/campus-profile")
+	{
+		campusProfile.POST("", server.upsertCampusProfile)
+		campusProfile.GET("/:user_id", server.getCampusProfile)
+	}
+
+	// ── Campus Connect V2: Message Reactions ──
+	api.POST("/messages/:id/react", server.toggleMessageReaction)
+
+	// ── Campus Connect V2: Group Files ──
+	api.POST("/groups/:id/files", server.uploadGroupFile)
+	api.GET("/groups/:id/files", server.listGroupFiles)
+
+	// ── Campus Connect V2: Moderation ──
+	api.POST("/reports/campus", server.createCampusReport)
+	api.GET("/reports/campus", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listCampusReports)
+	api.PUT("/reports/campus/:id/status", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateCampusReportStatus)
+	api.POST("/strikes", middleware.RequireRoles("hod", "admin"), server.createConnectionStrikeHandler)
+
+	api.DELETE("/comments/:id", server.deletePostComment)
+
+	// ── Verification & Onboarding V2 ──
+	api.POST("/verification/lookup", server.lookupMatric)
+	api.POST("/verification/verify", server.verifyMatricForSignup)
+	verification := api.Group("/verification")
+	verification.Use(middleware.RequireRoles("hod", "admin", "delegated_admin"))
+	{
+		verification.POST("/bulk-upload", server.bulkUploadVerificationRecords)
+		verification.GET("/records", server.listVerificationRecords)
+		verification.PUT("/records/:id", server.updateVerificationRecord)
+		verification.GET("/unverified", server.listUnverifiedStudents)
+	}
+
+	// ── Student Onboarding V2 ──
+	api.POST("/onboarding", server.createStudentOnboarding)
+	api.GET("/onboarding/status", server.getStudentOnboarding)
+	api.GET("/onboarding/admin/list", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listStudentOnboardings)
+	api.GET("/onboarding/admin/counts", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.countStudentOnboardingsByStatus)
+	api.PUT("/onboarding/:id/status", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateStudentOnboardingStatus)
+	api.POST("/onboarding/bulk-approve", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.bulkApproveStudentOnboardings)
+
+	// ── Enhanced Announcements V2 ──
+	announcementsV2 := api.Group("/announcements")
+	{
+		announcementsV2.GET("/feed", server.listStudentAnnouncements)
+		announcementsV2.GET("/search", server.searchStudentAnnouncements)
+		announcementsV2.GET("/templates", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listAnnouncementTemplatesHandler)
+		announcementsV2.POST("/templates", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createAnnouncementTemplateHandler)
+	}
+	adminAnn := api.Group("/announcements")
+	adminAnn.Use(middleware.RequireRoles("hod", "admin", "delegated_admin"))
+	{
+		adminAnn.POST("", server.createAnnouncementV2)
+		adminAnn.GET("/admin", server.listAdminAnnouncements)
+		adminAnn.GET("/stats", server.getAnnouncementStats)
+	}
+	api.GET("/announcements/:id", server.getAnnouncementV2)
+	api.PUT("/announcements/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateAnnouncementV2)
+	api.DELETE("/announcements/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteAnnouncementV2)
+	api.POST("/announcements/:id/publish", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.publishAnnouncement)
+	api.POST("/announcements/:id/archive", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.archiveAnnouncement)
+
+	// ── Announcement Read Receipts ──
+	api.POST("/announcements/:id/read", server.markAnnouncementRead)
+	api.POST("/announcements/:id/acknowledge", server.acknowledgeAnnouncement)
+	api.GET("/announcements/:id/read-status", server.getAnnouncementReadStatus)
+	api.GET("/announcements/:id/receipts", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listAnnouncementReceipts)
+	api.GET("/announcements/:id/unacknowledged", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listUnacknowledgedStudentsHandler)
+	api.GET("/announcements/:id/receipt-stats", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getReceiptStats)
+
+	// ── Announcement Comments ──
+	api.POST("/announcements/:id/comments", server.createAnnouncementCommentHandler)
+	api.GET("/announcements/:id/comments", server.listAnnouncementCommentsHandler)
+	api.DELETE("/announcements/comments/:id", server.deleteAnnouncementCommentHandler)
 
 	server.router = router
 	return server

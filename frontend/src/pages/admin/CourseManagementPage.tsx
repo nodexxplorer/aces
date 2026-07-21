@@ -6,7 +6,7 @@ import DataTable from '../../components/data-display/DataTable';
 import Modal from '../../components/ui/Modal';
 import Badge from '../../components/ui/Badge';
 import { useNotification } from '../../hooks/useNotification';
-import { Plus, Trash2, Loader2, UserCheck, Users, BookOpen } from 'lucide-react';
+import { Plus, Trash2, Loader2, UserCheck, Users, BookOpen, Archive } from 'lucide-react';
 import { getCourses, createCourse, deleteCourse, updateCourse } from '../../api/courses';
 import { getUsers } from '../../api/users';
 import type { User as UserType } from '../../types';
@@ -96,14 +96,26 @@ const CourseManagementPage = () => {
     }
   };
 
+  const handleArchive = async (id: string, courseCode: string, isActive: boolean) => {
+    const action = isActive ? 'Archive' : 'Restore';
+    if (!confirm(`${action} course "${courseCode}"?`)) return;
+    try {
+      await updateCourse(id, { is_active: !isActive, isActive: !isActive } as any);
+      success(`Course ${action}d`, `${action}d ${courseCode} successfully`);
+      fetchInitialData();
+    } catch (err: any) {
+      notifyError(`${action} Failed`, err?.response?.data?.error || err?.response?.data?.message || `Could not ${action.toLowerCase()} course`);
+    }
+  };
+
   const handleDelete = async (id: string, courseCode: string) => {
-    if (!confirm(`Archive course "${courseCode}"?`)) return;
+    if (!confirm(`Permanently delete course "${courseCode}"? This cannot be undone.`)) return;
     try {
       await deleteCourse(id);
       setCourses((prev) => prev.filter((c) => c.id !== id));
-      success('Course Removed', `Archived ${courseCode}`);
+      success('Course Deleted', `Permanently deleted ${courseCode}`);
     } catch (err: any) {
-      notifyError('Delete Failed', err?.response?.data?.message || 'Could not delete course');
+      notifyError('Delete Failed', err?.response?.data?.error || err?.response?.data?.message || 'Could not delete course. It may have associated records (registrations, results, etc). Try archiving instead.');
     }
   };
 
@@ -113,8 +125,8 @@ const CourseManagementPage = () => {
     try {
       setAssigning(true);
       await updateCourse(selectedCourse.id, {
-        lecturer_id: selectedLecturerId || null,
-        lecturerId: selectedLecturerId || null,
+        lecturer_id: selectedLecturerId,
+        lecturerId: selectedLecturerId,
       } as any);
       success('Lecturer Assigned', `Assigned lecturer to ${selectedCourse.code}`);
       setAssignOpen(false);
@@ -144,11 +156,20 @@ const CourseManagementPage = () => {
     { key: 'unit', label: 'Units' },
     { key: 'level', label: 'Level' },
     {
-      key: 'course_type',
+      key: 'courseType',
       label: 'Type',
       render: (val: unknown) => (
-        <span className={`text-[10px] px-2 py-1 rounded-full ${val === 'departmental' ? 'bg-primary-100 text-primary-700' : 'bg-surface-100 text-surface-500'}`}>
+        <span className={`text-[10px] px-2 py-1 rounded-full ${val === 'departmental' ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300' : 'bg-surface-100 text-surface-500 dark:bg-surface-700 dark:text-surface-400'}`}>
           {val === 'departmental' ? 'Dept' : 'Non-Dept'}
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (_: unknown, row: any) => (
+        <span className={`text-[10px] px-2 py-1 rounded-full ${row.isActive !== false ? 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-300' : 'bg-surface-100 text-surface-500 dark:bg-surface-700 dark:text-surface-400'}`}>
+          {row.isActive !== false ? 'Active' : 'Archived'}
         </span>
       ),
     },
@@ -180,11 +201,20 @@ const CourseManagementPage = () => {
           <Button
             size="xs"
             variant="outline"
+            className="text-warning-600 hover:bg-warning-50 dark:text-warning-400"
+            leftIcon={<Archive className="w-3.5 h-3.5" />}
+            onClick={() => handleArchive(row.id, row.code, row.isActive !== false)}
+          >
+            {row.isActive !== false ? 'Archive' : 'Restore'}
+          </Button>
+          <Button
+            size="xs"
+            variant="outline"
             className="text-danger-500 hover:bg-danger-50"
             leftIcon={<Trash2 className="w-3.5 h-3.5" />}
             onClick={() => handleDelete(row.id, row.code)}
           >
-            Archive
+            Delete
           </Button>
         </div>
       ),

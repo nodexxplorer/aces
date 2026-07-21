@@ -30,3 +30,15 @@ sql:
 
           - db_type: "jsonb"
             go_type: "encoding/json.RawMessage"
+
+          - db_type: "feed_post_type"
+            go_type: "string"
+
+          - db_type: "feed_audience"
+            go_type: "string"
+
+          - db_type: "reaction_type"
+            go_type: "string"
+
+          - db_type: "report_target_type"
+            go_type: "string"
