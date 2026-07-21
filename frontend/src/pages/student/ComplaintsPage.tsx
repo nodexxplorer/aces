@@ -5,7 +5,7 @@ import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import DataTable from '../../components/data-display/DataTable';
 import StatusBadge from '../../components/data-display/StatusBadge';
-import { submitComplaint, getAllComplaints } from '../../api/complaints';
+import { submitComplaint, getMyComplaints } from '../../api/complaints';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
 import { Send } from 'lucide-react';
@@ -23,7 +23,7 @@ const ComplaintsPage = () => {
 
   useEffect(() => {
     setLoading(true);
-    getAllComplaints()
+    getMyComplaints()
       .then((res) => {
         const list = Array.isArray(res) ? res : ((res as { data?: Complaint[] } | undefined)?.data ?? []);
         setComplaints(list);
@@ -47,7 +47,7 @@ const ComplaintsPage = () => {
       setDesc('');
       success('Ticket Opened', 'Your complaint ticket has been submitted to department administration.');
       if (user?.id) {
-        getAllComplaints().then((res) => {
+        getMyComplaints().then((res) => {
           const list = Array.isArray(res) ? res : ((res as { data?: Complaint[] } | undefined)?.data ?? []);
           setComplaints(list);
         });

@@ -83,6 +83,9 @@ func (server *Server) listConnections(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	if connections == nil {
+		connections = []db.ListUserConnectionsRow{}
+	}
 
 	ctx.JSON(http.StatusOK, connections)
 }
@@ -94,6 +97,9 @@ func (server *Server) listPendingRequests(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+	if requests == nil {
+		requests = []db.ListPendingConnectionRequestsRow{}
 	}
 
 	ctx.JSON(http.StatusOK, requests)
@@ -130,6 +136,9 @@ func (server *Server) listConversation(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+	if messages == nil {
+		messages = []db.Message{}
 	}
 
 	ctx.JSON(http.StatusOK, messages)
@@ -199,6 +208,9 @@ func (server *Server) listGroups(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	if groups == nil {
+		groups = []db.ListGroupsRow{}
+	}
 
 	ctx.JSON(http.StatusOK, groups)
 }
@@ -210,6 +222,9 @@ func (server *Server) listUserGroups(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+	if groups == nil {
+		groups = []db.ListUserGroupsRow{}
 	}
 
 	ctx.JSON(http.StatusOK, groups)
@@ -262,6 +277,9 @@ func (server *Server) listGroupMembers(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	if members == nil {
+		members = []db.ListGroupMembersRow{}
+	}
 
 	ctx.JSON(http.StatusOK, members)
 }
@@ -302,6 +320,9 @@ func (server *Server) listGroupMessages(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	if messages == nil {
+		messages = []db.ListGroupMessagesRow{}
+	}
 
 	ctx.JSON(http.StatusOK, messages)
 }
@@ -312,6 +333,9 @@ func (server *Server) getStudentDirectory(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	if directory == nil {
+		directory = []db.GetStudentDirectoryRow{}
+	}
 
 	ctx.JSON(http.StatusOK, directory)
 }
@@ -321,6 +345,9 @@ func (server *Server) getAlumniDirectory(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+	if directory == nil {
+		directory = []db.GetAlumniDirectoryRow{}
 	}
 
 	ctx.JSON(http.StatusOK, directory)

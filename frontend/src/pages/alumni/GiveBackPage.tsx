@@ -64,23 +64,26 @@ const GiveBackPage = () => {
     if (!val || val <= 0) return;
     setSubmitting(true);
     try {
-      await createDonation({
+      const result = await createDonation({
         channel: selectedChannel,
         amount: val,
         currency: 'NGN',
         message: message || undefined,
         is_anonymous: anonymous,
       });
-      success('Donation Received', `Thank you for your ${formatCurrency(val)} contribution!`);
-      setDonateOpen(false);
-      setAmount('50000');
-      setMessage('');
-      setAnonymous(false);
-      // Refresh data
-      const [myData, allData, statsData] = await Promise.allSettled([listMyDonations(), listDonations(), getDonationStats()]);
-      if (myData.status === 'fulfilled') setMyDonations(Array.isArray(myData.value) ? myData.value : []);
-      if (allData.status === 'fulfilled') setAllDonations(Array.isArray(allData.value) ? allData.value : []);
-      if (statsData.status === 'fulfilled') setStats(statsData.value);
+      if (result?.authorization_url) {
+        window.location.href = result.authorization_url;
+      } else {
+        success('Donation Received', `Thank you for your ${formatCurrency(val)} contribution!`);
+        setDonateOpen(false);
+        setAmount('50000');
+        setMessage('');
+        setAnonymous(false);
+        const [myData, allData, statsData] = await Promise.allSettled([listMyDonations(), listDonations(), getDonationStats()]);
+        if (myData.status === 'fulfilled') setMyDonations(Array.isArray(myData.value) ? myData.value : []);
+        if (allData.status === 'fulfilled') setAllDonations(Array.isArray(allData.value) ? allData.value : []);
+        if (statsData.status === 'fulfilled') setStats(statsData.value);
+      }
     } catch (err: any) {
       notifyError('Failed', err?.response?.data?.error || 'Could not process donation');
     } finally {

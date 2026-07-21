@@ -11,6 +11,11 @@ export const getAllComplaints = async (params?: PaginationParams & { status?: st
   return unwrap<Complaint[]>(res);
 };
 
+export const getMyComplaints = async () => {
+  const res = await apiClient.get('/complaints/my');
+  return unwrap<Complaint[]>(res);
+};
+
 export const getComplaint = async (complaintId: string) => {
   const res = await apiClient.get(`/complaints/${complaintId}`);
   return unwrap<Complaint>(res);

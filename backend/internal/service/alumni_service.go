@@ -105,6 +105,10 @@ func (s *AlumniService) DeleteJobPost(ctx context.Context, id uuid.UUID) error {
 	return s.store.DeleteJobPost(ctx, id)
 }
 
+func (s *AlumniService) UpdateJobPost(ctx context.Context, params db.UpdateJobPostParams) (db.JobPost, error) {
+	return s.store.UpdateJobPost(ctx, params)
+}
+
 // Events
 func (s *AlumniService) CreateEvent(ctx context.Context, params db.CreateAlumniEventParams) (db.AlumniEvent, error) {
 	return s.store.CreateAlumniEvent(ctx, params)

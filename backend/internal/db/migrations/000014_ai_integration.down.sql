@@ -1,0 +1,13 @@
+DROP TRIGGER IF EXISTS update_ai_user_settings_updated_at ON ai_user_settings;
+DROP TRIGGER IF EXISTS update_ai_models_updated_at ON ai_models;
+DROP TABLE IF EXISTS ai_user_settings;
+DROP TABLE IF EXISTS content_moderation_log;
+DROP TABLE IF EXISTS ai_models;
+DROP TABLE IF EXISTS ai_predictions;
+DROP TABLE IF EXISTS ai_interactions;
+DROP TYPE IF EXISTS prediction_type;
+DROP TYPE IF EXISTS moderation_decision;
+DROP TYPE IF EXISTS moderation_content_type;
+DROP TYPE IF EXISTS ai_model_status;
+DROP TYPE IF EXISTS ai_model_type;
+DROP TYPE IF EXISTS ai_feature;

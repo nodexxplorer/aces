@@ -1,29 +1,29 @@
-import apiClient from './client';
+import apiClient, { unwrap } from './client';
 import type { TranscriptRequest, PaginationParams } from '../types';
 
 export const requestTranscript = async (payload: { destination?: string }) => {
-  const { data } = await apiClient.post<{ data: TranscriptRequest }>('/transcript-requests', payload);
-  return data.data;
+  const res = await apiClient.post('/transcript-requests', payload);
+  return unwrap<TranscriptRequest>(res);
 };
 
 export const getStudentTranscriptRequests = async (studentId: string) => {
-  const { data } = await apiClient.get<{ data: TranscriptRequest[] }>(`/transcript-requests/student/${studentId}`);
-  return data.data;
+  const res = await apiClient.get(`/transcript-requests/student/${studentId}`);
+  return unwrap<TranscriptRequest[]>(res);
 };
 
 export const getPendingTranscriptRequests = async (params?: PaginationParams) => {
-  const { data } = await apiClient.get<{ data: TranscriptRequest[] }>('/transcript-requests/pending', { params });
-  return data.data;
+  const res = await apiClient.get('/transcript-requests/pending', { params });
+  return unwrap<TranscriptRequest[]>(res);
 };
 
 export const getTranscriptRequest = async (requestId: string) => {
-  const { data } = await apiClient.get<{ data: TranscriptRequest }>(`/transcript-requests/${requestId}`);
-  return data.data;
+  const res = await apiClient.get(`/transcript-requests/${requestId}`);
+  return unwrap<TranscriptRequest>(res);
 };
 
 export const updateTranscriptStatus = async (requestId: string, status: string) => {
-  const { data } = await apiClient.put<{ data: TranscriptRequest }>(`/transcript-requests/${requestId}`, { status });
-  return data.data;
+  const res = await apiClient.put(`/transcript-requests/${requestId}`, { status });
+  return unwrap<TranscriptRequest>(res);
 };
 
 export const deleteTranscriptRequest = async (requestId: string) => {
@@ -37,4 +37,3 @@ export const approveTranscriptRequest = async (requestId: string) => {
 export const markTranscriptPrinted = async (requestId: string) => {
   return updateTranscriptStatus(requestId, 'printed');
 };
-

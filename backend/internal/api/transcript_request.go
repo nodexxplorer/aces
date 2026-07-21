@@ -9,8 +9,19 @@ import (
 )
 
 type createTranscriptRequestReq struct {
-	StudentID string `json:"student_id" binding:"required,uuid"`
-	Purpose   string `json:"purpose" binding:"required"`
+	StudentID   string `json:"student_id" binding:"omitempty,uuid"`
+	Purpose     string `json:"purpose"`
+	Destination string `json:"destination"`
+}
+
+func (r *createTranscriptRequestReq) GetPurpose() string {
+	if r.Purpose != "" {
+		return r.Purpose
+	}
+	if r.Destination != "" {
+		return r.Destination
+	}
+	return "Official transcript request"
 }
 
 func (server *Server) createTranscriptRequest(ctx *gin.Context) {
@@ -20,18 +31,30 @@ func (server *Server) createTranscriptRequest(ctx *gin.Context) {
 		return
 	}
 
-	studentID, _ := uuid.Parse(req.StudentID)
+	// Resolve student ID: prefer explicit, fallback to JWT user
+	var studentID uuid.UUID
+	if req.StudentID != "" {
+		studentID, _ = uuid.Parse(req.StudentID)
+	} else {
+		userID := getUserID(ctx)
+		student, err := server.store.GetStudentByUserId(ctx, userID)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "student record not found"})
+			return
+		}
+		studentID = student.ID
+	}
 
 	transcriptReq, err := server.transcripts.Create(ctx, service.CreateTranscriptInput{
 		StudentID: studentID,
-		Purpose:   req.Purpose,
+		Purpose:   req.GetPurpose(),
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, transcriptReq)
+	ctx.JSON(http.StatusCreated, gin.H{"data": transcriptReq})
 }
 
 func (server *Server) getTranscriptRequest(ctx *gin.Context) {
@@ -47,7 +70,7 @@ func (server *Server) getTranscriptRequest(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, transcriptReq)
+	ctx.JSON(http.StatusOK, gin.H{"data": transcriptReq})
 }
 
 func (server *Server) listStudentTranscriptRequests(ctx *gin.Context) {
@@ -59,11 +82,20 @@ func (server *Server) listStudentTranscriptRequests(ctx *gin.Context) {
 
 	requests, err := server.transcripts.ListByStudent(ctx, studentID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		// Fallback: the provided ID might be a user_id
+		student, sErr := server.store.GetStudentByUserId(ctx, studentID)
+		if sErr != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		requests, err = server.transcripts.ListByStudent(ctx, student.ID)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
-	ctx.JSON(http.StatusOK, requests)
+	ctx.JSON(http.StatusOK, gin.H{"data": requests})
 }
 
 type listPendingTranscriptRequestsReq struct {

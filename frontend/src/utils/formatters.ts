@@ -13,8 +13,11 @@ export const formatTimeAgo = (date: string | Date): string => {
   return isValid(d) ? formatDistanceToNow(d, { addSuffix: true }) : '';
 };
 
-export const formatCurrency = (amount: number, currency = 'NGN'): string =>
-  new Intl.NumberFormat('en-NG', { style: 'currency', currency, minimumFractionDigits: 0 }).format(amount);
+export const formatCurrency = (amount: number | string | null | undefined, currency = 'NGN'): string => {
+  if (amount === null || amount === undefined) return new Intl.NumberFormat('en-NG', { style: 'currency', currency, minimumFractionDigits: 0 }).format(0);
+  const num = typeof amount === 'string' ? parseFloat(amount) || 0 : amount;
+  return new Intl.NumberFormat('en-NG', { style: 'currency', currency, minimumFractionDigits: 0 }).format(num);
+};
 
 export const formatNumber = (num: number): string =>
   new Intl.NumberFormat('en-NG').format(num);

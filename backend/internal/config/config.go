@@ -61,6 +61,9 @@ type Config struct {
 	SMTPFrom           string
 	SMTPMock           bool
 	Environment        string
+	OpenAIApiKey       string
+	OpenAIModel        string
+	AIFallbackEnabled  bool
 }
 
 func (c *Config) IsProduction() bool {
@@ -100,6 +103,9 @@ func Load() *Config {
 		SMTPFrom:           getEnv("SMTP_FROM", "no-reply@aces.zone"),
 		SMTPMock:           getBool("SMTP_MOCK", true),
 		Environment:        getEnv("ENVIRONMENT", "development"),
+		OpenAIApiKey:       getEnv("OPENAI_API_KEY", ""),
+		OpenAIModel:        getEnv("OPENAI_MODEL", "gpt-4o-mini"),
+		AIFallbackEnabled:  getBool("AI_FALLBACK_ENABLED", true),
 	}
 }
 

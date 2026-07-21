@@ -119,3 +119,32 @@ export const getRegisteredCourses = async (registrationId: string) => {
   const raw = unwrap<BackendRegisteredCourse[] | { data: BackendRegisteredCourse[] }>(res);
   return Array.isArray(raw) ? raw : (raw as any)?.data ?? [];
 };
+
+export const createRegistration = async (payload: {
+  student_id: string;
+  session_id: string;
+  semester_id: string;
+  total_units?: number;
+  status?: string;
+}) => {
+  const res = await apiClient.post('/course-registrations', payload);
+  return unwrap<BackendRegistration>(res);
+};
+
+export const addCourseToRegistration = async (registrationId: string, payload: {
+  course_id: string;
+  status?: string;
+  is_carryover?: boolean;
+}) => {
+  const res = await apiClient.post(`/course-registrations/${registrationId}/courses`, payload);
+  return unwrap<BackendRegisteredCourse>(res);
+};
+
+export const removeCourseFromRegistration = async (registrationId: string, registeredCourseId: string) => {
+  await apiClient.delete(`/course-registrations/${registrationId}/courses/${registeredCourseId}`);
+};
+
+export const updateRegistrationStatus = async (registrationId: string, status: string) => {
+  const res = await apiClient.put(`/course-registrations/${registrationId}`, { status });
+  return unwrap<BackendRegistration>(res);
+};

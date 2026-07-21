@@ -5,18 +5,21 @@ import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import { useNotification } from '../../hooks/useNotification';
-import { Search, Plus, Briefcase, MapPin, ExternalLink } from 'lucide-react';
-import { getJobPosts, createJobPost, trackJobView } from '../../api/alumni';
+import { useAuth } from '../../hooks/useAuth';
+import { Search, Plus, Briefcase, MapPin, ExternalLink, Edit } from 'lucide-react';
+import { getJobPosts, createJobPost, updateJobPost, trackJobView } from '../../api/alumni';
 
 const typeLabels: Record<string, string> = { full_time: 'Full Time', part_time: 'Part Time', internship: 'Internship', contract: 'Contract', remote: 'Remote' };
 const typeColors: Record<string, string> = { full_time: 'primary', part_time: 'info', internship: 'success', contract: 'warning', remote: 'info' };
 
 const AlumniJobsPage = () => {
+  const { user } = useAuth();
   const { success, error: notifyError } = useNotification();
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [selectedJob, setSelectedJob] = useState<any>(null);
 
@@ -39,27 +42,72 @@ const AlumniJobsPage = () => {
       .finally(() => setLoading(false));
   }, []);
 
+  const canEditJob = (job: any) => {
+    if (!user || !job) return false;
+    const isOwner = job.posted_by === user.id || job.postedBy === user.id;
+    const userRole = user.role || user.activeRole || '';
+    const isAdmin = ['admin', 'hod', 'delegated_admin'].includes(userRole);
+    return isOwner || isAdmin;
+  };
+
   const filtered = jobs.filter((j) => {
     if (!search) return true;
     const q = search.toLowerCase();
     return j.title?.toLowerCase().includes(q) || j.company?.toLowerCase().includes(q) || j.industry?.toLowerCase().includes(q);
   });
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleOpenCreate = () => {
+    setEditingJobId(null);
+    setTitle(''); setCompany(''); setJobType('full_time'); setLocation(''); setIndustry(''); setSalary(''); setDesc(''); setRequirements(''); setResponsibilities(''); setAppUrl('');
+    setCreateOpen(true);
+  };
+
+  const handleOpenEdit = (job: any, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setEditingJobId(job.id);
+    setTitle(job.title || '');
+    setCompany(job.company || '');
+    setJobType(job.job_type || job.type || 'full_time');
+    setLocation(job.location || '');
+    setIndustry(job.industry || '');
+    setSalary(job.salary_range || job.salaryRange || '');
+    setDesc(job.description || '');
+    setRequirements(job.requirements || '');
+    setResponsibilities(job.responsibilities || '');
+    setAppUrl(job.application_url || job.applicationUrl || '');
+    setSelectedJob(null);
+    setCreateOpen(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !company || !desc) return;
     try {
       setSubmitting(true);
-      await createJobPost({
-        title, company, job_type: jobType, location: location || undefined,
+      const payload = {
+        title,
+        company,
+        job_type: jobType,
+        location: location || undefined,
         industry: industry || undefined,
-        description: desc, requirements: requirements || undefined,
+        description: desc,
+        requirements: requirements || undefined,
         responsibilities: responsibilities || undefined,
-        salary_range: salary || undefined, application_url: appUrl || undefined,
-      });
+        salary_range: salary || undefined,
+        application_url: appUrl || undefined,
+      };
+
+      if (editingJobId) {
+        await updateJobPost(editingJobId, payload);
+        success('Job Updated', 'Your job listing has been updated');
+      } else {
+        await createJobPost(payload);
+        success('Job Posted', 'Your job listing is now live');
+      }
+
       setCreateOpen(false);
+      setEditingJobId(null);
       setTitle(''); setCompany(''); setDesc(''); setRequirements(''); setResponsibilities(''); setLocation(''); setIndustry(''); setSalary(''); setAppUrl('');
-      success('Job Posted', 'Your job listing is now live');
       const refreshed = await getJobPosts();
       setJobs(Array.isArray(refreshed) ? refreshed : []);
     } catch (err: any) {
@@ -81,7 +129,7 @@ const AlumniJobsPage = () => {
           <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Alumni Job Board</h1>
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Post and discover job opportunities from the alumni network</p>
         </div>
-        <Button leftIcon={<Plus className="w-4 h-4" />} onClick={() => setCreateOpen(true)}>Post Job</Button>
+        <Button leftIcon={<Plus className="w-4 h-4" />} onClick={handleOpenCreate}>Post Job</Button>
       </div>
 
       <div className="relative max-w-md">
@@ -97,14 +145,27 @@ const AlumniJobsPage = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map((job) => {
             const type = (job.job_type || job.type || 'full_time') as string;
+            const isEditable = canEditJob(job);
             return (
-              <Card key={job.id} hover className="p-5 flex flex-col" onClick={() => handleViewJob(job)}>
+              <Card key={job.id} hover className="p-5 flex flex-col relative group" onClick={() => handleViewJob(job)}>
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1 min-w-0">
                     <h4 className="font-semibold text-surface-900 dark:text-surface-100 truncate">{job.title}</h4>
                     <p className="text-sm text-surface-500">{job.company}</p>
                   </div>
-                  <Badge variant={(typeColors[type] || 'primary') as any}>{typeLabels[type] || type}</Badge>
+                  <div className="flex items-center gap-2">
+                    {isEditable && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleOpenEdit(job, e)}
+                        className="p-1 text-surface-400 hover:text-primary-600 hover:bg-surface-100 dark:hover:bg-surface-800 rounded transition-colors"
+                        title="Edit Job"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                    )}
+                    <Badge variant={(typeColors[type] || 'primary') as any}>{typeLabels[type] || type}</Badge>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-surface-500 mb-3 flex-wrap">
                   {job.location && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {job.location}</span>}
@@ -158,14 +219,19 @@ const AlumniJobsPage = () => {
                   <Button leftIcon={<ExternalLink className="w-4 h-4" />}>Apply Now</Button>
                 </a>
               )}
+              {canEditJob(selectedJob) && (
+                <Button variant="outline" leftIcon={<Edit className="w-4 h-4" />} onClick={(e) => handleOpenEdit(selectedJob, e)}>
+                  Edit Job
+                </Button>
+              )}
               <Button variant="outline" onClick={() => setSelectedJob(null)}>Close</Button>
             </div>
           </div>
         </Modal>
       )}
 
-      <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title="Post a Job" size="lg">
-        <form onSubmit={handleCreate} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+      <Modal isOpen={createOpen} onClose={() => { setCreateOpen(false); setEditingJobId(null); }} title={editingJobId ? "Edit Job" : "Post a Job"} size="lg">
+        <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
           <div className="grid grid-cols-2 gap-4">
             <Input label="Job Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
             <Input label="Company" value={company} onChange={(e) => setCompany(e.target.value)} required />
@@ -198,7 +264,9 @@ const AlumniJobsPage = () => {
             <textarea className="w-full mt-1 h-20 rounded-lg border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-900 text-sm p-3 focus:outline-none resize-none" value={responsibilities} onChange={(e) => setResponsibilities(e.target.value)} />
           </div>
           <Input label="Application URL" placeholder="https://..." value={appUrl} onChange={(e) => setAppUrl(e.target.value)} />
-          <Button type="submit" className="w-full" isLoading={submitting}>Publish Job</Button>
+          <Button type="submit" className="w-full" isLoading={submitting}>
+            {editingJobId ? 'Update Job' : 'Publish Job'}
+          </Button>
         </form>
       </Modal>
     </div>

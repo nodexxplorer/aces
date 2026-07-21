@@ -30,7 +30,7 @@ const AlumniDirectoryPage = () => {
     const fetchAlumni = async () => {
       try {
         const data = await getAlumniDirectory();
-        setAlumni(data);
+        setAlumni(Array.isArray(data) ? data : []);
       } catch {
         error('Failed to load', 'Could not fetch alumni directory.');
       } finally {

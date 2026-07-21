@@ -128,6 +128,17 @@ func (server *Server) getRefreshTokenFromRequest(ctx *gin.Context) string {
 	return ""
 }
 
+func normalizeRoleName(role string) string {
+	if role == "admin" {
+		return "delegated_admin"
+	} else if role == "bursar_dept" {
+		return "dept_bursar"
+	} else if role == "bursar_class" {
+		return "class_bursar"
+	}
+	return role
+}
+
 func toUserResponse(u db.User, onboardingCompleted bool) userResponse {
 	parts := strings.SplitN(u.FullName, " ", 2)
 	firstName := parts[0]
@@ -136,14 +147,7 @@ func toUserResponse(u db.User, onboardingCompleted bool) userResponse {
 		lastName = parts[1]
 	}
 
-	role := string(u.Role)
-	if role == "admin" {
-		role = "delegated_admin"
-	} else if role == "bursar_dept" {
-		role = "dept_bursar"
-	} else if role == "bursar_class" {
-		role = "class_bursar"
-	}
+	role := normalizeRoleName(string(u.Role))
 
 	approvalStatus := "pending"
 	if u.IsApproved {
@@ -188,8 +192,27 @@ func (server *Server) generateAuthResponse(u db.User, onboardingCompleted bool, 
 	if err != nil {
 		return nil, err
 	}
+	resp := toUserResponse(u, onboardingCompleted)
+	normalized := make([]string, len(allRoles))
+	for i, r := range allRoles {
+		normalized[i] = normalizeRoleName(r)
+	}
+	// Ensure base role is present
+	hasBase := false
+	for _, r := range normalized {
+		if r == resp.Role {
+			hasBase = true
+			break
+		}
+	}
+	if !hasBase {
+		normalized = append([]string{resp.Role}, normalized...)
+	}
+	resp.Roles = normalized
+	resp.AllRoles = normalized
+
 	return &authResponse{
-		User: toUserResponse(u, onboardingCompleted),
+		User: resp,
 		Tokens: tokenPair{
 			AccessToken:  pair.AccessToken,
 			RefreshToken: pair.RefreshToken,
@@ -340,7 +363,26 @@ func (server *Server) getMe(ctx *gin.Context) {
 
 	roleNames, err := server.roles.ListUserRolesByName(ctx, id)
 	if err == nil && len(roleNames) > 0 {
-		resp.AllRoles = roleNames
+		normalized := make([]string, len(roleNames))
+		for i, r := range roleNames {
+			normalized[i] = normalizeRoleName(r)
+		}
+		// Ensure base role is present
+		hasBase := false
+		for _, r := range normalized {
+			if r == resp.Role {
+				hasBase = true
+				break
+			}
+		}
+		if !hasBase {
+			normalized = append([]string{resp.Role}, normalized...)
+		}
+		resp.Roles = normalized
+		resp.AllRoles = normalized
+	} else {
+		resp.Roles = []string{resp.Role}
+		resp.AllRoles = []string{resp.Role}
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"data": resp})

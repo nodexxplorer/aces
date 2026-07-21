@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useRBAC } from '../hooks/useRBAC';
 import { useAuth } from '../hooks/useAuth';
 import StudentDashboardView from './student/StudentDashboard';
@@ -10,7 +11,11 @@ import Alert from '../components/feedback/Alert';
 
 const Dashboard = () => {
   const { activeRole } = useRBAC();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
+
+  useEffect(() => {
+    refreshUser();
+  }, []);
 
   const isPendingApproval = user?.approvalStatus === 'pending';
   const isRejected = user?.approvalStatus === 'rejected';
