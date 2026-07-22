@@ -418,14 +418,15 @@ function PostCard({
       try {
         const result = await togglePostReaction(postId, type);
         if (result.reaction_type) {
-          setMyReaction(result.reaction_type);
+          const rType = result.reaction_type;
+          setMyReaction(rType);
           setReactions((prev) => {
             const updated = prev.map((r) => ({
               ...r,
-              count: r.reaction_type === result.reaction_type ? r.count + 1 : r.count,
+              count: r.reaction_type === rType ? r.count + 1 : r.count,
             }));
-            if (!updated.find((r) => r.reaction_type === result.reaction_type)) {
-              updated.push({ reaction_type: result.reaction_type, count: 1 });
+            if (!updated.find((r) => r.reaction_type === rType)) {
+              updated.push({ reaction_type: rType, count: 1 });
             }
             return updated;
           });

@@ -116,7 +116,7 @@ export default function CalendarPage() {
         venue: form.venue,
         is_all_day: form.is_all_day,
         color: form.color,
-        target_audience: form.target_audience,
+        target_audience: [form.target_audience],
       });
       setShowForm(false);
       setForm({

@@ -103,7 +103,7 @@ export default function BroadcastsPage() {
             {broadcasts.map((broadcast) => {
               const s = getStyles(broadcast.priority);
               const isAcknowledged = broadcast.acknowledged;
-              const needsAck = broadcast.requires_acknowledgement && !isAcknowledged;
+              const needsAck = broadcast.requires_acknowledgment && !isAcknowledged;
 
               return (
                 <div

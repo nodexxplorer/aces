@@ -9,15 +9,17 @@ const STATUS_BADGES: Record<string, string> = {
 };
 
 interface ExpenseSummary {
-  total: number;
-  pending: number;
-  approved: number;
-  rejected: number;
+  total_expenses: number;
+  total_count: number;
+  pending_count: number;
+  approved_count: number;
+  rejected_count: number;
+  approved_amount: number;
 }
 
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [summary, setSummary] = useState<ExpenseSummary>({ total: 0, pending: 0, approved: 0, rejected: 0 });
+  const [summary, setSummary] = useState<ExpenseSummary>({ total_expenses: 0, total_count: 0, pending_count: 0, approved_count: 0, rejected_count: 0, approved_amount: 0 });
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [showForm, setShowForm] = useState(false);
@@ -85,7 +87,7 @@ export default function ExpensesPage() {
 
   const handleStatusUpdate = async (id: string, status: 'approved' | 'rejected') => {
     try {
-      await updateExpenseStatus(id, status);
+      await updateExpenseStatus(id, { status });
       fetchExpenses();
       fetchSummary();
     } catch (err) {
@@ -99,25 +101,25 @@ export default function ExpensesPage() {
   const summaryCards = [
     {
       label: 'Total Expenses',
-      value: `$${summary.total.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      value: `$${summary.total_expenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
       icon: DollarSign,
       color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
     },
     {
       label: 'Pending',
-      value: `$${summary.pending.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      value: `$${summary.pending_count.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
       icon: Clock,
       color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400',
     },
     {
       label: 'Approved',
-      value: `$${summary.approved.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      value: `$${summary.approved_amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
       icon: CheckCircle,
       color: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400',
     },
     {
       label: 'Rejected',
-      value: `$${summary.rejected.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      value: `$${summary.rejected_count.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
       icon: XCircle,
       color: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',
     },

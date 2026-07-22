@@ -88,8 +88,6 @@ export default function GPACalculatorPage() {
             units: c.units,
             grade: c.grade,
           })),
-        gpa,
-        totalCredits,
       });
       setScenarioName('');
       await loadScenarios();

@@ -34,7 +34,7 @@ interface Announcement {
 interface AnnouncementComment {
   id: string;
   author_name: string;
-  author_role: string;
+  author_role?: string;
   content: string;
   created_at: string;
 }
@@ -85,7 +85,7 @@ function getCategoryColor(category: string): string {
 
 export default function StudentAnnouncementsPage() {
   const { user } = useAuth();
-  const { notify } = useNotification();
+  const { success, error: notifyError } = useNotification();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
@@ -103,13 +103,17 @@ export default function StudentAnnouncementsPage() {
     setLoading(true);
     try {
       const data = await listStudentAnnouncements();
-      setAnnouncements(data.announcements || data || []);
+      setAnnouncements((data || []).map((a: any) => ({
+        ...a,
+        attachment_count: a.attachments?.length || 0,
+        author_role: a.author_role || '',
+      })));
     } catch (err: any) {
-      notify({ type: 'error', message: err?.message || 'Failed to load announcements' });
+      notifyError('Failed to load announcements', err?.message || '');
     } finally {
       setLoading(false);
     }
-  }, [notify]);
+  }, [notifyError]);
 
   useEffect(() => {
     fetchAnnouncements();
@@ -121,7 +125,7 @@ export default function StudentAnnouncementsPage() {
         const statuses = await Promise.all(
           announcements.map(async (a) => {
             const res = await getAnnouncementReadStatus(a.id);
-            return { id: a.id, read: res?.is_read || false };
+            return { id: a.id, read: res?.read || false };
           })
         );
         const map: Record<string, boolean> = {};
@@ -165,8 +169,13 @@ export default function StudentAnnouncementsPage() {
     setNewComment('');
     try {
       const full = await getAnnouncementV2(announcement.id);
-      setSelectedAnnouncement(full);
-      setAcknowledged(full.is_acknowledged || false);
+      setSelectedAnnouncement({
+        ...full,
+        attachment_count: (full as any).attachments?.length || 0,
+        author_role: (full as any).author_role || '',
+        is_read: readStatus[announcement.id] || false,
+      } as any);
+      setAcknowledged(full.status === 'acknowledged' || false);
       try {
         const readRes = await markAnnouncementRead(announcement.id);
         setReadStatus((prev) => ({ ...prev, [announcement.id]: true }));
@@ -175,12 +184,12 @@ export default function StudentAnnouncementsPage() {
       }
       try {
         const commRes = await listAnnouncementComments(announcement.id);
-        setComments(commRes.comments || commRes || []);
+        setComments(commRes || []);
       } catch {
         // ignore
       }
     } catch (err: any) {
-      notify({ type: 'error', message: err?.message || 'Failed to load announcement' });
+      notifyError('Failed to load announcement', err?.message || '');
     } finally {
       setDetailLoading(false);
     }
@@ -192,9 +201,9 @@ export default function StudentAnnouncementsPage() {
       await acknowledgeAnnouncement(announcementId);
       setAcknowledged(true);
       setSelectedAnnouncement((prev) => prev ? { ...prev, is_acknowledged: true } : null);
-      notify({ type: 'success', message: 'Announcement acknowledged' });
+      success('Announcement acknowledged');
     } catch (err: any) {
-      notify({ type: 'error', message: err?.message || 'Failed to acknowledge' });
+      notifyError('Failed to acknowledge', err?.message || '');
     } finally {
       setAcknowledging(false);
     }
@@ -204,12 +213,12 @@ export default function StudentAnnouncementsPage() {
     if (!newComment.trim() || !selectedAnnouncement) return;
     setSubmittingComment(true);
     try {
-      const res = await createAnnouncementComment(selectedAnnouncement.id, { content: newComment.trim() });
-      setComments((prev) => [...prev, res.comment || res]);
+      const res = await createAnnouncementComment(selectedAnnouncement.id, newComment.trim());
+      setComments((prev) => [...prev, res]);
       setNewComment('');
-      notify({ type: 'success', message: 'Comment added' });
+      success('Comment added');
     } catch (err: any) {
-      notify({ type: 'error', message: err?.message || 'Failed to add comment' });
+      notifyError('Failed to add comment', err?.message || '');
     } finally {
       setSubmittingComment(false);
     }

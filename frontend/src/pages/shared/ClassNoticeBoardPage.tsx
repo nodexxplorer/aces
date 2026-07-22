@@ -9,7 +9,7 @@ export default function ClassNoticeBoardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedNoticeId, setExpandedNoticeId] = useState<string | null>(null);
-  const [commentsMap, setCommentsMap] = useState<Record<string, { content: string; authorName: string; createdAt: string }[]>>({});
+  const [commentsMap, setCommentsMap] = useState<Record<string, { id: string; content: string; author_name: string; created_at: string }[]>>({});
   const [commentText, setCommentText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
@@ -40,19 +40,12 @@ export default function ClassNoticeBoardPage() {
     if (!commentText.trim() || !user) return;
     setSubmitting(true);
     try {
-      const newComment = await createNoticeComment(noticeId, {
-        content: commentText.trim(),
-        authorId: user.id,
-        authorName: user.name || 'Unknown',
-      });
+      const newComment = await createNoticeComment(noticeId, commentText.trim());
       setCommentsMap((prev) => ({
         ...prev,
         [noticeId]: [...(prev[noticeId] || []), newComment],
       }));
       setCommentText('');
-      setNotices((prev) =>
-        prev.map((n) => (n.id === noticeId ? { ...n, commentCount: (n.commentCount || 0) + 1 } : n))
-      );
     } catch {
     } finally {
       setSubmitting(false);
@@ -105,7 +98,7 @@ export default function ClassNoticeBoardPage() {
             </span>
             <span className="flex items-center gap-1">
               <MessageSquare className="w-3 h-3" />
-              {notice.commentCount || 0}
+              {notice.comment_count || 0}
             </span>
           </div>
         </button>
@@ -133,8 +126,8 @@ export default function ClassNoticeBoardPage() {
                   {comments.map((c, i) => (
                     <div key={i} className="bg-surface-50 dark:bg-surface-800 rounded-xl px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-surface-900 dark:text-white">{c.authorName}</span>
-                        <span className="text-[10px] text-surface-400">{new Date(c.createdAt).toLocaleDateString()}</span>
+                        <span className="text-xs font-semibold text-surface-900 dark:text-white">{c.author_name}</span>
+                        <span className="text-[10px] text-surface-400">{new Date(c.created_at).toLocaleDateString()}</span>
                       </div>
                       <p className="text-sm text-surface-600 dark:text-surface-400 mt-1">{c.content}</p>
                     </div>

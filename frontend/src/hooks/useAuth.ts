@@ -1,15 +1,7 @@
 import { useAuthStore } from '../stores/authStore';
 import { useRoleStore } from '../stores/roleStore';
 import { logout as apiLogout, getMe } from '../api/auth';
-import type { UserRole } from '../types';
-
-type LoginUserData = {
-  allRoles?: UserRole[];
-  roles?: UserRole[];
-  [key: string]: unknown;
-};
-
-type LoginTokens = Record<string, unknown>;
+import type { UserRole, User, AuthTokens } from '../types';
 
 export const useAuth = () => {
   const { user, isAuthenticated, isLoading, login, logout, updateUser, switchRole } = useAuthStore();
@@ -17,9 +9,9 @@ export const useAuth = () => {
 
   const activeRole = user?.activeRole ?? 'student';
 
-  const handleLogin = (userData: LoginUserData, tokens: LoginTokens) => {
-    login(userData as any, tokens);
-    setAvailableRoles(userData.allRoles || userData.roles || ['student']);
+  const handleLogin = (userData: User, tokens: AuthTokens) => {
+    login(userData, tokens);
+    setAvailableRoles(userData.roles || ['student']);
   };
 
   const handleSwitchRole = (role: UserRole) => {
@@ -40,9 +32,7 @@ export const useAuth = () => {
     try {
       const latestUser = await getMe();
       updateUser(latestUser);
-      if (latestUser.allRoles) {
-        setAvailableRoles(latestUser.allRoles);
-      } else if (latestUser.roles) {
+      if (latestUser.roles) {
         setAvailableRoles(latestUser.roles);
       }
     } catch (err) {

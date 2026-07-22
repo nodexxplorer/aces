@@ -14,9 +14,9 @@ interface FeatureFlag {
 }
 
 const MOCK_FLAGS: FeatureFlag[] = [
-  { id: '1', name: 'dark_mode', description: 'Enable dark mode toggle for students', is_enabled: true, target_roles: ['student'], target_levels: [100, 200, 300, 400], percentage: 100 },
-  { id: '2', name: 'gpa_predictor', description: 'AI-powered GPA prediction feature', is_enabled: false, target_roles: ['student'], target_levels: [300, 400], percentage: 50 },
-  { id: '3', name: 'bulk_transcript', description: 'Batch transcript generation for admin', is_enabled: true, target_roles: ['admin', 'hod'], target_levels: [], percentage: 100 },
+  { id: '1', name: 'dark_mode', description: 'Enable dark mode toggle for students', is_enabled: true, target_roles: ['student'], target_levels: [100, 200, 300, 400], percentage: 100, created_at: new Date().toISOString() },
+  { id: '2', name: 'gpa_predictor', description: 'AI-powered GPA prediction feature', is_enabled: false, target_roles: ['student'], target_levels: [300, 400], percentage: 50, created_at: new Date().toISOString() },
+  { id: '3', name: 'bulk_transcript', description: 'Batch transcript generation for admin', is_enabled: true, target_roles: ['admin', 'hod'], target_levels: [], percentage: 100, created_at: new Date().toISOString() },
 ];
 
 const FeatureFlagsPage = () => {
