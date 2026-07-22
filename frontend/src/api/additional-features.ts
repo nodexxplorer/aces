@@ -153,6 +153,7 @@ export interface ClassNotice {
   expires_at?: string;
   created_at: string;
   author_name?: string;
+  comment_count?: number;
 }
 
 export const createClassNotice = async (data: { title: string; content: string; is_pinned?: boolean; allow_comments?: boolean; attachment_url?: string; expires_at?: string }) => {

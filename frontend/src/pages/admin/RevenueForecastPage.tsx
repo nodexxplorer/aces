@@ -56,7 +56,7 @@ const RevenueForecastPage = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`} />
-                <Tooltip formatter={(v: number) => formatNaira(v)} />
+                <Tooltip formatter={(v) => formatNaira(Number(v))} />
                 <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                   {chartData.map((entry, idx) => (
                     <Cell key={idx} fill={entry.fill} />

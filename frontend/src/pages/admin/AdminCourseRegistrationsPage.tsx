@@ -62,7 +62,7 @@ const AdminCourseRegistrationsPage = () => {
       .catch(() => notifyError('Error', 'Failed to load students list'))
       .finally(() => setLoadingStudents(false));
 
-    getSessions({ page_id: 1, page_size: 20 })
+    getSessions({ page: 1, perPage: 20 })
       .then((res) => {
         const list = Array.isArray(res) ? res : ((res as any)?.data ?? []);
         setSessions(list);
@@ -341,7 +341,7 @@ const AdminCourseRegistrationsPage = () => {
                                   ? 'success'
                                   : activeRegistration.status === 'submitted'
                                   ? 'warning'
-                                  : 'neutral'
+                                  : 'default'
                               }
                             >
                               {activeRegistration.status}
@@ -422,7 +422,7 @@ const AdminCourseRegistrationsPage = () => {
                                       </td>
                                       <td className="px-3 py-2">{matchedCourse?.unit ?? '-'}</td>
                                       <td className="px-3 py-2">
-                                        <Badge variant={rc.status === 'enrolled' ? 'info' : 'neutral'}>
+                                        <Badge variant={rc.status === 'enrolled' ? 'info' : 'default'}>
                                           {rc.status}
                                         </Badge>
                                       </td>

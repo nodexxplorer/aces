@@ -107,7 +107,7 @@ export default function GradeAppealsPage() {
         semester_id: formSemesterId.trim(),
         session_id: formSessionId.trim(),
         reason: formReason.trim(),
-        evidence_urls: evidenceUrls.length > 0 ? evidenceUrls : undefined,
+        evidence: evidenceUrls.length > 0 ? evidenceUrls : undefined,
       });
       setFormCourseId('');
       setFormSemesterId('');
