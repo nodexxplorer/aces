@@ -41,11 +41,11 @@ const AttendancePage = lazy(() => import('./pages/class-rep/AttendancePage'));
 const AssignmentUploadPage = lazy(() => import('./pages/class-rep/AssignmentUploadPage'));
 const PendingRequestsPage = lazy(() => import('./pages/class-rep/PendingRequestsPage'));
 const ClassRepClassListPage = lazy(() => import('./pages/class-rep/ClassListPage'));
+const NotifyStudentsPage = lazy(() => import('./pages/class-rep/NotifyStudentsPage'));
 
 // Bursar
 const BursarDashboard = lazy(() => import('./pages/bursar/BursarDashboard'));
-const ClassBursarDuesPage = lazy(() => import('./pages/bursar/ClassBursarDuesPage'));
-const DeptBursarDuesPage = lazy(() => import('./pages/bursar/DeptBursarDuesPage'));
+const DuesPage = lazy(() => import('./pages/bursar/DuesPage'));
 const PaymentVerificationPage = lazy(() => import('./pages/bursar/PaymentVerificationPage'));
 const DefaultersPage = lazy(() => import('./pages/bursar/DefaultersPage'));
 
@@ -53,25 +53,19 @@ const DefaultersPage = lazy(() => import('./pages/bursar/DefaultersPage'));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const ResultApprovalPage = lazy(() => import('./pages/admin/ResultApprovalPage'));
 const UserManagementPage = lazy(() => import('./pages/admin/UserManagementPage'));
-const PendingApprovalsPage = lazy(() => import('./pages/admin/PendingApprovalsEnhancedPage'));
-const RoleManagementPage = lazy(() => import('./pages/admin/RoleManagementPage'));
+const UserRolesPage = lazy(() => import('./pages/admin/UserRolesPage'));
 const DelegateAdminPage = lazy(() => import('./pages/admin/DelegateAdminPage'));
-// const DelegateStudentRolePage = lazy(() => import('./pages/admin/DelegateStudentRolePage'));
 const AnalyticsPage = lazy(() => import('./pages/admin/AnalyticsPage'));
 const SessionManagementPage = lazy(() => import('./pages/admin/SessionManagementPage'));
-const CourseManagementPage = lazy(() => import('./pages/admin/CourseManagementPage'));
-const CourseSubcategoryPage = lazy(() => import('./pages/admin/CourseSubcategoryPage'));
+const CourseHubPage = lazy(() => import('./pages/admin/CourseHubPage'));
 const AnnouncementsPage = lazy(() => import('./pages/admin/AnnouncementsManagePage'));
-const TranscriptQueuePage = lazy(() => import('./pages/admin/TranscriptQueuePage'));
-const GraduationCheckPage = lazy(() => import('./pages/admin/GraduationCheckPage'));
-const ReportsPage = lazy(() => import('./pages/admin/ReportsPage'));
-const BackupPage = lazy(() => import('./pages/admin/BackupPage'));
-const ComplaintsManagePage = lazy(() => import('./pages/admin/ComplaintsManagePage'));
+const AcademicsHubPage = lazy(() => import('./pages/admin/AcademicsHubPage'));
 const TimetableManagePage = lazy(() => import('./pages/admin/TimetableManagePage'));
 const ManualsManagementPage = lazy(() => import('./pages/admin/ManualsManagementPage'));
 const ManualPrintQueuePage = lazy(() => import('./pages/admin/ManualPrintQueuePage'));
 const AlumniManagementPage = lazy(() => import('./pages/admin/AlumniManagementPage'));
-const BulkResultsUploadPage = lazy(() => import('./pages/admin/BulkResultsUploadPage'));
+const ResultsManagementPage = lazy(() => import('./pages/admin/ResultsManagementPage'));
+
 const CGPASettingsPage = lazy(() => import('./pages/admin/CGPASettingsPage'));
 const SettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
 const AISettingsPage = lazy(() => import('./pages/settings/AISettingsPage'));
@@ -83,12 +77,11 @@ const EditStudentPage = lazy(() => import('./pages/admin/EditStudentPage'));
 const DocumentVerificationPage = lazy(() => import('./pages/admin/DocumentVerificationPage'));
 const CourseDetailPage = lazy(() => import('./pages/admin/CourseDetailPage'));
 // const LecturerManagementPage = lazy(() => import('./pages/admin/LecturerManagementPage'));
-const AdminCourseRegistrationsPage = lazy(() => import('./pages/admin/AdminCourseRegistrationsPage'));
 
 // AI Predictions
 const GPAPredictionPage = lazy(() => import('./pages/student/GPAPredictionPage'));
+const GPAHubPage = lazy(() => import('./pages/student/GPAHubPage'));
 const AtRiskDashboard = lazy(() => import('./pages/admin/AtRiskDashboard'));
-const RevenueForecastPage = lazy(() => import('./pages/admin/RevenueForecastPage'));
 const GradeDistributionPage = lazy(() => import('./pages/admin/GradeDistributionPage'));
 
 // Additional Features
@@ -96,34 +89,23 @@ const StudyPlannerPage = lazy(() => import('./pages/student/StudyPlannerPage'));
 const GPACalculatorPage = lazy(() => import('./pages/student/GPACalculatorPage'));
 const GradeAppealsPage = lazy(() => import('./pages/student/GradeAppealsPage'));
 const ClassNoticeBoardPage = lazy(() => import('./pages/shared/ClassNoticeBoardPage'));
-const CalendarPage = lazy(() => import('./pages/admin/CalendarPage'));
+// const CalendarPage = lazy(() => import('./pages/admin/CalendarPage'));
 const ExpensesPage = lazy(() => import('./pages/admin/ExpensesPage'));
-const HelpCenterPage = lazy(() => import('./pages/shared/HelpCenterPage'));
-const BroadcastsPage = lazy(() => import('./pages/shared/BroadcastsPage'));
-const FeatureFlagsPage = lazy(() => import('./pages/admin/FeatureFlagsPage'));
-const FeedbackManagePage = lazy(() => import('./pages/admin/FeedbackManagePage'));
-const MyFeedbackPage = lazy(() => import('./pages/student/MyFeedbackPage'));
+
+const SupportPage = lazy(() => import('./pages/shared/SupportPage'));
+const QRScanPage = lazy(() => import('./pages/student/QRScanPage'));
+// const FeatureFlagsPage = lazy(() => import('./pages/admin/FeatureFlagsPage'));
+// const FeedbackManagePage = lazy(() => import('./pages/admin/FeedbackManagePage'));
+const SystemAdminPage = lazy(() => import('./pages/admin/SystemAdminPage'));
 const PasswordResetOTPPage = lazy(() => import('./pages/auth/PasswordResetOTPPage'));
 
 // Onboarding & Verification
 const WaitingDashboardPage = lazy(() => import('./pages/shared/WaitingDashboardPage'));
 const StudentAnnouncementsPage = lazy(() => import('./pages/shared/StudentAnnouncementsPage'));
+const StudentCommunicationPage = lazy(() => import('./pages/student/StudentCommunicationPage'));
 
-// Campus Connect
-const CampusConnectPage = lazy(() => import('./pages/campus-connect/CampusConnectPage'));
-const StudentDirectoryPage = lazy(() => import('./pages/campus-connect/StudentDirectoryPage'));
-const AlumniDirectoryPage = lazy(() => import('./pages/campus-connect/AlumniDirectoryPage'));
-const MyConnectionsPage = lazy(() => import('./pages/campus-connect/MyConnectionsPage'));
-const MessagesPage = lazy(() => import('./pages/campus-connect/MessagesPage'));
-const GroupDiscoveryPage = lazy(() => import('./pages/campus-connect/GroupDiscoveryPage'));
-const MyGroupsPage = lazy(() => import('./pages/campus-connect/MyGroupsPage'));
-const GroupDetailPage = lazy(() => import('./pages/campus-connect/GroupDetailPage'));
-const ConnectionProfilePage = lazy(() => import('./pages/campus-connect/ConnectionProfilePage'));
-const FeedPage = lazy(() => import('./pages/campus-connect/FeedPage'));
-const PeopleDiscoveryPage = lazy(() => import('./pages/campus-connect/PeopleDiscoveryPage'));
-const CampusProfilePage = lazy(() => import('./pages/campus-connect/CampusProfilePage'));
-const BookmarksPage = lazy(() => import('./pages/campus-connect/BookmarksPage'));
-const ModerationPage = lazy(() => import('./pages/campus-connect/ModerationPage'));
+// Campus Connect (new)
+const ConnectPage = lazy(() => import('./pages/connect/ConnectPage'));
 
 // Skills & Trade
 const SkillsMarketplacePage = lazy(() => import('./pages/skills-trade/SkillsMarketplacePage'));
@@ -137,9 +119,7 @@ const RatingsPage = lazy(() => import('./pages/skills-trade/RatingsPage'));
 
 // Alumni
 const AlumniDashboard = lazy(() => import('./pages/alumni/AlumniDashboard'));
-const MentorshipHubPage = lazy(() => import('./pages/alumni/MentorshipHubPage'));
 const AlumniJobsPage = lazy(() => import('./pages/alumni/AlumniJobsPage'));
-const MyJobPostsPage = lazy(() => import('./pages/alumni/MyJobPostsPage'));
 const AlumniNetworkPage = lazy(() => import('./pages/alumni/AlumniNetworkPage'));
 const GiveBackPage = lazy(() => import('./pages/alumni/GiveBackPage'));
 const AlumniEventsPage = lazy(() => import('./pages/alumni/AlumniEventsPage'));
@@ -147,13 +127,14 @@ const AlumniProfilePage = lazy(() => import('./pages/alumni/AlumniProfilePage'))
 
 // Shared
 const NotificationsPage = lazy(() => import('./pages/shared/NotificationsPage'));
+const NotificationSettingsPage = lazy(() => import('./pages/shared/NotificationSettingsPage'));
 const SearchResultsPage = lazy(() => import('./pages/shared/SearchResultsPage'));
 const NotFoundPage = lazy(() => import('./pages/shared/NotFoundPage'));
 const ForbiddenPage = lazy(() => import('./pages/shared/ForbiddenPage'));
 const ServerErrorPage = lazy(() => import('./pages/shared/ServerErrorPage'));
 const ApprovalRejectedPage = lazy(() => import('./pages/shared/ApprovalRejectedPage'));
 const PrivacyPolicyPage = lazy(() => import('./pages/shared/PrivacyPolicyPage'));
-const AIBlueprintPage = lazy(() => import('./pages/shared/AIBlueprintPage'));
+// const AIBlueprintPage = lazy(() => import('./pages/shared/AIBlueprintPage'));
 
 /* ── Layouts ─────────────────────────────────── */
 const AppShell = lazy(() => import('./components/layout/AppShell'));
@@ -187,6 +168,19 @@ const ProtectedRoute = () => {
   const onboardingRoutes = ['/onboarding', '/login/celebration'];
   if (user && user.onboardingCompleted === false && !onboardingRoutes.includes(location.pathname)) {
     return <Navigate to="/onboarding" replace />;
+  }
+
+  const waitingRoutes = ['/waiting', '/approval-rejected'];
+  const pendingRoles = ['student', 'lecturer'];
+  if (
+    user &&
+    user.onboardingCompleted !== false &&
+    user.isApproved === false &&
+    user.isActive !== false &&
+    pendingRoles.includes(user.role || user.activeRole || '') &&
+    !waitingRoutes.includes(location.pathname)
+  ) {
+    return <Navigate to="/waiting" replace />;
   }
 
   return <SuspenseWrapper><Outlet /></SuspenseWrapper>;
@@ -248,7 +242,7 @@ export const router = createBrowserRouter([
           // Student routes
           { path: '/results', element: <ResultsPage /> },
           { path: '/results/:id', element: <ResultDetailPage /> },
-          { path: '/gpa-prediction', element: <GPAPredictionPage /> },
+          { path: '/gpa-prediction', element: <Navigate to="/gpa" replace /> },
           { path: '/payments', element: <PaymentsPage /> },
           { path: '/transcripts', element: <TranscriptsPage /> },
           { path: '/courses/register', element: <CourseRegistrationPage /> },
@@ -261,14 +255,15 @@ export const router = createBrowserRouter([
           { path: '/student/jobs', element: <StudentJobBoardPage /> },
           { path: '/student/applications', element: <MyApplicationsPage /> },
           { path: '/study-planner', element: <StudyPlannerPage /> },
-          { path: '/gpa-calculator', element: <GPACalculatorPage /> },
+          { path: '/gpa-calculator', element: <Navigate to="/gpa" replace /> },
+          { path: '/gpa', element: <GPAHubPage /> },
           { path: '/grade-appeals', element: <GradeAppealsPage /> },
-          { path: '/notices', element: <ClassNoticeBoardPage /> },
-          { path: '/help', element: <HelpCenterPage /> },
-          { path: '/broadcasts', element: <BroadcastsPage /> },
-          { path: '/my-feedback', element: <MyFeedbackPage /> },
+          { path: '/notices', element: <Navigate to="/communication" replace /> },
+          { path: '/scan', element: <QRScanPage /> },
+          { path: '/support', element: <SupportPage /> },
           { path: '/waiting', element: <WaitingDashboardPage /> },
-          { path: '/announcements', element: <StudentAnnouncementsPage /> },
+          { path: '/announcements', element: <Navigate to="/communication" replace /> },
+          { path: '/communication', element: <StudentCommunicationPage /> },
 
           // Lecturer routes
           {
@@ -292,6 +287,7 @@ export const router = createBrowserRouter([
               { path: '/class-rep/assignments', element: <AssignmentUploadPage /> },
               { path: '/class-rep/pending', element: <PendingRequestsPage /> },
               { path: '/class-rep/class-list', element: <ClassRepClassListPage /> },
+              { path: '/class-rep/notify', element: <NotifyStudentsPage /> },
             ],
           },
 
@@ -300,8 +296,7 @@ export const router = createBrowserRouter([
             element: <RoleRoute roles={['class_bursar', 'dept_bursar', 'hod', 'delegated_admin']} />,
             children: [
               { path: '/bursar', element: <BursarDashboard /> },
-              { path: '/bursar/class-dues', element: <ClassBursarDuesPage /> },
-              { path: '/bursar/dept-dues', element: <DeptBursarDuesPage /> },
+              { path: '/bursar/dues', element: <DuesPage /> },
               { path: '/bursar/verify', element: <PaymentVerificationPage /> },
               { path: '/bursar/defaulters', element: <DefaultersPage /> },
             ],
@@ -313,22 +308,16 @@ export const router = createBrowserRouter([
             children: [
               { path: '/admin', element: <AdminDashboard /> },
               { path: '/admin/results', element: <ResultApprovalPage /> },
-              { path: '/admin/results/bulk-upload', element: <BulkResultsUploadPage /> },
+              { path: '/admin/results/manage', element: <ResultsManagementPage /> },
               { path: '/admin/users', element: <UserManagementPage /> },
-              { path: '/admin/approvals', element: <PendingApprovalsPage /> },
-              { path: '/admin/roles', element: <RoleManagementPage /> },
+              { path: '/admin/user-roles', element: <UserRolesPage /> },
               { path: '/admin/delegate', element: <DelegateAdminPage /> },
-              // { path: '/admin/delegate-student-roles', element: <DelegateStudentRolePage /> },
               { path: '/admin/analytics', element: <AnalyticsPage /> },
               { path: '/admin/sessions', element: <SessionManagementPage /> },
-              { path: '/admin/courses', element: <CourseManagementPage /> },
-              { path: '/admin/subcategories', element: <CourseSubcategoryPage /> },
+              { path: '/admin/course-hub', element: <CourseHubPage /> },
               { path: '/admin/announcements', element: <AnnouncementsPage /> },
-              { path: '/admin/transcripts', element: <TranscriptQueuePage /> },
-              { path: '/admin/graduation', element: <GraduationCheckPage /> },
-              { path: '/admin/reports', element: <ReportsPage /> },
-              { path: '/admin/backups', element: <BackupPage /> },
-              { path: '/admin/complaints', element: <ComplaintsManagePage /> },
+              { path: '/admin/academics', element: <AcademicsHubPage /> },
+              { path: '/admin/system', element: <SystemAdminPage /> },
               { path: '/admin/timetable', element: <TimetableManagePage /> },
               { path: '/admin/manuals', element: <ManualsManagementPage /> },
               { path: '/admin/print-queue', element: <ManualPrintQueuePage /> },
@@ -337,12 +326,8 @@ export const router = createBrowserRouter([
               { path: '/admin/settings', element: <SettingsPage /> },
               { path: '/admin/ai-settings', element: <AISettingsPage /> },
               { path: '/admin/at-risk', element: <AtRiskDashboard /> },
-              { path: '/admin/revenue-forecast', element: <RevenueForecastPage /> },
               { path: '/admin/grade-distribution', element: <GradeDistributionPage /> },
-              { path: '/admin/calendar', element: <CalendarPage /> },
               { path: '/admin/expenses', element: <ExpensesPage /> },
-              { path: '/admin/feature-flags', element: <FeatureFlagsPage /> },
-              { path: '/admin/feedback', element: <FeedbackManagePage /> },
               { path: '/admin/students/:id', element: <StudentDetailPage /> },
               { path: '/admin/users/:id', element: <UserDetailPage /> },
               { path: '/admin/users/:id/edit', element: <EditStudentPage /> },
@@ -351,26 +336,11 @@ export const router = createBrowserRouter([
               { path: '/admin/manuals/:id', element: <ManualDetailPage /> },
               { path: '/admin/job-moderation', element: <AdminJobModerationPage /> },
               // { path: '/admin/lecturers', element: <LecturerManagementPage /> },
-              { path: '/admin/course-registrations', element: <AdminCourseRegistrationsPage /> },
             ],
           },
 
-          // Campus Connect
-          { path: '/connect', element: <CampusConnectPage /> },
-          { path: '/connect/students', element: <StudentDirectoryPage /> },
-          { path: '/connect/alumni', element: <AlumniDirectoryPage /> },
-          { path: '/connect/my-connections', element: <MyConnectionsPage /> },
-          { path: '/connect/messages', element: <MessagesPage /> },
-          { path: '/connect/groups', element: <GroupDiscoveryPage /> },
-          { path: '/connect/my-groups', element: <MyGroupsPage /> },
-          { path: '/connect/groups/:id', element: <GroupDetailPage /> },
-          { path: '/connect/profile/:id', element: <ConnectionProfilePage /> },
-          { path: '/connect/feed', element: <FeedPage /> },
-          { path: '/connect/discover', element: <PeopleDiscoveryPage /> },
-          { path: '/connect/my-profile', element: <CampusProfilePage /> },
-          { path: '/connect/profile/:id/campus', element: <CampusProfilePage /> },
-          { path: '/connect/bookmarks', element: <BookmarksPage /> },
-          { path: '/connect/moderation', element: <ModerationPage /> },
+          // Campus Connect (new)
+          { path: '/connect', element: <ConnectPage /> },
 
           // Skills & Trade
           { path: '/skills', element: <SkillsMarketplacePage /> },
@@ -392,9 +362,8 @@ export const router = createBrowserRouter([
             children: [
               { path: '/alumni', element: <AlumniDashboard /> },
               { path: '/alumni/profile', element: <AlumniProfilePage /> },
-              { path: '/alumni/mentorship', element: <MentorshipHubPage /> },
               { path: '/alumni/jobs', element: <AlumniJobsPage /> },
-              { path: '/alumni/my-jobs', element: <MyJobPostsPage /> },
+              { path: '/alumni/my-jobs', element: <Navigate to="/alumni/jobs" replace /> },
               { path: '/alumni/network', element: <AlumniNetworkPage /> },
               { path: '/alumni/give-back', element: <GiveBackPage /> },
               { path: '/alumni/events', element: <AlumniEventsPage /> },
@@ -403,6 +372,7 @@ export const router = createBrowserRouter([
 
           // Shared
           { path: '/notifications', element: <NotificationsPage /> },
+          { path: '/notifications/settings', element: <NotificationSettingsPage /> },
           { path: '/search', element: <SearchResultsPage /> },
           { path: '/forbidden', element: <SuspenseWrapper><ForbiddenPage /></SuspenseWrapper> },
           { path: '/error', element: <SuspenseWrapper><ServerErrorPage /></SuspenseWrapper> },

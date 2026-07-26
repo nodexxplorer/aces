@@ -4,15 +4,18 @@ import Button from '../../components/ui/Button';
 import StatusBadge from '../../components/data-display/StatusBadge';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { getStudentPayments, getStudentPaymentSummary, initializeCheckout, getMyDues, addToCart, listStudentCart, removeFromCart, clearStudentCart, checkDuePaid } from '../../api/payments';
+import { purchaseManual, getMyPurchases } from '../../api/manuals';
+import { useCartStore } from '../../stores/cartStore';
 import type { CartItem } from '../../api/payments';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
-import { CreditCard, Download, ShoppingCart, Trash2, Plus, Loader2, Receipt } from 'lucide-react';
+import { CreditCard, Download, ShoppingCart, Trash2, Plus, Loader2, Receipt, BookOpen } from 'lucide-react';
 import type { Payment, DuePayment } from '../../types';
 
 const PaymentsPage = () => {
   const { user } = useAuth();
   const { success, error: notifyError } = useNotification();
+
   const [tab, setTab] = useState<'transactions' | 'cart'>('transactions');
   const [payments, setPayments] = useState<Payment[]>([]);
   const [summary, setSummary] = useState<{ total_paid: number; total_pending: number; amount_paid: number; amount_pending: number } | null>(null);
@@ -22,8 +25,20 @@ const PaymentsPage = () => {
   const [cartLoading, setCartLoading] = useState(false);
   const [cartBusyId, setCartBusyId] = useState<string | null>(null);
   const [paidDueIds, setPaidDueIds] = useState<Set<string>>(new Set());
+  const [manualCheckoutBusy, setManualCheckoutBusy] = useState(false);
+
+  const manualCartItems = useCartStore((s) => s.items);
+  const removeManualItem = useCartStore((s) => s.removeItem);
+  const clearManualCart = useCartStore((s) => s.clearCart);
+  const manualCartTotal = useCartStore((s) => s.getTotal);
+  const manualCartCount = useCartStore((s) => s.getItemCount);
+
+  const totalCartCount = cart.length + manualCartCount();
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tab') === 'cart') setTab('cart');
+
     if (!user?.id) return;
     setLoading(true);
     Promise.all([
@@ -91,7 +106,7 @@ const PaymentsPage = () => {
     try {
       await clearStudentCart(user.id);
       setCart([]);
-      success('Cart Cleared', 'All items removed from your cart');
+      success('Cart Cleared', 'All dues removed from your cart');
     } catch {
       notifyError('Error', 'Failed to clear cart');
     }
@@ -115,12 +130,44 @@ const PaymentsPage = () => {
     }
   };
 
+  const handleManualCheckout = async () => {
+    if (manualCartItems.length === 0) return;
+    setManualCheckoutBusy(true);
+    let purchased = 0;
+    let failed = 0;
+
+    for (const item of manualCartItems) {
+      try {
+        await purchaseManual(item.manual.id);
+        purchased++;
+      } catch (err: any) {
+        const msg = err?.response?.data?.error || err?.message || 'Purchase failed';
+        if (msg.includes('already purchased')) {
+          purchased++;
+        } else {
+          failed++;
+        }
+      }
+    }
+
+    clearManualCart();
+
+    if (failed === 0) {
+      success('Checkout Complete', `${purchased} manual(s) purchased successfully. Check "My Manuals" for your QR codes.`);
+    } else {
+      notifyError('Partial Checkout', `${purchased} purchased, ${failed} failed.`);
+    }
+
+    setManualCheckoutBusy(false);
+  };
+
   const dueLookup = new Map(dues.map((d) => [d.id, d]));
-  const cartTotal = cart.reduce((sum, item) => sum + Number(item.amount), 0);
+  const duesCartTotal = cart.reduce((sum, item) => sum + Number(item.amount), 0);
+  const combinedCartTotal = duesCartTotal + manualCartTotal();
 
   const tabs = [
     { key: 'transactions' as const, label: 'Transactions', icon: Receipt },
-    { key: 'cart' as const, label: `Cart (${cart.length})`, icon: ShoppingCart },
+    { key: 'cart' as const, label: `Cart (${totalCartCount})`, icon: ShoppingCart },
   ];
 
   return (
@@ -144,11 +191,11 @@ const PaymentsPage = () => {
         </Card>
         <Card className="p-4">
           <p className="text-xs text-surface-500 font-medium">Cart Items</p>
-          <p className="text-xl font-bold text-primary-600 dark:text-primary-400 mt-1">{cart.length}</p>
+          <p className="text-xl font-bold text-primary-600 dark:text-primary-400 mt-1">{totalCartCount}</p>
         </Card>
         <Card className="p-4">
           <p className="text-xs text-surface-500 font-medium">Cart Total</p>
-          <p className="text-xl font-bold text-primary-600 dark:text-primary-400 mt-1">{formatCurrency(cartTotal)}</p>
+          <p className="text-xl font-bold text-primary-600 dark:text-primary-400 mt-1">{formatCurrency(combinedCartTotal)}</p>
         </Card>
       </div>
 
@@ -259,71 +306,126 @@ const PaymentsPage = () => {
             </Card>
           )}
 
-          {/* Cart Items */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2"><ShoppingCart className="w-5 h-5" /> Your Cart</CardTitle>
-                  <CardDescription>Review and checkout your selected dues</CardDescription>
-                </div>
-                {cart.length > 0 && (
+          {/* Dues Cart Items */}
+          {cart.length > 0 && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2"><ShoppingCart className="w-5 h-5" /> Dues Cart</CardTitle>
+                    <CardDescription>Review and checkout your selected dues</CardDescription>
+                  </div>
                   <Button variant="outline" size="sm" onClick={handleClearCart} leftIcon={<Trash2 className="w-4 h-4" />}>
-                    Clear All
+                    Clear Dues
                   </Button>
-                )}
+                </div>
+              </CardHeader>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-surface-200 dark:border-surface-700">
+                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">DUE</th>
+                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">AMOUNT</th>
+                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">ADDED</th>
+                      <th className="text-right px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">ACTION</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cart.map((item) => {
+                      const due = dueLookup.get(item.due_id);
+                      return (
+                        <tr key={item.id} className="border-b border-surface-100 dark:border-surface-800">
+                          <td className="px-4 py-3 font-medium text-surface-900 dark:text-white">{due?.name || 'Unknown Due'}</td>
+                          <td className="px-4 py-3 text-surface-700 dark:text-surface-300">{formatCurrency(Number(item.amount))}</td>
+                          <td className="px-4 py-3 text-xs text-surface-500">{item.added_at ? new Date(item.added_at).toLocaleDateString() : ''}</td>
+                          <td className="px-4 py-3 text-right">
+                            <Button size="xs" variant="danger" leftIcon={cartBusyId === item.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} onClick={() => handleRemoveFromCart(item.id)} disabled={cartBusyId === item.id}>
+                              Remove
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            </CardHeader>
-            {cartLoading ? (
-              <div className="flex items-center justify-center p-8">
-                <Loader2 className="w-5 h-5 animate-spin text-primary-500" />
+              <div className="flex items-center justify-between p-4 border-t border-surface-200 dark:border-surface-700">
+                <span className="text-sm font-semibold text-surface-700 dark:text-surface-300">
+                  Dues Total: {formatCurrency(duesCartTotal)}
+                </span>
+                <Button leftIcon={<CreditCard className="w-4 h-4" />} onClick={() => {
+                  cart.forEach((item) => handleCheckout(item.id, dueLookup.get(item.due_id)?.name || 'Dues'));
+                }}>
+                  Checkout Dues ({cart.length} item{cart.length !== 1 ? 's' : ''})
+                </Button>
               </div>
-            ) : cart.length === 0 ? (
-              <div className="text-center py-12 text-sm text-surface-400">
-                Your cart is empty. Add dues from the list above.
-              </div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-surface-200 dark:border-surface-700">
-                        <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">DUE</th>
-                        <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">AMOUNT</th>
-                        <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">ADDED</th>
-                        <th className="text-right px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">ACTION</th>
+            </Card>
+          )}
+
+          {/* Manual Cart Items */}
+          {manualCartItems.length > 0 && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2"><BookOpen className="w-5 h-5" /> Manuals Cart</CardTitle>
+                    <CardDescription>Review and checkout your selected manuals</CardDescription>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={clearManualCart} leftIcon={<Trash2 className="w-4 h-4" />}>
+                    Clear Manuals
+                  </Button>
+                </div>
+              </CardHeader>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-surface-200 dark:border-surface-700">
+                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">MANUAL</th>
+                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">LEVEL</th>
+                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">PRICE</th>
+                      <th className="text-right px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">ACTION</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {manualCartItems.map((item) => (
+                      <tr key={item.manual.id} className="border-b border-surface-100 dark:border-surface-800">
+                        <td className="px-4 py-3 font-medium text-surface-900 dark:text-white">{item.manual.title}</td>
+                        <td className="px-4 py-3 text-xs text-surface-500">Level {item.manual.level}</td>
+                        <td className="px-4 py-3 text-surface-700 dark:text-surface-300">{formatCurrency(item.manual.price)}</td>
+                        <td className="px-4 py-3 text-right">
+                          <Button size="xs" variant="danger" leftIcon={<Trash2 className="w-3.5 h-3.5" />} onClick={() => removeManualItem(item.manual.id)}>
+                            Remove
+                          </Button>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {cart.map((item) => {
-                        const due = dueLookup.get(item.due_id);
-                        return (
-                          <tr key={item.id} className="border-b border-surface-100 dark:border-surface-800">
-                            <td className="px-4 py-3 font-medium text-surface-900 dark:text-white">{due?.name || 'Unknown Due'}</td>
-                            <td className="px-4 py-3 text-surface-700 dark:text-surface-300">{formatCurrency(Number(item.amount))}</td>
-                            <td className="px-4 py-3 text-xs text-surface-500">{item.added_at ? new Date(item.added_at).toLocaleDateString() : ''}</td>
-                            <td className="px-4 py-3 text-right">
-                              <Button size="xs" variant="danger" leftIcon={cartBusyId === item.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} onClick={() => handleRemoveFromCart(item.id)} disabled={cartBusyId === item.id}>
-                                Remove
-                              </Button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="flex items-center justify-between p-4 border-t border-surface-200 dark:border-surface-700">
-                  <span className="text-sm font-semibold text-surface-700 dark:text-surface-300">
-                    Total: {formatCurrency(cartTotal)}
-                  </span>
-                  <Button leftIcon={<CreditCard className="w-4 h-4" />}>
-                    Checkout All ({cart.length} item{cart.length !== 1 ? 's' : ''})
-                  </Button>
-                </div>
-              </>
-            )}
-          </Card>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex items-center justify-between p-4 border-t border-surface-200 dark:border-surface-700">
+                <span className="text-sm font-semibold text-surface-700 dark:text-surface-300">
+                  Manuals Total: {formatCurrency(manualCartTotal())}
+                </span>
+                <Button leftIcon={manualCheckoutBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />} onClick={handleManualCheckout} disabled={manualCheckoutBusy}>
+                  {manualCheckoutBusy ? 'Processing...' : `Checkout Manuals (${manualCartCount()} item${manualCartCount() !== 1 ? 's' : ''})`}
+                </Button>
+              </div>
+            </Card>
+          )}
+
+          {/* Empty state */}
+          {cart.length === 0 && manualCartCount() === 0 && !cartLoading && (
+            <Card>
+              <div className="text-center py-12">
+                <ShoppingCart className="w-10 h-10 mx-auto mb-3 text-surface-300 dark:text-surface-600" />
+                <p className="text-sm text-surface-500">Your cart is empty.</p>
+                <p className="text-xs text-surface-400 mt-1">Add dues from the list above or browse manuals to add items.</p>
+                <a href="/manuals" className="mt-3 inline-block text-sm text-primary-600 hover:underline">
+                  Browse Manuals
+                </a>
+              </div>
+            </Card>
+          )}
         </div>
       )}
     </div>

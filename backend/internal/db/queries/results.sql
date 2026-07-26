@@ -1,9 +1,15 @@
 -- name: CreateResult :one
 INSERT INTO results (
-    student_id, course_id, session_id, semester_id, ca_score, exam_score, total_score, grade, grade_point, status, is_carryover
+    student_id, course_id, session_id, semester_id, ca_score, exam_score, total_score, grade, grade_point, status, is_carryover, matric_number
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
 ) RETURNING *;
+
+-- name: LinkResultsByMatric :exec
+UPDATE results
+SET student_id = $2
+WHERE matric_number = $1
+  AND student_id IS NULL;
 
 -- name: GetResult :one
 SELECT * FROM results

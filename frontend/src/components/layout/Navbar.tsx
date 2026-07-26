@@ -1,11 +1,10 @@
 import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
-import { Bell, Search, Sun, Moon, LogOut, ShoppingCart, Menu } from 'lucide-react';
+import { Search, Sun, Moon, LogOut, ShoppingCart, Menu, ScanLine } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useDarkMode } from '../../hooks/useDarkMode';
-import { useNotification } from '../../hooks/useNotification';
 import RoleSwitcher from '../ui/RoleSwitcher';
-import BadgeNotification from '../feedback/BadgeNotification';
+import NotificationBell from '../notifications/NotificationBell';
 import { getInitials } from '../../utils/formatters';
 import { useSearch } from '../../hooks/useSearch';
 import { useCartStore } from '../../stores/cartStore';
@@ -19,7 +18,6 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { toggle, isDark } = useDarkMode();
-  const { unreadCount } = useNotification();
   const { setQuery } = useSearch();
   const { activeRole } = useRBAC();
   const getItemCount = useCartStore((s) => s.getItemCount);
@@ -69,6 +67,13 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
       </div>
       <div className="flex items-center gap-1 md:gap-2">
         <RoleSwitcher />
+        {isStudent && (
+          <Link to="/scan">
+            <button className="p-2 rounded-lg text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors" aria-label="Scan QR Code">
+              <ScanLine className="w-5 h-5" />
+            </button>
+          </Link>
+        )}
         <button
           onClick={toggle}
           className="p-2 rounded-lg text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
@@ -78,6 +83,14 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
         </button>
         {isStudent && (
           <div className="flex items-center gap-1 md:hidden">
+            <Link to="/scan">
+              <button
+                className="relative p-2 rounded-lg text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                aria-label="Scan QR Code"
+              >
+                <ScanLine className="w-5 h-5" />
+              </button>
+            </Link>
             <Link to="/manuals">
               <button
                 className="relative p-2 rounded-lg text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
@@ -93,16 +106,7 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
             </Link>
           </div>
         )}
-        <Link to="/notifications">
-          <button
-          className="p-2 rounded-lg text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 md:hidden transition-colors"
-            aria-label="Notifications"
-          >
-            <BadgeNotification count={unreadCount}>
-              <Bell className="w-5 h-5" />
-            </BadgeNotification>
-          </button>
-        </Link>
+        <NotificationBell />
         <div ref={dropdownRef} className="relative">
           <button
             onClick={() => setProfileOpen(!profileOpen)}

@@ -13,9 +13,18 @@ import { useAuth } from '../../hooks/useAuth';
 import type { User, UserRole } from '../../types';
 
 const getDisplayName = (u: any) => {
-  if (u.fullName) return u.fullName;
-  if (u.full_name) return u.full_name;
-  if (u.firstName || u.lastName) return `${u.firstName || ''} ${u.lastName || ''}`.trim();
+  const firstName = u.firstName || '';
+  const lastName = u.lastName || '';
+  const middleName = u.middleName || u.middle_name || '';
+  const fullName = u.fullName || u.full_name || '';
+
+  if (firstName || lastName) {
+    const base = lastName ? `${lastName}, ${firstName}` : firstName;
+    return middleName ? `${base} ${middleName}` : base;
+  }
+  if (fullName) {
+    return fullName;
+  }
   return u.email;
 };
 
@@ -28,11 +37,11 @@ const UserManagementPage = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [addForm, setAddForm] = useState({ email: '', password: '', full_name: '', role: 'student', phone: '' });
+  const [addForm, setAddForm] = useState({ email: '', password: '', first_name: '', last_name: '', role: 'student', phone: '' });
   const [addLoading, setAddLoading] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
   const [editForm, setEditForm] = useState({
-    full_name: '', email: '', phone: '', role: 'student',
+    first_name: '', last_name: '', email: '', phone: '', role: 'student',
     dateOfBirth: '', matricNumber: '', level: '', admissionMode: '', yearAdmitted: '',
     emergencyContactName: '', emergencyContactPhone: '', homeAddress: '',
   });
@@ -94,9 +103,7 @@ const UserManagementPage = () => {
     }
     try {
       setActionLoading(id);
-      const user = users.find((u) => u.id === id);
-      const fullName = getDisplayName(user || {} as User);
-      await updateUser(id, { full_name: fullName, isActive: false } as any);
+      await updateUser(id, { isActive: false } as any);
       setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, isActive: false } : u)));
       success('User Suspended', 'Account access suspended');
     } catch (err: any) {
@@ -109,9 +116,7 @@ const UserManagementPage = () => {
   const handleReactivate = async (id: string) => {
     try {
       setActionLoading(id);
-      const user = users.find((u) => u.id === id);
-      const fullName = getDisplayName(user || {} as User);
-      await updateUser(id, { full_name: fullName, isActive: true } as any);
+      await updateUser(id, { isActive: true } as any);
       setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, isActive: true } : u)));
       success('User Reactivated', 'Account access restored');
     } catch (err: any) {
@@ -127,13 +132,14 @@ const UserManagementPage = () => {
       await createUser({
         email: addForm.email,
         password: addForm.password,
-        full_name: addForm.full_name,
+        first_name: addForm.first_name,
+        last_name: addForm.last_name,
         role: addForm.role,
         phone: addForm.phone || undefined,
       });
       success('User Created', 'New account has been created');
       setShowAddModal(false);
-      setAddForm({ email: '', password: '', full_name: '', role: 'student', phone: '' });
+      setAddForm({ email: '', password: '', first_name: '', last_name: '', role: 'student', phone: '' });
       fetchUsers();
     } catch (err: any) {
       notifyError('Create Failed', err?.response?.data?.message || err?.message || 'Could not create user');
@@ -145,7 +151,8 @@ const UserManagementPage = () => {
   const openEditModal = (user: User) => {
     setEditUser(user);
     setEditForm({
-      full_name: getDisplayName(user),
+      first_name: user.firstName || (user as any).first_name || '',
+      last_name: user.lastName || (user as any).last_name || '',
       email: user.email,
       phone: user.phone || '',
       role: user.role || user.activeRole || 'student',
@@ -165,7 +172,8 @@ const UserManagementPage = () => {
     try {
       setEditLoading(true);
       await updateUser(editUser.id, {
-        full_name: editForm.full_name,
+        first_name: editForm.first_name,
+        last_name: editForm.last_name,
         email: editForm.email,
         phone: editForm.phone,
         role: editForm.role,
@@ -182,9 +190,8 @@ const UserManagementPage = () => {
         if (u.id !== editUser.id) return u;
         return {
           ...u,
-          fullName: editForm.full_name,
-          firstName: editForm.full_name.split(' ')[0],
-          lastName: editForm.full_name.split(' ').slice(1).join(' '),
+          firstName: editForm.first_name,
+          lastName: editForm.last_name,
           email: editForm.email,
           phone: editForm.phone,
           role: editForm.role as UserRole,
@@ -393,15 +400,27 @@ const UserManagementPage = () => {
             </div>
 
             <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Full Name</label>
-                <input
-                  type="text"
-                  className={inputCls}
-                  value={addForm.full_name}
-                  onChange={(e) => setAddForm({ ...addForm, full_name: e.target.value })}
-                  placeholder="e.g. John Doe"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">First Name</label>
+                  <input
+                    type="text"
+                    className={inputCls}
+                    value={addForm.first_name}
+                    onChange={(e) => setAddForm({ ...addForm, first_name: e.target.value })}
+                    placeholder="First name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Last Name</label>
+                  <input
+                    type="text"
+                    className={inputCls}
+                    value={addForm.last_name}
+                    onChange={(e) => setAddForm({ ...addForm, last_name: e.target.value })}
+                    placeholder="Last name"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Email</label>
@@ -455,7 +474,7 @@ const UserManagementPage = () => {
               <Button
                 leftIcon={addLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : undefined}
                 onClick={handleAddUser}
-                disabled={addLoading || !addForm.email || !addForm.password || !addForm.full_name}
+                disabled={addLoading || !addForm.email || !addForm.password || !addForm.first_name || !addForm.last_name}
               >
                 Create User
               </Button>
@@ -476,10 +495,17 @@ const UserManagementPage = () => {
             </div>
 
             <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-              <div>
-                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Full Name</label>
-                <input type="text" className={inputCls} value={editForm.full_name}
-                  onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })} />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">First Name</label>
+                  <input type="text" className={inputCls} value={editForm.first_name}
+                    onChange={(e) => setEditForm({ ...editForm, first_name: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Last Name</label>
+                  <input type="text" className={inputCls} value={editForm.last_name}
+                    onChange={(e) => setEditForm({ ...editForm, last_name: e.target.value })} />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Email</label>
@@ -597,7 +623,7 @@ const UserManagementPage = () => {
               <Button
                 leftIcon={editLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : undefined}
                 onClick={handleEditSubmit}
-                disabled={editLoading || !editForm.full_name || !editForm.email}
+                disabled={editLoading || !editForm.first_name || !editForm.last_name || !editForm.email}
               >
                 Save Changes
               </Button>

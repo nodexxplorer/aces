@@ -57,14 +57,14 @@ func (q *Queries) CreateCarryoverCourse(ctx context.Context, arg CreateCarryover
 
 const createResult = `-- name: CreateResult :one
 INSERT INTO results (
-    student_id, course_id, session_id, semester_id, ca_score, exam_score, total_score, grade, grade_point, status, is_carryover
+    student_id, course_id, session_id, semester_id, ca_score, exam_score, total_score, grade, grade_point, status, is_carryover, matric_number
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
-) RETURNING id, student_id, course_id, ca_score, exam_score, total_score, grade, grade_point, session_id, semester_id, status, approved_by, approved_at, rejection_reason, is_carryover, created_at, updated_at
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+) RETURNING id, student_id, course_id, ca_score, exam_score, total_score, grade, grade_point, session_id, semester_id, status, approved_by, approved_at, rejection_reason, is_carryover, created_at, updated_at, matric_number
 `
 
 type CreateResultParams struct {
-	StudentID   uuid.UUID       `json:"student_id"`
+	StudentID   *uuid.UUID      `json:"student_id"`
 	CourseID    uuid.UUID       `json:"course_id"`
 	SessionID   uuid.UUID       `json:"session_id"`
 	SemesterID  uuid.UUID       `json:"semester_id"`
@@ -75,6 +75,7 @@ type CreateResultParams struct {
 	GradePoint  pgtype.Numeric  `json:"grade_point"`
 	Status      ResultStatus    `json:"status"`
 	IsCarryover bool            `json:"is_carryover"`
+	MatricNumber *string        `json:"matric_number"`
 }
 
 func (q *Queries) CreateResult(ctx context.Context, arg CreateResultParams) (Result, error) {
@@ -90,6 +91,7 @@ func (q *Queries) CreateResult(ctx context.Context, arg CreateResultParams) (Res
 		arg.GradePoint,
 		arg.Status,
 		arg.IsCarryover,
+		arg.MatricNumber,
 	)
 	var i Result
 	err := row.Scan(
@@ -110,6 +112,7 @@ func (q *Queries) CreateResult(ctx context.Context, arg CreateResultParams) (Res
 		&i.IsCarryover,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.MatricNumber,
 	)
 	return i, err
 }
@@ -168,6 +171,23 @@ WHERE id = $1
 func (q *Queries) DeleteCarryoverCourse(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteCarryoverCourse, id)
 	return err
+}
+
+const linkResultsByMatric = `-- name: LinkResultsByMatric :exec
+UPDATE results
+SET student_id = $2
+WHERE matric_number = $1
+  AND student_id IS NULL
+`
+
+func (q *Queries) LinkResultsByMatric(ctx context.Context, arg LinkResultsByMatricParams) error {
+	_, err := q.db.Exec(ctx, linkResultsByMatric, arg.MatricNumber, arg.StudentID)
+	return err
+}
+
+type LinkResultsByMatricParams struct {
+	MatricNumber *string    `json:"matric_number"`
+	StudentID    *uuid.UUID `json:"student_id"`
 }
 
 const getCarryoverCourse = `-- name: GetCarryoverCourse :one

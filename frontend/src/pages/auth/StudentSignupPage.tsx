@@ -10,7 +10,6 @@ import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import { Mail, Lock, User, UserCheck, MapPin } from 'lucide-react';
-import { isValidMatricNumber } from '../../utils/validators';
 import { studentSignup } from '../../api/signup';
 
 const studentSignupSchema = z
@@ -19,9 +18,6 @@ const studentSignupSchema = z
     lastName: z.string().min(2, 'Last name is too short'),
     email: z.string().email('Please enter a valid email address'),
     matricNumber: z.string(),
-    // .refine(isValidMatricNumber, {
-    //   message: 'Format must be like ENG/2022/123',
-    // }),
     level: z.string().min(1, 'Please select your current level'),
     gender: z.string().min(1, 'Please select your gender'),
     address: z.string().min(5, 'Address must be at least 5 characters'),

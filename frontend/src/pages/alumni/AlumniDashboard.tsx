@@ -104,27 +104,17 @@ const AlumniDashboard = () => {
                   Post a Job
                 </Button>
               </Link>
-              <Link to="/alumni/mentorship">
-                <Button variant="outline" className="w-full justify-start" leftIcon={<GraduationCap className="w-4 h-4" />}>
-                  Offer Mentorship
-                </Button>
-              </Link>
-              <Link to="/alumni/events">
-                <Button variant="outline" className="w-full justify-start" leftIcon={<Calendar className="w-4 h-4" />}>
-                  Create Event
-                </Button>
-              </Link>
-              <Link to="/alumni/network">
+              {/* <Link to="/alumni/network">
                 <Button variant="outline" className="w-full justify-start" leftIcon={<Users className="w-4 h-4" />}>
                   Network
                 </Button>
-              </Link>
+              </Link> */}
               <Link to="/alumni/give-back">
                 <Button variant="outline" className="w-full justify-start" leftIcon={<DollarSign className="w-4 h-4" />}>
                   Donate
                 </Button>
               </Link>
-              <Link to="/alumni/my-jobs">
+              <Link to="/alumni/jobs">
                 <Button variant="outline" className="w-full justify-start" leftIcon={<Briefcase className="w-4 h-4" />}>
                   My Posts
                 </Button>

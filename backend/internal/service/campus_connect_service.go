@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/google/uuid"
@@ -17,6 +18,13 @@ func NewCampusConnectService(store db.Querier) *CampusConnectService {
 
 // Connections
 func (s *CampusConnectService) SendConnectionRequest(ctx context.Context, requesterID, receiverID uuid.UUID, message *string) (db.Connection, error) {
+	if requesterID == receiverID {
+		return db.Connection{}, fmt.Errorf("cannot send a connection request to yourself")
+	}
+	exists, _ := s.store.CheckConnectionExists(ctx, db.CheckConnectionExistsParams{RequesterID: requesterID, ReceiverID: receiverID})
+	if exists {
+		return db.Connection{}, fmt.Errorf("a connection request already exists between you and this user")
+	}
 	return s.store.CreateConnection(ctx, db.CreateConnectionParams{
 		RequesterID: requesterID, ReceiverID: receiverID, Message: message,
 	})
@@ -91,10 +99,14 @@ func (s *CampusConnectService) ListGroupMessages(ctx context.Context, groupID uu
 }
 
 // Directory
-func (s *CampusConnectService) GetStudentDirectory(ctx context.Context, limit, offset int32) ([]db.GetStudentDirectoryRow, error) {
-	return s.store.GetStudentDirectory(ctx, db.GetStudentDirectoryParams{Limit: limit, Offset: offset})
+func (s *CampusConnectService) GetStudentDirectory(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]db.GetStudentDirectoryRow, error) {
+	return s.store.GetStudentDirectory(ctx, db.GetStudentDirectoryParams{UserID: userID, Limit: limit, Offset: offset})
 }
 
 func (s *CampusConnectService) GetAlumniDirectory(ctx context.Context, limit, offset int32) ([]db.GetAlumniDirectoryRow, error) {
 	return s.store.GetAlumniDirectory(ctx, db.GetAlumniDirectoryParams{Limit: limit, Offset: offset})
+}
+
+func (s *CampusConnectService) GetAllConnectionUserIds(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
+	return s.store.GetAllConnectionUserIds(ctx, userID)
 }

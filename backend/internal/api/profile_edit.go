@@ -43,33 +43,19 @@ func (server *Server) updateStudentBasicInfo(ctx *gin.Context) {
 		return
 	}
 
-	fullName := currentUser.FullName
-	if req.FirstName != nil || req.LastName != nil {
-		first := currentUser.FullName
-		last := ""
-		parts := strings.SplitN(currentUser.FullName, " ", 2)
-		if len(parts) > 0 {
-			first = parts[0]
-		}
-		if len(parts) > 1 {
-			last = parts[1]
-		}
-		if req.FirstName != nil {
-			first = *req.FirstName
-		}
-		if req.LastName != nil {
-			last = *req.LastName
-		}
-		if last != "" {
-			fullName = first + " " + last
-		} else {
-			fullName = first
-		}
+	first := currentUser.FirstName
+	last := currentUser.LastName
+	if req.FirstName != nil {
+		first = *req.FirstName
+	}
+	if req.LastName != nil {
+		last = *req.LastName
 	}
 
 	user, err := server.users.UpdatePartial(ctx, userID, service.UpdateUserPartialInput{
-		FullName: &fullName,
-		Phone:    req.Phone,
+		FirstName: &first,
+		LastName:  &last,
+		Phone:     req.Phone,
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update: " + err.Error()})
@@ -90,11 +76,12 @@ func (server *Server) updateStudentBasicInfo(ctx *gin.Context) {
 	if sErr == nil && q != nil {
 		ip := ctx.ClientIP()
 		if req.FirstName != nil || req.LastName != nil {
+			newFullName := user.FullName
 			q.CreateProfileEditLog(ctx, db.CreateProfileEditLogParams{
 				StudentID:     student.ID,
 				FieldName:     "full_name",
 				OldValue:      &currentUser.FullName,
-				NewValue:      &fullName,
+				NewValue:      &newFullName,
 				ChangedBy:     userID,
 				ChangedByRole: "student",
 				ChangeType:    db.ProfileChangeTypeSelfEdit,
@@ -201,29 +188,19 @@ func (server *Server) hodEditStudent(ctx *gin.Context) {
 
 	// Update user table fields (basic info)
 	if req.FirstName != nil || req.LastName != nil || req.Phone != nil {
-		first := targetUser.FullName
-		last := ""
-		parts := strings.SplitN(targetUser.FullName, " ", 2)
-		if len(parts) > 0 {
-			first = parts[0]
-		}
-		if len(parts) > 1 {
-			last = parts[1]
-		}
+		first := targetUser.FirstName
+		last := targetUser.LastName
 		if req.FirstName != nil {
 			first = *req.FirstName
 		}
 		if req.LastName != nil {
 			last = *req.LastName
 		}
-		fullName := first
-		if last != "" {
-			fullName = first + " " + last
-		}
 
 		_, err = server.users.UpdatePartial(ctx, targetUserID, service.UpdateUserPartialInput{
-			FullName: &fullName,
-			Phone:    req.Phone,
+			FirstName: &first,
+			LastName:  &last,
+			Phone:     req.Phone,
 		})
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user"})
@@ -231,11 +208,17 @@ func (server *Server) hodEditStudent(ctx *gin.Context) {
 		}
 
 		if q != nil && (req.FirstName != nil || req.LastName != nil) {
+			// Re-fetch user to get computed full_name
+			updatedUser, _ := server.users.GetByID(ctx, targetUserID)
+			newFullName := targetUser.FullName
+			if updatedUser.FullName != "" {
+				newFullName = updatedUser.FullName
+			}
 			q.CreateProfileEditLog(ctx, db.CreateProfileEditLogParams{
 				StudentID:     student.ID,
 				FieldName:     "full_name",
 				OldValue:      &targetUser.FullName,
-				NewValue:      &fullName,
+				NewValue:      &newFullName,
 				ChangedBy:     userID,
 				ChangedByRole: "hod",
 				ChangeType:    db.ProfileChangeTypeHodEdit,
@@ -666,7 +649,8 @@ func (server *Server) uploadProfilePhoto(ctx *gin.Context) {
 	}
 
 	_, err = server.users.UpdatePartial(ctx, userID, service.UpdateUserPartialInput{
-		FullName:  &currentUser.FullName,
+		FirstName: &currentUser.FirstName,
+		LastName:  &currentUser.LastName,
 		AvatarURL: &avatarURL,
 	})
 	if err != nil {

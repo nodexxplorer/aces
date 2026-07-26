@@ -22,7 +22,8 @@ export const createUser = async (payload: {
   email: string;
   password: string;
   role: string;
-  full_name: string;
+  first_name: string;
+  last_name: string;
   phone?: string;
 }) => {
   const res = await apiClient.post('/users', payload);

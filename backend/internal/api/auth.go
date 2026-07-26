@@ -56,6 +56,7 @@ type userResponse struct {
 	FirstName           string   `json:"firstName"`
 	LastName            string   `json:"lastName"`
 	FullName            string   `json:"fullName"`
+	MiddleName          *string  `json:"middleName,omitempty"`
 	Phone               *string  `json:"phone,omitempty"`
 	Avatar              *string  `json:"avatar,omitempty"`
 	Roles               []string `json:"roles"`
@@ -140,11 +141,18 @@ func normalizeRoleName(role string) string {
 }
 
 func toUserResponse(u db.User, onboardingCompleted bool) userResponse {
-	parts := strings.SplitN(u.FullName, " ", 2)
-	firstName := parts[0]
-	lastName := ""
-	if len(parts) > 1 {
-		lastName = parts[1]
+	firstName := u.FirstName
+	lastName := u.LastName
+
+	// Construct display name: "Last, First Middle"
+	var displayName string
+	if lastName != "" {
+		displayName = lastName + ", " + firstName
+	} else {
+		displayName = firstName
+	}
+	if u.MiddleName != nil && *u.MiddleName != "" {
+		displayName += " " + *u.MiddleName
 	}
 
 	role := normalizeRoleName(string(u.Role))
@@ -169,7 +177,8 @@ func toUserResponse(u db.User, onboardingCompleted bool) userResponse {
 		Email:               u.Email,
 		FirstName:           firstName,
 		LastName:            lastName,
-		FullName:            u.FullName,
+		FullName:            displayName,
+		MiddleName:          u.MiddleName,
 		Phone:               u.Phone,
 		Avatar:              u.AvatarUrl,
 		Roles:               []string{role},

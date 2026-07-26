@@ -51,7 +51,7 @@ type listDuesByLevelQuery struct {
 // ── Cart ──
 
 type addToCartRequest struct {
-	StudentID string `json:"student_id" binding:"required,uuid"`
+	StudentID string `json:"student_id"`
 	DueID     string `json:"due_id"     binding:"required,uuid"`
 	Amount    string `json:"amount"     binding:"required"`
 }
@@ -312,9 +312,10 @@ func (server *Server) addToCart(ctx *gin.Context) {
 		return
 	}
 
-	studentID, err := uuid.Parse(req.StudentID)
+	// Resolve student_id from JWT (user.id → students.id)
+	studentID, err := server.getStudentIDFromUser(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid student_id"})
+		ctx.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -345,9 +346,9 @@ func (server *Server) addToCart(ctx *gin.Context) {
 
 // listStudentCart GET /payments/cart/:student_id
 func (server *Server) listStudentCart(ctx *gin.Context) {
-	studentID, err := uuid.Parse(ctx.Param("student_id"))
+	studentID, err := server.getStudentIDFromUser(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid student_id"})
+		ctx.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -378,9 +379,9 @@ func (server *Server) removeFromCart(ctx *gin.Context) {
 
 // clearStudentCart DELETE /payments/cart/student/:student_id
 func (server *Server) clearStudentCart(ctx *gin.Context) {
-	studentID, err := uuid.Parse(ctx.Param("student_id"))
+	studentID, err := server.getStudentIDFromUser(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid student_id"})
+		ctx.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 		return
 	}
 

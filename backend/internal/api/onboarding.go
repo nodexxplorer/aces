@@ -16,10 +16,8 @@ type studentOnboardingRequest struct {
 	Phone               string `json:"phone" binding:"required"`
 	Bio                 string `json:"bio"`
 	Avatar              string `json:"avatar"`
-	FullName            string `json:"full_name" binding:"required,min=3"`
+	MiddleName          string `json:"middle_name"`
 	DateOfBirth         string `json:"date_of_birth" binding:"required"`
-	MatricNumber        string `json:"matric_number" binding:"required"`
-	Level               string `json:"level" binding:"required,oneof=100 200 300 400 500"`
 	AdmissionMode       string `json:"admission_mode" binding:"required,oneof=UTME Direct Entry"`
 	YearAdmitted        string `json:"year_admitted" binding:"required"`
 	EmergencyContact    string `json:"emergency_contact" binding:"required"`
@@ -76,12 +74,12 @@ func (server *Server) studentOnboarding(ctx *gin.Context) {
 	if avatarVal == "" {
 		avatarVal = strings.TrimSpace(req.ProfilePhotoURL)
 	}
-	fullNameVal := strings.TrimSpace(req.FullName)
+	middleNameVal := strings.TrimSpace(req.MiddleName)
 
 	_, err = server.users.UpdatePartial(ctx, userID, service.UpdateUserPartialInput{
-		Phone:     &phoneVal,
-		AvatarURL: &avatarVal,
-		FullName:  &fullNameVal,
+		Phone:      &phoneVal,
+		AvatarURL:  &avatarVal,
+		MiddleName: &middleNameVal,
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user details: " + err.Error()})
@@ -94,8 +92,6 @@ func (server *Server) studentOnboarding(ctx *gin.Context) {
 		admissionMode = "UTME"
 	}
 
-	matricNum := strings.TrimSpace(req.MatricNumber)
-	levelStr := req.Level
 	yearAdmittedStr := req.YearAdmitted
 
 	// Use custom query to update student onboarding fields
@@ -103,7 +99,7 @@ func (server *Server) studentOnboarding(ctx *gin.Context) {
 	if ok {
 		err = queries.UpdateStudentOnboardingFields(
 			ctx, userID,
-			&matricNum, &levelStr, &admissionMode, &yearAdmittedStr,
+			nil, nil, &admissionMode, &yearAdmittedStr,
 			&req.DateOfBirth, &req.EmergencyContact, &req.EmergencyContactNum,
 			&req.HomeAddress, &avatarVal,
 		)

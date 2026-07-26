@@ -46,6 +46,7 @@ type Querier interface {
 	CountStudentsForRoleManagement(ctx context.Context, dollar_1 string) (int32, error)
 	CountStudentsWithAdditionalRoles(ctx context.Context) (int32, error)
 	CountUnreadMessages(ctx context.Context, receiverID uuid.UUID) (int64, error)
+	CountUnreadBySender(ctx context.Context, receiverID uuid.UUID) ([]CountUnreadBySenderRow, error)
 	CountUserReports(ctx context.Context, arg CountUserReportsParams) (int32, error)
 	CreateAIInteraction(ctx context.Context, arg CreateAIInteractionParams) (AiInteraction, error)
 	CreateAIModel(ctx context.Context, arg CreateAIModelParams) (AiModel, error)
@@ -160,6 +161,7 @@ type Querier interface {
 	CreateRegisteredCourse(ctx context.Context, arg CreateRegisteredCourseParams) (RegisteredCourse, error)
 	CreateResult(ctx context.Context, arg CreateResultParams) (Result, error)
 	CreateResultAuditLog(ctx context.Context, arg CreateResultAuditLogParams) (ResultAuditLog, error)
+	LinkResultsByMatric(ctx context.Context, arg LinkResultsByMatricParams) error
 	// ==================== ROLE ASSIGNMENT LOGS ====================
 	CreateRoleAssignmentLog(ctx context.Context, arg CreateRoleAssignmentLogParams) (RoleAssignmentLog, error)
 	// ==================== ROLE PROMOTIONS ====================
@@ -268,6 +270,7 @@ type Querier interface {
 	GetCommentReaction(ctx context.Context, arg GetCommentReactionParams) (CommentReaction, error)
 	GetComplaint(ctx context.Context, id uuid.UUID) (Complaint, error)
 	GetConnection(ctx context.Context, id uuid.UUID) (Connection, error)
+	GetAllConnectionUserIds(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
 	// ==================== CONNECTION SUGGESTIONS ====================
 	GetConnectionSuggestions(ctx context.Context, arg GetConnectionSuggestionsParams) ([]GetConnectionSuggestionsRow, error)
 	GetCourse(ctx context.Context, id uuid.UUID) (Course, error)

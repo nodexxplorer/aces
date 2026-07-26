@@ -84,7 +84,8 @@ func main() {
 		Email:        adminEmail,
 		PasswordHash: hashedPassword,
 		Role:         db.UserRoleAdmin,
-		FullName:     "System Admin",
+		FirstName:    "System",
+		LastName:     "Admin",
 	}
 
 	user, err = store.CreateUser(ctx, arg)

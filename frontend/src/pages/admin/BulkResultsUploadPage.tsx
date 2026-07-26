@@ -6,7 +6,7 @@ import Select from '../../components/ui/Select';
 import { useNotification } from '../../hooks/useNotification';
 import { Upload, Download, FileSpreadsheet, CheckCircle2, XCircle, AlertTriangle, Loader2, Trash2, Send } from 'lucide-react';
 import { getCourses } from '../../api/courses';
-import { getSessions } from '../../api/sessions';
+import { getSessions, listSessionSemesters } from '../../api/sessions';
 import { getStudents } from '../../api/users';
 import { enterScore, getAllResults } from '../../api/results';
 import type { Course, Session } from '../../types';
@@ -32,7 +32,8 @@ const BulkResultsUploadPage = () => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedSession, setSelectedSession] = useState('');
-  const [selectedSemester, setSelectedSemester] = useState('harmattan');
+  const [semesters, setSemesters] = useState<any[]>([]);
+  const [selectedSemester, setSelectedSemester] = useState('');
   const [courses, setCourses] = useState<Course[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [existingResults, setExistingResults] = useState<any[]>([]);
@@ -60,6 +61,18 @@ const BulkResultsUploadPage = () => {
       setLoadingMeta(false);
     }
   }, []);
+
+  // Fetch semesters for selected session
+  useEffect(() => {
+    if (selectedSession) {
+      listSessionSemesters(selectedSession)
+        .then((sems) => {
+          setSemesters(Array.isArray(sems) ? sems : []);
+          setSelectedSemester('');
+        })
+        .catch(() => setSemesters([]));
+    }
+  }, [selectedSession]);
 
   useEffect(() => {
     fetchMetadata();
@@ -199,6 +212,10 @@ const BulkResultsUploadPage = () => {
       notifyError('Missing Session', 'Please select an academic session');
       return;
     }
+    if (!selectedSemester) {
+      notifyError('Missing Semester', 'Please select a semester');
+      return;
+    }
     const validRows = validatedRows.filter((r) => r.status === 'valid');
     if (validRows.length === 0) {
       notifyError('No Valid Rows', 'There are no valid rows to upload');
@@ -209,6 +226,7 @@ const BulkResultsUploadPage = () => {
       setSubmitting(true);
       setSubmitProgress({ done: 0, total: validRows.length });
       let failed = 0;
+      const errors: string[] = [];
 
       for (let i = 0; i < validRows.length; i++) {
         const row = validRows[i];
@@ -217,12 +235,15 @@ const BulkResultsUploadPage = () => {
             studentId: row.studentId!,
             courseId: row.courseId!,
             sessionId: selectedSession,
-            semester: selectedSemester,
+            semesterId: selectedSemester,
             caScore: parseFloat(row.ca_score),
             examScore: parseFloat(row.exam_score),
           });
-        } catch {
+        } catch (err: any) {
           failed++;
+          const detail = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Unknown error';
+          errors.push(`Row ${i + 1} (${row.matric_number}/${row.course_code}): ${detail}`);
+          console.error(`Error uploading row ${i + 1}:`, err);
         }
         setSubmitProgress({ done: i + 1, total: validRows.length });
       }
@@ -231,11 +252,17 @@ const BulkResultsUploadPage = () => {
         success('Upload Complete', `${validRows.length} results uploaded successfully`);
         setValidatedRows([]);
         setRawRows([]);
+      } else if (failed === validRows.length) {
+        notifyError('Upload Failed', `All ${failed} rows failed. ${errors.slice(0, 5).join(' | ')}`);
       } else {
-        notifyError('Partial Upload', `${validRows.length - failed} succeeded, ${failed} failed`);
+        const errorSummary = errors.slice(0, 3).join(' | ');
+        const moreInfo = errors.length > 3 ? ` ...and ${errors.length - 3} more errors` : '';
+        notifyError('Partial Upload', `${validRows.length - failed} succeeded, ${failed} failed. ${errorSummary}${moreInfo}`);
       }
     } catch (err: any) {
-      notifyError('Upload Failed', err?.message || 'Could not upload results');
+      const detail = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Could not upload results';
+      notifyError('Upload Failed', detail);
+      console.error('Upload error:', err);
     } finally {
       setSubmitting(false);
     }
@@ -331,12 +358,11 @@ const BulkResultsUploadPage = () => {
             />
             <Select
               label="Semester"
-              options={[
-                { value: 'harmattan', label: 'Harmattan (First Semester)' },
-                { value: 'rain', label: 'Rain (Second Semester)' },
-              ]}
+              options={semesters.map((s: any) => ({ value: s.id, label: s.name }))}
               value={selectedSemester}
               onChange={(e) => setSelectedSemester(e.target.value)}
+              placeholder={!selectedSession ? 'Select session first' : 'Select semester'}
+              disabled={!selectedSession}
             />
           </div>
 

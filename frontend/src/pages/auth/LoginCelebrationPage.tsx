@@ -56,6 +56,8 @@ const LoginCelebrationPage = () => {
   const role = user?.activeRole ?? 'student';
   const config = roleConfig[role] ?? roleConfig.student;
 
+  const avatarUrl = user?.avatar_url || user?.avatarUrl || user?.avatar;
+
   useEffect(() => {
     sessionStorage.removeItem('just_logged_in');
   }, []);
@@ -131,8 +133,12 @@ const LoginCelebrationPage = () => {
           {/* Avatar & Icon */}
           <motion.div className="flex flex-col items-center gap-3 mb-8" variants={itemVariants}>
             <div className="relative">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary-500 to-accent-600 flex items-center justify-center shadow-lg shadow-primary-500/30 animate-pulse-glow">
-                <span className="text-2xl font-bold text-white tracking-wide">{initials}</span>
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary-500 to-accent-600 flex items-center justify-center shadow-lg shadow-primary-500/30 animate-pulse-glow overflow-hidden">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-2xl font-bold text-white tracking-wide">{initials}</span>
+                )}
               </div>
               <motion.div
                 className="absolute -top-1 -right-1"

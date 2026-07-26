@@ -114,10 +114,10 @@ export async function getClassRepClassList(): Promise<ClassRepStudent[]> {
 export interface PendingCourseRegistration {
   id: string;
   student_id: string;
-  full_name: string;
+  student_name: string;
   matric_number: string;
   level: number;
-  total_units: number;
+  session_id: string;
   status: string;
   courses_count: number;
   created_at: string;
@@ -316,4 +316,35 @@ export async function createPerformanceReview(
 export async function listPerformanceReviews(classRepId: string): Promise<PerformanceReview[]> {
   const res = await apiClient.get(`/class-rep/performance?class_rep_id=${classRepId}`);
   return unwrap<PerformanceReview[]>(res);
+}
+
+// ─── Notifications ───────────────────────────────────────────────────────────
+
+export interface SendNotificationResult {
+  student_id: string;
+  status: 'sent' | 'failed';
+  error?: string;
+}
+
+export async function sendClassNotification(
+  studentIds: string[],
+  title: string,
+  message: string
+): Promise<SendNotificationResult[]> {
+  const results: SendNotificationResult[] = [];
+  const batches = studentIds.map(async (userId) => {
+    try {
+      await apiClient.post('/notifications', {
+        user_id: userId,
+        type: 'class_rep_broadcast',
+        title,
+        message,
+      });
+      results.push({ student_id: userId, status: 'sent' });
+    } catch (e: any) {
+      results.push({ student_id: userId, status: 'failed', error: e.message });
+    }
+  });
+  await Promise.all(batches);
+  return results;
 }

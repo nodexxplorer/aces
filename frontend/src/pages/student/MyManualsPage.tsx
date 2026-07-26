@@ -90,7 +90,7 @@ const MyManualsPage = () => {
               </p>
 
               <div className="flex flex-wrap gap-1.5 mb-3">
-                <StatusBadge status={p.is_collected ? 'collected' : 'pending'} />
+                <StatusBadge status={p.is_collected ? 'collected' : 'active'} />
                 {p.purchased_at && (
                   <span className="text-[10px] text-surface-400">
                     Purchased {new Date(p.purchased_at).toLocaleDateString()}

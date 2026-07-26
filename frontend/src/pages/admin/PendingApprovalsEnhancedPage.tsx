@@ -1,43 +1,36 @@
 import { useState, useEffect, useCallback } from 'react';
 import Button from '../../components/ui/Button';
 import { useNotification } from '../../hooks/useNotification';
-import {
-  listStudentOnboardings,
-  getOnboardingCounts,
-  updateOnboardingStatus,
-  bulkApproveOnboardings,
-  listUnverifiedStudents,
-  type StudentOnboarding,
-} from '../../api/verification-announcements';
 import { getUsers, approveUser, rejectUser } from '../../api/users';
+import type { User } from '../../types';
 import {
   CheckCircle,
   XCircle,
-  Filter,
   Search,
   Loader2,
   UserCheck,
   Users,
   AlertCircle,
-  ChevronDown,
   CheckSquare,
   XSquare,
 } from 'lucide-react';
 
-type StatusFilter = 'pending' | 'approved' | 'rejected' | 'all';
 const PAGE_SIZE = 20;
+
+const getDisplayName = (u: Partial<User>) => {
+  if (u.fullName) return u.fullName;
+  if (u.full_name) return u.full_name;
+  if (u.firstName || u.lastName) return `${u.firstName || ''} ${u.lastName || ''}`.trim();
+  return u.email || '—';
+};
 
 const PendingApprovalsEnhancedPage = () => {
   const { success, error: notifyError } = useNotification();
 
-  const [onboardings, setOnboardings] = useState<StudentOnboarding[]>([]);
-  const [unverifiedCount, setUnverifiedCount] = useState(0);
-  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending');
-  const [levelFilter, setLevelFilter] = useState<number | ''>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [offset, setOffset] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -45,63 +38,39 @@ const PendingApprovalsEnhancedPage = () => {
   const [rejectModalId, setRejectModalId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
 
-  const [levelDropdownOpen, setLevelDropdownOpen] = useState(false);
-
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const params: { status?: string; level?: number; limit: number; offset: number } = {
-        limit: PAGE_SIZE,
-        offset,
-      };
-      if (statusFilter !== 'all') params.status = statusFilter;
-      if (levelFilter !== '') params.level = levelFilter;
-
-      const [onboardingsResult, countsResult, unverifiedResult] = await Promise.all([
-        listStudentOnboardings(params),
-        getOnboardingCounts(),
-        listUnverifiedStudents(),
-      ]);
-
-      setOnboardings(Array.isArray(onboardingsResult) ? onboardingsResult : []);
-      setUnverifiedCount(Array.isArray(unverifiedResult) ? unverifiedResult.length : 0);
-
-      const countMap: Record<string, number> = {};
-      if (Array.isArray(countsResult)) {
-        countsResult.forEach((c) => {
-          countMap[c.status] = c.count;
-        });
-      }
-      setCounts(countMap);
+      const result = await getUsers({ page: 1, perPage: 200 });
+      setUsers(Array.isArray(result) ? result : []);
     } catch {
-      notifyError('Error', 'Failed to load approvals data');
+      notifyError('Error', 'Failed to load users');
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, levelFilter, offset]);
+  }, []);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  useEffect(() => {
-    setOffset(0);
-    setSelectedIds(new Set());
-  }, [statusFilter, levelFilter]);
+  const pendingUsers = users.filter((u) => !u.isApproved);
 
-  const filteredOnboardings = onboardings.filter((o) => {
+  const filteredUsers = pendingUsers.filter((u) => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
+    const name = getDisplayName(u);
     return (
-      (o.verified_name && o.verified_name.toLowerCase().includes(q)) ||
-      o.matric_number.toLowerCase().includes(q) ||
-      (o.submitted_email && o.submitted_email.toLowerCase().includes(q))
+      name.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q) ||
+      ((u as any).matricNumber && (u as any).matricNumber.toLowerCase().includes(q)) ||
+      ((u as any).matric_number && (u as any).matric_number.toLowerCase().includes(q))
     );
   });
 
-  const totalPending = counts['pending'] || 0;
-  const totalApproved = counts['approved'] || 0;
-  const totalRejected = counts['rejected'] || 0;
+  const paginatedUsers = filteredUsers.slice(offset, offset + PAGE_SIZE);
+
+  const totalPending = pendingUsers.length;
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -113,21 +82,21 @@ const PendingApprovalsEnhancedPage = () => {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === filteredOnboardings.length) {
+    if (selectedIds.size === paginatedUsers.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(filteredOnboardings.map((o) => o.id)));
+      setSelectedIds(new Set(paginatedUsers.map((u) => u.id)));
     }
   };
 
   const handleApprove = async (id: string) => {
     try {
       setActionLoading(id);
-      await updateOnboardingStatus(id, { status: 'approved' });
-      success('Approved', 'Student onboarding approved');
+      await approveUser(id);
+      success('Approved', 'User approved successfully');
       fetchData();
     } catch {
-      notifyError('Error', 'Failed to approve');
+      notifyError('Error', 'Failed to approve user');
     } finally {
       setActionLoading(null);
     }
@@ -141,13 +110,13 @@ const PendingApprovalsEnhancedPage = () => {
     }
     try {
       setActionLoading(rejectModalId);
-      await updateOnboardingStatus(rejectModalId, { status: 'rejected', rejection_reason: rejectReason });
-      success('Rejected', 'Student onboarding rejected');
+      await rejectUser(rejectModalId, rejectReason);
+      success('Rejected', 'User rejected');
       setRejectModalId(null);
       setRejectReason('');
       fetchData();
     } catch {
-      notifyError('Error', 'Failed to reject');
+      notifyError('Error', 'Failed to reject user');
     } finally {
       setActionLoading(null);
     }
@@ -158,8 +127,8 @@ const PendingApprovalsEnhancedPage = () => {
     if (ids.length === 0) return;
     try {
       setActionLoading('bulk-approve');
-      await bulkApproveOnboardings(ids);
-      success('Bulk Approved', `${ids.length} student(s) approved`);
+      await Promise.all(ids.map((id) => approveUser(id)));
+      success('Bulk Approved', `${ids.length} user(s) approved`);
       setSelectedIds(new Set());
       fetchData();
     } catch {
@@ -178,8 +147,8 @@ const PendingApprovalsEnhancedPage = () => {
     if (ids.length === 0) return;
     try {
       setActionLoading('bulk-reject');
-      await Promise.all(ids.map((id) => updateOnboardingStatus(id, { status: 'rejected', rejection_reason: rejectReason })));
-      success('Bulk Rejected', `${ids.length} student(s) rejected`);
+      await Promise.all(ids.map((id) => rejectUser(id, rejectReason)));
+      success('Bulk Rejected', `${ids.length} user(s) rejected`);
       setSelectedIds(new Set());
       setRejectModalId(null);
       setRejectReason('');
@@ -191,12 +160,9 @@ const PendingApprovalsEnhancedPage = () => {
     }
   };
 
-  const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-  const statusBadgeClass = (status: string) => {
-    if (status === 'approved') return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
-    if (status === 'rejected') return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
-    return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
+  const formatDate = (d?: string) => {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   const hasSelection = selectedIds.size > 0;
@@ -206,18 +172,18 @@ const PendingApprovalsEnhancedPage = () => {
       <div>
         <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Pending Approvals</h1>
         <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-          Review and manage student onboarding approvals with verification data.
+          Review and approve newly registered users awaiting activation.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 p-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
               <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
             </div>
             <div>
-              <p className="text-sm text-surface-500 dark:text-surface-400">Pending</p>
+              <p className="text-sm text-surface-500 dark:text-surface-400">Pending Approval</p>
               <p className="text-2xl font-bold text-surface-900 dark:text-white">{totalPending}</p>
             </div>
           </div>
@@ -228,19 +194,8 @@ const PendingApprovalsEnhancedPage = () => {
               <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
             </div>
             <div>
-              <p className="text-sm text-surface-500 dark:text-surface-400">Approved</p>
-              <p className="text-2xl font-bold text-surface-900 dark:text-white">{totalApproved}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
-              <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
-            </div>
-            <div>
-              <p className="text-sm text-surface-500 dark:text-surface-400">Rejected</p>
-              <p className="text-2xl font-bold text-surface-900 dark:text-white">{totalRejected}</p>
+              <p className="text-sm text-surface-500 dark:text-surface-400">Total Users</p>
+              <p className="text-2xl font-bold text-surface-900 dark:text-white">{users.length}</p>
             </div>
           </div>
         </div>
@@ -250,8 +205,8 @@ const PendingApprovalsEnhancedPage = () => {
               <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <p className="text-sm text-surface-500 dark:text-surface-400">Unverified</p>
-              <p className="text-2xl font-bold text-surface-900 dark:text-white">{unverifiedCount}</p>
+              <p className="text-sm text-surface-500 dark:text-surface-400">Showing</p>
+              <p className="text-2xl font-bold text-surface-900 dark:text-white">{filteredUsers.length}</p>
             </div>
           </div>
         </div>
@@ -259,63 +214,11 @@ const PendingApprovalsEnhancedPage = () => {
 
       <div className="bg-white dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 p-4">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-          <div className="flex gap-1 bg-surface-100 dark:bg-surface-700 rounded-lg p-1">
-            {(['pending', 'approved', 'rejected', 'all'] as StatusFilter[]).map((s) => (
-              <button
-                key={s}
-                onClick={() => setStatusFilter(s)}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                  statusFilter === s
-                    ? 'bg-white dark:bg-surface-600 text-surface-900 dark:text-white shadow-sm'
-                    : 'text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-300'
-                }`}
-              >
-                {s.charAt(0).toUpperCase() + s.slice(1)}
-              </button>
-            ))}
-          </div>
-
-          <div className="relative">
-            <button
-              onClick={() => setLevelDropdownOpen(!levelDropdownOpen)}
-              className="flex items-center gap-2 px-3 py-2 text-sm border border-surface-200 dark:border-surface-600 rounded-lg bg-white dark:bg-surface-700 text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-600"
-            >
-              <Filter className="w-4 h-4" />
-              Level: {levelFilter === '' ? 'All' : levelFilter}
-              <ChevronDown className="w-4 h-4" />
-            </button>
-            {levelDropdownOpen && (
-              <div className="absolute z-10 mt-1 w-40 bg-white dark:bg-surface-700 border border-surface-200 dark:border-surface-600 rounded-lg shadow-lg">
-                {[100, 200, 300, 400, 500].map((lvl) => (
-                  <button
-                    key={lvl}
-                    onClick={() => {
-                      setLevelFilter(lvl);
-                      setLevelDropdownOpen(false);
-                    }}
-                    className="block w-full text-left px-4 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-600"
-                  >
-                    Level {lvl}
-                  </button>
-                ))}
-                <button
-                  onClick={() => {
-                    setLevelFilter('');
-                    setLevelDropdownOpen(false);
-                  }}
-                  className="block w-full text-left px-4 py-2 text-sm text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-600 border-t border-surface-200 dark:border-surface-600"
-                >
-                  All Levels
-                </button>
-              </div>
-            )}
-          </div>
-
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
             <input
               type="text"
-              placeholder="Search by name, matric number, or email..."
+              placeholder="Search by name, email, or matric number..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 text-sm border border-surface-200 dark:border-surface-600 rounded-lg bg-white dark:bg-surface-700 text-surface-900 dark:text-white placeholder-surface-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -356,10 +259,14 @@ const PendingApprovalsEnhancedPage = () => {
             <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
             <span className="ml-2 text-sm text-surface-500">Loading approvals...</span>
           </div>
-        ) : filteredOnboardings.length === 0 ? (
+        ) : paginatedUsers.length === 0 ? (
           <div className="text-center py-12">
             <UserCheck className="w-10 h-10 text-surface-300 dark:text-surface-600 mx-auto mb-3" />
-            <p className="text-surface-500 dark:text-surface-400">No onboarding records found</p>
+            <p className="text-surface-500 dark:text-surface-400">
+              {pendingUsers.length === 0
+                ? 'No pending approvals — all users are approved'
+                : 'No users match your search'}
+            </p>
           </div>
         ) : (
           <>
@@ -369,7 +276,7 @@ const PendingApprovalsEnhancedPage = () => {
                   <tr className="border-b border-surface-200 dark:border-surface-700">
                     <th className="px-4 py-3 text-left">
                       <button onClick={toggleSelectAll} className="text-surface-400 hover:text-surface-600 dark:hover:text-surface-300">
-                        {selectedIds.size === filteredOnboardings.length && filteredOnboardings.length > 0 ? (
+                        {selectedIds.size === paginatedUsers.length && paginatedUsers.length > 0 ? (
                           <CheckSquare className="w-4 h-4 text-primary-500" />
                         ) : (
                           <CheckSquare className="w-4 h-4" />
@@ -377,20 +284,19 @@ const PendingApprovalsEnhancedPage = () => {
                       </button>
                     </th>
                     <th className="px-4 py-3 text-left font-medium text-surface-600 dark:text-surface-400">Name</th>
-                    <th className="px-4 py-3 text-left font-medium text-surface-600 dark:text-surface-400">Matric No.</th>
-                    <th className="px-4 py-3 text-left font-medium text-surface-600 dark:text-surface-400">Level</th>
                     <th className="px-4 py-3 text-left font-medium text-surface-600 dark:text-surface-400">Email</th>
-                    <th className="px-4 py-3 text-left font-medium text-surface-600 dark:text-surface-400">Submitted</th>
-                    <th className="px-4 py-3 text-left font-medium text-surface-600 dark:text-surface-400">Status</th>
+                    <th className="px-4 py-3 text-left font-medium text-surface-600 dark:text-surface-400">Role</th>
+                    <th className="px-4 py-3 text-left font-medium text-surface-600 dark:text-surface-400">Matric No.</th>
+                    <th className="px-4 py-3 text-left font-medium text-surface-600 dark:text-surface-400">Registered</th>
                     <th className="px-4 py-3 text-right font-medium text-surface-600 dark:text-surface-400">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-surface-100 dark:divide-surface-700">
-                  {filteredOnboardings.map((item) => (
-                    <tr key={item.id} className="hover:bg-surface-50 dark:hover:bg-surface-750 transition-colors">
+                  {paginatedUsers.map((user) => (
+                    <tr key={user.id} className="hover:bg-surface-50 dark:hover:bg-surface-750 transition-colors">
                       <td className="px-4 py-3">
-                        <button onClick={() => toggleSelect(item.id)} className="text-surface-400 hover:text-surface-600 dark:hover:text-surface-300">
-                          {selectedIds.has(item.id) ? (
+                        <button onClick={() => toggleSelect(user.id)} className="text-surface-400 hover:text-surface-600 dark:hover:text-surface-300">
+                          {selectedIds.has(user.id) ? (
                             <CheckSquare className="w-4 h-4 text-primary-500" />
                           ) : (
                             <CheckSquare className="w-4 h-4" />
@@ -398,55 +304,46 @@ const PendingApprovalsEnhancedPage = () => {
                         </button>
                       </td>
                       <td className="px-4 py-3 font-medium text-surface-900 dark:text-white">
-                        {item.verified_name || '—'}
-                      </td>
-                      <td className="px-4 py-3 text-surface-700 dark:text-surface-300">
-                        {item.matric_number}
-                      </td>
-                      <td className="px-4 py-3 text-surface-700 dark:text-surface-300">
-                        {item.verified_level || '—'}
+                        {getDisplayName(user)}
                       </td>
                       <td className="px-4 py-3 text-surface-500 dark:text-surface-400">
-                        {item.submitted_email || '—'}
+                        {user.email}
                       </td>
-                      <td className="px-4 py-3 text-surface-500 dark:text-surface-400">
-                        {formatDate(item.created_at)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${statusBadgeClass(item.status)}`}>
-                          {item.status}
+                      <td className="px-4 py-3 text-surface-700 dark:text-surface-300">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-100 dark:bg-surface-700 text-surface-700 dark:text-surface-300 capitalize">
+                          {user.role || user.activeRole || '—'}
                         </span>
                       </td>
+                      <td className="px-4 py-3 text-surface-700 dark:text-surface-300">
+                        {(user as any).matricNumber || (user as any).matric_number || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-surface-500 dark:text-surface-400">
+                        {formatDate(user.createdAt || (user as any).created_at)}
+                      </td>
                       <td className="px-4 py-3 text-right">
-                        {item.status === 'pending' ? (
-                          <div className="flex items-center justify-end gap-2">
-                            <Button
-                              size="xs"
-                              variant="success"
-                              isLoading={actionLoading === item.id}
-                              leftIcon={actionLoading === item.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
-                              onClick={() => handleApprove(item.id)}
-                            >
-                              Approve
-                            </Button>
-                            <Button
-                              size="xs"
-                              variant="outline"
-                              className="text-danger-500 border-danger-300 hover:bg-danger-50 dark:border-danger-700 dark:hover:bg-danger-900/20"
-                              leftIcon={<XCircle className="w-3.5 h-3.5" />}
-                              onClick={() => {
-                                setRejectModalId(item.id);
-                                setRejectReason('');
-                              }}
-                            >
-                              Reject
-                            </Button>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-surface-400">
-                            {item.rejection_reason || 'No reason'}
-                          </span>
-                        )}
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            size="xs"
+                            variant="success"
+                            isLoading={actionLoading === user.id}
+                            leftIcon={actionLoading === user.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                            onClick={() => handleApprove(user.id)}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            className="text-danger-500 border-danger-300 hover:bg-danger-50 dark:border-danger-700 dark:hover:bg-danger-900/20"
+                            leftIcon={<XCircle className="w-3.5 h-3.5" />}
+                            onClick={() => {
+                              setRejectModalId(user.id);
+                              setRejectReason('');
+                            }}
+                          >
+                            Reject
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -456,7 +353,7 @@ const PendingApprovalsEnhancedPage = () => {
 
             <div className="flex items-center justify-between px-4 py-3 border-t border-surface-200 dark:border-surface-700">
               <span className="text-sm text-surface-500 dark:text-surface-400">
-                Showing {offset + 1}–{Math.min(offset + PAGE_SIZE, offset + filteredOnboardings.length)} of {filteredOnboardings.length}
+                Showing {offset + 1}–{Math.min(offset + PAGE_SIZE, offset + paginatedUsers.length)} of {filteredUsers.length}
               </span>
               <div className="flex gap-2">
                 <Button
@@ -470,7 +367,7 @@ const PendingApprovalsEnhancedPage = () => {
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={filteredOnboardings.length < PAGE_SIZE}
+                  disabled={filteredUsers.length <= PAGE_SIZE}
                   onClick={() => setOffset((prev) => prev + PAGE_SIZE)}
                 >
                   Next
@@ -485,10 +382,10 @@ const PendingApprovalsEnhancedPage = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 shadow-2xl w-full max-w-md mx-4 p-6">
             <h3 className="text-lg font-semibold text-surface-900 dark:text-white mb-2">
-              {rejectModalId === 'bulk' ? 'Reject Selected Students' : 'Reject Student'}
+              {rejectModalId === 'bulk' ? 'Reject Selected Users' : 'Reject User'}
             </h3>
             <p className="text-sm text-surface-500 dark:text-surface-400 mb-4">
-              Provide a reason for rejection. This will be visible to the student.
+              Provide a reason for rejection. This will be visible to the user.
             </p>
             <textarea
               value={rejectReason}

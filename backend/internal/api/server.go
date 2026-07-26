@@ -58,8 +58,9 @@ type Server struct {
 	semesters     *service.SemesterService
 	complaints    *service.ComplaintService
 	announcements *service.AnnouncementService
-	notifications *service.NotificationService
-	transcripts   *service.TranscriptService
+	notifications     *service.NotificationService
+	notificationsFull *service.NotificationServiceFull
+	transcripts       *service.TranscriptService
 	analytics     *service.AnalyticsService
 	cgpa          *service.CGPAService
 	timetables    *service.TimetableService
@@ -93,7 +94,8 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		semesters:     service.NewSemesterService(store),
 		complaints:    service.NewComplaintService(store),
 		announcements: service.NewAnnouncementService(store),
-		notifications: service.NewNotificationService(store),
+		notifications:    service.NewNotificationService(store),
+		notificationsFull: service.NewNotificationServiceFull(db.New(dbPool), hub),
 		transcripts:   service.NewTranscriptService(store),
 		analytics:     service.NewAnalyticsService(store),
 		cgpa:          service.NewCGPAService(store),
@@ -195,7 +197,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		users.PUT("/:id", server.updateUser)
 		users.POST("/:id/approve", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.approveSignup)
 		users.POST("/:id/reject", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.rejectSignup)
-		users.DELETE("/:id", middleware.RequireRoles("hod", "admin"), server.deleteUser)
+		users.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteUser)
 	}
 
 	// Student profile editing
@@ -270,14 +272,6 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		courses.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteCourse)
 	}
 
-	courseSubcategories := api.Group("/course-subcategories")
-	{
-		courseSubcategories.GET("", server.listAllCourseSubcategories)
-		courseSubcategories.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createCourseSubcategory)
-		courseSubcategories.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateCourseSubcategoryHandler)
-		courseSubcategories.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteCourseSubcategoryHandler)
-	}
-
 	assignments := api.Group("/assignments")
 	{
 		assignments.POST("", middleware.RequireRoles("lecturer", "hod", "delegated_admin"), server.createAssignment)
@@ -299,7 +293,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		courseRegistrations.POST("/submit", middleware.RequireRoles("student"), server.submitRegistration)
 		courseRegistrations.GET("/student/:student_id", server.listStudentCourseRegistrations)
 		courseRegistrations.GET("/:id", server.getCourseRegistration)
-		courseRegistrations.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateCourseRegistration)
+		courseRegistrations.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin", "class_rep"), server.updateCourseRegistration)
 		courseRegistrations.POST("/:id/courses", middleware.RequireRoles("student", "hod", "delegated_admin"), server.createRegisteredCourse)
 		courseRegistrations.GET("/:id/courses", server.listRegisteredCourses)
 		courseRegistrations.PUT("/:id/courses/:registered_course_id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateRegisteredCourse)
@@ -335,11 +329,16 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 
 	notifications := api.Group("/notifications")
 	{
-		notifications.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createNotification)
-		notifications.GET("/user/:user_id", server.listUserNotifications)
-		notifications.POST("/user/:user_id/mark-all-read", server.markAllUserNotificationsAsRead)
+		notifications.GET("/unread-count", server.getMyUnreadCount)
+		notifications.GET("/unread-by-category", server.getMyUnreadByCategory)
+		notifications.GET("/me", server.listMyNotifications)
 		notifications.PUT("/:id/read", server.markNotificationAsRead)
-		notifications.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteNotification)
+		notifications.POST("/read-all", server.markAllAsRead)
+		notifications.DELETE("/:id", server.deleteNotification)
+		notifications.GET("/preferences", server.getMyNotificationPreferences)
+		notifications.PUT("/preferences", server.updateMyNotificationPreferences)
+		notifications.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createNotification)
+		notifications.POST("/broadcast", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.broadcastNotification)
 	}
 
 	timetables := api.Group("/timetable")
@@ -364,9 +363,9 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		payments.DELETE("/dues/:id", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.deleteDue)
 
 		payments.POST("/cart", middleware.RequireRoles("student"), server.addToCart)
-		payments.GET("/cart/:student_id", server.listStudentCart)
+		payments.GET("/cart/me", middleware.RequireRoles("student"), server.listStudentCart)
+		payments.DELETE("/cart/me", middleware.RequireRoles("student"), server.clearStudentCart)
 		payments.DELETE("/cart/:id", middleware.RequireRoles("student"), server.removeFromCart)
-		payments.DELETE("/cart/student/:student_id", middleware.RequireRoles("student"), server.clearStudentCart)
 
 		payments.POST("/batches", middleware.RequireRoles("student"), server.createPaymentBatch)
 		payments.GET("/batches/student/:student_id", server.listStudentPaymentBatches)
@@ -424,16 +423,6 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		analytics.GET("/performance", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getPerformanceTrend)
 		analytics.GET("/overview", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getAnalyticsOverview)
 		analytics.GET("/trend", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getAnalyticsTrend)
-	}
-
-	// ── Universal Subcategories ──
-	subcategoriesGroup := api.Group("/subcategories")
-	{
-		subcategoriesGroup.GET("", server.listSubcategories)
-		subcategoriesGroup.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createSubcategory)
-		subcategoriesGroup.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateSubcategory)
-		subcategoriesGroup.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteSubcategory)
-		subcategoriesGroup.POST("/reorder", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.reorderSubcategories)
 	}
 
 	api.POST("/complaints", middleware.RequireRoles("student"), server.createComplaint)
@@ -498,20 +487,12 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		connect.PUT("/connections/:id", server.respondToConnection)
 		connect.GET("/connections", server.listConnections)
 		connect.GET("/connections/pending", server.listPendingRequests)
+		connect.GET("/connections/user-ids", server.getAllConnectionUserIds)
+		connect.GET("/messages/unread", server.getUnreadCounts)
 		connect.POST("/messages", server.sendMessage)
 		connect.GET("/messages/:id", server.listConversation)
 		connect.PUT("/messages/:id/read", server.markMessageRead)
-		connect.POST("/groups", server.createGroup)
-		connect.GET("/groups", server.listGroups)
-		connect.GET("/groups/my", server.listUserGroups)
-		connect.GET("/groups/:id", server.getGroup)
-		connect.POST("/groups/:id/join", server.joinGroup)
-		connect.POST("/groups/:id/leave", server.leaveGroup)
-		connect.GET("/groups/:id/members", server.listGroupMembers)
-		connect.POST("/groups/:id/messages", server.sendGroupMessage)
-		connect.GET("/groups/:id/messages", server.listGroupMessages)
-		connect.GET("/directory/students", server.getStudentDirectory)
-		connect.GET("/directory/alumni", server.getAlumniDirectory)
+		connect.GET("/directory", server.getStudentDirectory)
 	}
 
 	// ── Skills & Trade ──
@@ -553,17 +534,12 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		alumniGroup.GET("/my-stats", server.getAlumniMyStats)
 		alumniGroup.GET("/directory", server.searchAlumniDirectory)
 		alumniGroup.GET("/mentors", server.listMentors)
-		alumniGroup.GET("/mentorship/my", server.listMyMentorshipRequests)
 		alumniGroup.POST("/status", server.createAlumniStatus)
 		alumniGroup.GET("/status/:id", server.getAlumniStatus)
 		alumniGroup.GET("", server.listAlumni)
 		alumniGroup.PUT("/status/:id", server.updateAlumniStatus)
 		alumniGroup.POST("/verify/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.verifyAlumni)
 		alumniGroup.GET("/verifications/pending", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listPendingAlumniVerifications)
-		alumniGroup.POST("/mentorship/requests", server.requestMentorship)
-		alumniGroup.GET("/mentorship/student/:id", server.listStudentMentorshipRequests)
-		alumniGroup.GET("/mentorship/mentor/:id", server.listMentorMentorshipRequests)
-		alumniGroup.PUT("/mentorship/requests/:id", server.updateMentorshipStatus)
 		alumniGroup.POST("/jobs", server.createJobPost)
 		alumniGroup.GET("/jobs", server.listJobPosts)
 		alumniGroup.GET("/jobs/:id", server.getJobPost)
@@ -716,22 +692,13 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		notices.GET("/:id/comments", server.listNoticeComments)
 	}
 
-	// ── Emergency Broadcasts ──
-	broadcasts := api.Group("/broadcasts")
-	{
-		broadcasts.POST("", middleware.RequireRoles("hod", "admin"), server.createBroadcast)
-		broadcasts.GET("", server.listBroadcasts)
-		broadcasts.GET("/:id", server.getBroadcast)
-		broadcasts.POST("/:id/ack", server.acknowledgeBroadcast)
-		broadcasts.GET("/:id/ack-count", server.getBroadcastAckCount)
-	}
-
 	// ── Departmental Calendar ──
 	calendar := api.Group("/calendar")
 	{
 		calendar.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createDepartmentalEvent)
 		calendar.GET("", server.listDepartmentalEvents)
 		calendar.GET("/:id", server.getDepartmentalEvent)
+		calendar.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateDepartmentalEvent)
 		calendar.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteDepartmentalEvent)
 	}
 
@@ -766,6 +733,17 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		help.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createHelpArticle)
 		help.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateHelpArticle)
 		help.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteHelpArticle)
+	}
+
+	// ── Feature Flags ──
+	featureFlags := api.Group("/feature-flags")
+	{
+		featureFlags.GET("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listFeatureFlags)
+		featureFlags.POST("", middleware.RequireRoles("hod", "admin"), server.createFeatureFlag)
+		featureFlags.GET("/:name", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getFeatureFlag)
+		featureFlags.PUT("/:name", middleware.RequireRoles("hod", "admin"), server.updateFeatureFlag)
+		featureFlags.PATCH("/:name/toggle", middleware.RequireRoles("hod", "admin"), server.toggleFeatureFlag)
+		featureFlags.DELETE("/:name", middleware.RequireRoles("hod", "admin"), server.deleteFeatureFlag)
 	}
 
 	// ── GPA Calculator Scenarios ──

@@ -111,17 +111,16 @@ export interface CartItem {
   added_at: string;
 }
 
-export const addToCart = async (studentId: string, dueId: string, amount: number) => {
+export const addToCart = async (_studentId: string, dueId: string, amount: number) => {
   const res = await apiClient.post('/payments/cart', {
-    student_id: studentId,
     due_id: dueId,
     amount: String(amount),
   });
   return unwrap<CartItem>(res);
 };
 
-export const listStudentCart = async (studentId: string) => {
-  const res = await apiClient.get(`/payments/cart/${studentId}`);
+export const listStudentCart = async (_studentId: string) => {
+  const res = await apiClient.get(`/payments/cart/me`);
   return unwrap<CartItem[]>(res);
 };
 
@@ -129,6 +128,6 @@ export const removeFromCart = async (cartItemId: string) => {
   await apiClient.delete(`/payments/cart/${cartItemId}`);
 };
 
-export const clearStudentCart = async (studentId: string) => {
-  await apiClient.delete(`/payments/cart/student/${studentId}`);
+export const clearStudentCart = async (_studentId: string) => {
+  await apiClient.delete(`/payments/cart/me`);
 };

@@ -15,7 +15,7 @@ const ComplaintsPage = () => {
   const { user } = useAuth();
   const { success, error: notifyError } = useNotification();
   const [complaints, setComplaints] = useState<Complaint[]>([]);
-  const [category, setCategory] = useState('Result Error');
+  const [category, setCategory] = useState('result_error');
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -62,7 +62,7 @@ const ComplaintsPage = () => {
   const columns = [
     { key: 'category', label: 'Category' },
     { key: 'subject', label: 'Subject', render: (val: unknown) => <span className="font-medium">{(val as string) || 'N/A'}</span> },
-    { key: 'createdAt', label: 'Filed Date', render: (val: unknown) => val ? new Date(val as string).toLocaleDateString() : 'N/A' },
+    { key: 'created_at', label: 'Filed Date', render: (val: unknown) => val ? new Date(val as string).toLocaleDateString() : 'N/A' },
     { key: 'status', label: 'Status', render: (val: unknown) => <StatusBadge status={val as string} /> },
   ];
 
@@ -96,10 +96,10 @@ const ComplaintsPage = () => {
               <Select
                 label="Category"
                 options={[
-                  { value: 'Result Error', label: 'Result Discrepancy' },
-                  { value: 'Payment Issue', label: 'Payment gateway error' },
-                  { value: 'Timetable Conflict', label: 'Timetable conflict' },
-                  { value: 'Other', label: 'Other' },
+                  { value: 'result_error', label: 'Result Discrepancy' },
+                  { value: 'payment_issue', label: 'Payment gateway error' },
+                  { value: 'attendance_dispute', label: 'Timetable conflict' },
+                  { value: 'other', label: 'Other' },
                 ]}
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}

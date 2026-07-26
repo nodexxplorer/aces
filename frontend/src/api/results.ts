@@ -1,9 +1,9 @@
-import apiClient from './client';
+import apiClient, { unwrap } from './client';
 import type { Result, PaginationParams } from '../types';
 
 export const getStudentResults = async (studentId: string, params?: PaginationParams) => {
-  const { data } = await apiClient.get<{ data: Result[] }>(`/results/student/${studentId}`, { params });
-  return data.data;
+  const res = await apiClient.get(`/results/student/${studentId}`, { params });
+  return unwrap<Result[]>(res);
 };
 
 export const getCourseResults = async (courseId: string, sessionId: string) => {
@@ -16,13 +16,30 @@ export const getResult = async (resultId: string) => {
   return data.data;
 };
 
-export const enterScore = async (payload: { studentId: string; courseId: string; sessionId: string; semester: string; caScore: number; examScore: number }) => {
-  const { data } = await apiClient.post<{ data: Result }>('/results', payload);
+export const enterScore = async (payload: { studentId?: string; courseId: string; sessionId: string; semesterId: string; caScore: number; examScore: number; matricNumber?: string }) => {
+  const backendPayload: Record<string, unknown> = {
+    course_id: payload.courseId,
+    session_id: payload.sessionId,
+    semester_id: payload.semesterId,
+    ca_score: payload.caScore,
+    exam_score: payload.examScore,
+  };
+  if (payload.studentId) {
+    backendPayload.student_id = payload.studentId;
+  }
+  if (payload.matricNumber) {
+    backendPayload.matric_number = payload.matricNumber;
+  }
+  const { data } = await apiClient.post<{ data: Result }>('/results', backendPayload);
   return data.data;
 };
 
 export const updateScore = async (resultId: string, payload: { caScore: number; examScore: number }) => {
-  const { data } = await apiClient.put<{ data: Result }>(`/results/${resultId}`, payload);
+  const backendPayload = {
+    ca_score: payload.caScore,
+    exam_score: payload.examScore,
+  };
+  const { data } = await apiClient.put<{ data: Result }>(`/results/${resultId}`, backendPayload);
   return data.data;
 };
 

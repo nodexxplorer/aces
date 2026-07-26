@@ -5,7 +5,7 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../hooks/useAuth';
-import { ArrowRightLeft, Loader2 } from 'lucide-react';
+import { ArrowRightLeft, Loader2, Plus } from 'lucide-react';
 import { createTradeOffer, getSkillListings, getMySkillListings } from '../../api/skills-trade';
 import type { SkillListing } from '../../types';
 
@@ -92,6 +92,8 @@ const CreateTradeOfferPage = () => {
 
   const availableTargets = allListings.filter((l) => l.userId !== user?.id);
 
+  const noMyListings = myListings.length === 0;
+
   return (
     <div className="space-y-6 max-w-xl mx-auto">
       <div>
@@ -105,6 +107,24 @@ const CreateTradeOfferPage = () => {
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
         </div>
+      ) : noMyListings ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>No Skill Listings Found</CardTitle>
+            <CardDescription>You need to create at least one skill listing before you can propose a barter swap.</CardDescription>
+          </CardHeader>
+          <div className="p-4 pt-0">
+            <p className="text-sm text-surface-500 dark:text-surface-400 mb-4">
+              Create a skill listing to offer your services to others. Once you have a listing, you can propose swapping it for another skill.
+            </p>
+            <button
+              onClick={() => navigate('/skills/create')}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-medium transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Create Skill Listing
+            </button>
+          </div>
+        </Card>
       ) : (
         <Card>
           <CardHeader>

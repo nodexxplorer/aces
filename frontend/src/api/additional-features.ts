@@ -254,6 +254,11 @@ export const deleteDepartmentalEvent = async (id: string) => {
   return unwrap<{ message: string }>(res);
 };
 
+export const updateDepartmentalEvent = async (id: string, data: { title: string; description?: string; event_type: string; start_time: string; end_time?: string; venue?: string; target_levels?: number[]; target_audience?: string[]; is_all_day?: boolean; color?: string }) => {
+  const res = await apiClient.put(`/calendar/${id}`, data);
+  return unwrap<{ data: string }>(res);
+};
+
 // Expenses
 export interface Expense {
   id: string;
@@ -403,4 +408,53 @@ export interface SearchResult {
 export const universalSearch = async (q: string) => {
   const res = await apiClient.get('/search', { params: { q } });
   return unwrap<SearchResult[]>(res);
+};
+
+// Feature Flags
+export interface FeatureFlag {
+  id: string;
+  name: string;
+  description: string | null;
+  is_enabled: boolean;
+  target_roles: string[];
+  target_levels: number[];
+  percentage: number | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const listFeatureFlags = async (): Promise<FeatureFlag[]> => {
+  const res = await apiClient.get('/feature-flags');
+  return unwrap<FeatureFlag[]>(res);
+};
+
+export const createFeatureFlag = async (data: {
+  name: string;
+  description?: string;
+  is_enabled?: boolean;
+  target_roles?: string[];
+  target_levels?: number[];
+  percentage?: number;
+}): Promise<FeatureFlag> => {
+  const res = await apiClient.post('/feature-flags', data);
+  return unwrap<FeatureFlag>(res);
+};
+
+export const toggleFeatureFlag = async (name: string, isEnabled: boolean): Promise<void> => {
+  await apiClient.patch(`/feature-flags/${name}/toggle`, { is_enabled: isEnabled });
+};
+
+export const updateFeatureFlag = async (name: string, data: {
+  description?: string;
+  is_enabled?: boolean;
+  target_roles?: string[];
+  target_levels?: number[];
+  percentage?: number;
+}): Promise<void> => {
+  await apiClient.put(`/feature-flags/${name}`, data);
+};
+
+export const deleteFeatureFlag = async (name: string): Promise<void> => {
+  await apiClient.delete(`/feature-flags/${name}`);
 };

@@ -42,12 +42,16 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      try {
-        await axios.post(`${API_BASE_URL}${API_PREFIX}/auth/refresh`, {}, { withCredentials: true });
-        return apiClient(originalRequest);
-      } catch {
-        window.location.href = '/login';
+      const url = originalRequest.url || '';
+      const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/signup') || url.includes('/auth/refresh');
+      if (!isAuthEndpoint) {
+        originalRequest._retry = true;
+        try {
+          await axios.post(`${API_BASE_URL}${API_PREFIX}/auth/refresh`, {}, { withCredentials: true });
+          return apiClient(originalRequest);
+        } catch {
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(error);

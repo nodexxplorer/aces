@@ -1,28 +1,21 @@
 import { useState, useEffect } from 'react';
-import { Shield, Plus, ToggleLeft, ToggleRight } from 'lucide-react';
-import apiClient from '../../api/client';
-
-interface FeatureFlag {
-  id: string;
-  name: string;
-  description: string;
-  is_enabled: boolean;
-  target_roles: string[];
-  target_levels: number[];
-  percentage: number;
-  created_at: string;
-}
-
-const MOCK_FLAGS: FeatureFlag[] = [
-  { id: '1', name: 'dark_mode', description: 'Enable dark mode toggle for students', is_enabled: true, target_roles: ['student'], target_levels: [100, 200, 300, 400], percentage: 100, created_at: new Date().toISOString() },
-  { id: '2', name: 'gpa_predictor', description: 'AI-powered GPA prediction feature', is_enabled: false, target_roles: ['student'], target_levels: [300, 400], percentage: 50, created_at: new Date().toISOString() },
-  { id: '3', name: 'bulk_transcript', description: 'Batch transcript generation for admin', is_enabled: true, target_roles: ['admin', 'hod'], target_levels: [], percentage: 100, created_at: new Date().toISOString() },
-];
+import { Shield, Plus, ToggleLeft, ToggleRight, Trash2, Loader2 } from 'lucide-react';
+import {
+  listFeatureFlags,
+  createFeatureFlag,
+  toggleFeatureFlag,
+  deleteFeatureFlag,
+  type FeatureFlag,
+} from '../../api/additional-features';
+import { useNotification } from '../../hooks/useNotification';
 
 const FeatureFlagsPage = () => {
-  const [flags, setFlags] = useState<FeatureFlag[]>(MOCK_FLAGS);
-  const [loading, setLoading] = useState(false);
+  const { success, error: notifyError } = useNotification();
+  const [flags, setFlags] = useState<FeatureFlag[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [formName, setFormName] = useState('');
   const [formDesc, setFormDesc] = useState('');
   const [formEnabled, setFormEnabled] = useState(false);
@@ -31,56 +24,73 @@ const FeatureFlagsPage = () => {
   const [formPercentage, setFormPercentage] = useState(100);
 
   useEffect(() => {
-    const fetchFlags = async () => {
-      setLoading(true);
-      try {
-        // const res = await apiClient.get('/feature-flags');
-        // setFlags(res.data.data || []);
-      } catch {
-        // fallback to mock data
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchFlags();
   }, []);
 
-  const toggleFlag = async (id: string) => {
-    setFlags((prev) => prev.map((f) => (f.id === id ? { ...f, is_enabled: !f.is_enabled } : f)));
+  const fetchFlags = async () => {
+    setLoading(true);
     try {
-      // const flag = flags.find((f) => f.id === id);
-      // await apiClient.put(`/feature-flags/${id}`, { is_enabled: !flag?.is_enabled });
+      const data = await listFeatureFlags();
+      setFlags(Array.isArray(data) ? data : []);
     } catch {
-      // revert on error
-      setFlags((prev) => prev.map((f) => (f.id === id ? { ...f, is_enabled: !f.is_enabled } : f)));
+      notifyError('Error', 'Failed to load feature flags');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggle = async (flag: FeatureFlag) => {
+    setTogglingId(flag.name);
+    try {
+      await toggleFeatureFlag(flag.name, !flag.is_enabled);
+      setFlags((prev) => prev.map((f) => (f.name === flag.name ? { ...f, is_enabled: !f.is_enabled } : f)));
+      success('Updated', `${flag.name} ${flag.is_enabled ? 'disabled' : 'enabled'}`);
+    } catch {
+      notifyError('Error', 'Failed to toggle feature flag');
+    } finally {
+      setTogglingId(null);
     }
   };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newFlag: FeatureFlag = {
-      id: String(Date.now()),
-      name: formName,
-      description: formDesc,
-      is_enabled: formEnabled,
-      target_roles: formRoles.split(',').map((r) => r.trim()).filter(Boolean),
-      target_levels: formLevels.split(',').map((l) => parseInt(l.trim(), 10)).filter((n) => !isNaN(n)),
-      percentage: Number(formPercentage),
-      created_at: new Date().toISOString(),
-    };
-    setFlags((prev) => [...prev, newFlag]);
+    setCreating(true);
     try {
-      // await apiClient.post('/feature-flags', { ...newFlag, id: undefined });
-    } catch {
-      // silent
+      const targetRoles = formRoles.split(',').map((r) => r.trim()).filter(Boolean);
+      const targetLevels = formLevels.split(',').map((l) => parseInt(l.trim(), 10)).filter((n) => !isNaN(n));
+      await createFeatureFlag({
+        name: formName,
+        description: formDesc || undefined,
+        is_enabled: formEnabled,
+        target_roles: targetRoles.length > 0 ? targetRoles : undefined,
+        target_levels: targetLevels.length > 0 ? targetLevels : undefined,
+        percentage: formPercentage,
+      });
+      success('Created', `Feature flag "${formName}" created`);
+      setFormName('');
+      setFormDesc('');
+      setFormEnabled(false);
+      setFormRoles('');
+      setFormLevels('');
+      setFormPercentage(100);
+      setShowForm(false);
+      fetchFlags();
+    } catch (err: any) {
+      notifyError('Error', err?.response?.data?.error || 'Failed to create feature flag');
+    } finally {
+      setCreating(false);
     }
-    setFormName('');
-    setFormDesc('');
-    setFormEnabled(false);
-    setFormRoles('');
-    setFormLevels('');
-    setFormPercentage(100);
-    setShowForm(false);
+  };
+
+  const handleDelete = async (name: string) => {
+    if (!confirm(`Delete feature flag "${name}"?`)) return;
+    try {
+      await deleteFeatureFlag(name);
+      setFlags((prev) => prev.filter((f) => f.name !== name));
+      success('Deleted', `Feature flag "${name}" deleted`);
+    } catch {
+      notifyError('Error', 'Failed to delete feature flag');
+    }
   };
 
   const statusColor = (enabled: boolean) =>
@@ -185,8 +195,10 @@ const FeatureFlagsPage = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-medium transition-colors"
+                  disabled={creating}
+                  className="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
                 >
+                  {creating && <Loader2 className="w-4 h-4 animate-spin" />}
                   Create Flag
                 </button>
               </div>
@@ -197,7 +209,7 @@ const FeatureFlagsPage = () => {
         <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center p-12">
-              <div className="w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+              <Loader2 className="w-5 h-5 animate-spin text-primary-500" />
               <span className="ml-3 text-sm text-surface-500">Loading feature flags...</span>
             </div>
           ) : flags.length === 0 ? (
@@ -216,12 +228,12 @@ const FeatureFlagsPage = () => {
                   <th className="text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider px-6 py-3">Target Roles</th>
                   <th className="text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider px-6 py-3">Target Levels</th>
                   <th className="text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider px-6 py-3">Rollout</th>
-                  <th className="text-right text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider px-6 py-3">Toggle</th>
+                  <th className="text-right text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider px-6 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-50 dark:divide-surface-800/50">
                 {flags.map((flag) => (
-                  <tr key={flag.id} className="hover:bg-surface-50 dark:hover:bg-surface-800/30 transition-colors">
+                  <tr key={flag.name} className="hover:bg-surface-50 dark:hover:bg-surface-800/30 transition-colors">
                     <td className="px-6 py-4">
                       <span className="font-mono text-sm font-semibold text-surface-900 dark:text-white">{flag.name}</span>
                     </td>
@@ -235,7 +247,7 @@ const FeatureFlagsPage = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-1">
-                        {flag.target_roles.length > 0 ? flag.target_roles.map((role) => (
+                        {flag.target_roles && flag.target_roles.length > 0 ? flag.target_roles.map((role) => (
                           <span key={role} className="text-[10px] px-2 py-0.5 rounded-full bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400 font-medium">
                             {role}
                           </span>
@@ -246,7 +258,7 @@ const FeatureFlagsPage = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-1">
-                        {flag.target_levels.length > 0 ? flag.target_levels.map((lvl) => (
+                        {flag.target_levels && flag.target_levels.length > 0 ? flag.target_levels.map((lvl) => (
                           <span key={lvl} className="text-[10px] px-2 py-0.5 rounded-full bg-accent-50 text-accent-700 dark:bg-accent-900/30 dark:text-accent-400 font-medium">
                             {lvl}
                           </span>
@@ -260,29 +272,40 @@ const FeatureFlagsPage = () => {
                         <div className="w-16 h-1.5 rounded-full bg-surface-100 dark:bg-surface-800 overflow-hidden">
                           <div
                             className="h-full rounded-full bg-primary-500 transition-all"
-                            style={{ width: `${flag.percentage}%` }}
+                            style={{ width: `${flag.percentage ?? 100}%` }}
                           />
                         </div>
-                        <span className="text-xs font-medium text-surface-600 dark:text-surface-400">{flag.percentage}%</span>
+                        <span className="text-xs font-medium text-surface-600 dark:text-surface-400">{flag.percentage ?? 100}%</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => toggleFlag(flag.id)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-surface-100 dark:hover:bg-surface-800"
-                      >
-                        {flag.is_enabled ? (
-                          <>
-                            <ToggleRight className="w-5 h-5 text-emerald-500" />
-                            <span className="text-emerald-600 dark:text-emerald-400">On</span>
-                          </>
-                        ) : (
-                          <>
-                            <ToggleLeft className="w-5 h-5 text-surface-400" />
-                            <span className="text-surface-500">Off</span>
-                          </>
-                        )}
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleToggle(flag)}
+                          disabled={togglingId === flag.name}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-surface-100 dark:hover:bg-surface-800 disabled:opacity-50"
+                        >
+                          {togglingId === flag.name ? (
+                            <Loader2 className="w-5 h-5 animate-spin text-surface-400" />
+                          ) : flag.is_enabled ? (
+                            <>
+                              <ToggleRight className="w-5 h-5 text-emerald-500" />
+                              <span className="text-emerald-600 dark:text-emerald-400">On</span>
+                            </>
+                          ) : (
+                            <>
+                              <ToggleLeft className="w-5 h-5 text-surface-400" />
+                              <span className="text-surface-500">Off</span>
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleDelete(flag.name)}
+                          className="inline-flex items-center p-1.5 rounded-lg text-surface-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

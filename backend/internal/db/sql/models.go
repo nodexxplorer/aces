@@ -3273,7 +3273,7 @@ type Report struct {
 
 type Result struct {
 	ID              uuid.UUID          `json:"id"`
-	StudentID       uuid.UUID          `json:"student_id"`
+	StudentID       *uuid.UUID         `json:"student_id"`
 	CourseID        uuid.UUID          `json:"course_id"`
 	CaScore         decimal.Decimal    `json:"ca_score"`
 	ExamScore       decimal.Decimal    `json:"exam_score"`
@@ -3289,6 +3289,7 @@ type Result struct {
 	IsCarryover     bool               `json:"is_carryover"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	MatricNumber    *string            `json:"matric_number"`
 }
 
 type ResultAuditLog struct {
@@ -3604,6 +3605,7 @@ type User struct {
 	PasswordHash          string             `json:"password_hash"`
 	Role                  UserRole           `json:"role"`
 	FullName              string             `json:"full_name"`
+	MiddleName            *string            `json:"middle_name"`
 	Phone                 *string            `json:"phone"`
 	AvatarUrl             *string            `json:"avatar_url"`
 	IsActive              bool               `json:"is_active"`
@@ -3621,6 +3623,8 @@ type User struct {
 	EmergencyContactName  *string            `json:"emergency_contact_name"`
 	EmergencyContactPhone *string            `json:"emergency_contact_phone"`
 	HomeAddress           *string            `json:"home_address"`
+	FirstName             string             `json:"first_name"`
+	LastName              string             `json:"last_name"`
 }
 
 type UserReputation struct {

@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { AlertCircle, CheckCircle, Clock, XCircle, Send, Filter } from 'lucide-react';
 import { createGradeAppeal, listMyAppeals, type GradeAppeal } from '../../api/additional-features';
+import { getSessions, listSessionSemesters } from '../../api/sessions';
+import { getCourses } from '../../api/courses';
+import { useAuth } from '../../hooks/useAuth';
+import type { Session, SemesterEntry, Course } from '../../types';
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string; icon: React.ReactNode }> = {
   submitted: {
@@ -59,6 +63,7 @@ function truncate(text: string, max: number): string {
 }
 
 export default function GradeAppealsPage() {
+  const { user } = useAuth();
   const [appeals, setAppeals] = useState<GradeAppeal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +71,10 @@ export default function GradeAppealsPage() {
   const [showForm, setShowForm] = useState(false);
   const [selectedAppeal, setSelectedAppeal] = useState<GradeAppeal | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [semesters, setSemesters] = useState<SemesterEntry[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
 
   const [formCourseId, setFormCourseId] = useState('');
   const [formSemesterId, setFormSemesterId] = useState('');
@@ -90,6 +99,17 @@ export default function GradeAppealsPage() {
   useEffect(() => {
     fetchAppeals();
   }, []);
+
+  useEffect(() => {
+    if (!showForm) return;
+    getSessions().then((s) => setSessions(Array.isArray(s) ? s : [])).catch(() => {});
+    getCourses().then((c) => setCourses(Array.isArray(c) ? c : [])).catch(() => {});
+  }, [showForm]);
+
+  useEffect(() => {
+    if (!formSessionId) { setSemesters([]); return; }
+    listSessionSemesters(formSessionId).then((s) => setSemesters(Array.isArray(s) ? s : [])).catch(() => {});
+  }, [formSessionId]);
 
   const filteredAppeals = appeals.filter((a) => matchesFilter(a, activeTab));
 
@@ -258,42 +278,52 @@ export default function GradeAppealsPage() {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-                  Course ID
+                  Session
                 </label>
-                <input
-                  type="text"
-                  value={formCourseId}
-                  onChange={(e) => setFormCourseId(e.target.value)}
-                  placeholder="e.g. CPE511"
+                <select
+                  value={formSessionId}
+                  onChange={(e) => { setFormSessionId(e.target.value); setFormSemesterId(''); }}
                   required
-                  className="w-full rounded-xl border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-950 px-3.5 py-2.5 text-sm text-surface-900 dark:text-surface-100 placeholder-surface-400 dark:placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
-                />
+                  className="w-full rounded-xl border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-950 px-3.5 py-2.5 text-sm text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+                >
+                  <option value="">Select session</option>
+                  {sessions.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-                  Semester ID
+                  Semester
                 </label>
-                <input
-                  type="text"
+                <select
                   value={formSemesterId}
                   onChange={(e) => setFormSemesterId(e.target.value)}
-                  placeholder="e.g. 2025/2026-S1"
                   required
-                  className="w-full rounded-xl border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-950 px-3.5 py-2.5 text-sm text-surface-900 dark:text-surface-100 placeholder-surface-400 dark:placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
-                />
+                  disabled={!formSessionId}
+                  className="w-full rounded-xl border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-950 px-3.5 py-2.5 text-sm text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all disabled:opacity-50"
+                >
+                  <option value="">Select semester</option>
+                  {semesters.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-                  Session ID
+                  Course
                 </label>
-                <input
-                  type="text"
-                  value={formSessionId}
-                  onChange={(e) => setFormSessionId(e.target.value)}
-                  placeholder="e.g. 2025/2026"
+                <select
+                  value={formCourseId}
+                  onChange={(e) => setFormCourseId(e.target.value)}
                   required
-                  className="w-full rounded-xl border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-950 px-3.5 py-2.5 text-sm text-surface-900 dark:text-surface-100 placeholder-surface-400 dark:placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
-                />
+                  className="w-full rounded-xl border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-950 px-3.5 py-2.5 text-sm text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+                >
+                  <option value="">Select course</option>
+                  {courses.map((c) => (
+                    <option key={c.id} value={c.id}>{c.code} - {c.title}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
