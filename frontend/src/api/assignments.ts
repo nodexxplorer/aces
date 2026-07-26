@@ -12,7 +12,14 @@ export const getAssignment = async (assignmentId: string) => {
 };
 
 export const createAssignment = async (payload: { courseId: string; sessionId: string; title: string; description?: string; dueDate?: string }) => {
-  const { data } = await apiClient.post<{ data: Assignment }>('/assignments', payload);
+  const backendPayload = {
+    course_id: payload.courseId,
+    session_id: payload.sessionId,
+    title: payload.title,
+    description: payload.description,
+    due_date: payload.dueDate,
+  };
+  const { data } = await apiClient.post<{ data: Assignment }>('/assignments', backendPayload);
   return data.data;
 };
 

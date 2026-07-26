@@ -12,24 +12,6 @@ export interface VerificationRecord {
   updated_at: string;
 }
 
-export interface StudentOnboarding {
-  id: string;
-  user_id: string;
-  matric_number: string;
-  verification_record_id: string | null;
-  match_confidence: number | null;
-  submitted_email: string | null;
-  submitted_phone: string | null;
-  status: string;
-  reviewed_by: string | null;
-  reviewed_at: string | null;
-  rejection_reason: string | null;
-  created_at: string;
-  verified_name: string | null;
-  verified_level: number | null;
-  verified_department: string | null;
-}
-
 export interface AnnouncementV2 {
   id: string;
   title: string;
@@ -104,11 +86,6 @@ export interface AnnouncementStatusCount {
   count: number;
 }
 
-export interface OnboardingCount {
-  status: string;
-  count: number;
-}
-
 // --- Verification ---
 export const lookupMatric = async (matricNumber: string): Promise<VerificationRecord> => {
   const res = await apiClient.post('/verification/lookup', { matric_number: matricNumber });
@@ -152,50 +129,19 @@ export const updateVerificationRecord = async (id: string, data: {
   await apiClient.put(`/verification/records/${id}`, data);
 };
 
-export const listUnverifiedStudents = async (): Promise<VerificationRecord[]> => {
-  const res = await apiClient.get('/verification/unverified');
-  return unwrap<VerificationRecord[]>(res);
-};
-
-// --- Onboarding ---
+// --- Onboarding (student-facing) ---
 export const createStudentOnboarding = async (data: {
   matric_number: string;
   email?: string;
   phone?: string;
-}): Promise<StudentOnboarding> => {
+}): Promise<any> => {
   const res = await apiClient.post('/onboarding', data);
-  return unwrap<StudentOnboarding>(res);
+  return unwrap<any>(res);
 };
 
-export const getStudentOnboardingStatus = async (): Promise<StudentOnboarding> => {
+export const getStudentOnboardingStatus = async (): Promise<any> => {
   const res = await apiClient.get('/onboarding/status');
-  return unwrap<StudentOnboarding>(res);
-};
-
-export const listStudentOnboardings = async (params?: {
-  status?: string;
-  level?: number;
-  limit?: number;
-  offset?: number;
-}): Promise<StudentOnboarding[]> => {
-  const res = await apiClient.get('/onboarding/admin/list', { params });
-  return unwrap<StudentOnboarding[]>(res);
-};
-
-export const getOnboardingCounts = async (): Promise<OnboardingCount[]> => {
-  const res = await apiClient.get('/onboarding/admin/counts');
-  return unwrap<OnboardingCount[]>(res);
-};
-
-export const updateOnboardingStatus = async (id: string, data: {
-  status: string;
-  rejection_reason?: string;
-}): Promise<void> => {
-  await apiClient.put(`/onboarding/${id}/status`, data);
-};
-
-export const bulkApproveOnboardings = async (ids: string[]): Promise<void> => {
-  await apiClient.post('/onboarding/bulk-approve', { ids });
+  return unwrap<any>(res);
 };
 
 const parseJSONField = (field: any): any[] => {

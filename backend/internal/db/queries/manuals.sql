@@ -89,15 +89,15 @@ FROM manual_print_queue mpq
 JOIN manuals m ON mpq.manual_id = m.id
 JOIN students s ON mpq.student_id = s.id
 JOIN users u ON s.user_id = u.id
-WHERE mpq.status = COALESCE($1, mpq.status)
+WHERE ($1 = '' OR mpq.status = $1)
 ORDER BY mpq.queued_at
 LIMIT $2 OFFSET $3;
 
 -- name: UpdatePrintQueueStatus :one
 UPDATE manual_print_queue
-SET status = $2, processed_by = $3,
-    printed_at = CASE WHEN $2 = 'ready' THEN NOW() ELSE printed_at END,
-    collected_at = CASE WHEN $2 = 'collected' THEN NOW() ELSE collected_at END
+SET status = $2::varchar, processed_by = $3::uuid,
+    printed_at = CASE WHEN $2::varchar = 'ready' THEN NOW() ELSE printed_at END,
+    collected_at = CASE WHEN $2::varchar = 'collected' THEN NOW() ELSE collected_at END
 WHERE id = $1
 RETURNING *;
 

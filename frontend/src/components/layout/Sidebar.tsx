@@ -7,10 +7,10 @@ import {
   LayoutDashboard, BookOpen, CreditCard, FileText, HelpCircle,
   Calendar, User, BookMarked, Users, Award, ShieldAlert,
   Settings, Briefcase, GraduationCap, DollarSign, Database,
-  TrendingUp, ClipboardList, Printer, MessageSquare, ListTodo,
+  TrendingUp, ClipboardList, Printer, ListTodo,
   ChevronLeft, ChevronDown, LogOut, X,
-  BarChart3, Clock, UserCheck, Megaphone,
-  FileOutput, BookCopy, Brain, Calculator, AlertTriangle
+  BarChart3, Clock, Megaphone, Wrench,
+ Brain, Calculator, AlertTriangle, Bell
 } from 'lucide-react';
 import type { UserRole } from '../../types';
 
@@ -41,9 +41,10 @@ interface NavSection {
 const menuItems: MenuItem[] = [
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['student', 'lecturer', 'class_rep', 'class_bursar', 'dept_bursar', 'alumni'] },
 
+  { label: 'Communication', path: '/communication', icon: Bell, roles: ['student'] },
+
   { label: 'My Results', path: '/results', icon: Award, roles: ['student'] },
-  { label: 'GPA Predictor', path: '/gpa-prediction', icon: TrendingUp, roles: ['student'] },
-  { label: 'GPA Calculator', path: '/gpa-calculator', icon: Calculator, roles: ['student'] },
+  { label: 'GPA Tools', path: '/gpa', icon: TrendingUp, roles: ['student'] },
   { label: 'Study Planner', path: '/study-planner', icon: ClipboardList, roles: ['student'] },
   { label: 'Grade Appeals', path: '/grade-appeals', icon: AlertTriangle, roles: ['student'] },
   { label: 'Course Registration', path: '/courses/register', icon: BookMarked, roles: ['student'] },
@@ -53,28 +54,18 @@ const menuItems: MenuItem[] = [
   { label: 'Manuals Marketplace', path: '/manuals', icon: BookOpen, roles: ['student'] },
   { label: 'My Manuals', path: '/manuals/my', icon: BookMarked, roles: ['student'] },
   { label: 'Complaints', path: '/complaints', icon: HelpCircle, roles: ['student'] },
-  { label: 'Notice Board', path: '/notices', icon: Megaphone, roles: ['student'] },
-  { label: 'Emergency Broadcasts', path: '/broadcasts', icon: ShieldAlert, roles: ['student'] },
-  { label: 'My Feedback', path: '/my-feedback', icon: MessageSquare, roles: ['student'] },
-  { label: 'Announcements', path: '/announcements', icon: Megaphone, roles: ['student'] },
+  { label: 'Support', path: '/support', icon: HelpCircle, roles: ['student', 'hod', 'delegated_admin', 'admin'] },
 
   { label: 'Job Board', path: '/student/jobs', icon: Briefcase, roles: ['student'] },
   { label: 'My Applications', path: '/student/applications', icon: FileText, roles: ['student'] },
 
   { label: 'Payments & Dues', path: '/payments', icon: CreditCard, roles: ['student'] },
 
-  { label: 'Campus Connect', path: '/connect', icon: MessageSquare },
-  { label: 'Feed', path: '/connect/feed', icon: MessageSquare },
-  { label: 'Discover People', path: '/connect/discover', icon: Users },
-  { label: 'My Campus Profile', path: '/connect/my-profile', icon: User },
-  { label: 'Bookmarks', path: '/connect/bookmarks', icon: BookMarked },
-  { label: 'Moderation', path: '/connect/moderation', icon: ShieldAlert, roles: ['hod', 'admin', 'delegated_admin'] },
+  { label: 'Connect', path: '/connect', icon: Users },
   { label: 'Skills & Trade', path: '/skills', icon: TrendingUp },
 
   { label: 'Alumni Portal', path: '/alumni', icon: GraduationCap, roles: ['student', 'alumni', 'hod', 'delegated_admin'] },
   { label: 'Job Board', path: '/alumni/jobs', icon: Briefcase, roles: ['alumni', 'hod', 'delegated_admin'] },
-  { label: 'My Job Posts', path: '/alumni/my-jobs', icon: ClipboardList, roles: ['alumni', 'hod', 'delegated_admin'] },
-  { label: 'Mentorship Hub', path: '/alumni/mentorship', icon: Users, roles: ['alumni', 'hod', 'delegated_admin'] },
   { label: 'Give Back', path: '/alumni/give-back', icon: DollarSign, roles: ['alumni', 'hod', 'delegated_admin'] },
 
   { label: 'Lecturer Portal', path: '/lecturer', icon: LayoutDashboard, roles: ['lecturer'] },
@@ -87,31 +78,23 @@ const menuItems: MenuItem[] = [
   { label: 'Track Attendance', path: '/class-rep/attendance', icon: ClipboardList, roles: ['class_rep'] },
   { label: 'Submit Assignments', path: '/class-rep/assignments', icon: ListTodo, roles: ['class_rep'] },
   { label: 'Pending Registrations', path: '/class-rep/pending', icon: ShieldAlert, roles: ['class_rep'] },
+  { label: 'Class List', path: '/class-rep/class-list', icon: Users, roles: ['class_rep'] },
+  { label: 'Notify Classmates', path: '/class-rep/notify', icon: Megaphone, roles: ['class_rep'] },
 
   { label: 'Bursar Portal', path: '/bursar', icon: LayoutDashboard, roles: ['class_bursar', 'dept_bursar'] },
-  { label: 'Department Dues', path: '/bursar/dept-dues', icon: DollarSign, roles: ['dept_bursar', 'hod', 'delegated_admin'] },
-  { label: 'Class Dues', path: '/bursar/class-dues', icon: DollarSign, roles: ['class_bursar', 'hod', 'delegated_admin'] },
+  { label: 'Dues Management', path: '/bursar/dues', icon: DollarSign, roles: ['class_bursar', 'dept_bursar', 'hod', 'delegated_admin'] },
   { label: 'Verify Payments', path: '/bursar/verify', icon: DollarSign, roles: ['class_bursar', 'dept_bursar'] },
   { label: 'Defaulters List', path: '/bursar/defaulters', icon: ShieldAlert, roles: ['class_bursar', 'dept_bursar'] },
 
   { label: 'Admin Portal', path: '/admin', icon: LayoutDashboard, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Results Approval', path: '/admin/results', icon: ClipboardList, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Bulk Results Upload', path: '/admin/results/bulk-upload', icon: Database, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Results Management', path: '/admin/results/manage', icon: ClipboardList, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'User Directory', path: '/admin/users', icon: Users, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Pending Approvals', path: '/admin/approvals', icon: UserCheck, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Role Management', path: '/admin/roles', icon: ShieldAlert, roles: ['hod', 'delegated_admin', 'admin'] },
-  // { label: 'Delegate Admin', path: '/admin/delegate', icon: UserCheck, roles: ['hod'] },
-  // { label: 'Delegate Student Roles', path: '/admin/delegate-student-roles', icon: UserCheck, roles: ['hod'] },
+  { label: 'User Roles and Permissions', path: '/admin/user-roles', icon: ShieldAlert, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Analytics', path: '/admin/analytics', icon: BarChart3, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Course Management', path: '/admin/courses', icon: BookOpen, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Course Registrations', path: '/admin/course-registrations', icon: BookMarked, roles: ['hod', 'delegated_admin', 'admin'] },
-  // { label: 'Lecturer Management', path: '/admin/lecturers', icon: Users, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Subcategories', path: '/admin/subcategories', icon: BookCopy, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Dues & Sessions', path: '/admin/sessions', icon: Calendar, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Course Hub', path: '/admin/course-hub', icon: BookOpen, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Sessions', path: '/admin/sessions', icon: Calendar, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Announcements', path: '/admin/announcements', icon: Megaphone, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Transcript Queue', path: '/admin/transcripts', icon: FileOutput, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Graduation Check', path: '/admin/graduation', icon: GraduationCap, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Reports', path: '/admin/reports', icon: BarChart3, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Academics', path: '/admin/academics', icon: GraduationCap, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Complaints', path: '/admin/complaints', icon: HelpCircle, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Timetable', path: '/admin/timetable', icon: Clock, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Manuals', path: '/admin/manuals', icon: BookOpen, roles: ['hod', 'delegated_admin', 'admin'] },
@@ -119,18 +102,11 @@ const menuItems: MenuItem[] = [
   { label: 'Alumni Mgmt', path: '/admin/alumni', icon: GraduationCap, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Job Moderation', path: '/admin/job-moderation', icon: Briefcase, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Document Verification', path: '/admin/documents', icon: FileText, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'CGPA Settings', path: '/admin/cgpa-settings', icon: Settings, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Backups', path: '/admin/backups', icon: Database, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Settings', path: '/admin/settings', icon: Settings, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'AI Settings', path: '/admin/ai-settings', icon: Brain, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'At-Risk Students', path: '/admin/at-risk', icon: ShieldAlert, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Revenue Forecast', path: '/admin/revenue-forecast', icon: TrendingUp, roles: ['hod', 'delegated_admin', 'admin', 'dept_bursar', 'class_bursar'] },
   { label: 'Grade Distribution', path: '/admin/grade-distribution', icon: BarChart3, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Calendar', path: '/admin/calendar', icon: Calendar, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Expenses', path: '/admin/expenses', icon: DollarSign, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Feature Flags', path: '/admin/feature-flags', icon: ShieldAlert, roles: ['hod', 'admin'] },
-  { label: 'User Feedback', path: '/admin/feedback', icon: MessageSquare, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Help Center', path: '/help', icon: HelpCircle },
+  { label: 'Operations', path: '/admin/system', icon: Wrench, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Settings', path: '/admin/settings', icon: Settings, roles: ['hod', 'delegated_admin', 'admin'] },
 
   // { label: 'AI Blueprint', path: '/ai-blueprint', icon: Brain, roles: ['hod', 'delegated_admin', 'admin'] },
 
@@ -160,7 +136,7 @@ const mobileSections: NavSection[] = [
     icon: '\u{1F4AC}',
     key: 'community',
     items: [
-      { label: 'Campus Connect', path: '/connect', icon: MessageSquare },
+      { label: 'Connect', path: '/connect', icon: Users },
       { label: 'Skills & Trade', path: '/skills', icon: TrendingUp },
     ],
   },
@@ -192,12 +168,31 @@ const mobileSections: NavSection[] = [
       { label: 'AI Blueprint', path: '/ai-blueprint', icon: Brain },
     ],
   },
+  {
+    title: 'CLASS REP',
+    icon: '\u{1F397}',
+    key: 'class_rep',
+    roles: ['class_rep'],
+    items: [
+      { label: 'Class Rep Portal', path: '/class-rep', icon: LayoutDashboard },
+      { label: 'Track Attendance', path: '/class-rep/attendance', icon: ClipboardList },
+      { label: 'Pending Registrations', path: '/class-rep/pending', icon: ShieldAlert },
+      { label: 'Class List', path: '/class-rep/class-list', icon: Users },
+      { label: 'Notify Classmates', path: '/class-rep/notify', icon: Megaphone },
+    ],
+  },
 ];
 
 const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: SidebarProps) => {
   const { activeRole } = useRBAC();
   const { user, logout } = useAuth();
   const [expandedSections, setExpandedSections] = useState<string[]>(['academics']);
+
+  const isPendingApproval = user &&
+    user.onboardingCompleted !== false &&
+    user.isApproved === false &&
+    user.isActive !== false &&
+    ['student', 'lecturer'].includes(user.role || user.activeRole || '');
 
   const toggleSection = (key: string) => {
     setExpandedSections((prev) =>
@@ -285,85 +280,95 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
             Dashboard
           </NavLink>
 
-          {/* Collapsible sections */}
-          {mobileSections.map((section) => {
-            const hasAccess = !section.roles || section.roles.some((r) => user?.roles.includes(r));
-            const isExpanded = expandedSections.includes(section.key);
-            const showLocked = section.locked && !isAlumni;
+          {isPendingApproval ? (
+            <div className="px-6 py-8 text-center">
+              <Clock className="w-8 h-8 mx-auto text-amber-400 mb-3" />
+              <p className="text-sm font-semibold text-surface-700 dark:text-surface-200">Waiting for Approval</p>
+              <p className="text-xs text-surface-400 dark:text-surface-500 mt-1">Only Dashboard, Profile &amp; Logout are available</p>
+            </div>
+          ) : (
+            <>
+              {/* Collapsible sections */}
+              {mobileSections.map((section) => {
+                const hasAccess = !section.roles || section.roles.some((r) => user?.roles.includes(r));
+                const isExpanded = expandedSections.includes(section.key);
+                const showLocked = section.locked && !isAlumni;
 
-            if (!hasAccess && !section.locked) return null;
+                if (!hasAccess && !section.locked) return null;
 
-            return (
-              <div key={section.key} className="mt-1">
-                <button
-                  onClick={() => {
-                    if (showLocked) return;
-                    toggleSection(section.key);
-                  }}
-                  className={cn(
-                    'flex items-center justify-between w-full px-4 py-2.5 mx-2 text-xs font-semibold uppercase tracking-widest rounded-lg transition-colors',
-                    showLocked
-                      ? 'text-surface-400 dark:text-surface-600 cursor-default'
-                      : 'text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800'
-                  )}
-                >
-                  <span className="flex items-center gap-2">
-                    <span className="text-base">{section.icon}</span>
-                    {section.title}
-                    {showLocked && (
-                      <span className="text-[10px] uppercase tracking-wider text-surface-400 dark:text-surface-500 ml-1 px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800">
-                        Locked
+                return (
+                  <div key={section.key} className="mt-1">
+                    <button
+                      onClick={() => {
+                        if (showLocked) return;
+                        toggleSection(section.key);
+                      }}
+                      className={cn(
+                        'flex items-center justify-between w-full px-4 py-2.5 mx-2 text-xs font-semibold uppercase tracking-widest rounded-lg transition-colors',
+                        showLocked
+                          ? 'text-surface-400 dark:text-surface-600 cursor-default'
+                          : 'text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800'
+                      )}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="text-base">{section.icon}</span>
+                        {section.title}
+                        {showLocked && (
+                          <span className="text-[10px] uppercase tracking-wider text-surface-400 dark:text-surface-500 ml-1 px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800">
+                            Locked
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </span>
-                  {!showLocked && (
-                    <ChevronDown
-                      className={cn('w-4 h-4 transition-transform duration-200', isExpanded && 'rotate-180')}
-                    />
-                  )}
-                </button>
+                      {!showLocked && (
+                        <ChevronDown
+                          className={cn('w-4 h-4 transition-transform duration-200', isExpanded && 'rotate-180')}
+                        />
+                      )}
+                    </button>
 
-                {isExpanded && !showLocked && (
-                  <div className="ml-6 pl-2 border-l-2 border-surface-200 dark:border-surface-700 space-y-0.5">
-                    {section.items.map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <NavLink
-                          key={item.path}
-                          to={item.path}
-                          onClick={onMobileClose}
-                          className={({ isActive }) =>
-                            cn(
-                              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors',
-                              isActive
-                                ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/20 dark:text-primary-400'
-                                : 'text-surface-600 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800 hover:text-surface-800 dark:hover:text-surface-200'
-                            )
-                          }
-                        >
-                          <Icon className="w-4 h-4 shrink-0" />
-                          {item.label}
-                        </NavLink>
-                      );
-                    })}
-                    {section.locked && (
-                      <p className="px-3 py-2 text-xs text-surface-400 dark:text-surface-500 italic">
-                        {section.lockMessage}
-                      </p>
+                    {isExpanded && !showLocked && (
+                      <div className="ml-6 pl-2 border-l-2 border-surface-200 dark:border-surface-700 space-y-0.5">
+                        {section.items.map((item) => {
+                          const Icon = item.icon;
+                          return (
+                            <NavLink
+                              key={item.path}
+                              to={item.path}
+                              onClick={onMobileClose}
+                              className={({ isActive }) =>
+                                cn(
+                                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors',
+                                  isActive
+                                    ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/20 dark:text-primary-400'
+                                    : 'text-surface-600 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800 hover:text-surface-800 dark:hover:text-surface-200'
+                                )
+                              }
+                            >
+                              <Icon className="w-4 h-4 shrink-0" />
+                              {item.label}
+                            </NavLink>
+                          );
+                        })}
+                        {section.locked && (
+                          <p className="px-3 py-2 text-xs text-surface-400 dark:text-surface-500 italic">
+                            {section.lockMessage}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {showLocked && (
+                      <div className="ml-6 pl-2 border-l-2 border-surface-200 dark:border-surface-700 ml-6 pl-2">
+                        <p className="px-3 py-2 text-xs text-surface-400 dark:text-surface-500 italic">
+                          {section.lockMessage}
+                        </p>
+                      </div>
                     )}
                   </div>
-                )}
-
-                {showLocked && (
-                  <div className="ml-6 pl-2 border-l-2 border-surface-200 dark:border-surface-700 ml-6 pl-2">
-                    <p className="px-3 py-2 text-xs text-surface-400 dark:text-surface-500 italic">
-                      {section.lockMessage}
-                    </p>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                );
+              })}
+            </>
+          )}
         </nav>
 
         {/* Mobile footer */}

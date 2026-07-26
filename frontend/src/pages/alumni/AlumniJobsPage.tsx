@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
@@ -6,8 +6,8 @@ import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../hooks/useAuth';
-import { Search, Plus, Briefcase, MapPin, ExternalLink, Edit } from 'lucide-react';
-import { getJobPosts, createJobPost, updateJobPost, trackJobView } from '../../api/alumni';
+import { Search, Plus, Briefcase, MapPin, ExternalLink, Edit, Users, ChevronDown, ChevronUp, Mail } from 'lucide-react';
+import { getJobPosts, createJobPost, updateJobPost, trackJobView, listJobApplications, listUserJobPosts, updateJobApplicationStatus } from '../../api/alumni';
 
 const typeLabels: Record<string, string> = { full_time: 'Full Time', part_time: 'Part Time', internship: 'Internship', contract: 'Contract', remote: 'Remote' };
 const typeColors: Record<string, string> = { full_time: 'primary', part_time: 'info', internship: 'success', contract: 'warning', remote: 'info' };
@@ -18,10 +18,14 @@ const AlumniJobsPage = () => {
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [activeTab, setActiveTab] = useState<'all' | 'my'>('all');
   const [createOpen, setCreateOpen] = useState(false);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [selectedJob, setSelectedJob] = useState<any>(null);
+  const [jobApplications, setJobApplications] = useState<Record<string, any[]>>({});
+  const [loadingApps, setLoadingApps] = useState(false);
+  const [expandedJobApps, setExpandedJobApps] = useState<string | null>(null);
 
   const [title, setTitle] = useState('');
   const [company, setCompany] = useState('');
@@ -42,6 +46,36 @@ const AlumniJobsPage = () => {
       .finally(() => setLoading(false));
   }, []);
 
+  const fetchApplicationsForMyJobs = useCallback(async () => {
+    if (!user) return;
+    setLoadingApps(true);
+    try {
+      const myJobs = jobs.filter((j) => j.posted_by === user.id || j.postedBy === user.id);
+      const appsMap: Record<string, any[]> = {};
+      await Promise.all(
+        myJobs.map(async (job) => {
+          try {
+            const apps = await listJobApplications(job.id);
+            appsMap[job.id] = Array.isArray(apps) ? apps : [];
+          } catch {
+            appsMap[job.id] = [];
+          }
+        })
+      );
+      setJobApplications(appsMap);
+    } catch {
+      // silent
+    } finally {
+      setLoadingApps(false);
+    }
+  }, [user, jobs]);
+
+  useEffect(() => {
+    if (activeTab === 'my' && user) {
+      fetchApplicationsForMyJobs();
+    }
+  }, [activeTab, user, fetchApplicationsForMyJobs]);
+
   const canEditJob = (job: any) => {
     if (!user || !job) return false;
     const isOwner = job.posted_by === user.id || job.postedBy === user.id;
@@ -51,6 +85,10 @@ const AlumniJobsPage = () => {
   };
 
   const filtered = jobs.filter((j) => {
+    if (activeTab === 'my' && user) {
+      const isOwner = j.posted_by === user.id || j.postedBy === user.id;
+      if (!isOwner) return false;
+    }
     if (!search) return true;
     const q = search.toLowerCase();
     return j.title?.toLowerCase().includes(q) || j.company?.toLowerCase().includes(q) || j.industry?.toLowerCase().includes(q);
@@ -120,6 +158,25 @@ const AlumniJobsPage = () => {
   const handleViewJob = async (job: any) => {
     setSelectedJob(job);
     try { await trackJobView(job.id); } catch { /* silent */ }
+    if (activeTab === 'my' && user) {
+      try {
+        const apps = await listJobApplications(job.id);
+        setJobApplications((prev) => ({ ...prev, [job.id]: Array.isArray(apps) ? apps : [] }));
+      } catch { /* silent */ }
+    }
+  };
+
+  const handleUpdateAppStatus = async (applicationId: string, newStatus: string) => {
+    try {
+      await updateJobApplicationStatus(applicationId, newStatus);
+      success('Updated', `Application ${newStatus}`);
+      if (selectedJob) {
+        const apps = await listJobApplications(selectedJob.id);
+        setJobApplications((prev) => ({ ...prev, [selectedJob.id]: Array.isArray(apps) ? apps : [] }));
+      }
+    } catch (err: any) {
+      notifyError('Failed', err?.response?.data?.error || err?.message);
+    }
   };
 
   return (
@@ -130,6 +187,22 @@ const AlumniJobsPage = () => {
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Post and discover job opportunities from the alumni network</p>
         </div>
         <Button leftIcon={<Plus className="w-4 h-4" />} onClick={handleOpenCreate}>Post Job</Button>
+      </div>
+
+      <div className="flex gap-2">
+        {([
+          { key: 'all' as const, label: 'All Jobs' },
+          { key: 'my' as const, label: 'My Posts' },
+        ]).map(({ key, label }) => (
+          <button key={key} onClick={() => setActiveTab(key)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              activeTab === key
+                ? 'bg-primary-500 text-white'
+                : 'bg-white dark:bg-surface-900 text-surface-600 dark:text-surface-400 border border-surface-200 dark:border-surface-700 hover:bg-surface-100 dark:hover:bg-surface-800'
+            }`}>
+            {label}
+          </button>
+        ))}
       </div>
 
       <div className="relative max-w-md">
@@ -146,10 +219,13 @@ const AlumniJobsPage = () => {
           {filtered.map((job) => {
             const type = (job.job_type || job.type || 'full_time') as string;
             const isEditable = canEditJob(job);
+            const isMyPost = activeTab === 'my';
+            const apps = jobApplications[job.id] || [];
+            const isExpanded = expandedJobApps === job.id;
             return (
-              <Card key={job.id} hover className="p-5 flex flex-col relative group" onClick={() => handleViewJob(job)}>
+              <Card key={job.id} hover className="p-5 flex flex-col relative group">
                 <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 cursor-pointer" onClick={() => handleViewJob(job)}>
                     <h4 className="font-semibold text-surface-900 dark:text-surface-100 truncate">{job.title}</h4>
                     <p className="text-sm text-surface-500">{job.company}</p>
                   </div>
@@ -172,13 +248,71 @@ const AlumniJobsPage = () => {
                   {(job.salary_range || job.salaryRange) && <span className="flex items-center gap-1"><Briefcase className="w-3.5 h-3.5" /> {job.salary_range || job.salaryRange}</span>}
                   {job.industry && <Badge variant="outline">{job.industry}</Badge>}
                 </div>
-                <p className="text-sm text-surface-600 dark:text-surface-400 line-clamp-3 flex-1">{job.description}</p>
+                <p className="text-sm text-surface-600 dark:text-surface-400 line-clamp-3 flex-1 cursor-pointer" onClick={() => handleViewJob(job)}>{job.description}</p>
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-surface-100 dark:border-surface-700">
                   {job.poster_name && <p className="text-[10px] text-surface-400">by {job.poster_name}</p>}
-                  {(job.views_count || job.applications_count) && (
-                    <p className="text-[10px] text-surface-400">{job.views_count || 0} views &bull; {job.applications_count || 0} apps</p>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {(job.views_count || job.applications_count) && (
+                      <p className="text-[10px] text-surface-400">{job.views_count || 0} views &bull; {job.applications_count || 0} apps</p>
+                    )}
+                    {isMyPost && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setExpandedJobApps(isExpanded ? null : job.id); }}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary-50 text-primary-600 dark:bg-primary-950/20 dark:text-primary-400 hover:bg-primary-100 dark:hover:bg-primary-950/30 transition-colors"
+                      >
+                        <Users className="w-3 h-3" />
+                        {apps.length || job.applications_count || 0}
+                        {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                      </button>
+                    )}
+                  </div>
                 </div>
+                {isMyPost && isExpanded && (
+                  <div className="mt-3 pt-3 border-t border-surface-100 dark:border-surface-700 space-y-2">
+                    {loadingApps ? (
+                      <p className="text-xs text-surface-400">Loading applications...</p>
+                    ) : apps.length === 0 ? (
+                      <p className="text-xs text-surface-400">No applications yet</p>
+                    ) : (
+                      apps.map((app: any) => (
+                        <div key={app.id} className="p-2 bg-surface-50 dark:bg-surface-800/50 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold text-surface-800 dark:text-surface-200 truncate">{app.applicant_name || 'Applicant'}</p>
+                              <p className="text-[10px] text-surface-400 truncate">{app.applicant_email}</p>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Badge variant={app.status === 'accepted' ? 'success' : app.status === 'rejected' ? 'danger' : 'warning'}>
+                                {app.status || 'pending'}
+                              </Badge>
+                              {app.status === 'pending' && (
+                                <>
+                                  <button
+                                    onClick={() => handleUpdateAppStatus(app.id, 'accepted')}
+                                    className="p-0.5 text-success-500 hover:text-success-600 transition-colors"
+                                    title="Accept"
+                                  >
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                  </button>
+                                  <button
+                                    onClick={() => handleUpdateAppStatus(app.id, 'rejected')}
+                                    className="p-0.5 text-danger-500 hover:text-danger-600 transition-colors"
+                                    title="Reject"
+                                  >
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          {app.cover_letter && (
+                            <p className="text-[10px] text-surface-500 mt-1 line-clamp-2">{app.cover_letter}</p>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </Card>
             );
           })}

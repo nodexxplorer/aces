@@ -12,7 +12,7 @@ import (
 type GPAPredictionItem struct {
 	CourseCode  string  `json:"course_code"`
 	Credits     int32   `json:"credits"`
-	TotalScore  int32   `json:"total_score"`
+	TotalScore  float64 `json:"total_score"`
 	GradePoints float64 `json:"grade_points"`
 	GradeLetter string  `json:"grade_letter"`
 }

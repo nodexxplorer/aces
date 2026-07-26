@@ -1,20 +1,24 @@
 import { useState, useEffect } from 'react';
-import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
 import ManualCard from '../../components/ui/ManualCard';
 import { useNotification } from '../../hooks/useNotification';
-import { ShoppingCart, Search, CheckCircle, Loader2 } from 'lucide-react';
-import { getManuals, purchaseManual, getMyPurchases } from '../../api/manuals';
+import { ShoppingCart, Search, Loader2 } from 'lucide-react';
+import { getManuals, getMyPurchases } from '../../api/manuals';
+import { useCartStore } from '../../stores/cartStore';
 import type { Manual } from '../../api/manuals';
 
 const ManualsPage = () => {
-  const { success, error: notifyError } = useNotification();
+  const { success } = useNotification();
   const [manuals, setManuals] = useState<Manual[]>([]);
   const [loading, setLoading] = useState(true);
   const [level, setLevel] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [purchasedIds, setPurchasedIds] = useState<Set<string>>(new Set());
-  const [buyingId, setBuyingId] = useState<string | null>(null);
+
+  const addItem = useCartStore((s) => s.addItem);
+  const getItemCount = useCartStore((s) => s.getItemCount);
+  const cartItems = useCartStore((s) => s.items);
+  const cartManualIds = new Set(cartItems.map((i) => i.manual.id));
 
   useEffect(() => {
     fetchData();
@@ -48,22 +52,18 @@ const ManualsPage = () => {
       (!searchQuery || m.title.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const handleBuy = async (manual: Manual) => {
-    try {
-      setBuyingId(manual.id);
-      await purchaseManual(manual.id);
-      setPurchasedIds((prev) => new Set([...prev, manual.id]));
-      success('Purchase Successful', `"${manual.title}" purchased. Check "My Manuals" for your QR code.`);
-    } catch (err: any) {
-      const msg = err?.response?.data?.error || err?.message || 'Purchase failed';
-      if (msg.includes('already purchased')) {
-        notifyError('Already Purchased', 'You have already purchased this manual.');
-      } else {
-        notifyError('Purchase Failed', msg);
-      }
-    } finally {
-      setBuyingId(null);
-    }
+  const handleAddToCart = (manual: Manual) => {
+    addItem({
+      id: manual.id,
+      title: manual.title,
+      description: manual.description || '',
+      price: manual.price,
+      level: manual.level,
+      isActive: manual.is_active,
+      coverImageUrl: manual.cover_image_url,
+      createdAt: manual.created_at,
+    });
+    success('Added to Cart', `"${manual.title}" added to your cart.`);
   };
 
   return (
@@ -75,6 +75,18 @@ const ManualsPage = () => {
             Purchase recommended textbooks and laboratory manuals.
           </p>
         </div>
+        <a
+          href="/payments?tab=cart"
+          className="relative inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-50 text-primary-600 hover:bg-primary-100 dark:bg-primary-900/20 dark:text-primary-400 dark:hover:bg-primary-900/40 text-sm font-medium transition-colors"
+        >
+          <ShoppingCart className="w-4 h-4" />
+          View Cart
+          {getItemCount() > 0 && (
+            <span className="flex items-center justify-center w-5 h-5 text-[10px] font-bold text-white bg-primary-500 rounded-full">
+              {getItemCount()}
+            </span>
+          )}
+        </a>
       </div>
 
       <div className="flex gap-4 max-w-xl">
@@ -127,7 +139,12 @@ const ManualsPage = () => {
                 createdAt: m.created_at,
               }}
               isPurchased={purchasedIds.has(m.id)}
-              onPurchase={purchasedIds.has(m.id) ? undefined : () => handleBuy(m)}
+              isInCart={cartManualIds.has(m.id)}
+              onPurchase={
+                purchasedIds.has(m.id) || cartManualIds.has(m.id)
+                  ? undefined
+                  : () => handleAddToCart(m)
+              }
             />
           ))}
         </div>

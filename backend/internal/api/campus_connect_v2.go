@@ -78,7 +78,7 @@ func (server *Server) getCampusProfile(ctx *gin.Context) {
 
 	profile, err := queries.GetCampusProfile(ctx, targetUserID)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": "profile not found"})
+		ctx.JSON(http.StatusOK, gin.H{"data": nil})
 		return
 	}
 

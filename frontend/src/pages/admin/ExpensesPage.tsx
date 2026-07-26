@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { DollarSign, CheckCircle, XCircle, Clock, Filter, Plus, BarChart3 } from 'lucide-react';
+import { Banknote, CheckCircle, XCircle, Clock, Filter, Plus, BarChart3 } from 'lucide-react';
 import { listExpenses, createExpense, getExpenseSummary, updateExpenseStatus, type Expense } from '../../api/additional-features';
 
 const STATUS_BADGES: Record<string, string> = {
@@ -101,25 +101,25 @@ export default function ExpensesPage() {
   const summaryCards = [
     {
       label: 'Total Expenses',
-      value: `$${summary.total_expenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-      icon: DollarSign,
+      value: `\u20A6${summary.total_expenses.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
+      icon: Banknote,
       color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
     },
     {
       label: 'Pending',
-      value: `$${summary.pending_count.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      value: `${summary.pending_count}`,
       icon: Clock,
       color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400',
     },
     {
       label: 'Approved',
-      value: `$${summary.approved_amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      value: `\u20A6${summary.approved_amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
       icon: CheckCircle,
       color: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400',
     },
     {
       label: 'Rejected',
-      value: `$${summary.rejected_count.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      value: `${summary.rejected_count}`,
       icon: XCircle,
       color: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',
     },
@@ -177,7 +177,7 @@ export default function ExpensesPage() {
 
               <div>
                 <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-                  Amount ($)
+                  Amount (\u20A6)
                 </label>
                 <input
                   type="number"
@@ -351,7 +351,7 @@ export default function ExpensesPage() {
                         )}
                       </td>
                       <td className="px-6 py-4 text-sm font-semibold text-surface-900 dark:text-surface-100">
-                        ${expense.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                        \u20A6{expense.amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="px-6 py-4 text-sm text-surface-600 dark:text-surface-400">
                         {expense.category}

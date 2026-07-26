@@ -224,7 +224,7 @@ SELECT u.id, u.full_name, u.avatar_url, u.role,
        COALESCE(cp.bio, '') AS bio,
        COALESCE(cp.skills, '[]') AS skills,
        COALESCE(cp.interests, '[]') AS interests,
-       CASE WHEN s.department IS NOT NULL THEN s.department ELSE '' END AS department,
+       '' AS department,
        (
          CASE WHEN EXISTS(SELECT 1 FROM connections c WHERE c.status = 'accepted'
            AND ((c.requester_id = $1 AND c.receiver_id = u.id) OR (c.receiver_id = u.id AND c.requester_id = $1)))
@@ -244,7 +244,6 @@ WHERE u.id != $1 AND u.is_active = true AND u.is_approved = true
         AND ((c.requester_id = $1 AND c.receiver_id = u.id) OR (c.receiver_id = u.id AND c.requester_id = $1))
   )
 ORDER BY
-  (CASE WHEN s.department = (SELECT department FROM students WHERE user_id = $1) THEN 25 ELSE 0 END) +
   (CASE WHEN s.level = (SELECT level FROM students WHERE user_id = $1) THEN 20 ELSE 0 END) +
   (CASE WHEN cp.availability_status = 'online' THEN 5 ELSE 0 END)
   DESC

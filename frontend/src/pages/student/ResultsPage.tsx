@@ -28,7 +28,7 @@ const ResultsPage = () => {
       .finally(() => setLoading(false));
   }, [user?.id]);
 
-  const filteredResults = results.filter(
+  const filteredResults = (results || []).filter(
     (r) => r.course?.level === parseInt(level) && r.semester === semester
   );
 

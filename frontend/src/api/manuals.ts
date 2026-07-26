@@ -94,7 +94,7 @@ export const getMyPurchases = async () => {
 
 // Student download cover PDF
 export const downloadCover = async (purchaseId: string) => {
-  const res = await apiClient.get(`/manuals/purchases/${purchaseId}/cover`, { responseType: 'blob' });
+  const res = await apiClient.get(`/manuals/${purchaseId}/cover`, { responseType: 'blob' });
   return res.data;
 };
 

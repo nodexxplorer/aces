@@ -46,7 +46,12 @@ func (server *Server) sendConnectionRequest(ctx *gin.Context) {
 
 	connection, err := server.campusConnect.SendConnectionRequest(ctx, requesterID, req.ReceiverID, req.Message)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		errMsg := err.Error()
+		status := http.StatusInternalServerError
+		if errMsg == "cannot send a connection request to yourself" || errMsg == "a connection request already exists between you and this user" {
+			status = http.StatusConflict
+		}
+		ctx.JSON(status, gin.H{"error": errMsg})
 		return
 	}
 
@@ -103,6 +108,29 @@ func (server *Server) listPendingRequests(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, requests)
+}
+
+func (server *Server) getUnreadCounts(ctx *gin.Context) {
+	userID := getUserID(ctx)
+
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
+		return
+	}
+
+	counts, err := queries.CountUnreadBySender(ctx, userID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	result := map[string]int32{}
+	for _, c := range counts {
+		result[c.SenderID.String()] = c.UnreadCount
+	}
+
+	ctx.JSON(http.StatusOK, result)
 }
 
 func (server *Server) sendMessage(ctx *gin.Context) {
@@ -328,7 +356,13 @@ func (server *Server) listGroupMessages(ctx *gin.Context) {
 }
 
 func (server *Server) getStudentDirectory(ctx *gin.Context) {
-	directory, err := server.campusConnect.GetStudentDirectory(ctx, 100, 0)
+	userID := getUserID(ctx)
+	if userID == uuid.Nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	directory, err := server.campusConnect.GetStudentDirectory(ctx, userID, 100, 0)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -338,6 +372,25 @@ func (server *Server) getStudentDirectory(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, directory)
+}
+
+func (server *Server) getAllConnectionUserIds(ctx *gin.Context) {
+	userID := getUserID(ctx)
+	if userID == uuid.Nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	ids, err := server.campusConnect.GetAllConnectionUserIds(ctx, userID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if ids == nil {
+		ids = []uuid.UUID{}
+	}
+
+	ctx.JSON(http.StatusOK, ids)
 }
 
 func (server *Server) getAlumniDirectory(ctx *gin.Context) {

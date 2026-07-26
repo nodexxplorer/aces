@@ -11,23 +11,18 @@ import Input from '../../components/ui/Input';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import {
   User, Phone, Image, CheckCircle, ArrowRight, ArrowLeft,
-  Calendar, BookOpen, MapPin, AlertCircle, FileText
+  Calendar, BookOpen, MapPin, AlertCircle
 } from 'lucide-react';
 import { isValidPhone } from '../../utils/validators';
 import apiClient from '../../api/client';
 
 const onboardingSchema = z.object({
-  fullName: z.string().min(3, 'Full name must be at least 3 characters').regex(/^[A-Za-z\s]+$/, 'Name can only contain letters and spaces'),
+  middleName: z.string().optional(),
   dateOfBirth: z.string().min(1, 'Date of birth is required').refine((val) => {
     const dob = new Date(val);
     const age = (Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
     return age >= 16;
   }, 'You must be at least 16 years old'),
-  matricNumber: z.string().min(1, 'Matric number is required').regex(
-    /^\d{2}\/[A-Z]{2,10}\/[A-Z]{2,10}\/\d{2,4}$/,
-    'Format: 19/ENG/COE/001'
-  ),
-  level: z.string().min(1, 'Level is required'),
   admissionMode: z.string().min(1, 'Admission mode is required'),
   yearAdmitted: z.string().min(1, 'Year admitted is required').refine((val) => {
     const year = parseInt(val);
@@ -43,7 +38,7 @@ const onboardingSchema = z.object({
 type OnboardingValues = z.infer<typeof onboardingSchema>;
 
 const StudentOnboardingPage = () => {
-  const { user, updateUser } = useAuth();
+  const { updateUser } = useAuth();
   const { success } = useNotification();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
@@ -59,7 +54,6 @@ const StudentOnboardingPage = () => {
     resolver: zodResolver(onboardingSchema),
     defaultValues: {
       admissionMode: 'UTME',
-      level: '',
       yearAdmitted: new Date().getFullYear().toString(),
     },
   });
@@ -67,8 +61,8 @@ const StudentOnboardingPage = () => {
   const watchedValues = watch();
 
   const stepFields: Record<number, (keyof OnboardingValues)[]> = {
-    1: ['fullName', 'dateOfBirth', 'profilePhotoUrl'],
-    2: ['matricNumber', 'level', 'admissionMode', 'yearAdmitted'],
+    1: ['middleName', 'dateOfBirth', 'profilePhotoUrl'],
+    2: ['admissionMode', 'yearAdmitted'],
     3: ['phone', 'emergencyContact', 'emergencyContactPhone', 'homeAddress'],
     4: [],
   };
@@ -91,10 +85,8 @@ const StudentOnboardingPage = () => {
         phone: data.phone,
         bio: '',
         avatar: data.profilePhotoUrl || '',
-        full_name: data.fullName,
+        middle_name: data.middleName || '',
         date_of_birth: data.dateOfBirth,
-        matric_number: data.matricNumber,
-        level: data.level,
         admission_mode: data.admissionMode,
         year_admitted: data.yearAdmitted,
         emergency_contact: data.emergencyContact,
@@ -106,7 +98,7 @@ const StudentOnboardingPage = () => {
         onboardingCompleted: true,
         phone: data.phone,
         avatar: data.profilePhotoUrl || undefined,
-        fullName: data.fullName,
+        middleName: data.middleName || undefined,
       });
       success('Profile Set Up Complete', 'Welcome aboard! Your registration is now pending verification.');
       navigate('/dashboard');
@@ -168,11 +160,11 @@ const StudentOnboardingPage = () => {
                 </h3>
 
                 <Input
-                  label="Full Name"
-                  placeholder="e.g. John Adebayo Smith"
+                  label="Middle Name (optional)"
+                  placeholder="e.g. Adebayo"
                   leftIcon={<User className="w-4 h-4" />}
-                  error={errors.fullName?.message}
-                  {...register('fullName')}
+                  error={errors.middleName?.message}
+                  {...register('middleName')}
                 />
 
                 <div>
@@ -220,32 +212,6 @@ const StudentOnboardingPage = () => {
                 <h3 className="text-sm font-semibold text-surface-700 dark:text-surface-300 flex items-center gap-2">
                   <BookOpen className="w-4 h-4" /> Academic Information
                 </h3>
-
-                <Input
-                  label="Matric Number / Reg No"
-                  placeholder="e.g. 19/ENG/COE/001"
-                  leftIcon={<FileText className="w-4 h-4" />}
-                  error={errors.matricNumber?.message}
-                  {...register('matricNumber')}
-                />
-
-                <div>
-                  <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-                    Level
-                  </label>
-                  <select
-                    className="w-full px-4 py-2.5 text-sm bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
-                    {...register('level')}
-                  >
-                    <option value="">Select your level</option>
-                    <option value="100">100 Level</option>
-                    <option value="200">200 Level</option>
-                    <option value="300">300 Level</option>
-                    <option value="400">400 Level</option>
-                    <option value="500">500 Level</option>
-                  </select>
-                  {errors.level && <p className="text-xs text-danger-500 mt-1">{errors.level.message}</p>}
-                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-2">
@@ -382,21 +348,15 @@ const StudentOnboardingPage = () => {
 
                 <div className="bg-surface-50 dark:bg-surface-800/50 rounded-lg p-4 space-y-3">
                   <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <p className="text-xs text-surface-400 font-medium">Full Name</p>
-                      <p className="text-surface-900 dark:text-white">{watchedValues.fullName || '—'}</p>
-                    </div>
+                    {watchedValues.middleName && (
+                      <div>
+                        <p className="text-xs text-surface-400 font-medium">Middle Name</p>
+                        <p className="text-surface-900 dark:text-white">{watchedValues.middleName}</p>
+                      </div>
+                    )}
                     <div>
                       <p className="text-xs text-surface-400 font-medium">Date of Birth</p>
                       <p className="text-surface-900 dark:text-white">{watchedValues.dateOfBirth || '—'} {watchedValues.dateOfBirth ? `(${getAge(watchedValues.dateOfBirth)})` : ''}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-surface-400 font-medium">Matric Number</p>
-                      <p className="text-surface-900 dark:text-white">{watchedValues.matricNumber || '—'}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-surface-400 font-medium">Level</p>
-                      <p className="text-surface-900 dark:text-white">{watchedValues.level ? `${watchedValues.level} Level` : '—'}</p>
                     </div>
                     <div>
                       <p className="text-xs text-surface-400 font-medium">Admission Mode</p>

@@ -607,3 +607,71 @@ func (server *Server) deleteDepartmentalEvent(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{"data": "event deleted"})
 }
+
+func (server *Server) updateDepartmentalEvent(ctx *gin.Context) {
+	id, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid event id"})
+		return
+	}
+
+	var req createEventRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "invalid store"})
+		return
+	}
+
+	startTime, err := time.Parse(time.RFC3339, req.StartTime)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid start_time format, use RFC3339"})
+		return
+	}
+
+	var endTime pgtype.Timestamptz
+	if req.EndTime != nil {
+		t, err := time.Parse(time.RFC3339, *req.EndTime)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid end_time format, use RFC3339"})
+			return
+		}
+		endTime = pgtype.Timestamptz{Time: t, Valid: true}
+	}
+
+	targetLevelsJSON, err := json.Marshal(req.TargetLevels)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to marshal target_levels"})
+		return
+	}
+
+	targetAudienceJSON, err := json.Marshal(req.TargetAudience)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to marshal target_audience"})
+		return
+	}
+
+	err = queries.UpdateDepartmentalEvent(ctx, db.UpdateDepartmentalEventParams{
+		ID:             id,
+		Title:          req.Title,
+		Description:    req.Description,
+		EventType:      db.CalendarEventType(req.EventType),
+		StartTime:      pgtype.Timestamptz{Time: startTime, Valid: true},
+		EndTime:        endTime,
+		Venue:          req.Venue,
+		TargetLevels:   targetLevelsJSON,
+		TargetAudience: targetAudienceJSON,
+		IsAllDay:       &req.IsAllDay,
+		Color:          req.Color,
+	})
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"data": "event updated"})
+}

@@ -4,9 +4,9 @@ import Badge from './Badge';
 import { formatCurrency } from '../../utils/formatters';
 import type { Manual } from '../../types';
 
-interface ManualCardProps { manual: Manual; onPurchase?: () => void; isPurchased?: boolean; }
+interface ManualCardProps { manual: Manual; onPurchase?: () => void; isPurchased?: boolean; isInCart?: boolean; }
 
-const ManualCard = ({ manual, onPurchase, isPurchased }: ManualCardProps) => (
+const ManualCard = ({ manual, onPurchase, isPurchased, isInCart }: ManualCardProps) => (
   <Card hover>
     <div className="aspect-[3/4] rounded-lg bg-gradient-to-br from-primary-100 to-accent-100 dark:from-primary-900/30 dark:to-accent-900/30 flex items-center justify-center mb-3 overflow-hidden">
       {manual.coverImageUrl ? (
@@ -23,6 +23,8 @@ const ManualCard = ({ manual, onPurchase, isPurchased }: ManualCardProps) => (
     </div>
     {isPurchased ? (
       <Badge variant="success" className="w-full justify-center mt-3">Purchased</Badge>
+    ) : isInCart ? (
+      <Badge variant="info" className="w-full justify-center mt-3">Added to Cart</Badge>
     ) : onPurchase ? (
       <button onClick={onPurchase} className="mt-3 w-full flex items-center justify-center gap-2 text-sm font-medium bg-primary-500 text-white py-2 rounded-lg hover:bg-primary-600 transition-colors">
         <ShoppingCart className="w-4 h-4" /> Add to Cart

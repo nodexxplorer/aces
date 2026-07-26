@@ -93,6 +93,35 @@ func (q *Queries) CountUnreadMessages(ctx context.Context, receiverID uuid.UUID)
 	return unread_count, err
 }
 
+const countUnreadBySender = `-- name: CountUnreadBySender :many
+SELECT sender_id, COUNT(*)::int AS unread_count
+FROM messages
+WHERE receiver_id = $1 AND is_read = false
+GROUP BY sender_id
+`
+
+type CountUnreadBySenderRow struct {
+	SenderID    uuid.UUID `json:"sender_id"`
+	UnreadCount int32     `json:"unread_count"`
+}
+
+func (q *Queries) CountUnreadBySender(ctx context.Context, receiverID uuid.UUID) ([]CountUnreadBySenderRow, error) {
+	rows, err := q.db.Query(ctx, countUnreadBySender, receiverID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountUnreadBySenderRow
+	for rows.Next() {
+		var i CountUnreadBySenderRow
+		if err := rows.Scan(&i.SenderID, &i.UnreadCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	return items, rows.Err()
+}
+
 const createConnection = `-- name: CreateConnection :one
 
 INSERT INTO connections (
@@ -342,13 +371,20 @@ SELECT u.id, u.full_name, u.avatar_url, u.email, s.matric_number, s.level
 FROM users u
 JOIN students s ON u.id = s.user_id
 WHERE u.is_active = true AND u.is_approved = true
+  AND u.id != $1
+  AND NOT EXISTS (
+    SELECT 1 FROM connections c
+    WHERE (c.requester_id = $1 AND c.receiver_id = u.id)
+       OR (c.receiver_id = $1 AND c.requester_id = u.id)
+  )
 ORDER BY u.full_name
-LIMIT $1 OFFSET $2
+LIMIT $2 OFFSET $3
 `
 
 type GetStudentDirectoryParams struct {
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
+	UserID uuid.UUID `json:"user_id"`
+	Limit  int32     `json:"limit"`
+	Offset int32     `json:"offset"`
 }
 
 type GetStudentDirectoryRow struct {
@@ -361,7 +397,7 @@ type GetStudentDirectoryRow struct {
 }
 
 func (q *Queries) GetStudentDirectory(ctx context.Context, arg GetStudentDirectoryParams) ([]GetStudentDirectoryRow, error) {
-	rows, err := q.db.Query(ctx, getStudentDirectory, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, getStudentDirectory, arg.UserID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -385,6 +421,30 @@ func (q *Queries) GetStudentDirectory(ctx context.Context, arg GetStudentDirecto
 		return nil, err
 	}
 	return items, nil
+}
+
+const getAllConnectionUserIds = `-- name: GetAllConnectionUserIds :many
+SELECT DISTINCT
+    CASE WHEN c.requester_id = $1 THEN c.receiver_id ELSE c.requester_id END AS user_id
+FROM connections c
+WHERE c.requester_id = $1 OR c.receiver_id = $1
+`
+
+func (q *Queries) GetAllConnectionUserIds(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, getAllConnectionUserIds, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var user_id uuid.UUID
+		if err := rows.Scan(&user_id); err != nil {
+			return nil, err
+		}
+		items = append(items, user_id)
+	}
+	return items, rows.Err()
 }
 
 const listConversation = `-- name: ListConversation :many

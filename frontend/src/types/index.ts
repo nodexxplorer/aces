@@ -41,6 +41,8 @@ export interface User extends BaseEntity {
   lastName?: string;
   fullName?: string;
   full_name?: string;
+  middleName?: string;
+  middle_name?: string;
   otherNames?: string;
   phone?: string;
   avatar?: string;

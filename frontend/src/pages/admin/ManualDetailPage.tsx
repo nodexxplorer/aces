@@ -3,26 +3,89 @@ import { useParams, Link } from 'react-router-dom';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
-import { getManual } from '../../api/manuals';
+import DataTable from '../../components/data-display/DataTable';
+import { getManual, getManualPurchases, downloadCover } from '../../api/manuals';
 import { useNotification } from '../../hooks/useNotification';
-import { ArrowLeft, BookOpen, Layers, DollarSign, Calendar, Loader2 } from 'lucide-react';
+import { ArrowLeft, BookOpen, Layers, DollarSign, Calendar, Loader2, Download, Users } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 import type { Manual } from '../../api/manuals';
 
 const ManualDetailPage = () => {
   const { id } = useParams();
-  const { error: notifyError } = useNotification();
+  const { success, error: notifyError } = useNotification();
   const [manual, setManual] = useState<Manual | null>(null);
   const [loading, setLoading] = useState(true);
+  const [purchases, setPurchases] = useState<any[]>([]);
+  const [purchasesLoading, setPurchasesLoading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
     setLoading(true);
     getManual(id)
-      .then(setManual)
+      .then((m) => { setManual(m); fetchPurchases(id); })
       .catch(() => notifyError('Error', 'Failed to load manual details'))
       .finally(() => setLoading(false));
   }, [id]);
+
+  const fetchPurchases = async (manualId: string) => {
+    setPurchasesLoading(true);
+    try {
+      const data = await getManualPurchases(manualId);
+      setPurchases(Array.isArray(data) ? data : []);
+    } catch { /* silent */ } finally { setPurchasesLoading(false); }
+  };
+
+  const handleDownload = async (purchaseId: string, title: string) => {
+    try {
+      const blob = await downloadCover(purchaseId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${title}-cover.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      success('Download Started', 'Cover page PDF download started.');
+    } catch {
+      notifyError('Download Failed', 'Could not download cover page.');
+    }
+  };
+
+  const purchaseColumns = [
+    {
+      key: 'student_name',
+      label: 'Student',
+      render: (val: unknown, row: any) => (
+        <div>
+          <p className="font-medium text-surface-900 dark:text-surface-100">{String(val || 'Unknown')}</p>
+          <p className="text-[10px] text-surface-500">{row.matric_number || ''}</p>
+        </div>
+      ),
+    },
+    {
+      key: 'price',
+      label: 'Amount',
+      render: (val: unknown) => <span className="font-semibold text-success-600">{val ? `₦${Number(val).toLocaleString()}` : 'Free'}</span>,
+    },
+    {
+      key: 'purchased_at',
+      label: 'Purchased',
+      render: (val: unknown) => val ? new Date(val as string).toLocaleDateString() : 'N/A',
+    },
+    {
+      key: 'is_collected',
+      label: 'Status',
+      render: (val: unknown) => <Badge variant={val ? 'success' : 'warning'}>{val ? 'Collected' : 'Pending'}</Badge>,
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      render: (_: unknown, row: any) => (
+        <Button size="xs" variant="ghost" leftIcon={<Download className="w-3.5 h-3.5" />} onClick={() => handleDownload(row.id, row.manual_title || 'manual')}>
+          Download
+        </Button>
+      ),
+    },
+  ];
 
   if (loading) {
     return (
@@ -39,20 +102,16 @@ const ManualDetailPage = () => {
         <h2 className="text-2xl font-bold">Manual Not Found</h2>
         <p className="text-surface-500">The manual record you are looking for does not exist.</p>
         <Link to="/admin/manuals">
-          <Button variant="outline" size="sm" leftIcon={<ArrowLeft className="w-4 h-4" />}>
-            Back to Manuals Management
-          </Button>
+          <Button variant="outline" size="sm" leftIcon={<ArrowLeft className="w-4 h-4" />}>Back to Manuals Management</Button>
         </Link>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
+    <div className="space-y-6 max-w-4xl mx-auto">
       <Link to="/admin/manuals">
-        <Button variant="outline" size="sm" leftIcon={<ArrowLeft className="w-4 h-4" />}>
-          Back to Manuals Management
-        </Button>
+        <Button variant="outline" size="sm" leftIcon={<ArrowLeft className="w-4 h-4" />}>Back to Manuals Management</Button>
       </Link>
 
       <Card glass className="p-8">
@@ -63,9 +122,8 @@ const ManualDetailPage = () => {
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <Badge variant={manual.is_active ? 'success' : 'danger'}>
-                  {manual.is_active ? 'Active' : 'Inactive'}
-                </Badge>
+                <Badge variant={manual.is_active ? 'success' : 'danger'}>{manual.is_active ? 'Active' : 'Inactive'}</Badge>
+                <Badge variant="info">{purchases.length} purchase{purchases.length !== 1 && 's'}</Badge>
               </div>
               <CardTitle className="text-2xl font-bold">{manual.title}</CardTitle>
               <CardDescription>Manual ID: {manual.id}</CardDescription>
@@ -82,18 +140,14 @@ const ManualDetailPage = () => {
                 <p>{manual.level ? `${manual.level} Level` : 'N/A'}</p>
               </div>
             </div>
-
             <div className="flex items-center gap-3 text-sm text-surface-700 dark:text-surface-300">
               <DollarSign className="w-5 h-5 text-primary-500" />
               <div>
                 <p className="text-xs text-surface-400 font-medium">Price</p>
-                <p className="font-semibold text-success-600 dark:text-success-400">
-                  {formatCurrency(manual.price)}
-                </p>
+                <p className="font-semibold text-success-600 dark:text-success-400">{formatCurrency(manual.price)}</p>
               </div>
             </div>
           </div>
-
           <div className="space-y-4">
             <div className="flex items-center gap-3 text-sm text-surface-700 dark:text-surface-300">
               <Calendar className="w-5 h-5 text-primary-500" />
@@ -109,6 +163,28 @@ const ManualDetailPage = () => {
           <div className="mt-6 pt-6 border-t border-surface-200 dark:border-surface-700/50">
             <p className="text-xs text-surface-400 font-medium mb-2">Description</p>
             <p className="text-sm text-surface-700 dark:text-surface-300">{manual.description}</p>
+          </div>
+        )}
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Users className="w-5 h-5 text-primary-500" />
+            <CardTitle>Purchases</CardTitle>
+          </div>
+          <CardDescription>Students who have purchased this manual</CardDescription>
+        </CardHeader>
+        {purchasesLoading ? (
+          <div className="flex items-center justify-center p-8">
+            <Loader2 className="w-5 h-5 animate-spin text-primary-500" />
+            <span className="ml-2 text-sm text-surface-500">Loading purchases...</span>
+          </div>
+        ) : purchases.length === 0 ? (
+          <div className="text-center py-8 text-surface-500 text-sm">No purchases yet for this manual.</div>
+        ) : (
+          <div className="p-4 pt-0">
+            <DataTable columns={purchaseColumns as any} data={purchases as any} />
           </div>
         )}
       </Card>

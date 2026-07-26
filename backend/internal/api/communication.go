@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 
+	db "github.com/aces/backend/internal/db/sql"
 	"github.com/aces/backend/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -136,15 +137,18 @@ func (server *Server) deleteAnnouncement(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "announcement deleted successfully"})
 }
 
-// ─── Notifications ────────────────────────────────────────────────────────────
+// ─── Notifications (Enhanced) ────────────────────────────────────────────────
 
 type createNotificationRequest struct {
-	UserID    string `json:"user_id" binding:"required,uuid"`
-	Type      string `json:"type" binding:"required"`
-	Title     string `json:"title" binding:"required"`
-	Message   string `json:"message" binding:"required"`
-	ActionUrl string `json:"action_url" binding:"omitempty"`
-	EmailSent bool   `json:"email_sent"`
+	UserID      string `json:"user_id" binding:"required,uuid"`
+	Type        string `json:"type" binding:"required"`
+	Title       string `json:"title" binding:"required"`
+	Message     string `json:"message" binding:"required"`
+	ActionURL   string `json:"action_url" binding:"omitempty"`
+	ActionLabel string `json:"action_label" binding:"omitempty"`
+	Category    string `json:"category" binding:"omitempty"`
+	Priority    string `json:"priority" binding:"omitempty"`
+	EmailSent   bool   `json:"email_sent"`
 }
 
 func (server *Server) createNotification(ctx *gin.Context) {
@@ -155,48 +159,76 @@ func (server *Server) createNotification(ctx *gin.Context) {
 	}
 
 	userID, _ := uuid.Parse(req.UserID)
+	senderID := getUserID(ctx)
 
-	notification, err := server.notifications.Create(ctx, service.CreateNotificationInput{
-		UserID:    userID,
-		Type:      req.Type,
-		Title:     req.Title,
-		Message:   req.Message,
-		ActionURL: req.ActionUrl,
-		EmailSent: req.EmailSent,
-	})
+	notif, err := server.notificationsFull.CreateAndPush(ctx, userID,
+		req.Type,
+		req.Category,
+		req.Priority,
+		req.Title,
+		req.Message,
+		req.ActionURL,
+		req.ActionLabel,
+		&senderID,
+		nil,
+		nil,
+		nil,
+	)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, notification)
+	ctx.JSON(http.StatusCreated, notif)
 }
 
-type listUserNotificationsRequest struct {
-	Limit  int32 `form:"limit" binding:"required,min=1,max=100"`
-	Offset int32 `form:"offset" binding:"min=0"`
+type listMyNotificationsRequest struct {
+	Category string `form:"category" binding:"omitempty"`
+	Status   string `form:"status" binding:"omitempty,oneof=unread read all"`
+	Limit    int32  `form:"limit" binding:"required,min=1,max=100"`
+	Offset   int32  `form:"offset" binding:"min=0"`
 }
 
-func (server *Server) listUserNotifications(ctx *gin.Context) {
-	userID, err := uuid.Parse(ctx.Param("user_id"))
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
-		return
-	}
+func (server *Server) listMyNotifications(ctx *gin.Context) {
+	userID := getUserID(ctx)
 
-	var req listUserNotificationsRequest
+	var req listMyNotificationsRequest
 	if err := ctx.ShouldBindQuery(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	notifications, err := server.notifications.ListByUser(ctx, userID, req.Limit, req.Offset)
+	notifications, err := server.notificationsFull.List(ctx, userID, req.Category, req.Status, req.Limit, req.Offset)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	ctx.JSON(http.StatusOK, notifications)
+}
+
+func (server *Server) getMyUnreadCount(ctx *gin.Context) {
+	userID := getUserID(ctx)
+
+	count, err := server.notificationsFull.GetUnreadCount(ctx, userID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"unread_count": count})
+}
+
+func (server *Server) getMyUnreadByCategory(ctx *gin.Context) {
+	userID := getUserID(ctx)
+
+	counts, err := server.notificationsFull.GetUnreadByCategory(ctx, userID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, counts)
 }
 
 func (server *Server) markNotificationAsRead(ctx *gin.Context) {
@@ -206,16 +238,9 @@ func (server *Server) markNotificationAsRead(ctx *gin.Context) {
 		return
 	}
 
-	var req struct {
-		UserID string `json:"user_id" binding:"required,uuid"`
-	}
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "user_id is required in body"})
-		return
-	}
-	userID, _ := uuid.Parse(req.UserID)
+	userID := getUserID(ctx)
 
-	notification, err := server.notifications.MarkAsRead(ctx, id, userID)
+	notification, err := server.notificationsFull.MarkAsRead(ctx, id, userID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -224,15 +249,10 @@ func (server *Server) markNotificationAsRead(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, notification)
 }
 
-func (server *Server) markAllUserNotificationsAsRead(ctx *gin.Context) {
-	userID, err := uuid.Parse(ctx.Param("user_id"))
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
-		return
-	}
+func (server *Server) markAllAsRead(ctx *gin.Context) {
+	userID := getUserID(ctx)
 
-	err = server.notifications.MarkAllAsRead(ctx, userID)
-	if err != nil {
+	if err := server.notificationsFull.MarkAllAsRead(ctx, userID); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -247,19 +267,129 @@ func (server *Server) deleteNotification(ctx *gin.Context) {
 		return
 	}
 
-	var req struct {
-		UserID string `json:"user_id" binding:"required,uuid"`
-	}
-	if err := ctx.ShouldBindQuery(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "user_id is required in query params"})
-		return
-	}
-	userID, _ := uuid.Parse(req.UserID)
+	userID := getUserID(ctx)
 
-	if err := server.notifications.Delete(ctx, id, userID); err != nil {
+	if err := server.notificationsFull.Delete(ctx, id, userID); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "notification deleted successfully"})
+}
+
+func (server *Server) getMyNotificationPreferences(ctx *gin.Context) {
+	userID := getUserID(ctx)
+
+	prefs, err := server.notificationsFull.GetPreferences(ctx, userID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, prefs)
+}
+
+type updateNotificationPreferencesRequest struct {
+	EmailEnabled    *bool   `json:"email_enabled"`
+	PushEnabled     *bool   `json:"push_enabled"`
+	InAppEnabled    *bool   `json:"in_app_enabled"`
+	EmailAuth       *bool   `json:"email_auth"`
+	EmailResults    *bool   `json:"email_results"`
+	EmailDues       *bool   `json:"email_dues"`
+	EmailMessages   *bool   `json:"email_messages"`
+	EmailConnect    *bool   `json:"email_connect"`
+	EmailSkills     *bool   `json:"email_skills"`
+	EmailAlumni     *bool   `json:"email_alumni"`
+	EmailSystem     *bool   `json:"email_system"`
+	PushAuth        *bool   `json:"push_auth"`
+	PushResults     *bool   `json:"push_results"`
+	PushDues        *bool   `json:"push_dues"`
+	PushMessages    *bool   `json:"push_messages"`
+	PushConnect     *bool   `json:"push_connect"`
+	PushSkills      *bool   `json:"push_skills"`
+	PushAlumni      *bool   `json:"push_alumni"`
+	PushSystem      *bool   `json:"push_system"`
+	QuietHoursStart *string `json:"quiet_hours_start"`
+	QuietHoursEnd   *string `json:"quiet_hours_end"`
+}
+
+func (server *Server) updateMyNotificationPreferences(ctx *gin.Context) {
+	userID := getUserID(ctx)
+
+	var req updateNotificationPreferencesRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	prefs, err := server.notificationsFull.UpdatePreferences(ctx, db.UpsertNotificationPreferencesParams{
+		UserID:          userID,
+		EmailEnabled:    req.EmailEnabled,
+		PushEnabled:     req.PushEnabled,
+		InAppEnabled:    req.InAppEnabled,
+		EmailAuth:       req.EmailAuth,
+		EmailResults:    req.EmailResults,
+		EmailDues:       req.EmailDues,
+		EmailMessages:   req.EmailMessages,
+		EmailConnect:    req.EmailConnect,
+		EmailSkills:     req.EmailSkills,
+		EmailAlumni:     req.EmailAlumni,
+		EmailSystem:     req.EmailSystem,
+		PushAuth:        req.PushAuth,
+		PushResults:     req.PushResults,
+		PushDues:        req.PushDues,
+		PushMessages:    req.PushMessages,
+		PushConnect:     req.PushConnect,
+		PushSkills:      req.PushSkills,
+		PushAlumni:      req.PushAlumni,
+		PushSystem:      req.PushSystem,
+		QuietHoursStart: req.QuietHoursStart,
+		QuietHoursEnd:   req.QuietHoursEnd,
+	})
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, prefs)
+}
+
+type broadcastNotificationRequest struct {
+	Title          string   `json:"title" binding:"required"`
+	Message        string   `json:"message" binding:"required"`
+	Category       string   `json:"category" binding:"omitempty"`
+	Priority       string   `json:"priority" binding:"omitempty"`
+	TargetAudience string   `json:"target_audience" binding:"required,oneof=all role level"`
+	TargetRoles    []string `json:"target_roles"`
+	TargetLevel    int32    `json:"target_level"`
+}
+
+func (server *Server) broadcastNotification(ctx *gin.Context) {
+	var req broadcastNotificationRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	senderID := getUserID(ctx)
+
+	count, err := server.notificationsFull.BroadcastNotification(ctx,
+		req.Title,
+		req.Message,
+		req.Category,
+		req.Priority,
+		req.TargetAudience,
+		req.TargetRoles,
+		req.TargetLevel,
+		&senderID,
+	)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, gin.H{
+		"message": "broadcast sent",
+		"count":   count,
+	})
 }

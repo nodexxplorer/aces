@@ -23,14 +23,16 @@ type CreateUserInput struct {
 	Email     string
 	Password  string
 	Role      string
-	FullName  string
+	FirstName string
+	LastName  string
 	Phone     *string
 	AvatarURL *string
 }
 
 func (s *UserService) Create(ctx context.Context, input CreateUserInput) (db.User, error) {
 	input.Email = strings.ToLower(strings.TrimSpace(input.Email))
-	input.FullName = strings.TrimSpace(input.FullName)
+	input.FirstName = strings.TrimSpace(input.FirstName)
+	input.LastName = strings.TrimSpace(input.LastName)
 	if input.Phone != nil {
 		sanitized := strings.TrimSpace(*input.Phone)
 		input.Phone = &sanitized
@@ -45,7 +47,8 @@ func (s *UserService) Create(ctx context.Context, input CreateUserInput) (db.Use
 		Email:        input.Email,
 		PasswordHash: hashedPassword,
 		Role:         db.UserRole(input.Role),
-		FullName:     input.FullName,
+		FirstName:    input.FirstName,
+		LastName:     input.LastName,
 		Phone:        input.Phone,
 		AvatarUrl:    input.AvatarURL,
 	})
@@ -84,10 +87,11 @@ func (s *UserService) ListUsersWithStudents(ctx context.Context, limit, offset i
 	return nil, errors.New("store does not support ListUsersWithStudents")
 }
 
-func (s *UserService) Update(ctx context.Context, id uuid.UUID, fullName string, phone, avatarURL *string, isActive, emailVerified, twoFactorEnabled bool) (db.User, error) {
+func (s *UserService) Update(ctx context.Context, id uuid.UUID, firstName, lastName string, phone, avatarURL *string, isActive, emailVerified, twoFactorEnabled bool) (db.User, error) {
 	arg := db.UpdateUserParams{
 		ID:               id,
-		FullName:         strings.TrimSpace(fullName),
+		FirstName:        strings.TrimSpace(firstName),
+		LastName:         strings.TrimSpace(lastName),
 		Phone:            phone,
 		AvatarUrl:        avatarURL,
 		IsActive:         isActive,
@@ -113,12 +117,14 @@ func (s *UserService) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 type UpdateUserPartialInput struct {
-	FullName  *string
-	Phone     *string
-	AvatarURL *string
-	IsActive  *bool
-	Email     *string
-	Role      *string
+	FirstName  *string
+	LastName   *string
+	MiddleName *string
+	Phone      *string
+	AvatarURL  *string
+	IsActive   *bool
+	Email      *string
+	Role       *string
 }
 
 func (s *UserService) UpdatePartial(ctx context.Context, id uuid.UUID, input UpdateUserPartialInput) (db.User, error) {
@@ -127,9 +133,20 @@ func (s *UserService) UpdatePartial(ctx context.Context, id uuid.UUID, input Upd
 		return db.User{}, err
 	}
 
-	fullName := existing.FullName
-	if input.FullName != nil {
-		fullName = strings.TrimSpace(*input.FullName)
+	firstName := existing.FirstName
+	if input.FirstName != nil {
+		firstName = strings.TrimSpace(*input.FirstName)
+	}
+
+	lastName := existing.LastName
+	if input.LastName != nil {
+		lastName = strings.TrimSpace(*input.LastName)
+	}
+
+	middleName := existing.MiddleName
+	if input.MiddleName != nil {
+		mn := strings.TrimSpace(*input.MiddleName)
+		middleName = &mn
 	}
 
 	phone := existing.Phone
@@ -151,13 +168,23 @@ func (s *UserService) UpdatePartial(ctx context.Context, id uuid.UUID, input Upd
 	// First update core fields (name, phone, avatar, active)
 	user, err := s.store.UpdateUser(ctx, db.UpdateUserParams{
 		ID:               id,
-		FullName:         fullName,
+		FirstName:        firstName,
+		LastName:         lastName,
 		Phone:            phone,
 		AvatarUrl:        avatarURL,
 		IsActive:         isActive,
 		EmailVerified:    existing.EmailVerified,
 		TwoFactorEnabled: existing.TwoFactorEnabled,
 	})
+	if err != nil {
+		return db.User{}, err
+	}
+
+	// Update middle_name if provided
+	if input.MiddleName != nil {
+		_ = s.store.(*db.Queries).UpdateUserMiddleName(ctx, id, middleName)
+		user.MiddleName = middleName
+	}
 	if err != nil {
 		return db.User{}, err
 	}

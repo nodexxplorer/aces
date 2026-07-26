@@ -352,18 +352,6 @@ func (server *Server) getClassRepClassList(ctx *gin.Context) {
 		return
 	}
 
-	assignment, err := queries.GetActiveClassRepAssignment(ctx, userID)
-	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": "no active class rep assignment found"})
-		return
-	}
-
-	students, err := queries.ListStudentsByLevel(ctx, int32(assignment.Level))
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
 	type classRepStudent struct {
 		ID           string `json:"id"`
 		FullName     string `json:"full_name"`
@@ -371,6 +359,18 @@ func (server *Server) getClassRepClassList(ctx *gin.Context) {
 		Email        string `json:"email"`
 		Level        int32  `json:"level"`
 		IsDefaulter  bool   `json:"is_defaulter"`
+	}
+
+	assignment, err := queries.GetActiveClassRepAssignment(ctx, userID)
+	if err != nil {
+		ctx.JSON(http.StatusOK, []classRepStudent{})
+		return
+	}
+
+	students, err := queries.ListStudentsByLevel(ctx, int32(assignment.Level))
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
 
 	result := []classRepStudent{}

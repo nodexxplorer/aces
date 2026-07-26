@@ -74,7 +74,7 @@ export default function StudyPlannerPage() {
         title: newTitle.trim(),
         description: newDescription.trim(),
         priority: newPriority,
-        due_date: newDueDate || undefined,
+        due_date: newDueDate ? new Date(newDueDate).toISOString() : undefined,
       });
       setNewTitle('');
       setNewDescription('');

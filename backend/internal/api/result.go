@@ -11,17 +11,18 @@ import (
 )
 
 type createResultRequest struct {
-	StudentID   string          `json:"student_id" binding:"required,uuid"`
-	CourseID    string          `json:"course_id" binding:"required,uuid"`
-	SessionID   string          `json:"session_id" binding:"required,uuid"`
-	SemesterID  string          `json:"semester_id" binding:"required,uuid"`
-	CaScore     decimal.Decimal `json:"ca_score"`
-	ExamScore   decimal.Decimal `json:"exam_score"`
-	TotalScore  decimal.Decimal `json:"total_score"`
-	Grade       string          `json:"grade"`
-	GradePoint  float64         `json:"grade_point"`
-	Status      string          `json:"status"`
-	IsCarryover bool            `json:"is_carryover"`
+	StudentID    string          `json:"student_id" binding:"omitempty,uuid"`
+	CourseID     string          `json:"course_id" binding:"required,uuid"`
+	SessionID    string          `json:"session_id" binding:"required,uuid"`
+	SemesterID   string          `json:"semester_id" binding:"required,uuid"`
+	CaScore      decimal.Decimal `json:"ca_score"`
+	ExamScore    decimal.Decimal `json:"exam_score"`
+	TotalScore   decimal.Decimal `json:"total_score"`
+	Grade        string          `json:"grade"`
+	GradePoint   float64         `json:"grade_point"`
+	Status       string          `json:"status"`
+	IsCarryover  bool            `json:"is_carryover"`
+	MatricNumber *string         `json:"matric_number"`
 }
 
 func (server *Server) createResult(ctx *gin.Context) {

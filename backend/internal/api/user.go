@@ -15,7 +15,8 @@ type createUserRequest struct {
 	Email          string  `json:"email" binding:"required,email"`
 	Password       string  `json:"password" binding:"required,min=6,max=72"`
 	Role           string  `json:"role" binding:"required,oneof=hod admin lecturer class_rep student bursar_dept bursar_class"`
-	FullName       string  `json:"full_name" binding:"required,min=2,max=255"`
+	FirstName      string  `json:"first_name" binding:"required,min=1,max=255"`
+	LastName       string  `json:"last_name" binding:"required,min=1,max=255"`
 	Phone          *string `json:"phone" binding:"omitempty,max=20"`
 	AvatarUrl      *string `json:"avatar_url" binding:"omitempty,url"`
 	CreatedByHodID string  `json:"created_by_hod_id" binding:"omitempty,uuid"`
@@ -42,7 +43,8 @@ func (server *Server) createUser(ctx *gin.Context) {
 		Email:     req.Email,
 		Password:  req.Password,
 		Role:      req.Role,
-		FullName:  req.FullName,
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
 		Phone:     req.Phone,
 		AvatarURL: req.AvatarUrl,
 	})
@@ -158,7 +160,10 @@ func (server *Server) listUsers(ctx *gin.Context) {
 		ur := userResponse{
 			ID:             u.ID.String(),
 			Email:          u.Email,
+			FirstName:      u.FirstName,
+			LastName:       u.LastName,
 			FullName:       u.FullName,
+			MiddleName:     u.MiddleName,
 			Phone:          u.Phone,
 			Avatar:         u.AvatarUrl,
 			Roles:          []string{role},
@@ -176,12 +181,6 @@ func (server *Server) listUsers(ctx *gin.Context) {
 			ur.ApprovalStatus = "approved"
 		}
 
-		parts := strings.SplitN(u.FullName, " ", 2)
-		ur.FirstName = parts[0]
-		if len(parts) > 1 {
-			ur.LastName = parts[1]
-		}
-
 		resp = append(resp, ur)
 	}
 
@@ -197,15 +196,17 @@ func intPtrFromInt32(p *int32) *int {
 }
 
 type updateUserRequest struct {
-	FullName       *string `json:"full_name"`
-	FullNameCamel  *string `json:"fullName"`
-	Phone          *string `json:"phone"`
-	AvatarUrl      *string `json:"avatar_url"`
-	AvatarUrlCamel *string `json:"avatarUrl"`
-	IsActive       *bool   `json:"is_active"`
-	IsActiveCamel  *bool   `json:"isActive"`
-	Email          *string `json:"email"`
-	Role           *string `json:"role"`
+	FirstName       *string `json:"first_name"`
+	FirstNameCamel  *string `json:"firstName"`
+	LastName        *string `json:"last_name"`
+	LastNameCamel   *string `json:"lastName"`
+	Phone           *string `json:"phone"`
+	AvatarUrl       *string `json:"avatar_url"`
+	AvatarUrlCamel  *string `json:"avatarUrl"`
+	IsActive        *bool   `json:"is_active"`
+	IsActiveCamel   *bool   `json:"isActive"`
+	Email           *string `json:"email"`
+	Role            *string `json:"role"`
 	// Student-specific fields
 	DateOfBirth          *string `json:"dateOfBirth"`
 	DateOfBirthSnake     *string `json:"date_of_birth"`
@@ -239,11 +240,18 @@ func (server *Server) updateUser(ctx *gin.Context) {
 		return
 	}
 
-	var fullName *string
-	if req.FullName != nil {
-		fullName = req.FullName
-	} else if req.FullNameCamel != nil {
-		fullName = req.FullNameCamel
+	var firstName *string
+	if req.FirstName != nil {
+		firstName = req.FirstName
+	} else if req.FirstNameCamel != nil {
+		firstName = req.FirstNameCamel
+	}
+
+	var lastName *string
+	if req.LastName != nil {
+		lastName = req.LastName
+	} else if req.LastNameCamel != nil {
+		lastName = req.LastNameCamel
 	}
 
 	var avatarUrl *string
@@ -261,7 +269,8 @@ func (server *Server) updateUser(ctx *gin.Context) {
 	}
 
 	input := service.UpdateUserPartialInput{
-		FullName:  fullName,
+		FirstName: firstName,
+		LastName:  lastName,
 		Phone:     req.Phone,
 		AvatarURL: avatarUrl,
 		IsActive:  isActive,

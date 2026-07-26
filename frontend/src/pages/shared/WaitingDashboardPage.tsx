@@ -2,27 +2,38 @@ import { useEffect, useState, useCallback } from 'react';
 import { Clock, Mail, RefreshCw, ExternalLink } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
-import { getStudentOnboardingStatus } from '../../api/verification-announcements';
+import { getMe } from '../../api/auth';
 
 const WaitingDashboardPage = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const { error: notifyError, success: notifySuccess } = useNotification();
   const [loading, setLoading] = useState(false);
-  const [onboardingStatus, setOnboardingStatus] = useState<string>('pending');
+  const [approvalStatus, setApprovalStatus] = useState<string>(
+    user?.isApproved === false && user?.isActive !== false ? 'pending' :
+    user?.isApproved === false && user?.isActive === false ? 'rejected' : 'pending'
+  );
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
 
   const fetchStatus = useCallback(async () => {
     try {
-      const data = await getStudentOnboardingStatus();
-      setOnboardingStatus(data.status);
-      setRejectionReason(data.rejection_reason);
-      setSubmittedAt(data.created_at);
-      return data.status;
+      const freshUser = await getMe();
+      if (freshUser) {
+        if (typeof updateUser === 'function') updateUser(freshUser);
+        if (freshUser.isApproved === false && freshUser.isActive === false) {
+          setApprovalStatus('rejected');
+        } else if (freshUser.isApproved === true) {
+          setApprovalStatus('approved');
+        } else {
+          setApprovalStatus('pending');
+        }
+        return approvalStatus;
+      }
+      return null;
     } catch {
       return null;
     }
-  }, []);
+  }, [updateUser, approvalStatus]);
 
   const handleCheckStatus = useCallback(async () => {
     setLoading(true);
@@ -46,13 +57,13 @@ const WaitingDashboardPage = () => {
   }, [fetchStatus]);
 
   useEffect(() => {
-    if (onboardingStatus === 'approved') {
+    if (approvalStatus === 'approved') {
       const timer = setTimeout(() => {
         window.location.href = '/dashboard';
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [onboardingStatus]);
+  }, [approvalStatus]);
 
   const displayName =
     user?.fullName || user?.full_name || [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Student';
@@ -105,7 +116,7 @@ const WaitingDashboardPage = () => {
               </div>
             </div>
 
-            {onboardingStatus === 'rejected' ? (
+            {approvalStatus === 'rejected' ? (
               <div className="mb-6">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-danger-500/10 text-danger-500 border border-danger-500/20 mb-3">
                   Rejected
@@ -117,7 +128,7 @@ const WaitingDashboardPage = () => {
                   </div>
                 )}
               </div>
-            ) : onboardingStatus === 'approved' ? (
+            ) : approvalStatus === 'approved' ? (
               <div className="mb-6">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-success-500/10 text-success-500 border border-success-500/20">
                   Approved
@@ -138,7 +149,7 @@ const WaitingDashboardPage = () => {
             )}
 
             <div className="flex flex-col gap-3">
-              {onboardingStatus === 'pending' && (
+              {approvalStatus === 'pending' && (
                 <button
                   onClick={handleCheckStatus}
                   disabled={loading}
@@ -153,7 +164,7 @@ const WaitingDashboardPage = () => {
                 </button>
               )}
 
-              {onboardingStatus === 'rejected' && (
+              {approvalStatus === 'rejected' && (
                 <a
                   href="mailto:hod@computer.engineering.uniuyo.edu.ng?subject=ACES%20Zone%20Registration%20Appeal&body=Hello%20HOD%2C%0A%0AI%20am%20writing%20regarding%20my%20rejected%20registration%20on%20ACES%20Zone.%0A%0AMy%20name%3A%20${encodeURIComponent(displayName)}%0AMatric%20Number%3A%20${encodeURIComponent(displayMatric)}%0A%0APlease%20let%20me%20know%20if%20there%20are%20any%20issues%20I%20can%20address.%0A%0AThank%20you."
                   className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-danger-500 hover:bg-danger-600 text-white text-sm font-medium transition-colors"

@@ -24,7 +24,7 @@ const GPAPredictionPage = () => {
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" /></div>;
   if (error) return <div className="text-center py-12 text-danger-500">{error}</div>;
-  if (!data || data.grades.length === 0) {
+  if (!data || !data.grades || data.grades.length === 0) {
     return (
       <div className="space-y-6">
         <h1 className="text-3xl font-bold text-surface-900 dark:text-white">GPA Predictor</h1>

@@ -27,7 +27,6 @@ type SignupResult struct {
 
 func (s *AuthService) StudentSignup(ctx context.Context, email, password, firstName, lastName, phone, matricNumber string, level int32) (*SignupResult, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
-	fullName := strings.TrimSpace(firstName) + " " + strings.TrimSpace(lastName)
 
 	if _, err := s.store.GetUserByEmail(ctx, email); err == nil {
 		return nil, errors.New("a user with this email already exists")
@@ -48,7 +47,8 @@ func (s *AuthService) StudentSignup(ctx context.Context, email, password, firstN
 		Email:        email,
 		PasswordHash: hashedPassword,
 		Role:         db.UserRoleStudent,
-		FullName:     fullName,
+		FirstName:    strings.TrimSpace(firstName),
+		LastName:     strings.TrimSpace(lastName),
 		Phone:        phonePtr,
 	})
 	if err != nil {
@@ -82,7 +82,6 @@ func (s *AuthService) StudentSignup(ctx context.Context, email, password, firstN
 
 func (s *AuthService) LecturerSignup(ctx context.Context, email, password, firstName, lastName, phone, staffId, department, specialization string) (*SignupResult, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
-	fullName := strings.TrimSpace(firstName) + " " + strings.TrimSpace(lastName)
 
 	if _, err := s.store.GetUserByEmail(ctx, email); err == nil {
 		return nil, errors.New("a user with this email already exists")
@@ -103,7 +102,8 @@ func (s *AuthService) LecturerSignup(ctx context.Context, email, password, first
 		Email:        email,
 		PasswordHash: hashedPassword,
 		Role:         db.UserRoleLecturer,
-		FullName:     fullName,
+		FirstName:    strings.TrimSpace(firstName),
+		LastName:     strings.TrimSpace(lastName),
 		Phone:        phonePtr,
 	})
 	if err != nil {

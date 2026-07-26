@@ -23,14 +23,22 @@ func (q *Queries) UpdateUserEmailAndRole(ctx context.Context, id uuid.UUID, emai
 		UPDATE users
 		SET email = $2, role = $3, updated_at = NOW()
 		WHERE id = $1
-		RETURNING id, email, password_hash, role, full_name, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at
+		RETURNING id, email, password_hash, role, full_name, middle_name, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at
 	`, id, strings.ToLower(strings.TrimSpace(email)), string(role)).Scan(
-		&i.ID, &i.Email, &i.PasswordHash, &i.Role, &i.FullName, &i.Phone, &i.AvatarUrl,
+		&i.ID, &i.Email, &i.PasswordHash, &i.Role, &i.FullName, &i.MiddleName, &i.Phone, &i.AvatarUrl,
 		&i.IsActive, &i.EmailVerified, &i.TwoFactorEnabled, &i.LastLoginAt,
 		&i.CreatedAt, &i.UpdatedAt, &i.DeletedAt, &i.CreatedByHodID,
 		&i.IsApproved, &i.ApprovedBy, &i.ApprovedAt,
 	)
 	return i, err
+}
+
+// UpdateUserMiddleName updates the middle_name field of a user.
+func (q *Queries) UpdateUserMiddleName(ctx context.Context, id uuid.UUID, middleName *string) error {
+	_, err := q.db.Exec(ctx, `
+		UPDATE users SET middle_name = $2, updated_at = NOW() WHERE id = $1
+	`, id, middleName)
+	return err
 }
 
 // UpdateStudentOnboardingFields updates additional student onboarding fields.
@@ -74,9 +82,9 @@ func (q *Queries) UpdateUserPhoneAvatarBio(ctx context.Context, id uuid.UUID, ph
 			avatar_url = COALESCE($3, avatar_url),
 			updated_at = NOW()
 		WHERE id = $1
-		RETURNING id, email, password_hash, role, full_name, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at
+		RETURNING id, email, password_hash, role, full_name, middle_name, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at
 	`, id, phone, avatarURL).Scan(
-		&i.ID, &i.Email, &i.PasswordHash, &i.Role, &i.FullName, &i.Phone, &i.AvatarUrl,
+		&i.ID, &i.Email, &i.PasswordHash, &i.Role, &i.FullName, &i.MiddleName, &i.Phone, &i.AvatarUrl,
 		&i.IsActive, &i.EmailVerified, &i.TwoFactorEnabled, &i.LastLoginAt,
 		&i.CreatedAt, &i.UpdatedAt, &i.DeletedAt, &i.CreatedByHodID,
 		&i.IsApproved, &i.ApprovedBy, &i.ApprovedAt,
@@ -178,6 +186,31 @@ func (q *Queries) UpdateStudentAcademicByHod(ctx context.Context, studentID uuid
 
 // DeleteUserHard permanently deletes a user and cascades to related records.
 func (q *Queries) DeleteUserHard(ctx context.Context, userID uuid.UUID) error {
+	// Dynamically nullify all FK columns referencing users(id) that lack ON DELETE CASCADE.
+	// This queries pg_constraint to find every such constraint at runtime.
+	doBlock := fmt.Sprintf(`
+		DO $$
+		DECLARE
+			r RECORD;
+		BEGIN
+			FOR r IN
+				SELECT conrelid::regclass::text AS tbl,
+					   a.attname AS col
+				FROM pg_constraint c
+				JOIN pg_attribute a
+				  ON a.attrelid = c.conrelid AND a.attnum = ANY(c.conkey)
+				WHERE c.confrelid = 'users'::regclass
+				  AND c.contype = 'f'
+				  AND pg_get_constraintdef(c.oid) NOT LIKE '%%ON DELETE CASCADE%%'
+			LOOP
+				EXECUTE format('UPDATE %%I SET %%I = NULL WHERE %%I = ''%s''', r.tbl, r.col, r.col);
+			END LOOP;
+		END;
+		$$;
+	`, userID)
+
+	_, _ = q.db.Exec(ctx, doBlock)
+
 	_, err := q.db.Exec(ctx, `DELETE FROM users WHERE id = $1`, userID)
 	return err
 }
@@ -185,7 +218,7 @@ func (q *Queries) DeleteUserHard(ctx context.Context, userID uuid.UUID) error {
 // ListAllResults fetches all results with course code and student name joined.
 type ListAllResultsRow struct {
 	ID             uuid.UUID  `json:"id"`
-	StudentID      uuid.UUID  `json:"student_id"`
+	StudentID      *uuid.UUID `json:"student_id"`
 	CourseID       uuid.UUID  `json:"course_id"`
 	CaScore        string     `json:"ca_score"`
 	ExamScore      string     `json:"exam_score"`
@@ -247,7 +280,10 @@ func (q *Queries) ListAllResults(ctx context.Context, limit, offset int32) ([]Li
 type UserWithStudent struct {
 	ID                  uuid.UUID  `json:"id"`
 	Email               string     `json:"email"`
+	FirstName           string     `json:"firstName"`
+	LastName            string     `json:"lastName"`
 	FullName            string     `json:"fullName"`
+	MiddleName          *string    `json:"middleName"`
 	Phone               *string    `json:"phone"`
 	AvatarUrl           *string    `json:"avatarUrl"`
 	Role                UserRole   `json:"role"`
@@ -291,7 +327,7 @@ func (q *Queries) ListUsersWithStudents(ctx context.Context, limit, offset int32
 	}
 
 	query := fmt.Sprintf(`
-		SELECT u.id, u.email, u.full_name, u.phone, u.avatar_url, u.role, u.is_active, u.is_approved, u.created_at::text,
+		SELECT u.id, u.email, u.first_name, u.last_name, u.full_name, u.middle_name, u.phone, u.avatar_url, u.role, u.is_active, u.is_approved, u.created_at::text,
 			s.id, s.matric_number, s.level, s.cgpa::text, s.academic_standing::text,
 			%s as all_roles
 		FROM users u
@@ -313,7 +349,7 @@ func (q *Queries) ListUsersWithStudents(ctx context.Context, limit, offset int32
 		var i UserWithStudent
 		var cgpaStr, academicStandingStr *string
 		if err := rows.Scan(
-			&i.ID, &i.Email, &i.FullName, &i.Phone, &i.AvatarUrl, &i.Role, &i.IsActive, &i.IsApproved, &i.CreatedAt,
+			&i.ID, &i.Email, &i.FirstName, &i.LastName, &i.FullName, &i.MiddleName, &i.Phone, &i.AvatarUrl, &i.Role, &i.IsActive, &i.IsApproved, &i.CreatedAt,
 			&i.StudentID, &i.MatricNumber, &i.Level, &cgpaStr, &academicStandingStr, &i.AllRoles,
 		); err != nil {
 			return nil, err

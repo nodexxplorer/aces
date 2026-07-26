@@ -21,21 +21,21 @@ func NewResultService(store db.Querier) *ResultService {
 }
 
 type CreateResultInput struct {
-	StudentID   string
-	CourseID    string
-	SessionID   string
-	SemesterID  string
-	CaScore     decimal.Decimal
-	ExamScore   decimal.Decimal
-	TotalScore  decimal.Decimal
-	Grade       string
-	GradePoint  float64
-	Status      string
-	IsCarryover bool
+	StudentID    string
+	CourseID     string
+	SessionID    string
+	SemesterID   string
+	CaScore      decimal.Decimal
+	ExamScore    decimal.Decimal
+	TotalScore   decimal.Decimal
+	Grade        string
+	GradePoint   float64
+	Status       string
+	IsCarryover  bool
+	MatricNumber *string
 }
 
 func (s *ResultService) Create(ctx context.Context, input CreateResultInput) (db.Result, error) {
-	studentID, _ := uuid.Parse(input.StudentID)
 	courseID, _ := uuid.Parse(input.CourseID)
 	sessionID, _ := uuid.Parse(input.SessionID)
 	semesterID, _ := uuid.Parse(input.SemesterID)
@@ -46,15 +46,22 @@ func (s *ResultService) Create(ctx context.Context, input CreateResultInput) (db
 	}
 
 	arg := db.CreateResultParams{
-		StudentID:   studentID,
-		CourseID:    courseID,
-		SessionID:   sessionID,
-		SemesterID:  semesterID,
-		CaScore:     input.CaScore,
-		ExamScore:   input.ExamScore,
-		TotalScore:  input.TotalScore,
-		Status:      db.ResultStatus(status),
-		IsCarryover: input.IsCarryover,
+		CourseID:     courseID,
+		SessionID:    sessionID,
+		SemesterID:   semesterID,
+		CaScore:      input.CaScore,
+		ExamScore:    input.ExamScore,
+		TotalScore:   input.TotalScore,
+		Status:       db.ResultStatus(status),
+		IsCarryover:  input.IsCarryover,
+		MatricNumber: input.MatricNumber,
+	}
+
+	if input.StudentID != "" {
+		studentID, err := uuid.Parse(input.StudentID)
+		if err == nil {
+			arg.StudentID = &studentID
+		}
 	}
 
 	if input.Grade != "" {

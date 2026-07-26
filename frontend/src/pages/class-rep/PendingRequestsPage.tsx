@@ -73,11 +73,10 @@ const PendingRequestsPage = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-surface-200 dark:border-surface-700">
-                  <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">STUDENT</th>
+                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">STUDENT</th>
                   <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">MATRIC NO.</th>
                   <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">LEVEL</th>
                   <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">COURSES</th>
-                  <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">UNITS</th>
                   <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">SUBMITTED</th>
                   <th className="text-right px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">ACTION</th>
                 </tr>
@@ -85,11 +84,10 @@ const PendingRequestsPage = () => {
               <tbody>
                 {list.map((reg) => (
                   <tr key={reg.id} className="border-b border-surface-100 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors">
-                    <td className="px-4 py-3 font-medium text-surface-900 dark:text-white">{reg.full_name}</td>
+                    <td className="px-4 py-3 font-medium text-surface-900 dark:text-white">{reg.student_name}</td>
                     <td className="px-4 py-3 font-mono text-xs text-surface-600 dark:text-surface-400">{reg.matric_number}</td>
                     <td className="px-4 py-3 text-sm text-surface-600 dark:text-surface-400">{reg.level * 100} Level</td>
                     <td className="px-4 py-3 text-sm text-surface-600 dark:text-surface-400">{reg.courses_count}</td>
-                    <td className="px-4 py-3 text-sm text-surface-600 dark:text-surface-400">{reg.total_units} units</td>
                     <td className="px-4 py-3 text-xs text-surface-500">
                       {reg.created_at ? new Date(reg.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
                     </td>
@@ -97,7 +95,7 @@ const PendingRequestsPage = () => {
                       <Button
                         size="xs"
                         leftIcon={approvingId === reg.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                        onClick={() => handleApprove(reg.id, reg.full_name)}
+                        onClick={() => handleApprove(reg.id, reg.student_name)}
                         disabled={approvingId === reg.id}
                       >
                         {approvingId === reg.id ? 'Approving...' : 'Verify Form'}

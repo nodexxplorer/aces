@@ -41,6 +41,12 @@ SELECT EXISTS(
        OR (requester_id = $2 AND receiver_id = $1)
 ) AS connection_exists;
 
+-- name: GetExistingConnection :one
+SELECT * FROM connections
+WHERE (requester_id = $1 AND receiver_id = $2)
+   OR (requester_id = $2 AND receiver_id = $1)
+LIMIT 1;
+
 -- ==================== MESSAGES ====================
 
 -- name: CreateMessage :one
@@ -67,6 +73,12 @@ RETURNING *;
 SELECT COUNT(*) AS unread_count
 FROM messages
 WHERE receiver_id = $1 AND is_read = false;
+
+-- name: CountUnreadBySender :many
+SELECT sender_id, COUNT(*)::int AS unread_count
+FROM messages
+WHERE receiver_id = $1 AND is_read = false
+GROUP BY sender_id;
 
 -- ==================== GROUPS ====================
 
@@ -161,8 +173,20 @@ SELECT u.id, u.full_name, u.avatar_url, u.email, s.matric_number, s.level
 FROM users u
 JOIN students s ON u.id = s.user_id
 WHERE u.is_active = true AND u.is_approved = true
+  AND u.id != $1
+  AND NOT EXISTS (
+    SELECT 1 FROM connections c
+    WHERE (c.requester_id = $1 AND c.receiver_id = u.id)
+       OR (c.receiver_id = $1 AND c.requester_id = u.id)
+  )
 ORDER BY u.full_name
-LIMIT $1 OFFSET $2;
+LIMIT $2 OFFSET $3;
+
+-- name: GetAllConnectionUserIds :many
+SELECT DISTINCT
+    CASE WHEN c.requester_id = $1 THEN c.receiver_id ELSE c.requester_id END AS user_id
+FROM connections c
+WHERE c.requester_id = $1 OR c.receiver_id = $1;
 
 -- name: GetAlumniDirectory :many
 SELECT u.id, u.full_name, u.avatar_url, u.email,

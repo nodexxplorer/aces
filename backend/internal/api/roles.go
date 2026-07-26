@@ -12,22 +12,22 @@ import (
 )
 
 type assignRoleRequest struct {
-	UserID uuid.UUID   `json:"user_id" binding:"required"`
-	Role   db.UserRole `json:"role" binding:"required"`
-	Reason *string     `json:"reason"`
+	UserID uuid.UUID `json:"user_id" binding:"required"`
+	Role   string    `json:"role" binding:"required"`
+	Reason *string   `json:"reason"`
 }
 
 type revokeRoleRequest struct {
-	UserID uuid.UUID   `json:"user_id" binding:"required"`
-	Role   db.UserRole `json:"role" binding:"required"`
-	Reason *string     `json:"reason"`
+	UserID uuid.UUID `json:"user_id" binding:"required"`
+	Role   string    `json:"role" binding:"required"`
+	Reason *string   `json:"reason"`
 }
 
 type promoteUserRequest struct {
-	UserID    uuid.UUID   `json:"user_id" binding:"required"`
-	FromRole  *db.UserRole `json:"from_role"`
-	ToRole    db.UserRole `json:"to_role" binding:"required"`
-	Reason    *string     `json:"reason"`
+	UserID   uuid.UUID `json:"user_id" binding:"required"`
+	FromRole *string   `json:"from_role"`
+	ToRole   string    `json:"to_role" binding:"required"`
+	Reason   *string   `json:"reason"`
 }
 
 func (server *Server) assignUserRole(ctx *gin.Context) {
@@ -37,11 +37,12 @@ func (server *Server) assignUserRole(ctx *gin.Context) {
 		return
 	}
 
+	dbRole := service.ParseRoleNameReverse(req.Role)
 	assignedBy := getUserID(ctx)
 	performedByRole := ctx.GetString("role")
 	ipAddress := ctx.ClientIP()
 
-	assignment, err := server.roles.AssignRoleWithAudit(ctx, req.UserID, req.Role, assignedBy, performedByRole, ipAddress, req.Reason)
+	assignment, err := server.roles.AssignRoleWithAudit(ctx, req.UserID, db.UserRole(dbRole), assignedBy, performedByRole, ipAddress, req.Reason)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -57,11 +58,12 @@ func (server *Server) revokeUserRole(ctx *gin.Context) {
 		return
 	}
 
+	dbRole := service.ParseRoleNameReverse(req.Role)
 	revokedBy := getUserID(ctx)
 	performedByRole := ctx.GetString("role")
 	ipAddress := ctx.ClientIP()
 
-	assignment, err := server.roles.RevokeRoleWithAudit(ctx, req.UserID, req.Role, revokedBy, performedByRole, ipAddress, req.Reason)
+	assignment, err := server.roles.RevokeRoleWithAudit(ctx, req.UserID, db.UserRole(dbRole), revokedBy, performedByRole, ipAddress, req.Reason)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -332,10 +334,17 @@ func (server *Server) promoteUser(ctx *gin.Context) {
 
 	promotedBy := getUserID(ctx)
 
+	var fromRole *db.UserRole
+	if req.FromRole != nil {
+		r := db.UserRole(service.ParseRoleNameReverse(*req.FromRole))
+		fromRole = &r
+	}
+	toRole := db.UserRole(service.ParseRoleNameReverse(req.ToRole))
+
 	ipAddress := ctx.ClientIP()
 	userAgent := ctx.GetHeader("User-Agent")
 
-	promotion, err := server.roles.PromoteUser(ctx, req.UserID, req.FromRole, req.ToRole, promotedBy, req.Reason, &ipAddress, &userAgent)
+	promotion, err := server.roles.PromoteUser(ctx, req.UserID, fromRole, toRole, promotedBy, req.Reason, &ipAddress, &userAgent)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

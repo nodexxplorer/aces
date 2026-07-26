@@ -11,13 +11,12 @@ const toastIcons = {
 };
 
 export const ToastContainer = () => {
-  const { notifications, removeNotification } = useNotificationStore();
-  const toastItems = notifications.filter((n) => n.id.startsWith('toast-'));
+  const { toasts, removeToast } = useNotificationStore();
 
   return (
     <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
       <AnimatePresence>
-        {toastItems.map((toast) => (
+        {toasts.map((toast) => (
           <motion.div
             key={toast.id}
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -35,7 +34,7 @@ export const ToastContainer = () => {
               {toast.message && <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">{toast.message}</p>}
             </div>
             <button
-              onClick={() => removeNotification(toast.id)}
+              onClick={() => removeToast(toast.id)}
               className="shrink-0 p-1 text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-700 rounded-lg transition-colors"
             >
               <X className="w-3.5 h-3.5" />

@@ -71,14 +71,14 @@ export interface RegisteredCourse {
 
 export const getActiveSessionAndSemester = async () => {
   const [sessionsRes] = await Promise.all([
-    apiClient.get('/sessions', { params: { page_id: 1, page_size: 1 } }),
+    apiClient.get('/sessions', { params: { page_id: 1, page_size: 5 } }),
   ]);
   const sessionsData = unwrap<any>(sessionsRes);
   const sessions = Array.isArray(sessionsData) ? sessionsData : sessionsData?.data ?? [];
   if (sessions.length === 0) return { session: null, semester: null };
   const session = sessions[0];
 
-  const semsRes = await apiClient.get(`/sessions/${session.id}/semesters`);
+  const semsRes = await apiClient.get(`/semesters/session/${session.id}`);
   const semsData = unwrap<any>(semsRes);
   const semesters = Array.isArray(semsData) ? semsData : semsData?.data ?? [];
   if (semesters.length === 0) return { session, semester: null };

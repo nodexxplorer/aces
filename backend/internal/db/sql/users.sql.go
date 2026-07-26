@@ -20,7 +20,7 @@ SET
     approved_at = $4,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, email, password_hash, role, full_name, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at, date_of_birth, emergency_contact_name, emergency_contact_phone, home_address
+RETURNING id, email, password_hash, role, first_name, last_name, middle_name, full_name, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at, date_of_birth, emergency_contact_name, emergency_contact_phone, home_address
 `
 
 type ApproveUserStatusParams struct {
@@ -43,6 +43,9 @@ func (q *Queries) ApproveUserStatus(ctx context.Context, arg ApproveUserStatusPa
 		&i.Email,
 		&i.PasswordHash,
 		&i.Role,
+		&i.FirstName,
+		&i.LastName,
+		&i.MiddleName,
 		&i.FullName,
 		&i.Phone,
 		&i.AvatarUrl,
@@ -67,17 +70,18 @@ func (q *Queries) ApproveUserStatus(ctx context.Context, arg ApproveUserStatusPa
 
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (
-    email, password_hash, role, full_name, phone, avatar_url, created_by_hod_id
+    email, password_hash, role, first_name, last_name, phone, avatar_url, created_by_hod_id
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7
-) RETURNING id, email, password_hash, role, full_name, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at, date_of_birth, emergency_contact_name, emergency_contact_phone, home_address
+    $1, $2, $3, $4, $5, $6, $7, $8
+) RETURNING id, email, password_hash, role, first_name, last_name, middle_name, full_name, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at, date_of_birth, emergency_contact_name, emergency_contact_phone, home_address
 `
 
 type CreateUserParams struct {
 	Email          string      `json:"email"`
 	PasswordHash   string      `json:"password_hash"`
 	Role           UserRole    `json:"role"`
-	FullName       string      `json:"full_name"`
+	FirstName      string      `json:"first_name"`
+	LastName       string      `json:"last_name"`
 	Phone          *string     `json:"phone"`
 	AvatarUrl      *string     `json:"avatar_url"`
 	CreatedByHodID pgtype.UUID `json:"created_by_hod_id"`
@@ -88,7 +92,8 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		arg.Email,
 		arg.PasswordHash,
 		arg.Role,
-		arg.FullName,
+		arg.FirstName,
+		arg.LastName,
 		arg.Phone,
 		arg.AvatarUrl,
 		arg.CreatedByHodID,
@@ -99,6 +104,9 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Email,
 		&i.PasswordHash,
 		&i.Role,
+		&i.FirstName,
+		&i.LastName,
+		&i.MiddleName,
 		&i.FullName,
 		&i.Phone,
 		&i.AvatarUrl,
@@ -132,7 +140,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, email, password_hash, role, full_name, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at, date_of_birth, emergency_contact_name, emergency_contact_phone, home_address FROM users
+SELECT id, email, password_hash, role, first_name, last_name, middle_name, full_name, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at, date_of_birth, emergency_contact_name, emergency_contact_phone, home_address FROM users
 WHERE id = $1 LIMIT 1
 `
 
@@ -144,6 +152,9 @@ func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.Email,
 		&i.PasswordHash,
 		&i.Role,
+		&i.FirstName,
+		&i.LastName,
+		&i.MiddleName,
 		&i.FullName,
 		&i.Phone,
 		&i.AvatarUrl,
@@ -167,7 +178,7 @@ func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, role, full_name, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at, date_of_birth, emergency_contact_name, emergency_contact_phone, home_address FROM users
+SELECT id, email, password_hash, role, first_name, last_name, middle_name, full_name, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at, date_of_birth, emergency_contact_name, emergency_contact_phone, home_address FROM users
 WHERE email = $1 LIMIT 1
 `
 
@@ -179,6 +190,9 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.Email,
 		&i.PasswordHash,
 		&i.Role,
+		&i.FirstName,
+		&i.LastName,
+		&i.MiddleName,
 		&i.FullName,
 		&i.Phone,
 		&i.AvatarUrl,
@@ -202,7 +216,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, email, password_hash, role, full_name, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at, date_of_birth, emergency_contact_name, emergency_contact_phone, home_address FROM users
+SELECT id, email, password_hash, role, first_name, last_name, middle_name, full_name, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at, date_of_birth, emergency_contact_name, emergency_contact_phone, home_address FROM users
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2
 `
@@ -226,6 +240,9 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 			&i.Email,
 			&i.PasswordHash,
 			&i.Role,
+			&i.FirstName,
+			&i.LastName,
+			&i.MiddleName,
 			&i.FullName,
 			&i.Phone,
 			&i.AvatarUrl,
@@ -258,20 +275,22 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 const updateUser = `-- name: UpdateUser :one
 UPDATE users
 SET
-    full_name = $2,
-    phone = $3,
-    avatar_url = $4,
-    is_active = $5,
-    email_verified = $6,
-    two_factor_enabled = $7,
+    first_name = $2,
+    last_name = $3,
+    phone = $4,
+    avatar_url = $5,
+    is_active = $6,
+    email_verified = $7,
+    two_factor_enabled = $8,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, email, password_hash, role, full_name, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at, date_of_birth, emergency_contact_name, emergency_contact_phone, home_address
+RETURNING id, email, password_hash, role, first_name, last_name, middle_name, full_name, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at, date_of_birth, emergency_contact_name, emergency_contact_phone, home_address
 `
 
 type UpdateUserParams struct {
 	ID               uuid.UUID `json:"id"`
-	FullName         string    `json:"full_name"`
+	FirstName        string    `json:"first_name"`
+	LastName         string    `json:"last_name"`
 	Phone            *string   `json:"phone"`
 	AvatarUrl        *string   `json:"avatar_url"`
 	IsActive         bool      `json:"is_active"`
@@ -282,7 +301,8 @@ type UpdateUserParams struct {
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {
 	row := q.db.QueryRow(ctx, updateUser,
 		arg.ID,
-		arg.FullName,
+		arg.FirstName,
+		arg.LastName,
 		arg.Phone,
 		arg.AvatarUrl,
 		arg.IsActive,
@@ -295,6 +315,9 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.Email,
 		&i.PasswordHash,
 		&i.Role,
+		&i.FirstName,
+		&i.LastName,
+		&i.MiddleName,
 		&i.FullName,
 		&i.Phone,
 		&i.AvatarUrl,

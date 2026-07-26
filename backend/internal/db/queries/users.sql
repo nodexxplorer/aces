@@ -1,8 +1,8 @@
 -- name: CreateUser :one
 INSERT INTO users (
-    email, password_hash, role, full_name, phone, avatar_url, created_by_hod_id
+    email, password_hash, role, first_name, last_name, phone, avatar_url, created_by_hod_id
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7
+    $1, $2, $3, $4, $5, $6, $7, $8
 ) RETURNING *;
 
 -- name: GetUser :one
@@ -21,12 +21,13 @@ LIMIT $1 OFFSET $2;
 -- name: UpdateUser :one
 UPDATE users
 SET
-    full_name = $2,
-    phone = $3,
-    avatar_url = $4,
-    is_active = $5,
-    email_verified = $6,
-    two_factor_enabled = $7,
+    first_name = $2,
+    last_name = $3,
+    phone = $4,
+    avatar_url = $5,
+    is_active = $6,
+    email_verified = $7,
+    two_factor_enabled = $8,
     updated_at = NOW()
 WHERE id = $1
 RETURNING *;

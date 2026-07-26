@@ -348,19 +348,19 @@ WITH student_grades AS (
         r.student_id,
         c.code as course_code,
         c.unit as credits,
-        (COALESCE(r.assignment_score, 0) * 0.4 + COALESCE(r.lab_score, 0) * 0.2 + COALESCE(r.exam_score, 0) * 0.4) as total_score,
+        COALESCE(r.total_score, 0) as total_score,
         CASE
-            WHEN (COALESCE(r.assignment_score, 0) * 0.4 + COALESCE(r.lab_score, 0) * 0.2 + COALESCE(r.exam_score, 0) * 0.4) >= 70 THEN 5.0
-            WHEN (COALESCE(r.assignment_score, 0) * 0.4 + COALESCE(r.lab_score, 0) * 0.2 + COALESCE(r.exam_score, 0) * 0.4) >= 60 THEN 4.0
-            WHEN (COALESCE(r.assignment_score, 0) * 0.4 + COALESCE(r.lab_score, 0) * 0.2 + COALESCE(r.exam_score, 0) * 0.4) >= 50 THEN 3.0
-            WHEN (COALESCE(r.assignment_score, 0) * 0.4 + COALESCE(r.lab_score, 0) * 0.2 + COALESCE(r.exam_score, 0) * 0.4) >= 45 THEN 2.0
-            WHEN (COALESCE(r.assignment_score, 0) * 0.4 + COALESCE(r.lab_score, 0) * 0.2 + COALESCE(r.exam_score, 0) * 0.4) >= 40 THEN 1.0
+            WHEN COALESCE(r.total_score, 0) >= 70 THEN 5.0
+            WHEN COALESCE(r.total_score, 0) >= 60 THEN 4.0
+            WHEN COALESCE(r.total_score, 0) >= 50 THEN 3.0
+            WHEN COALESCE(r.total_score, 0) >= 45 THEN 2.0
+            WHEN COALESCE(r.total_score, 0) >= 40 THEN 1.0
             ELSE 0.0
         END as grade_points
     FROM results r
     JOIN courses c ON c.id = r.course_id
     WHERE r.student_id = $1
-    AND r.exam_score IS NOT NULL
+    AND r.total_score > 0
 )
 SELECT
     student_id,
@@ -384,7 +384,7 @@ type GetStudentGPAPredictionRow struct {
 	StudentID   uuid.UUID `json:"student_id"`
 	CourseCode  string    `json:"course_code"`
 	Credits     int32     `json:"credits"`
-	TotalScore  int32     `json:"total_score"`
+	TotalScore  float64   `json:"total_score"`
 	GradePoints float64   `json:"grade_points"`
 	GradeLetter string    `json:"grade_letter"`
 }
