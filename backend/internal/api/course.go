@@ -27,7 +27,7 @@ type createCourseRequest struct {
 func (server *Server) createCourse(ctx *gin.Context) {
 	var req createCourseRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -45,7 +45,7 @@ func (server *Server) createCourse(ctx *gin.Context) {
 		CourseType:     req.CourseType,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -57,7 +57,7 @@ func (server *Server) getCourse(ctx *gin.Context) {
 
 	course, err := server.courses.GetByIDOrCode(ctx, idStr)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -72,13 +72,13 @@ type listCoursesRequest struct {
 func (server *Server) listCourses(ctx *gin.Context) {
 	var req listCoursesRequest
 	if err := ctx.ShouldBindQuery(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
 	courses, err := server.courses.List(ctx, req.PageSize, (req.PageID-1)*req.PageSize)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -109,7 +109,7 @@ func (server *Server) updateCourse(ctx *gin.Context) {
 
 	var req updateCourseRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -183,7 +183,7 @@ func (server *Server) updateCourse(ctx *gin.Context) {
 		CourseType:  courseType,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -200,7 +200,7 @@ func (server *Server) deleteCourse(ctx *gin.Context) {
 
 	err = server.courses.Delete(ctx, id)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -232,7 +232,7 @@ func (server *Server) listCoursesByLevelAndSemester(ctx *gin.Context) {
 		Semester: db.SemesterSeason(semester),
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -242,7 +242,7 @@ func (server *Server) listCoursesByLevelAndSemester(ctx *gin.Context) {
 func (server *Server) countCourses(ctx *gin.Context) {
 	count, err := server.store.CountCourses(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"count": count})

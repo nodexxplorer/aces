@@ -24,7 +24,7 @@ type createAnnouncementRequest struct {
 func (server *Server) createAnnouncement(ctx *gin.Context) {
 	var req createAnnouncementRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -40,7 +40,7 @@ func (server *Server) createAnnouncement(ctx *gin.Context) {
 		CreatedBy:      createdBy,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -71,13 +71,13 @@ type listActiveAnnouncementsRequest struct {
 func (server *Server) listActiveAnnouncements(ctx *gin.Context) {
 	var req listActiveAnnouncementsRequest
 	if err := ctx.ShouldBindQuery(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
 	announcements, err := server.announcements.ListActive(ctx, req.Limit, req.Offset)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -102,7 +102,7 @@ func (server *Server) updateAnnouncement(ctx *gin.Context) {
 
 	var req updateAnnouncementRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -115,7 +115,7 @@ func (server *Server) updateAnnouncement(ctx *gin.Context) {
 		ExpiresAt:      req.ExpiresAt,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -130,7 +130,7 @@ func (server *Server) deleteAnnouncement(ctx *gin.Context) {
 	}
 
 	if err := server.announcements.Delete(ctx, id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -154,7 +154,7 @@ type createNotificationRequest struct {
 func (server *Server) createNotification(ctx *gin.Context) {
 	var req createNotificationRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -175,7 +175,7 @@ func (server *Server) createNotification(ctx *gin.Context) {
 		nil,
 	)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -194,13 +194,13 @@ func (server *Server) listMyNotifications(ctx *gin.Context) {
 
 	var req listMyNotificationsRequest
 	if err := ctx.ShouldBindQuery(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
 	notifications, err := server.notificationsFull.List(ctx, userID, req.Category, req.Status, req.Limit, req.Offset)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -212,7 +212,7 @@ func (server *Server) getMyUnreadCount(ctx *gin.Context) {
 
 	count, err := server.notificationsFull.GetUnreadCount(ctx, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -224,7 +224,7 @@ func (server *Server) getMyUnreadByCategory(ctx *gin.Context) {
 
 	counts, err := server.notificationsFull.GetUnreadByCategory(ctx, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -242,7 +242,7 @@ func (server *Server) markNotificationAsRead(ctx *gin.Context) {
 
 	notification, err := server.notificationsFull.MarkAsRead(ctx, id, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -253,7 +253,7 @@ func (server *Server) markAllAsRead(ctx *gin.Context) {
 	userID := getUserID(ctx)
 
 	if err := server.notificationsFull.MarkAllAsRead(ctx, userID); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -270,7 +270,7 @@ func (server *Server) deleteNotification(ctx *gin.Context) {
 	userID := getUserID(ctx)
 
 	if err := server.notificationsFull.Delete(ctx, id, userID); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -282,7 +282,7 @@ func (server *Server) getMyNotificationPreferences(ctx *gin.Context) {
 
 	prefs, err := server.notificationsFull.GetPreferences(ctx, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -318,7 +318,7 @@ func (server *Server) updateMyNotificationPreferences(ctx *gin.Context) {
 
 	var req updateNotificationPreferencesRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -347,7 +347,7 @@ func (server *Server) updateMyNotificationPreferences(ctx *gin.Context) {
 		QuietHoursEnd:   req.QuietHoursEnd,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -367,7 +367,7 @@ type broadcastNotificationRequest struct {
 func (server *Server) broadcastNotification(ctx *gin.Context) {
 	var req broadcastNotificationRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -384,7 +384,7 @@ func (server *Server) broadcastNotification(ctx *gin.Context) {
 		&senderID,
 	)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

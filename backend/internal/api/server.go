@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/aces/backend/internal/auth"
+	"github.com/aces/backend/internal/cache"
 	"github.com/aces/backend/internal/config"
 	"github.com/aces/backend/internal/db/sql"
 	"github.com/aces/backend/internal/middleware"
@@ -72,6 +73,7 @@ type Server struct {
 	ai            *service.AIService
 	wsHub         *ws.Hub
 	storage       *storage.LocalStorage
+	redisCache    *cache.RedisCache
 }
 
 func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Server {
@@ -113,18 +115,41 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 	ls, _ := storage.NewLocalStorage(cfg.StorageLocalPath)
 	server.storage = ls
 
+	// Initialize Redis cache (optional — gracefully falls back to in-memory)
+	var rc *cache.RedisCache
+	if cfg.RedisAddress != "" {
+		rc = cache.NewRedisCache(cfg.RedisAddress, cfg.RedisPassword)
+		if err := rc.Ping(context.Background()); err == nil {
+			server.redisCache = rc
+		}
+	}
+
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.Use(middleware.RequestID())
 	router.Use(middleware.ResponseNormalizer())
 	router.Use(middleware.RequestLogger())
 	router.Use(corsMiddleware(cfg.AllowedOrigins))
-	router.Use(middleware.RateLimit(100, time.Minute))
+	if rc != nil && server.redisCache != nil {
+		router.Use(middleware.RedisRateLimit(server.redisCache, 100, time.Minute))
+	} else {
+		router.Use(middleware.RateLimit(100, time.Minute))
+	}
 	router.Use(middleware.BodySizeLimit(10 << 20))
 	router.MaxMultipartMemory = 32 << 20
 
-	rl := middleware.RateLimit(10, time.Minute)
-	authRL := middleware.RateLimit(60, time.Minute)
+	// Serve uploaded files
+	router.Static("/uploads", cfg.StorageLocalPath)
+
+	// Per-route rate limiters: prefer Redis, fall back to in-memory
+	var rl, authRL gin.HandlerFunc
+	if server.redisCache != nil {
+		rl = middleware.RedisRateLimit(server.redisCache, 10, time.Minute)
+		authRL = middleware.RedisRateLimit(server.redisCache, 60, time.Minute)
+	} else {
+		rl = middleware.RateLimit(10, time.Minute)
+		authRL = middleware.RateLimit(60, time.Minute)
+	}
 
 	router.GET("/health", server.healthCheck)
 
@@ -145,8 +170,6 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		authPublic.POST("/signup/lecturer", rl, server.lecturerSignup)
 		authPublic.POST("/login", authRL, server.login)
 		authPublic.POST("/refresh", authRL, server.refreshToken)
-		authPublic.POST("/forgot-password", authRL, server.forgotPassword)
-		authPublic.POST("/reset-password", authRL, server.resetPassword)
 		authPublic.POST("/request-otp", authRL, server.requestPasswordReset)
 		authPublic.POST("/verify-otp", authRL, server.verifyPasswordResetOTP)
 		authPublic.POST("/reset-with-otp", authRL, server.resetPasswordWithOTP)
@@ -182,8 +205,8 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 	{
 		staff.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createStaff)
 		staff.GET("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listStaff)
-		staff.GET("/:id", server.getStaff)
-		staff.GET("/user/:user_id", server.getStaffByUserID)
+		staff.GET("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getStaff)
+		staff.GET("/user/:user_id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getStaffByUserID)
 		staff.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateStaff)
 		staff.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteStaff)
 	}
@@ -193,8 +216,9 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		users.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createUser)
 		users.GET("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listUsers)
 		users.GET("/pending-approvals", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listPendingApprovals)
+		users.PATCH("/me", server.updateMe)
 		users.GET("/:id", server.getUser)
-		users.PUT("/:id", server.updateUser)
+		users.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateUser)
 		users.POST("/:id/approve", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.approveSignup)
 		users.POST("/:id/reject", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.rejectSignup)
 		users.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteUser)
@@ -378,9 +402,9 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		payments.GET("/student/:student_id", server.listStudentPayments)
 		payments.GET("/summary/:student_id", server.getStudentPaymentSummary)
 		payments.GET("/check-paid", server.checkDuePaid)
-		payments.GET("/by-reference", server.getPaymentByReference)
+		payments.GET("/by-reference", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.getPaymentByReference)
 		payments.GET("/defaulters", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.listDefaulters)
-		payments.GET("", server.listAllPayments)
+		payments.GET("", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.listAllPayments)
 		payments.GET("/:id", server.getPayment)
 		payments.PUT("/:id/status", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.updatePaymentStatus)
 		payments.POST("/:id/verify", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.verifyPayment)

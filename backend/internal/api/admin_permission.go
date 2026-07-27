@@ -25,19 +25,19 @@ type grantAdminPermissionRequest struct {
 func (server *Server) grantAdminPermission(ctx *gin.Context) {
 	var req grantAdminPermissionRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
 	userID, err := uuid.Parse(req.UserID)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
 	hodID, err := uuid.Parse(req.GrantedByHodID)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -55,7 +55,7 @@ func (server *Server) grantAdminPermission(ctx *gin.Context) {
 
 	permission, err := server.store.GrantAdminPermissions(ctx, arg)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -66,17 +66,17 @@ func (server *Server) getAdminPermission(ctx *gin.Context) {
 	idStr := ctx.Param("user_id")
 	userID, err := uuid.Parse(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
 	permission, err := server.store.GetAdminPermissions(ctx, userID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "internal server error"})
 			return
 		}
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -97,13 +97,13 @@ func (server *Server) updateAdminPermission(ctx *gin.Context) {
 	idStr := ctx.Param("user_id")
 	userID, err := uuid.Parse(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
 	var req updateAdminPermissionRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -120,7 +120,7 @@ func (server *Server) updateAdminPermission(ctx *gin.Context) {
 
 	permission, err := server.store.UpdateAdminPermissions(ctx, arg)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -131,13 +131,13 @@ func (server *Server) revokeAdminPermission(ctx *gin.Context) {
 	idStr := ctx.Param("user_id")
 	userID, err := uuid.Parse(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
 	err = server.store.RevokeAdminPermissions(ctx, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -152,7 +152,7 @@ type listAdminPermissionsRequest struct {
 func (server *Server) listAdminPermissions(ctx *gin.Context) {
 	var req listAdminPermissionsRequest
 	if err := ctx.ShouldBindQuery(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -163,7 +163,7 @@ func (server *Server) listAdminPermissions(ctx *gin.Context) {
 
 	permissions, err := server.store.ListAdminPermissions(ctx, arg)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

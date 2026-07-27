@@ -29,7 +29,7 @@ type updateCgpaSettingsRequest struct {
 func (server *Server) getCgpaSettings(ctx *gin.Context) {
 	settings, err := server.cgpa.GetSettings(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get CGPA settings: " + err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -39,7 +39,7 @@ func (server *Server) getCgpaSettings(ctx *gin.Context) {
 func (server *Server) updateCgpaSettings(ctx *gin.Context) {
 	var req updateCgpaSettingsRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -67,7 +67,7 @@ func (server *Server) updateCgpaSettings(ctx *gin.Context) {
 		StandingRules: standingRules,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update CGPA settings: " + err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -83,7 +83,7 @@ func (server *Server) calculateCgpa(ctx *gin.Context) {
 
 	result, err := server.students.CalculateCGPA(ctx, studentID)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 

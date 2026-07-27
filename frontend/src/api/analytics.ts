@@ -37,11 +37,6 @@ export const getDashboardAnalytics = async () => {
   return unwrap<AnalyticsData>(res);
 };
 
-export const getDashboardStats = async () => {
-  const res = await apiClient.get('/analytics/dashboard');
-  return unwrap<Record<string, number>>(res);
-};
-
 export const getRecentUsers = async (limit?: number) => {
   const res = await apiClient.get('/analytics/users', { params: { limit: limit || 5 } });
   return unwrap<{ id: string; fullName: string; email: string; role: string; createdAt: string }[]>(res) ?? [];

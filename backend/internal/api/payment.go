@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/aces/backend/internal/auth"
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/aces/backend/internal/payment"
 	"github.com/gin-gonic/gin"
@@ -53,14 +54,19 @@ type listDuesByLevelQuery struct {
 type addToCartRequest struct {
 	StudentID string `json:"student_id"`
 	DueID     string `json:"due_id"     binding:"required,uuid"`
-	Amount    string `json:"amount"     binding:"required"`
+	// Amount is accepted for backward compatibility with existing clients but is
+	// never trusted — the server always uses the amount on the Due record.
+	Amount string `json:"amount"`
 }
 
 // ── Batches ──
 
 type createPaymentBatchRequest struct {
-	StudentID         string `json:"student_id"         binding:"required,uuid"`
-	TotalAmount       string `json:"total_amount"       binding:"required"`
+	// StudentID and TotalAmount are accepted for backward compatibility with
+	// existing clients but are never trusted — the server always derives the
+	// student from the authenticated session and the total from their cart.
+	StudentID         string  `json:"student_id"`
+	TotalAmount       string  `json:"total_amount"`
 	PaystackReference *string `json:"paystack_reference"`
 }
 
@@ -78,12 +84,16 @@ type updateBatchStatusRequest struct {
 // ── Payments ──
 
 type createPaymentRequest struct {
-	StudentID         string  `json:"student_id"         binding:"required,uuid"`
+	// StudentID, Type, and Amount are accepted for backward compatibility with
+	// existing clients but are never trusted — the server always derives the
+	// student from the authenticated session and the type/amount from the
+	// canonical Due record.
+	StudentID         string  `json:"student_id"`
 	BatchID           *string `json:"batch_id"           binding:"omitempty,uuid"`
 	DueID             string  `json:"due_id"             binding:"required,uuid"`
-	Type              string  `json:"type"               binding:"required,oneof=dept_dues class_dues manual materials transcript_fee other"`
+	Type              string  `json:"type"`
 	ItemName          string  `json:"item_name"          binding:"required"`
-	Amount            string  `json:"amount"             binding:"required"`
+	Amount            string  `json:"amount"`
 	PaystackReference *string `json:"paystack_reference"`
 }
 
@@ -106,13 +116,42 @@ type checkDuePaidQuery struct {
 	DueID     string `form:"due_id"     binding:"required,uuid"`
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// resolveStudentIDForPaymentRead returns the student ID a caller is allowed to read
+// payment data for: their own ID if they're a student, or the requested path param
+// if they hold a staff/admin role.
+func (server *Server) resolveStudentIDForPaymentRead(ctx *gin.Context, pathParam string) (uuid.UUID, error) {
+	claimsVal, exists := ctx.Get("claims")
+	if exists {
+		if claims, ok := claimsVal.(*auth.Claims); ok && claims.HasRole("student") &&
+			!claims.HasAnyRole([]string{"hod", "admin", "delegated_admin", "dept_bursar", "class_bursar"}) {
+			return server.getStudentIDFromUser(ctx)
+		}
+	}
+	return uuid.Parse(pathParam)
+}
+
+// isStaffRole checks if the caller holds a staff/admin role.
+func isStaffRole(ctx *gin.Context) bool {
+	claimsVal, exists := ctx.Get("claims")
+	if !exists {
+		return false
+	}
+	claims, ok := claimsVal.(*auth.Claims)
+	if !ok {
+		return false
+	}
+	return claims.HasAnyRole([]string{"hod", "admin", "delegated_admin", "dept_bursar", "class_bursar"})
+}
+
 // ─── Dues Handlers ────────────────────────────────────────────────────────────
 
 // createDue POST /payments/dues
 func (server *Server) createDue(ctx *gin.Context) {
 	var req createDueRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -166,7 +205,7 @@ func (server *Server) createDue(ctx *gin.Context) {
 
 	due, err := server.store.CreateDue(ctx, params)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -194,7 +233,7 @@ func (server *Server) getDue(ctx *gin.Context) {
 func (server *Server) listDues(ctx *gin.Context) {
 	var q listDuesQuery
 	if err := ctx.ShouldBindQuery(&q); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -203,7 +242,7 @@ func (server *Server) listDues(ctx *gin.Context) {
 		Offset: q.Offset,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -218,7 +257,7 @@ func (server *Server) listDuesByLevel(ctx *gin.Context) {
 	if q.Level > 0 {
 		dues, err := server.store.ListDuesByLevel(ctx, &q.Level)
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
 		}
 		ctx.JSON(http.StatusOK, dues)
@@ -231,7 +270,7 @@ func (server *Server) listDuesByLevel(ctx *gin.Context) {
 		Offset: 0,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -248,7 +287,7 @@ func (server *Server) updateDue(ctx *gin.Context) {
 
 	var req updateDueRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -279,7 +318,7 @@ func (server *Server) updateDue(ctx *gin.Context) {
 
 	due, err := server.store.UpdateDue(ctx, params)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -295,7 +334,7 @@ func (server *Server) deleteDue(ctx *gin.Context) {
 	}
 
 	if err := server.store.DeleteDue(ctx, id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -308,14 +347,14 @@ func (server *Server) deleteDue(ctx *gin.Context) {
 func (server *Server) addToCart(ctx *gin.Context) {
 	var req addToCartRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
 	// Resolve student_id from JWT (user.id → students.id)
 	studentID, err := server.getStudentIDFromUser(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -325,19 +364,25 @@ func (server *Server) addToCart(ctx *gin.Context) {
 		return
 	}
 
-	amount, err := decimal.NewFromString(req.Amount)
+	// Never trust a client-supplied amount for anything that will be charged.
+	// The amount always comes from the canonical Due record on the server.
+	due, err := server.store.GetDue(ctx, dueID)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid amount"})
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "due not found"})
+		return
+	}
+	if !due.IsActive {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "this due is no longer active"})
 		return
 	}
 
 	item, err := server.store.AddToCart(ctx, db.AddToCartParams{
 		StudentID: studentID,
 		DueID:     dueID,
-		Amount:    amount,
+		Amount:    due.Amount,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -348,13 +393,13 @@ func (server *Server) addToCart(ctx *gin.Context) {
 func (server *Server) listStudentCart(ctx *gin.Context) {
 	studentID, err := server.getStudentIDFromUser(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "internal server error"})
 		return
 	}
 
 	items, err := server.store.ListStudentCart(ctx, studentID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -370,7 +415,7 @@ func (server *Server) removeFromCart(ctx *gin.Context) {
 	}
 
 	if err := server.store.RemoveFromCart(ctx, id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -381,12 +426,12 @@ func (server *Server) removeFromCart(ctx *gin.Context) {
 func (server *Server) clearStudentCart(ctx *gin.Context) {
 	studentID, err := server.getStudentIDFromUser(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "internal server error"})
 		return
 	}
 
 	if err := server.store.ClearStudentCart(ctx, studentID); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -399,20 +444,32 @@ func (server *Server) clearStudentCart(ctx *gin.Context) {
 func (server *Server) createPaymentBatch(ctx *gin.Context) {
 	var req createPaymentBatchRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
-	studentID, err := uuid.Parse(req.StudentID)
+	// Never trust student_id from the request body — this endpoint is
+	// student-only, so the caller can only ever create a batch for themselves.
+	studentID, err := server.getStudentIDFromUser(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid student_id"})
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "internal server error"})
 		return
 	}
 
-	totalAmount, err := decimal.NewFromString(req.TotalAmount)
+	// Never trust a client-supplied total_amount — it always comes from
+	// summing the student's server-priced cart, not from the request body.
+	cartItems, err := server.store.ListStudentCart(ctx, studentID)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid total_amount"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
+	}
+	if len(cartItems) == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "cart is empty"})
+		return
+	}
+	totalAmount := decimal.Zero
+	for _, item := range cartItems {
+		totalAmount = totalAmount.Add(item.Amount)
 	}
 
 	batch, err := server.store.CreatePaymentBatch(ctx, db.CreatePaymentBatchParams{
@@ -421,7 +478,7 @@ func (server *Server) createPaymentBatch(ctx *gin.Context) {
 		PaystackReference: req.PaystackReference,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -442,12 +499,20 @@ func (server *Server) getPaymentBatch(ctx *gin.Context) {
 		return
 	}
 
+	if !isStaffRole(ctx) {
+		studentID, err := server.getStudentIDFromUser(ctx)
+		if err != nil || batch.StudentID != studentID {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "payment batch not found"})
+			return
+		}
+	}
+
 	ctx.JSON(http.StatusOK, batch)
 }
 
 // listStudentPaymentBatches GET /payments/batches/student/:student_id
 func (server *Server) listStudentPaymentBatches(ctx *gin.Context) {
-	studentID, err := uuid.Parse(ctx.Param("student_id"))
+	studentID, err := server.resolveStudentIDForPaymentRead(ctx, ctx.Param("student_id"))
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid student_id"})
 		return
@@ -455,7 +520,7 @@ func (server *Server) listStudentPaymentBatches(ctx *gin.Context) {
 
 	var q listStudentBatchesQuery
 	if err := ctx.ShouldBindQuery(&q); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -465,7 +530,7 @@ func (server *Server) listStudentPaymentBatches(ctx *gin.Context) {
 		Offset:    q.Offset,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -482,7 +547,7 @@ func (server *Server) updatePaymentBatchStatus(ctx *gin.Context) {
 
 	var req updateBatchStatusRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -503,7 +568,7 @@ func (server *Server) updatePaymentBatchStatus(ctx *gin.Context) {
 
 	batch, err := server.store.UpdatePaymentBatchStatus(ctx, params)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -518,9 +583,22 @@ func (server *Server) listBatchPayments(ctx *gin.Context) {
 		return
 	}
 
+	if !isStaffRole(ctx) {
+		batch, err := server.store.GetPaymentBatch(ctx, id)
+		if err != nil {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "payment batch not found"})
+			return
+		}
+		studentID, err := server.getStudentIDFromUser(ctx)
+		if err != nil || batch.StudentID != studentID {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "payment batch not found"})
+			return
+		}
+	}
+
 	payments, err := server.store.ListBatchPayments(ctx, pgtype.UUID{Bytes: id, Valid: true})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -533,13 +611,15 @@ func (server *Server) listBatchPayments(ctx *gin.Context) {
 func (server *Server) createPayment(ctx *gin.Context) {
 	var req createPaymentRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
-	studentID, err := uuid.Parse(req.StudentID)
+	// Never trust student_id from the request body either — this endpoint is
+	// student-only, so the caller can only ever create a payment for themselves.
+	studentID, err := server.getStudentIDFromUser(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid student_id"})
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -549,18 +629,24 @@ func (server *Server) createPayment(ctx *gin.Context) {
 		return
 	}
 
-	amount, err := decimal.NewFromString(req.Amount)
+	// Never trust a client-supplied amount or type for anything that will be
+	// charged — both always come from the canonical Due record on the server.
+	due, err := server.store.GetDue(ctx, dueID)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid amount"})
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "due not found"})
+		return
+	}
+	if !due.IsActive {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "this due is no longer active"})
 		return
 	}
 
 	params := db.CreatePaymentParams{
 		StudentID:         studentID,
 		DueID:             dueID,
-		Type:              db.PaymentType(req.Type),
+		Type:              due.Type,
 		ItemName:          req.ItemName,
-		Amount:            amount,
+		Amount:            due.Amount,
 		PaystackReference: req.PaystackReference,
 	}
 
@@ -575,7 +661,7 @@ func (server *Server) createPayment(ctx *gin.Context) {
 
 	payment, err := server.store.CreatePayment(ctx, params)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -596,12 +682,20 @@ func (server *Server) getPayment(ctx *gin.Context) {
 		return
 	}
 
+	if !isStaffRole(ctx) {
+		studentID, err := server.getStudentIDFromUser(ctx)
+		if err != nil || payment.StudentID != studentID {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "payment not found"})
+			return
+		}
+	}
+
 	ctx.JSON(http.StatusOK, payment)
 }
 
 // listStudentPayments GET /payments/student/:student_id
 func (server *Server) listStudentPayments(ctx *gin.Context) {
-	studentID, err := uuid.Parse(ctx.Param("student_id"))
+	studentID, err := server.resolveStudentIDForPaymentRead(ctx, ctx.Param("student_id"))
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid student_id"})
 		return
@@ -609,7 +703,7 @@ func (server *Server) listStudentPayments(ctx *gin.Context) {
 
 	var q listStudentPaymentsQuery
 	if err := ctx.ShouldBindQuery(&q); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -619,7 +713,7 @@ func (server *Server) listStudentPayments(ctx *gin.Context) {
 		Offset:    q.Offset,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -636,7 +730,7 @@ func (server *Server) updatePaymentStatus(ctx *gin.Context) {
 
 	var req updatePaymentStatusRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -656,7 +750,7 @@ func (server *Server) updatePaymentStatus(ctx *gin.Context) {
 
 	payment, err := server.store.UpdatePaymentStatus(ctx, params)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -673,7 +767,7 @@ func (server *Server) verifyPayment(ctx *gin.Context) {
 
 	var req verifyPaymentRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -683,12 +777,36 @@ func (server *Server) verifyPayment(ctx *gin.Context) {
 		return
 	}
 
+	paymentRecord, err := server.store.GetPayment(ctx, id)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "payment not found"})
+		return
+	}
+
+	if paymentRecord.Status == "completed" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "payment already verified"})
+		return
+	}
+
+	if paymentRecord.PaystackReference != nil && *paymentRecord.PaystackReference != "" {
+		paystackClient := payment.NewPaystackClient(server.config.PaystackSecretKey, server.config.PaystackPublicKey)
+		psResp, err := paystackClient.VerifyPayment(*paymentRecord.PaystackReference)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
+			return
+		}
+		if psResp.Data.Status != "success" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "payment not successful on Paystack (status: " + psResp.Data.Status + ")"})
+			return
+		}
+	}
+
 	payment, err := server.store.VerifyPayment(ctx, db.VerifyPaymentParams{
 		ID:         id,
 		VerifiedBy: pgtype.UUID{Bytes: verifiedBy, Valid: true},
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -697,7 +815,7 @@ func (server *Server) verifyPayment(ctx *gin.Context) {
 
 // getStudentPaymentSummary GET /payments/summary/:student_id
 func (server *Server) getStudentPaymentSummary(ctx *gin.Context) {
-	studentID, err := uuid.Parse(ctx.Param("student_id"))
+	studentID, err := server.resolveStudentIDForPaymentRead(ctx, ctx.Param("student_id"))
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid student_id"})
 		return
@@ -705,7 +823,7 @@ func (server *Server) getStudentPaymentSummary(ctx *gin.Context) {
 
 	summary, err := server.store.GetStudentPaymentSummary(ctx, studentID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -716,7 +834,7 @@ func (server *Server) getStudentPaymentSummary(ctx *gin.Context) {
 func (server *Server) checkDuePaid(ctx *gin.Context) {
 	var q checkDuePaidQuery
 	if err := ctx.ShouldBindQuery(&q); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -724,6 +842,15 @@ func (server *Server) checkDuePaid(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid student_id"})
 		return
+	}
+
+	// Students can only check their own payment status.
+	if !isStaffRole(ctx) {
+		callerStudentID, err := server.getStudentIDFromUser(ctx)
+		if err != nil || callerStudentID != studentID {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			return
+		}
 	}
 
 	dueID, err := uuid.Parse(q.DueID)
@@ -737,7 +864,7 @@ func (server *Server) checkDuePaid(ctx *gin.Context) {
 		DueID:     dueID,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -766,7 +893,7 @@ type checkoutRequest struct {
 func (server *Server) initializeCheckout(ctx *gin.Context) {
 	var req checkoutRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -798,7 +925,7 @@ func (server *Server) initializeCheckout(ctx *gin.Context) {
 		if q, ok := server.store.(interface { GetDB() db.DBTX }); ok {
 			_, err = q.GetDB().Exec(ctx, "UPDATE payments SET paystack_reference = $1 WHERE id = $2", reference, paymentRecord.ID)
 			if err != nil {
-				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save reference: " + err.Error()})
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 				return
 			}
 		}
@@ -821,7 +948,7 @@ func (server *Server) initializeCheckout(ctx *gin.Context) {
 
 	resp, err := paystackClient.InitializePayment(paystackReq)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to initialize paystack: " + err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -840,7 +967,7 @@ func (server *Server) initializeCheckout(ctx *gin.Context) {
 func (server *Server) listAllPayments(ctx *gin.Context) {
 	var q listAllPaymentsQuery
 	if err := ctx.ShouldBindQuery(&q); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -849,7 +976,7 @@ func (server *Server) listAllPayments(ctx *gin.Context) {
 		Offset: q.Offset,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -860,7 +987,7 @@ func (server *Server) listAllPayments(ctx *gin.Context) {
 func (server *Server) getPaymentByReference(ctx *gin.Context) {
 	var q getPaymentByReferenceQuery
 	if err := ctx.ShouldBindQuery(&q); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -877,10 +1004,9 @@ func (server *Server) getPaymentByReference(ctx *gin.Context) {
 func (server *Server) listDefaulters(ctx *gin.Context) {
 	defaulters, err := server.store.ListDefaultersByLevel(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
 	ctx.JSON(http.StatusOK, defaulters)
 }
-

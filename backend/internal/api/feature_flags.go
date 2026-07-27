@@ -101,7 +101,7 @@ func (server *Server) listFeatureFlags(ctx *gin.Context) {
 func (server *Server) createFeatureFlag(ctx *gin.Context) {
 	var req createFeatureFlagRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -124,7 +124,7 @@ func (server *Server) createFeatureFlag(ctx *gin.Context) {
 		},
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	ctx.JSON(http.StatusCreated, gin.H{"data": decodeFeatureFlag(flag)})
@@ -136,7 +136,7 @@ func (server *Server) toggleFeatureFlag(ctx *gin.Context) {
 		IsEnabled bool `json:"is_enabled"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -156,7 +156,7 @@ func (server *Server) updateFeatureFlag(ctx *gin.Context) {
 	name := ctx.Param("name")
 	var req updateFeatureFlagRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -198,7 +198,7 @@ func (server *Server) updateFeatureFlag(ctx *gin.Context) {
 		Percentage:   percentage,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"message": "feature flag updated"})

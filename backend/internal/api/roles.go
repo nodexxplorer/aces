@@ -33,7 +33,7 @@ type promoteUserRequest struct {
 func (server *Server) assignUserRole(ctx *gin.Context) {
 	var req assignRoleRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -44,7 +44,7 @@ func (server *Server) assignUserRole(ctx *gin.Context) {
 
 	assignment, err := server.roles.AssignRoleWithAudit(ctx, req.UserID, db.UserRole(dbRole), assignedBy, performedByRole, ipAddress, req.Reason)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -54,7 +54,7 @@ func (server *Server) assignUserRole(ctx *gin.Context) {
 func (server *Server) revokeUserRole(ctx *gin.Context) {
 	var req revokeRoleRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -65,7 +65,7 @@ func (server *Server) revokeUserRole(ctx *gin.Context) {
 
 	assignment, err := server.roles.RevokeRoleWithAudit(ctx, req.UserID, db.UserRole(dbRole), revokedBy, performedByRole, ipAddress, req.Reason)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -81,7 +81,7 @@ func (server *Server) listUserRoles(ctx *gin.Context) {
 
 	roles, err := server.roles.ListUserRoles(ctx, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -113,7 +113,7 @@ func (server *Server) listUserRolesByName(ctx *gin.Context) {
 
 	roleNames, err := server.roles.ListUserRolesByName(ctx, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -143,7 +143,7 @@ func (server *Server) searchStudentsForRoleManagement(ctx *gin.Context) {
 
 	students, total, err := server.roles.SearchStudentsForRoleManagement(ctx, search, int32(perPage), offset)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -209,7 +209,7 @@ func (server *Server) listRoleAssignmentLogs(ctx *gin.Context) {
 
 	logs, err := server.roles.ListAllRoleLogs(ctx, int32(limit), int32(offset))
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -277,7 +277,7 @@ func (server *Server) listRoleLogsByUser(ctx *gin.Context) {
 
 	logs, err := server.roles.ListRoleLogsByUser(ctx, userID, int32(limit), int32(offset))
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -318,7 +318,7 @@ func (server *Server) listRoleLogsByUser(ctx *gin.Context) {
 func (server *Server) countStudentsWithAdditionalRoles(ctx *gin.Context) {
 	count, err := server.roles.CountStudentsWithAdditionalRoles(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -328,7 +328,7 @@ func (server *Server) countStudentsWithAdditionalRoles(ctx *gin.Context) {
 func (server *Server) promoteUser(ctx *gin.Context) {
 	var req promoteUserRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -346,7 +346,7 @@ func (server *Server) promoteUser(ctx *gin.Context) {
 
 	promotion, err := server.roles.PromoteUser(ctx, req.UserID, fromRole, toRole, promotedBy, req.Reason, &ipAddress, &userAgent)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -359,7 +359,7 @@ func (server *Server) listPromotions(ctx *gin.Context) {
 
 	promotions, err := server.roles.ListPromotions(ctx, limit, offset)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -372,7 +372,7 @@ func (server *Server) listPromotableStudents(ctx *gin.Context) {
 
 	students, err := server.roles.ListPromotableStudents(ctx, limit, offset)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -382,7 +382,7 @@ func (server *Server) listPromotableStudents(ctx *gin.Context) {
 func (server *Server) listRoles(ctx *gin.Context) {
 	roles, err := server.roles.ListAllSystemRoles(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"data": roles})
@@ -397,7 +397,7 @@ type createRoleRequest struct {
 func (server *Server) createRole(ctx *gin.Context) {
 	var req createRoleRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"data": gin.H{

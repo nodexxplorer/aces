@@ -23,7 +23,7 @@ type createTaskRequest struct {
 func (server *Server) createStudyTask(ctx *gin.Context) {
 	var req createTaskRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -35,10 +35,15 @@ func (server *Server) createStudyTask(ctx *gin.Context) {
 		return
 	}
 
+	priority := strings.ToLower(strings.TrimSpace(req.Priority))
+	if priority == "" {
+		priority = "medium"
+	}
+
 	arg := db.CreateStudyTaskParams{
 		UserID:    userID,
 		Title:     strings.TrimSpace(req.Title),
-		Priority:  db.TaskPriority(req.Priority),
+		Priority:  db.TaskPriority(priority),
 		DueDate:   pgtype.Timestamptz{Valid: false},
 		ReminderAt: pgtype.Timestamptz{Valid: false},
 	}
@@ -76,7 +81,7 @@ func (server *Server) createStudyTask(ctx *gin.Context) {
 
 	task, err := queries.CreateStudyTask(ctx, arg)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -94,7 +99,7 @@ func (server *Server) listMyStudyTasks(ctx *gin.Context) {
 
 	tasks, err := queries.ListUserStudyTasks(ctx, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -145,7 +150,7 @@ func (server *Server) updateStudyTask(ctx *gin.Context) {
 
 	var req updateTaskRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -180,10 +185,18 @@ func (server *Server) updateStudyTask(ctx *gin.Context) {
 		arg.Description = req.Description
 	}
 	if req.Priority != nil {
-		arg.Priority = db.TaskPriority(*req.Priority)
+		p := strings.ToLower(strings.TrimSpace(*req.Priority))
+		if p == "" {
+			p = "medium"
+		}
+		arg.Priority = db.TaskPriority(p)
 	}
 	if req.Status != nil {
-		arg.Status = db.TaskStatus(*req.Status)
+		s := strings.ToLower(strings.TrimSpace(*req.Status))
+		if s == "" {
+			s = "pending"
+		}
+		arg.Status = db.TaskStatus(s)
 	}
 	if req.DueDate != nil {
 		t, err := time.Parse(time.RFC3339, *req.DueDate)
@@ -203,7 +216,7 @@ func (server *Server) updateStudyTask(ctx *gin.Context) {
 	}
 
 	if err := queries.UpdateStudyTask(ctx, arg); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -226,7 +239,7 @@ func (server *Server) deleteStudyTask(ctx *gin.Context) {
 	}
 
 	if err := queries.DeleteStudyTask(ctx, db.DeleteStudyTaskParams{ID: taskID, UserID: userID}); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -249,7 +262,7 @@ func (server *Server) getUpcomingTasks(ctx *gin.Context) {
 
 	tasks, err := queries.GetUpcomingTasks(ctx, arg)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/aces/backend/internal/util"
@@ -59,7 +60,7 @@ func (s *AuthService) StudentSignup(ctx context.Context, email, password, firstN
 		UserID:       user.ID,
 		MatricNumber: strings.ToUpper(strings.TrimSpace(matricNumber)),
 		Level:        level,
-		EntryYear:    int32(2025),
+		EntryYear:    int32(time.Now().Year()),
 	})
 	if err != nil {
 		return nil, errors.New("failed to create student record: " + err.Error())

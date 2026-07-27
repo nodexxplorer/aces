@@ -139,7 +139,7 @@ func (server *Server) handlePaystackWebhook(ctx *gin.Context) {
 
 func verifyPaystackSignature(payload []byte, signature string, secretKey string) bool {
 	if secretKey == "" {
-		return true
+		return false // fail closed — no secret configured means no request is trusted
 	}
 
 	mac := hmac.New(sha512.New, []byte(secretKey))

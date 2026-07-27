@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strconv"
 
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/gin-gonic/gin"
@@ -16,7 +17,7 @@ func (server *Server) getAnalyticsOverview(ctx *gin.Context) {
 
 	overview, err := queries.GetAnalyticsOverview(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -30,9 +31,16 @@ func (server *Server) getAnalyticsTrend(ctx *gin.Context) {
 		return
 	}
 
-	trend, err := queries.GetAnalyticsTrend(ctx, 30)
+	days := int32(30)
+	if d := ctx.Query("days"); d != "" {
+		if parsed, err := strconv.ParseInt(d, 10, 32); err == nil && parsed > 0 && parsed <= 365 {
+			days = int32(parsed)
+		}
+	}
+
+	trend, err := queries.GetAnalyticsTrend(ctx, days)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

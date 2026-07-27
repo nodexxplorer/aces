@@ -19,7 +19,7 @@ type createSemesterRequest struct {
 func (server *Server) createSemester(ctx *gin.Context) {
 	var req createSemesterRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -31,7 +31,7 @@ func (server *Server) createSemester(ctx *gin.Context) {
 
 	semester, err := server.semesters.Create(ctx, sessionID, req.Name, req.StartDate, req.EndDate)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -47,7 +47,7 @@ func (server *Server) getSemester(ctx *gin.Context) {
 		if err.Error() == "invalid semester id" {
 			status = http.StatusBadRequest
 		}
-		ctx.JSON(status, gin.H{"error": err.Error()})
+		ctx.JSON(status, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -63,7 +63,7 @@ func (server *Server) listSessionSemesters(ctx *gin.Context) {
 
 	semesters, err := server.semesters.ListBySession(ctx, sessionID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -88,7 +88,7 @@ func (server *Server) updateSemester(ctx *gin.Context) {
 
 	var req updateSemesterRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -107,7 +107,7 @@ func (server *Server) updateSemester(ctx *gin.Context) {
 		IsActive:             req.IsActive,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -123,7 +123,7 @@ func (server *Server) deleteSemester(ctx *gin.Context) {
 
 	err = server.semesters.Delete(ctx, id)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

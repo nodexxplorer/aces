@@ -25,7 +25,7 @@ type createStaffRequest struct {
 func (server *Server) createStaff(ctx *gin.Context) {
 	var req createStaffRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -56,7 +56,7 @@ func (server *Server) createStaff(ctx *gin.Context) {
 
 	staff, err := server.store.CreateStaff(ctx, arg)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -74,10 +74,10 @@ func (server *Server) getStaff(ctx *gin.Context) {
 	staff, err := server.store.GetStaff(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "internal server error"})
 			return
 		}
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -95,10 +95,10 @@ func (server *Server) getStaffByUserID(ctx *gin.Context) {
 	staff, err := server.store.GetStaffByUserID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "internal server error"})
 			return
 		}
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -113,7 +113,7 @@ type listStaffRequest struct {
 func (server *Server) listStaff(ctx *gin.Context) {
 	var req listStaffRequest
 	if err := ctx.ShouldBindQuery(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -124,7 +124,7 @@ func (server *Server) listStaff(ctx *gin.Context) {
 
 	staffList, err := server.store.ListStaff(ctx, arg)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -148,7 +148,7 @@ func (server *Server) updateStaff(ctx *gin.Context) {
 
 	var req updateStaffRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -170,7 +170,7 @@ func (server *Server) updateStaff(ctx *gin.Context) {
 
 	staff, err := server.store.UpdateStaff(ctx, arg)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -187,7 +187,7 @@ func (server *Server) deleteStaff(ctx *gin.Context) {
 
 	err = server.store.DeleteStaff(ctx, id)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

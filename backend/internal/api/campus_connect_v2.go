@@ -33,7 +33,7 @@ func (server *Server) upsertCampusProfile(ctx *gin.Context) {
 		AvailabilityStatus *string         `json:"availability_status"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -56,7 +56,7 @@ func (server *Server) upsertCampusProfile(ctx *gin.Context) {
 		AvailabilityStatus: status,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -108,7 +108,7 @@ func (server *Server) createFeedPost(ctx *gin.Context) {
 		GroupID        *string         `json:"group_id"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -141,7 +141,7 @@ func (server *Server) createFeedPost(ctx *gin.Context) {
 		GroupID:        groupID,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -182,7 +182,7 @@ func (server *Server) listFeedPosts(ctx *gin.Context) {
 		Offset: offset,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -226,7 +226,7 @@ func (server *Server) deleteFeedPost(ctx *gin.Context) {
 	}
 
 	if err := queries.DeleteFeedPost(ctx, db.DeleteFeedPostParams{ID: postID, AuthorID: userID}); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -247,7 +247,7 @@ func (server *Server) hideFeedPost(ctx *gin.Context) {
 	}
 
 	if err := queries.HideFeedPost(ctx, postID); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -294,7 +294,7 @@ func (server *Server) togglePostReaction(ctx *gin.Context) {
 		ReactionType: reactionType,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -343,7 +343,7 @@ func (server *Server) createPostComment(ctx *gin.Context) {
 		ParentCommentID *string `json:"parent_comment_id"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -362,7 +362,7 @@ func (server *Server) createPostComment(ctx *gin.Context) {
 		Content:         req.Content,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -386,7 +386,7 @@ func (server *Server) listPostComments(ctx *gin.Context) {
 
 	comments, err := queries.ListPostComments(ctx, db.ListPostCommentsParams{PostID: postID, Limit: 50, Offset: 0})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -408,7 +408,7 @@ func (server *Server) deletePostComment(ctx *gin.Context) {
 	}
 
 	if err := queries.DeletePostComment(ctx, db.DeletePostCommentParams{ID: commentID, AuthorID: userID}); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -454,7 +454,7 @@ func (server *Server) toggleMessageReaction(ctx *gin.Context) {
 		ReactionType: reactionType,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -484,7 +484,7 @@ func (server *Server) uploadGroupFile(ctx *gin.Context) {
 		FileSize int64  `json:"file_size"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -497,7 +497,7 @@ func (server *Server) uploadGroupFile(ctx *gin.Context) {
 		FileSize:   &req.FileSize,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -519,7 +519,7 @@ func (server *Server) listGroupFiles(ctx *gin.Context) {
 
 	files, err := queries.ListGroupFiles(ctx, groupID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -546,7 +546,7 @@ func (server *Server) getConnectionSuggestions(ctx *gin.Context) {
 		Limit:       20,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -572,7 +572,7 @@ func (server *Server) searchPeople(ctx *gin.Context) {
 		Offset:  0,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -601,7 +601,7 @@ func (server *Server) createCampusReport(ctx *gin.Context) {
 		Description *string `json:"description"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -619,7 +619,7 @@ func (server *Server) createCampusReport(ctx *gin.Context) {
 		Description: req.Description,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -637,7 +637,7 @@ func (server *Server) listCampusReports(ctx *gin.Context) {
 
 	reports, err := queries.ListCampusReports(ctx, &statusFilter)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -663,7 +663,7 @@ func (server *Server) updateCampusReportStatus(ctx *gin.Context) {
 		ActionTaken *string `json:"action_taken"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -675,7 +675,7 @@ func (server *Server) updateCampusReportStatus(ctx *gin.Context) {
 		ReviewedBy:  reviewedByUUID,
 		ActionTaken: req.ActionTaken,
 	}); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -696,7 +696,7 @@ func (server *Server) createConnectionStrikeHandler(ctx *gin.Context) {
 		Reason       string `json:"reason" binding:"required"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -716,7 +716,7 @@ func (server *Server) createConnectionStrikeHandler(ctx *gin.Context) {
 		IssuedBy:     pgtype.UUID{Bytes: userID, Valid: true},
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -760,7 +760,7 @@ func (server *Server) listUserBookmarks(ctx *gin.Context) {
 
 	posts, err := queries.ListUserBookmarks(ctx, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

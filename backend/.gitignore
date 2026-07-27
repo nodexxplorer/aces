@@ -53,6 +53,7 @@ yarn-error.log*
 /bin/
 /server
 /main
+/seed_admin
 
 # Project-specific ignored paths and secrets
 .vault_secrets

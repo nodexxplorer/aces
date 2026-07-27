@@ -72,7 +72,7 @@ func (server *Server) listPendingApprovals(ctx *gin.Context) {
 	}
 
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list approvals: " + err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -93,7 +93,7 @@ func (server *Server) listPendingApprovals(ctx *gin.Context) {
 func (server *Server) getApprovalStatus(ctx *gin.Context) {
 	userID, err := server.getAuthUserID(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -107,7 +107,7 @@ func (server *Server) getApprovalStatus(ctx *gin.Context) {
 			})
 			return
 		}
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -123,7 +123,7 @@ func (server *Server) getApprovalStatus(ctx *gin.Context) {
 func (server *Server) approveSignup(ctx *gin.Context) {
 	adminID, err := server.getAuthUserID(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -153,7 +153,7 @@ func (server *Server) approveSignup(ctx *gin.Context) {
 		ApprovedAt: pgtype.Timestamptz{Time: now, Valid: true},
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update approval request: " + err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -165,7 +165,7 @@ func (server *Server) approveSignup(ctx *gin.Context) {
 		ApprovedAt: pgtype.Timestamptz{Time: now, Valid: true},
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user approval status: " + err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -176,7 +176,7 @@ func (server *Server) approveSignup(ctx *gin.Context) {
 func (server *Server) rejectSignup(ctx *gin.Context) {
 	adminID, err := server.getAuthUserID(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -189,7 +189,7 @@ func (server *Server) rejectSignup(ctx *gin.Context) {
 
 	var req rejectApprovalRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -213,7 +213,7 @@ func (server *Server) rejectSignup(ctx *gin.Context) {
 		RejectionReason: &req.Reason,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to reject request: " + err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -225,7 +225,7 @@ func (server *Server) rejectSignup(ctx *gin.Context) {
 		ApprovedAt: pgtype.Timestamptz{Time: now, Valid: true},
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user status: " + err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

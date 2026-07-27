@@ -76,7 +76,7 @@ func encodeAttendanceData(records []AttendanceRecord) (json.RawMessage, error) {
 func (server *Server) createAttendanceSheet(ctx *gin.Context) {
 	var req createAttendanceSheetRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -119,7 +119,7 @@ func (server *Server) createAttendanceSheet(ctx *gin.Context) {
 		Status:         "draft",
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -147,7 +147,7 @@ func (server *Server) getAttendanceSheet(ctx *gin.Context) {
 func (server *Server) listCourseAttendanceSheets(ctx *gin.Context) {
 	var q listCourseAttendanceQuery
 	if err := ctx.ShouldBindQuery(&q); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -170,7 +170,7 @@ func (server *Server) listCourseAttendanceSheets(ctx *gin.Context) {
 		Offset:    q.Offset,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -181,7 +181,7 @@ func (server *Server) listCourseAttendanceSheets(ctx *gin.Context) {
 func (server *Server) listStudentAttendance(ctx *gin.Context) {
 	var q listStudentAttendanceQuery
 	if err := ctx.ShouldBindQuery(&q); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -196,7 +196,7 @@ func (server *Server) listStudentAttendance(ctx *gin.Context) {
 		Column2:   q.StudentID, // passed as text into the JSONB @> query
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -213,7 +213,7 @@ func (server *Server) updateAttendanceSheet(ctx *gin.Context) {
 
 	var req updateAttendanceSheetRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -236,7 +236,7 @@ func (server *Server) updateAttendanceSheet(ctx *gin.Context) {
 		EmailedToLecturer: req.EmailedToLecturer,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -253,7 +253,7 @@ func (server *Server) finalizeAttendanceSheet(ctx *gin.Context) {
 
 	sheet, err := server.store.FinalizeAttendanceSheet(ctx, id)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -264,7 +264,7 @@ func (server *Server) finalizeAttendanceSheet(ctx *gin.Context) {
 func (server *Server) getAttendanceSummary(ctx *gin.Context) {
 	var q attendanceSummaryQuery
 	if err := ctx.ShouldBindQuery(&q); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -286,7 +286,7 @@ func (server *Server) getAttendanceSummary(ctx *gin.Context) {
 		Column3:   q.StudentID,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -315,7 +315,7 @@ func (server *Server) deleteAttendanceSheet(ctx *gin.Context) {
 	}
 
 	if err := server.store.DeleteAttendanceSheet(ctx, id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

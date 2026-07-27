@@ -20,7 +20,7 @@ type createStudentRequest struct {
 func (server *Server) createStudent(ctx *gin.Context) {
 	var req createStudentRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -32,7 +32,7 @@ func (server *Server) createStudent(ctx *gin.Context) {
 
 	student, err := server.students.Create(ctx, userID, strings.ToUpper(strings.TrimSpace(req.MatricNumber)), req.Level)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

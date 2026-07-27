@@ -43,7 +43,7 @@ func (server *Server) studentOnboarding(ctx *gin.Context) {
 
 	var req studentOnboardingRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -82,7 +82,7 @@ func (server *Server) studentOnboarding(ctx *gin.Context) {
 		MiddleName: &middleNameVal,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user details: " + err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -104,14 +104,14 @@ func (server *Server) studentOnboarding(ctx *gin.Context) {
 			&req.HomeAddress, &avatarVal,
 		)
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update student onboarding details: " + err.Error()})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
 		}
 	} else {
 		// Fallback to original method
 		_, err = server.students.UpdateOnboarding(ctx, userID, &admissionMode, nil)
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update student onboarding details: " + err.Error()})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
 		}
 	}

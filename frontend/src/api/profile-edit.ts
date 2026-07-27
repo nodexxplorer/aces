@@ -46,6 +46,7 @@ export const updateBasicInfo = async (payload: {
   dateOfBirth?: string;
   emergencyContactName?: string;
   emergencyContactPhone?: string;
+  avatarUrl?: string;
 }) => {
   const res = await apiClient.put('/profile-edit/basic-info', payload);
   return unwrap<{ data: User }>(res);

@@ -46,7 +46,7 @@ func generateOTP() (string, error) {
 func (server *Server) requestPasswordReset(ctx *gin.Context) {
 	var req otpRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -86,7 +86,7 @@ func (server *Server) requestPasswordReset(ctx *gin.Context) {
 func (server *Server) verifyPasswordResetOTP(ctx *gin.Context) {
 	var req verifyOTPRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -114,7 +114,7 @@ func (server *Server) verifyPasswordResetOTP(ctx *gin.Context) {
 func (server *Server) resetPasswordWithOTP(ctx *gin.Context) {
 	var req resetWithOTPRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -168,7 +168,7 @@ func (server *Server) changePassword(ctx *gin.Context) {
 	}
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 

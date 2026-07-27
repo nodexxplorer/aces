@@ -32,7 +32,7 @@ func (server *Server) getStudentGPAPrediction(ctx *gin.Context) {
 
 	grades, err := queries.GetStudentGPAPrediction(ctx, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -89,7 +89,7 @@ func (server *Server) getAtRiskStudents(ctx *gin.Context) {
 
 	students, err := queries.GetAtRiskStudents(ctx, limit)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -114,7 +114,7 @@ func (server *Server) getRevenueForecast(ctx *gin.Context) {
 
 	stats, err := queries.GetRevenueForecast(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -165,7 +165,7 @@ func (server *Server) getGradeDistribution(ctx *gin.Context) {
 
 	distributions, err := queries.GetGradeDistribution(ctx, courseID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -188,7 +188,7 @@ func (server *Server) getCoursePassRate(ctx *gin.Context) {
 
 	stats, err := queries.GetCoursePassRate(ctx, courseID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -210,7 +210,7 @@ func (server *Server) storeAIPrediction(ctx *gin.Context) {
 	}
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -229,7 +229,7 @@ func (server *Server) storeAIPrediction(ctx *gin.Context) {
 		ConfidenceInterval: &req.ConfidenceInterval,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

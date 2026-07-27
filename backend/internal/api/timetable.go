@@ -41,7 +41,7 @@ type updateTimetableEntryRequest struct {
 func (server *Server) createTimetableEntry(ctx *gin.Context) {
 	var req createTimetableEntryRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -75,7 +75,7 @@ func (server *Server) createTimetableEntry(ctx *gin.Context) {
 		Invigilators: req.Invigilators,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -127,7 +127,7 @@ func (server *Server) listTimetableEntries(ctx *gin.Context) {
 			Level:     level,
 		})
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
 		}
 		ctx.JSON(http.StatusOK, entries)
@@ -136,7 +136,7 @@ func (server *Server) listTimetableEntries(ctx *gin.Context) {
 
 	entries, err := queries.ListAllTimetableEntries(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	ctx.JSON(http.StatusOK, entries)
@@ -151,7 +151,7 @@ func (server *Server) updateTimetableEntry(ctx *gin.Context) {
 
 	var req updateTimetableEntryRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -185,7 +185,7 @@ func (server *Server) updateTimetableEntry(ctx *gin.Context) {
 		Invigilators: req.Invigilators,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -206,7 +206,7 @@ func (server *Server) deleteTimetableEntry(ctx *gin.Context) {
 	}
 
 	if err := server.timetables.Delete(ctx, id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -221,7 +221,7 @@ type publishRequest struct {
 func (server *Server) publishTimetable(ctx *gin.Context) {
 	var req publishRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -234,14 +234,14 @@ func (server *Server) publishTimetable(ctx *gin.Context) {
 	if req.Publish {
 		err := queries.PublishTimetableByType(ctx, req.EntryType)
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
 		}
 		ctx.JSON(http.StatusOK, gin.H{"message": req.EntryType + " timetable published"})
 	} else {
 		err := queries.UnpublishTimetableByType(ctx, req.EntryType)
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
 		}
 		ctx.JSON(http.StatusOK, gin.H{"message": req.EntryType + " timetable unpublished"})
@@ -278,7 +278,7 @@ func (server *Server) checkTimetableConflicts(ctx *gin.Context) {
 		Level:     level,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -367,7 +367,7 @@ func (server *Server) bulkDeleteTimetable(ctx *gin.Context) {
 	if dbq, ok := server.store.(interface{ GetDB() db.DBTX }); ok {
 		result, err := dbq.GetDB().Exec(ctx, query, args...)
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
 		}
 		rowsAffected := result.RowsAffected()

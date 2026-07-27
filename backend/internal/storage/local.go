@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -34,6 +35,27 @@ func (s *LocalStorage) SaveFile(fileHeader *multipart.FileHeader, subDir string)
 		return "", fmt.Errorf("failed to open upload file: %w", err)
 	}
 	defer file.Close()
+
+	// Read first 512 bytes for content-type sniffing.
+	buf := make([]byte, 512)
+	n, _ := io.ReadAtLeast(file, buf, 1)
+	contentType := http.DetectContentType(buf[:n])
+
+	// Reset read position for full copy.
+	if seeker, ok := file.(io.Seeker); ok {
+		_, _ = seeker.Seek(0, io.SeekStart)
+	}
+
+	allowedTypes := map[string]bool{
+		"image/jpeg": true, "image/png": true, "image/gif": true, "image/webp": true,
+		"application/pdf": true,
+		"application/msword": true, "application/vnd.openxmlformats-officedocument.wordprocessingml.document": true,
+		"application/vnd.ms-excel": true, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": true,
+		"text/plain": true,
+	}
+	if n > 0 && !allowedTypes[contentType] {
+		return "", fmt.Errorf("file type %s is not allowed", contentType)
+	}
 
 	targetDir := filepath.Join(s.basePath, subDir)
 	if err := os.MkdirAll(targetDir, 0755); err != nil {

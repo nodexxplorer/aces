@@ -120,7 +120,7 @@ func (server *Server) getStudentIDFromUser(ctx *gin.Context) (uuid.UUID, error) 
 func (server *Server) createManual(ctx *gin.Context) {
 	var req createManualRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -151,7 +151,7 @@ func (server *Server) createManual(ctx *gin.Context) {
 		CreatedBy:     createdBy,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -167,7 +167,7 @@ func (server *Server) getManual(ctx *gin.Context) {
 
 	manual, err := server.manuals.GetByID(ctx, id)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -177,7 +177,7 @@ func (server *Server) getManual(ctx *gin.Context) {
 func (server *Server) listManuals(ctx *gin.Context) {
 	manuals, err := server.manuals.List(ctx, 100, 0)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -193,7 +193,7 @@ func (server *Server) updateManual(ctx *gin.Context) {
 
 	var req updateManualRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -208,7 +208,7 @@ func (server *Server) updateManual(ctx *gin.Context) {
 		IsActive:      req.IsActive,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -223,7 +223,7 @@ func (server *Server) deleteManual(ctx *gin.Context) {
 	}
 
 	if err := server.manuals.Delete(ctx, id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -235,7 +235,7 @@ func (server *Server) deleteManual(ctx *gin.Context) {
 func (server *Server) purchaseManual(ctx *gin.Context) {
 	var req purchaseManualRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -247,7 +247,7 @@ func (server *Server) purchaseManual(ctx *gin.Context) {
 
 	studentID, err := server.getStudentIDFromUser(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -290,7 +290,7 @@ func (server *Server) purchaseManual(ctx *gin.Context) {
 		QrCodeUrl:  &qrCodeImageURL,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -322,13 +322,13 @@ func (server *Server) purchaseManual(ctx *gin.Context) {
 func (server *Server) listMyPurchases(ctx *gin.Context) {
 	studentID, err := server.getStudentIDFromUser(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "internal server error"})
 		return
 	}
 
 	purchases, err := server.manuals.ListStudentPurchases(ctx, studentID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -379,7 +379,7 @@ func (server *Server) listManualPurchasesByManual(ctx *gin.Context) {
 
 	purchases, err := server.manuals.ListPurchasesByManual(ctx, manualID, 200, 0)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -397,7 +397,7 @@ func (server *Server) markManualCollected(ctx *gin.Context) {
 
 	purchase, err := server.manuals.MarkCollected(ctx, purchaseID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -409,7 +409,7 @@ func (server *Server) markManualCollected(ctx *gin.Context) {
 func (server *Server) addToPrintQueue(ctx *gin.Context) {
 	var req addToPrintQueueRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -438,7 +438,7 @@ func (server *Server) addToPrintQueue(ctx *gin.Context) {
 		ManualID:   purchase.ManualID,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -454,7 +454,7 @@ func (server *Server) listPrintQueue(ctx *gin.Context) {
 
 	queue, err := server.manuals.ListPrintQueue(ctx, statusPtr, 200, 0)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -498,7 +498,7 @@ func (server *Server) updatePrintQueueStatus(ctx *gin.Context) {
 
 	var req updatePrintQueueRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -510,7 +510,7 @@ func (server *Server) updatePrintQueueStatus(ctx *gin.Context) {
 
 	queueItem, err := server.manuals.UpdatePrintQueueStatus(ctx, id, req.Status, processedByPtr)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -522,13 +522,13 @@ func (server *Server) updatePrintQueueStatus(ctx *gin.Context) {
 func (server *Server) verifyManualQR(ctx *gin.Context) {
 	var req qrVerifyRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
 	studentID, err := server.getStudentIDFromUser(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -626,7 +626,7 @@ func (server *Server) verifyManualQR(ctx *gin.Context) {
 func (server *Server) listMyPracticalEnrollments(ctx *gin.Context) {
 	studentID, err := server.getStudentIDFromUser(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -638,7 +638,7 @@ func (server *Server) listMyPracticalEnrollments(ctx *gin.Context) {
 
 	rows, err := queries.ListStudentPracticalEnrollments(ctx, studentID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -666,13 +666,13 @@ func (server *Server) enrollPractical(ctx *gin.Context) {
 		SessionID string `json:"session_id" binding:"required"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
 	studentID, err := server.getStudentIDFromUser(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -695,7 +695,7 @@ func (server *Server) enrollPractical(ctx *gin.Context) {
 		EnrolledVia: "manual",
 	})
 	if err != nil {
-		ctx.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusConflict, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -713,7 +713,7 @@ func (server *Server) downloadManualCover(ctx *gin.Context) {
 
 	studentID, err := server.getStudentIDFromUser(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -772,7 +772,7 @@ func (server *Server) downloadManualCover(ctx *gin.Context) {
 		QRCodeData:    purchase.QrCodeData,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate cover: " + err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

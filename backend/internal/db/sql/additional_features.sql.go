@@ -2371,20 +2371,38 @@ func (q *Queries) ListUserBroadcasts(ctx context.Context, arg ListUserBroadcasts
 }
 
 const listUserFeedback = `-- name: ListUserFeedback :many
-SELECT id, user_id, feedback_type, title, description, rating, screenshot_url, device_info, status, admin_response, responded_at, created_at FROM feedback_submissions
-WHERE user_id = $1
-ORDER BY created_at DESC
+SELECT fs.id, fs.user_id, fs.feedback_type, fs.title, fs.description, fs.rating, fs.screenshot_url, fs.device_info, fs.status, fs.admin_response, fs.responded_at, fs.created_at, u.full_name AS user_name
+FROM feedback_submissions fs
+JOIN users u ON u.id = fs.user_id
+WHERE fs.user_id = $1
+ORDER BY fs.created_at DESC
 `
 
-func (q *Queries) ListUserFeedback(ctx context.Context, userID uuid.UUID) ([]FeedbackSubmission, error) {
+type ListUserFeedbackRow struct {
+	ID            uuid.UUID           `json:"id"`
+	UserID        uuid.UUID           `json:"user_id"`
+	FeedbackType  FeedbackType        `json:"feedback_type"`
+	Title         string              `json:"title"`
+	Description   string              `json:"description"`
+	Rating        *int32              `json:"rating"`
+	ScreenshotUrl *string             `json:"screenshot_url"`
+	DeviceInfo    []byte              `json:"device_info"`
+	Status        FeedbackStatus      `json:"status"`
+	AdminResponse *string             `json:"admin_response"`
+	RespondedAt   pgtype.Timestamptz  `json:"responded_at"`
+	CreatedAt     pgtype.Timestamptz  `json:"created_at"`
+	UserName      *string             `json:"user_name"`
+}
+
+func (q *Queries) ListUserFeedback(ctx context.Context, userID uuid.UUID) ([]ListUserFeedbackRow, error) {
 	rows, err := q.db.Query(ctx, listUserFeedback, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []FeedbackSubmission{}
+	items := []ListUserFeedbackRow{}
 	for rows.Next() {
-		var i FeedbackSubmission
+		var i ListUserFeedbackRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
@@ -2398,6 +2416,7 @@ func (q *Queries) ListUserFeedback(ctx context.Context, userID uuid.UUID) ([]Fee
 			&i.AdminResponse,
 			&i.RespondedAt,
 			&i.CreatedAt,
+			&i.UserName,
 		); err != nil {
 			return nil, err
 		}

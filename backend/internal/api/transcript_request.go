@@ -27,7 +27,7 @@ func (r *createTranscriptRequestReq) GetPurpose() string {
 func (server *Server) createTranscriptRequest(ctx *gin.Context) {
 	var req createTranscriptRequestReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -50,7 +50,7 @@ func (server *Server) createTranscriptRequest(ctx *gin.Context) {
 		Purpose:   req.GetPurpose(),
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -85,12 +85,12 @@ func (server *Server) listStudentTranscriptRequests(ctx *gin.Context) {
 		// Fallback: the provided ID might be a user_id
 		student, sErr := server.store.GetStudentByUserId(ctx, studentID)
 		if sErr != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
 		}
 		requests, err = server.transcripts.ListByStudent(ctx, student.ID)
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
 		}
 	}
@@ -106,13 +106,13 @@ type listPendingTranscriptRequestsReq struct {
 func (server *Server) listPendingTranscriptRequests(ctx *gin.Context) {
 	var req listPendingTranscriptRequestsReq
 	if err := ctx.ShouldBindQuery(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
 	requests, err := server.transcripts.ListPending(ctx, req.PageSize, (req.PageID-1)*req.PageSize)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -136,7 +136,7 @@ func (server *Server) updateTranscriptRequest(ctx *gin.Context) {
 
 	var req updateTranscriptRequestReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -154,7 +154,7 @@ func (server *Server) updateTranscriptRequest(ctx *gin.Context) {
 		ProcessedBy:  processedBy,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -169,7 +169,7 @@ func (server *Server) deleteTranscriptRequest(ctx *gin.Context) {
 	}
 
 	if err := server.transcripts.Delete(ctx, id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
