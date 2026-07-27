@@ -369,7 +369,7 @@ func (server *Server) getClassRepClassList(ctx *gin.Context) {
 
 	students, err := queries.ListStudentsByLevel(ctx, int32(assignment.Level))
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -401,7 +401,7 @@ func (server *Server) listClassReps(ctx *gin.Context) {
 
 	assignments, err := queries.ListActiveClassRepAssignments(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -448,7 +448,7 @@ func (server *Server) appointClassRep(ctx *gin.Context) {
 		AcademicYear string `json:"academic_year" binding:"required"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -478,7 +478,7 @@ func (server *Server) appointClassRep(ctx *gin.Context) {
 		ConsecutiveTerms: 1,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -500,7 +500,7 @@ func (server *Server) deactivateClassRep(ctx *gin.Context) {
 
 	err = queries.DeactivateClassRepByID(ctx, id)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -525,7 +525,7 @@ func (server *Server) createElection(ctx *gin.Context) {
 		VotingEnd       string `json:"voting_end"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -560,7 +560,7 @@ func (server *Server) createElection(ctx *gin.Context) {
 		VotingEnd:       nomStartToNullTime(votEnd),
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -576,7 +576,7 @@ func (server *Server) listElections(ctx *gin.Context) {
 
 	elections, err := queries.ListClassRepElections(ctx, 0)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -630,7 +630,7 @@ func (server *Server) nominateForElection(ctx *gin.Context) {
 		Manifesto string `json:"manifesto"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -654,7 +654,7 @@ func (server *Server) nominateForElection(ctx *gin.Context) {
 		Status:      "pending",
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -679,7 +679,7 @@ func (server *Server) approveNominee(ctx *gin.Context) {
 		ID:     id,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -703,7 +703,7 @@ func (server *Server) castVote(ctx *gin.Context) {
 		NomineeID string `json:"nominee_id" binding:"required,uuid"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -778,7 +778,7 @@ func (server *Server) submitClassRepReport(ctx *gin.Context) {
 		AcademicYear string `json:"academic_year"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -798,7 +798,7 @@ func (server *Server) submitClassRepReport(ctx *gin.Context) {
 		Status:       "submitted",
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -823,7 +823,7 @@ func (server *Server) listClassRepReports(ctx *gin.Context) {
 		Column2:    ctx.Query("status"),
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -839,7 +839,7 @@ func (server *Server) listAllClassRepReports(ctx *gin.Context) {
 
 	reports, err := queries.ListAllClassRepReports(ctx, ctx.Query("status"))
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -859,7 +859,7 @@ func (server *Server) updateClassRepReportStatus(ctx *gin.Context) {
 		ReviewNotes string `json:"review_notes"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -876,7 +876,7 @@ func (server *Server) updateClassRepReportStatus(ctx *gin.Context) {
 		ReviewNotes: strPtr(req.ReviewNotes),
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -898,7 +898,7 @@ func (server *Server) createAttendanceSession(ctx *gin.Context) {
 		Venue    string `json:"venue"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -922,7 +922,7 @@ func (server *Server) createAttendanceSession(ctx *gin.Context) {
 		Status:     "draft",
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -947,7 +947,7 @@ func (server *Server) openAttendanceSession(ctx *gin.Context) {
 		ID:     id,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -972,7 +972,7 @@ func (server *Server) closeAttendanceSession(ctx *gin.Context) {
 		ID:     id,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -988,7 +988,7 @@ func (server *Server) checkInStudent(ctx *gin.Context) {
 		Remark    string `json:"remark"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -1027,7 +1027,7 @@ func (server *Server) checkInStudent(ctx *gin.Context) {
 		Remark:    strPtr(req.Remark),
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -1051,7 +1051,7 @@ func (server *Server) listAttendanceSessionCheckins(ctx *gin.Context) {
 
 	checkins, err := queries.ListAttendanceSessionCheckins(ctx, id)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -1073,7 +1073,7 @@ func (server *Server) listMyAttendanceSessions(ctx *gin.Context) {
 
 	sessions, err := queries.ListAttendanceSessionsByRep(ctx, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -1100,7 +1100,7 @@ func (server *Server) createPerformanceReview(ctx *gin.Context) {
 		Rating              string  `json:"rating"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -1128,7 +1128,7 @@ func (server *Server) createPerformanceReview(ctx *gin.Context) {
 		Rating:              strPtr(req.Rating),
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -1156,7 +1156,7 @@ func (server *Server) listPerformanceReviews(ctx *gin.Context) {
 
 	reviews, err := queries.ListClassRepPerformanceReviews(ctx, repID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -1238,7 +1238,7 @@ func (server *Server) listPendingCourseRegistrations(ctx *gin.Context) {
 
 	regs, err := queries.ListPendingCourseRegistrationsByLevel(ctx, assignment.Level)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

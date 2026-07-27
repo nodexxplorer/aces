@@ -38,7 +38,7 @@ type resolveComplaintRequest struct {
 func (server *Server) createComplaint(ctx *gin.Context) {
 	var req createComplaintRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -56,7 +56,7 @@ func (server *Server) createComplaint(ctx *gin.Context) {
 		Priority: req.Priority,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -81,7 +81,7 @@ func (server *Server) getComplaint(ctx *gin.Context) {
 
 	complaint, err := server.complaints.GetByID(ctx, id)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -97,13 +97,13 @@ func (server *Server) updateComplaint(ctx *gin.Context) {
 
 	var req updateComplaintRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
 	complaint, err := server.complaints.UpdateStatus(ctx, id, req.Status)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -134,7 +134,7 @@ func (server *Server) assignComplaint(ctx *gin.Context) {
 
 	var req assignComplaintRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -146,7 +146,7 @@ func (server *Server) assignComplaint(ctx *gin.Context) {
 
 	complaint, err := server.complaints.Assign(ctx, id, assignedTo)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -162,13 +162,13 @@ func (server *Server) resolveComplaint(ctx *gin.Context) {
 
 	var req resolveComplaintRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
 	complaint, err := server.complaints.Resolve(ctx, id, req.Resolution)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

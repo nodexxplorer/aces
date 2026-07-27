@@ -39,7 +39,7 @@ func (server *Server) listSubcategories(ctx *gin.Context) {
 	module := ctx.Query("module")
 	items, err := queries.ListSubcategories(ctx, module)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -49,7 +49,7 @@ func (server *Server) listSubcategories(ctx *gin.Context) {
 func (server *Server) createSubcategory(ctx *gin.Context) {
 	var req createSubcategoryRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -67,7 +67,7 @@ func (server *Server) createSubcategory(ctx *gin.Context) {
 
 	id, err := queries.CreateSubcategory(ctx, req.Module, req.Name, req.Description, req.Color, req.SortOrder)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -83,7 +83,7 @@ func (server *Server) updateSubcategory(ctx *gin.Context) {
 
 	var req updateSubcategoryRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -95,7 +95,7 @@ func (server *Server) updateSubcategory(ctx *gin.Context) {
 
 	err = queries.UpdateSubcategory(ctx, id, req.Name, req.Description, req.Color, req.SortOrder, req.IsActive)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -117,7 +117,7 @@ func (server *Server) deleteSubcategory(ctx *gin.Context) {
 
 	err = queries.DeleteSubcategory(ctx, id)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -127,7 +127,7 @@ func (server *Server) deleteSubcategory(ctx *gin.Context) {
 func (server *Server) reorderSubcategories(ctx *gin.Context) {
 	var req reorderSubcategoriesRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -139,7 +139,7 @@ func (server *Server) reorderSubcategories(ctx *gin.Context) {
 
 	err := queries.ReorderSubcategories(ctx, req.Module, req.IDs)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

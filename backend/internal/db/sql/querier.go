@@ -503,7 +503,7 @@ type Querier interface {
 	ListUserBookmarks(ctx context.Context, userID uuid.UUID) ([]ListUserBookmarksRow, error)
 	ListUserBroadcasts(ctx context.Context, arg ListUserBroadcastsParams) ([]ListUserBroadcastsRow, error)
 	ListUserConnections(ctx context.Context, arg ListUserConnectionsParams) ([]ListUserConnectionsRow, error)
-	ListUserFeedback(ctx context.Context, userID uuid.UUID) ([]FeedbackSubmission, error)
+	ListUserFeedback(ctx context.Context, userID uuid.UUID) ([]ListUserFeedbackRow, error)
 	ListUserGroups(ctx context.Context, userID uuid.UUID) ([]ListUserGroupsRow, error)
 	ListUserJobPosts(ctx context.Context, postedBy uuid.UUID) ([]JobPost, error)
 	ListUserNotifications(ctx context.Context, arg ListUserNotificationsParams) ([]Notification, error)

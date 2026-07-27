@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"time"
 
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/google/uuid"
@@ -23,7 +24,7 @@ func (s *StudentService) Create(ctx context.Context, userID uuid.UUID, matricNum
 		UserID:       userID,
 		MatricNumber: matricNumber,
 		Level:        level,
-		EntryYear:    int32(2025),
+		EntryYear:    int32(time.Now().Year()),
 	})
 }
 

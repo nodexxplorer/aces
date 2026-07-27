@@ -26,6 +26,7 @@ type updateBasicInfoRequest struct {
 	DateOfBirth           *string `json:"dateOfBirth"`
 	EmergencyContactName  *string `json:"emergencyContactName"`
 	EmergencyContactPhone *string `json:"emergencyContactPhone"`
+	AvatarURL             *string `json:"avatarUrl"`
 }
 
 func (server *Server) updateStudentBasicInfo(ctx *gin.Context) {
@@ -33,7 +34,7 @@ func (server *Server) updateStudentBasicInfo(ctx *gin.Context) {
 
 	var req updateBasicInfoRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -56,9 +57,10 @@ func (server *Server) updateStudentBasicInfo(ctx *gin.Context) {
 		FirstName: &first,
 		LastName:  &last,
 		Phone:     req.Phone,
+		AvatarURL: req.AvatarURL,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update: " + err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -162,7 +164,7 @@ func (server *Server) hodEditStudent(ctx *gin.Context) {
 	userID := getUserID(ctx)
 	var req hodEditStudentRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -364,7 +366,7 @@ func (server *Server) getStudentAuditLogs(ctx *gin.Context) {
 		Offset:    offset,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -395,7 +397,7 @@ func (server *Server) getAllAuditLogs(ctx *gin.Context) {
 		Offset: offset,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -430,7 +432,7 @@ func (server *Server) uploadStudentDocument(ctx *gin.Context) {
 
 	savedPath, err := server.storage.SaveFile(header, "documents")
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save file: " + err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -445,7 +447,7 @@ func (server *Server) uploadStudentDocument(ctx *gin.Context) {
 		Status:     db.DocumentStatusPending,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -464,7 +466,7 @@ func (server *Server) listStudentDocuments(ctx *gin.Context) {
 	q := server.getLogsQueries()
 	docs, err := q.ListStudentDocumentsByStudent(ctx, student.ID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -486,7 +488,7 @@ func (server *Server) listPendingDocuments(ctx *gin.Context) {
 		Offset: offset,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -508,7 +510,7 @@ func (server *Server) verifyDocument(ctx *gin.Context) {
 		VerifiedBy: pgtype.UUID{Bytes: userID, Valid: true},
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -538,7 +540,7 @@ func (server *Server) rejectDocument(ctx *gin.Context) {
 		RejectionReason: &req.Reason,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -636,7 +638,7 @@ func (server *Server) uploadProfilePhoto(ctx *gin.Context) {
 
 	savedPath, err := server.storage.SaveFile(header, "profile-photos")
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save file: " + err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -673,7 +675,7 @@ func (server *Server) bulkUpdateStudents(ctx *gin.Context) {
 		Reason           string   `json:"reason" binding:"required,min=10"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 

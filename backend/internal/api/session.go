@@ -19,7 +19,7 @@ type createSessionRequest struct {
 func (server *Server) createSession(ctx *gin.Context) {
 	var req createSessionRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -39,7 +39,7 @@ func (server *Server) createSession(ctx *gin.Context) {
 
 	session, err := server.sessions.Create(ctx, req.Name, startDate, endDate)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -55,7 +55,7 @@ func (server *Server) getSession(ctx *gin.Context) {
 		if err.Error() == "invalid session id" {
 			status = http.StatusBadRequest
 		}
-		ctx.JSON(status, gin.H{"error": err.Error()})
+		ctx.JSON(status, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -70,13 +70,13 @@ type listSessionsRequest struct {
 func (server *Server) listSessions(ctx *gin.Context) {
 	var req listSessionsRequest
 	if err := ctx.ShouldBindQuery(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
 	sessions, err := server.sessions.List(ctx, req.PageSize, (req.PageID-1)*req.PageSize)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -105,7 +105,7 @@ func (server *Server) updateSession(ctx *gin.Context) {
 
 	var req updateSessionRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -135,7 +135,7 @@ func (server *Server) updateSession(ctx *gin.Context) {
 		IsArchived: isArchived,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -152,7 +152,7 @@ func (server *Server) deleteSession(ctx *gin.Context) {
 
 	err = server.sessions.Delete(ctx, id)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

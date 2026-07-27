@@ -25,7 +25,7 @@ type createUserRequest struct {
 func (server *Server) createUser(ctx *gin.Context) {
 	var req createUserRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -49,7 +49,7 @@ func (server *Server) createUser(ctx *gin.Context) {
 		AvatarURL: req.AvatarUrl,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -66,7 +66,7 @@ func (server *Server) getUser(ctx *gin.Context) {
 
 	user, err := server.users.GetByID(ctx, id)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -129,7 +129,7 @@ type listUsersRequest struct {
 func (server *Server) listUsers(ctx *gin.Context) {
 	var req listUsersRequest
 	if err := ctx.ShouldBindQuery(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -137,7 +137,7 @@ func (server *Server) listUsers(ctx *gin.Context) {
 
 	users, err := server.users.ListUsersWithStudents(ctx, req.PageSize, offset, req.Role, req.Search)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -236,7 +236,7 @@ func (server *Server) updateUser(ctx *gin.Context) {
 
 	var req updateUserRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -285,7 +285,7 @@ func (server *Server) updateUser(ctx *gin.Context) {
 
 	user, err := server.users.UpdatePartial(ctx, id, input)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -365,6 +365,63 @@ func (server *Server) updateUser(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"data": resp})
 }
 
+// updateMe PATCH /users/me — self-service profile update (safe fields only).
+// Any authenticated user can update their own first_name, last_name, phone, and avatar_url.
+// role, email, is_active are never accepted here — those require admin via PUT /:id.
+func (server *Server) updateMe(ctx *gin.Context) {
+	callerID := getUserID(ctx)
+	if callerID == uuid.Nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var req struct {
+		FirstName      *string `json:"first_name"`
+		FirstNameCamel *string `json:"firstName"`
+		LastName       *string `json:"last_name"`
+		LastNameCamel  *string `json:"lastName"`
+		Phone          *string `json:"phone"`
+		AvatarUrl      *string `json:"avatar_url"`
+		AvatarUrlCamel *string `json:"avatarUrl"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	var firstName *string
+	if req.FirstName != nil {
+		firstName = req.FirstName
+	} else if req.FirstNameCamel != nil {
+		firstName = req.FirstNameCamel
+	}
+	var lastName *string
+	if req.LastName != nil {
+		lastName = req.LastName
+	} else if req.LastNameCamel != nil {
+		lastName = req.LastNameCamel
+	}
+	var avatarUrl *string
+	if req.AvatarUrl != nil {
+		avatarUrl = req.AvatarUrl
+	} else if req.AvatarUrlCamel != nil {
+		avatarUrl = req.AvatarUrlCamel
+	}
+
+	user, err := server.users.UpdatePartial(ctx, callerID, service.UpdateUserPartialInput{
+		FirstName: firstName,
+		LastName:  lastName,
+		Phone:     req.Phone,
+		AvatarURL: avatarUrl,
+	})
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"data": toUserResponse(user, false)})
+}
+
 func (server *Server) deleteUser(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := uuid.Parse(idStr)
@@ -381,7 +438,7 @@ func (server *Server) deleteUser(ctx *gin.Context) {
 		err = server.users.Delete(ctx, id)
 	}
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

@@ -432,9 +432,11 @@ SET status = $2, admin_response = $3, responded_at = NOW()
 WHERE id = $1;
 
 -- name: ListUserFeedback :many
-SELECT * FROM feedback_submissions
-WHERE user_id = $1
-ORDER BY created_at DESC;
+SELECT fs.*, u.full_name AS user_name
+FROM feedback_submissions fs
+JOIN users u ON u.id = fs.user_id
+WHERE fs.user_id = $1
+ORDER BY fs.created_at DESC;
 
 -- name: CreateHelpArticle :one
 INSERT INTO help_articles (category, title, content, sort_order, is_published)

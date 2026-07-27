@@ -46,7 +46,7 @@ func (server *Server) createAnnouncementV2(ctx *gin.Context) {
 		PinOrder               *int32           `json:"pin_order"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -96,7 +96,7 @@ func (server *Server) createAnnouncementV2(ctx *gin.Context) {
 		PinOrder:               req.PinOrder,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	ctx.JSON(http.StatusCreated, gin.H{"data": announcement})
@@ -147,7 +147,7 @@ func (server *Server) listAdminAnnouncements(ctx *gin.Context) {
 		Offset:  offset,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"data": announcements})
@@ -208,7 +208,7 @@ func (server *Server) updateAnnouncementV2(ctx *gin.Context) {
 		PinOrder               *int32           `json:"pin_order"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -288,7 +288,7 @@ func (server *Server) updateAnnouncementV2(ctx *gin.Context) {
 		PinOrder:               req.PinOrder,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"message": "announcement updated"})
@@ -306,7 +306,7 @@ func (server *Server) deleteAnnouncementV2(ctx *gin.Context) {
 		return
 	}
 	if err := queries.DeleteAnnouncementV2(ctx, id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"message": "announcement deleted"})
@@ -324,7 +324,7 @@ func (server *Server) publishAnnouncement(ctx *gin.Context) {
 		return
 	}
 	if err := queries.PublishAnnouncement(ctx, id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"message": "announcement published"})
@@ -342,7 +342,7 @@ func (server *Server) archiveAnnouncement(ctx *gin.Context) {
 		return
 	}
 	if err := queries.ArchiveAnnouncement(ctx, id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"message": "announcement archived"})
@@ -356,7 +356,7 @@ func (server *Server) getAnnouncementStats(ctx *gin.Context) {
 	}
 	stats, err := queries.CountAnnouncementsByStatus(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"data": stats})
@@ -392,7 +392,7 @@ func (server *Server) listStudentAnnouncements(ctx *gin.Context) {
 		Offset:      offset,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"data": announcements})
@@ -415,7 +415,7 @@ func (server *Server) searchStudentAnnouncements(ctx *gin.Context) {
 		Offset:  0,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"data": results})
@@ -514,7 +514,7 @@ func (server *Server) listAnnouncementReceipts(ctx *gin.Context) {
 	}
 	receipts, err := queries.ListReadReceiptsByAnnouncement(ctx, id)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"data": receipts})
@@ -533,7 +533,7 @@ func (server *Server) listUnacknowledgedStudentsHandler(ctx *gin.Context) {
 	}
 	students, err := queries.ListUnacknowledgedStudents(ctx, id)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"data": students})
@@ -552,7 +552,7 @@ func (server *Server) getReceiptStats(ctx *gin.Context) {
 	}
 	stats, err := queries.GetAnnouncementReceiptStats(ctx, id)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"data": stats})
@@ -578,7 +578,7 @@ func (server *Server) createAnnouncementCommentHandler(ctx *gin.Context) {
 		ParentCommentID  *string `json:"parent_comment_id"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -597,7 +597,7 @@ func (server *Server) createAnnouncementCommentHandler(ctx *gin.Context) {
 		Content:         req.Content,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	ctx.JSON(http.StatusCreated, gin.H{"data": comment})
@@ -616,7 +616,7 @@ func (server *Server) listAnnouncementCommentsHandler(ctx *gin.Context) {
 	}
 	comments, err := queries.ListAnnouncementComments(ctx, id)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"data": comments})
@@ -635,7 +635,7 @@ func (server *Server) deleteAnnouncementCommentHandler(ctx *gin.Context) {
 		return
 	}
 	if err := queries.DeleteAnnouncementComment(ctx, db.DeleteAnnouncementCommentParams{ID: commentID, AuthorID: userID}); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"message": "comment deleted"})
@@ -651,7 +651,7 @@ func (server *Server) listAnnouncementTemplatesHandler(ctx *gin.Context) {
 	}
 	templates, err := queries.ListAnnouncementTemplates(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"data": templates})
@@ -674,7 +674,7 @@ func (server *Server) createAnnouncementTemplateHandler(ctx *gin.Context) {
 		DefaultRequiresAcknowledgment bool   `json:"default_requires_acknowledgment"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -695,7 +695,7 @@ func (server *Server) createAnnouncementTemplateHandler(ctx *gin.Context) {
 		CreatedBy:                     pgtype.UUID{Bytes: userID, Valid: true},
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	ctx.JSON(http.StatusCreated, gin.H{"data": template})

@@ -42,7 +42,7 @@ type createAssignmentRequest struct {
 func (server *Server) createAssignment(ctx *gin.Context) {
 	var req createAssignmentRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -80,7 +80,7 @@ func (server *Server) createAssignment(ctx *gin.Context) {
 
 	assignment, err := server.store.CreateAssignment(ctx, arg)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -122,7 +122,7 @@ func (server *Server) listCourseAssignments(ctx *gin.Context) {
 
 	assignments, err := server.store.ListCourseAssignments(ctx, arg)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -148,7 +148,7 @@ func (server *Server) updateAssignment(ctx *gin.Context) {
 
 	var req updateAssignmentRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -171,7 +171,7 @@ func (server *Server) updateAssignment(ctx *gin.Context) {
 
 	assignment, err := server.store.UpdateAssignment(ctx, arg)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -186,7 +186,7 @@ func (server *Server) deleteAssignment(ctx *gin.Context) {
 	}
 
 	if err := server.store.DeleteAssignment(ctx, id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -205,7 +205,7 @@ type createAssignmentGradeRequest struct {
 func (server *Server) createAssignmentGrade(ctx *gin.Context) {
 	var req createAssignmentGradeRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -224,7 +224,7 @@ func (server *Server) createAssignmentGrade(ctx *gin.Context) {
 
 	grade, err := server.store.CreateAssignmentGrade(ctx, arg)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -263,7 +263,7 @@ func (server *Server) listAssignmentGrades(ctx *gin.Context) {
 
 	grades, err := server.store.ListAssignmentGrades(ctx, assignmentID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -279,7 +279,7 @@ func (server *Server) listStudentAssignmentGrades(ctx *gin.Context) {
 
 	grades, err := server.store.ListStudentAssignmentGrades(ctx, studentID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -302,7 +302,7 @@ func (server *Server) updateAssignmentGrade(ctx *gin.Context) {
 
 	var req updateAssignmentGradeRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -318,7 +318,7 @@ func (server *Server) updateAssignmentGrade(ctx *gin.Context) {
 
 	grade, err := server.store.UpdateAssignmentGrade(ctx, arg)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -333,7 +333,7 @@ func (server *Server) deleteAssignmentGrade(ctx *gin.Context) {
 	}
 
 	if err := server.store.DeleteAssignmentGrade(ctx, id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

@@ -17,7 +17,7 @@ func (server *Server) listAllCourseSubcategories(ctx *gin.Context) {
 
 	courses, err := queries.ListCourses(ctx, db.ListCoursesParams{Limit: 500, Offset: 0})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -60,7 +60,7 @@ type createCourseSubcategoryRequest struct {
 func (server *Server) createCourseSubcategory(ctx *gin.Context) {
 	var req createCourseSubcategoryRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -77,7 +77,7 @@ func (server *Server) createCourseSubcategory(ctx *gin.Context) {
 		WeightPercentage: req.WeightPercentage,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -99,7 +99,7 @@ func (server *Server) updateCourseSubcategoryHandler(ctx *gin.Context) {
 
 	var req updateCourseSubcategoryRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -135,7 +135,7 @@ func (server *Server) updateCourseSubcategoryHandler(ctx *gin.Context) {
 		IsActive:         active,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -156,7 +156,7 @@ func (server *Server) deleteCourseSubcategoryHandler(ctx *gin.Context) {
 	}
 
 	if err := queries.DeleteCourseSubcategory(ctx, id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

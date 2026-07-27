@@ -44,13 +44,13 @@ func (s *AIServer) Chat(ctx *gin.Context) {
 
 	var req chatRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
 	resp, err := s.aiService.Chat(ctx.Request.Context(), userID, req.Message, req.SessionID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -70,7 +70,7 @@ func (s *AIServer) Feedback(ctx *gin.Context) {
 
 	var req feedbackRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -81,7 +81,7 @@ func (s *AIServer) Feedback(ctx *gin.Context) {
 	}
 
 	if err := s.aiService.Feedback(ctx.Request.Context(), interactionID, req.Feedback, req.WasAccurate); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -98,7 +98,7 @@ func (s *AIServer) GetHistory(ctx *gin.Context) {
 	sessionID := ctx.Query("session_id")
 	history, err := s.aiService.GetHistory(ctx.Request.Context(), userID, sessionID, 50)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -114,7 +114,7 @@ func (s *AIServer) GetSettings(ctx *gin.Context) {
 
 	settings, err := s.aiService.GetSettings(ctx.Request.Context(), userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -130,7 +130,7 @@ func (s *AIServer) UpdateSettings(ctx *gin.Context) {
 
 	var req settingsRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -138,7 +138,7 @@ func (s *AIServer) UpdateSettings(ctx *gin.Context) {
 		req.ChatbotEnabled, req.PersonalizationEnabled,
 		req.FaceRecognitionEnabled, req.DataCollectionConsent,
 		req.PreferredLanguage); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

@@ -28,7 +28,7 @@ type createResultRequest struct {
 func (server *Server) createResult(ctx *gin.Context) {
 	var req createResultRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -46,7 +46,7 @@ func (server *Server) createResult(ctx *gin.Context) {
 		IsCarryover: req.IsCarryover,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -81,12 +81,12 @@ func (server *Server) listStudentResults(ctx *gin.Context) {
 		// Fallback: the provided ID might be a user_id, not a student_id
 		student, sErr := server.store.GetStudentByUserId(ctx, studentID)
 		if sErr != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
 		}
 		results, err = server.results.ListByStudent(ctx, student.ID)
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
 		}
 	}
@@ -109,7 +109,7 @@ func (server *Server) listCourseResults(ctx *gin.Context) {
 
 	results, err := server.results.ListByCourse(ctx, courseID, sessionID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -134,7 +134,7 @@ func (server *Server) updateResult(ctx *gin.Context) {
 
 	var req updateResultRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -147,7 +147,7 @@ func (server *Server) updateResult(ctx *gin.Context) {
 		Status:     req.Status,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -169,7 +169,7 @@ func (server *Server) updateResultStatus(ctx *gin.Context) {
 
 	var req updateResultStatusRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -186,7 +186,7 @@ func (server *Server) updateResultStatus(ctx *gin.Context) {
 
 	result, err := server.results.UpdateStatus(ctx, id, req.Status, approvedBy, rejectionReason)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -201,7 +201,7 @@ func (server *Server) listAllResults(ctx *gin.Context) {
 	}
 	results, err := queries.ListAllResults(ctx, 100, 0)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"data": results, "total": len(results)})
@@ -226,7 +226,7 @@ func (server *Server) createResultAuditLog(ctx *gin.Context) {
 
 	var req createResultAuditLogRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -234,7 +234,7 @@ func (server *Server) createResultAuditLog(ctx *gin.Context) {
 
 	auditLog, err := server.results.CreateAuditLog(ctx, resultID, req.FieldChanged, req.OldValue, req.NewValue, req.Reason, editedBy, req.IpAddress, req.UserAgent)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -250,7 +250,7 @@ func (server *Server) listResultAuditLogs(ctx *gin.Context) {
 
 	auditLogs, err := server.results.ListAuditLogs(ctx, resultID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -269,7 +269,7 @@ type createCarryoverCourseRequest struct {
 func (server *Server) createCarryoverCourse(ctx *gin.Context) {
 	var req createCarryoverCourseRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -282,7 +282,7 @@ func (server *Server) createCarryoverCourse(ctx *gin.Context) {
 		MaxAttempts:       req.MaxAttempts,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -320,7 +320,7 @@ func (server *Server) updateCarryoverCourse(ctx *gin.Context) {
 
 	var req updateCarryoverCourseRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -331,7 +331,7 @@ func (server *Server) updateCarryoverCourse(ctx *gin.Context) {
 
 	carryover, err := server.results.UpdateCarryover(ctx, id, req.AttemptCount, req.IsResolved, resolvedResultID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -347,7 +347,7 @@ func (server *Server) listStudentCarryoverCourses(ctx *gin.Context) {
 
 	carryovers, err := server.results.ListCarryovers(ctx, studentID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -362,7 +362,7 @@ func (server *Server) deleteCarryoverCourse(ctx *gin.Context) {
 	}
 
 	if err := server.results.DeleteCarryover(ctx, id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

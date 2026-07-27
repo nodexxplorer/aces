@@ -84,13 +84,17 @@ func Load() *Config {
 		log.Fatal("JWT_SECRET must be at least 32 characters for security.")
 	}
 
+	if getEnv("ENVIRONMENT", "development") == "production" && getEnv("PAYSTACK_SECRET_KEY", "") == "" {
+		log.Fatal("PAYSTACK_SECRET_KEY environment variable is required in production. See .env.example for reference.")
+	}
+
 	return &Config{
 		DBSource:           dbSource,
 		ServerAddress:      getEnv("SERVER_ADDRESS", "0.0.0.0:8080"),
 		JWTSecret:          jwtSecret,
 		JWTAccessDuration:  getDuration("JWT_ACCESS_MINUTES", 60),
 		JWTRefreshDuration: getDuration("JWT_REFRESH_DAYS", 7*24*60),
-		AllowedOrigins:     getSlice("ALLOWED_ORIGINS", []string{"http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://localhost:5175", "http://127.0.0.1:5175"}),
+		AllowedOrigins:     getSlice("ALLOWED_ORIGINS", []string{"http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://localhost:5175"}), // comma-separated list in env; restrict to your domain(s) in production
 		PaystackSecretKey:  getEnv("PAYSTACK_SECRET_KEY", ""),
 		PaystackPublicKey:  getEnv("PAYSTACK_PUBLIC_KEY", ""),
 		StorageLocalPath:   getEnv("STORAGE_LOCAL_PATH", "./uploads"),

@@ -1263,9 +1263,19 @@ func (q *Queries) GetAnalyticsOverview(ctx context.Context) (*AnalyticsOverview,
 
 func (q *Queries) GetAnalyticsTrend(ctx context.Context, days int32) ([]AnalyticsEnrollment, error) {
 	rows, err := q.db.Query(ctx, `
-		SELECT COALESCE(level::text, 'Unknown') as level, COUNT(*) as cnt
-		FROM students GROUP BY level ORDER BY level
-	`)
+		SELECT to_char(d::date, 'YYYY-MM-DD') AS level,
+		       COALESCE(cnt, 0) AS cnt
+		FROM generate_series(CURRENT_DATE - ($1::int || ' days')::interval,
+		                     CURRENT_DATE, '1 day') d
+		LEFT JOIN (
+			SELECT date(paid_at) AS day, COUNT(*) AS cnt
+			FROM payments
+			WHERE status = 'completed'
+			  AND paid_at >= CURRENT_DATE - ($1::int || ' days')::interval
+			GROUP BY day
+		) pay ON pay.day = d::date
+		ORDER BY d
+	`, days)
 	if err != nil {
 		return nil, err
 	}

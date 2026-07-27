@@ -121,7 +121,7 @@ type updateAlumniProfileReq struct {
 func (server *Server) createAlumniStatus(ctx *gin.Context) {
 	var req createAlumniStatusReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -139,7 +139,7 @@ func (server *Server) createAlumniStatus(ctx *gin.Context) {
 		Bio:                  req.Bio,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -155,7 +155,7 @@ func (server *Server) getAlumniStatus(ctx *gin.Context) {
 
 	status, err := server.alumni.GetStatus(ctx, id)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -165,7 +165,7 @@ func (server *Server) getAlumniStatus(ctx *gin.Context) {
 func (server *Server) listAlumni(ctx *gin.Context) {
 	alumniList, err := server.alumni.ListAlumni(ctx, 100, 0)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -181,7 +181,7 @@ func (server *Server) updateAlumniStatus(ctx *gin.Context) {
 
 	var req updateAlumniStatusReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -195,7 +195,7 @@ func (server *Server) updateAlumniStatus(ctx *gin.Context) {
 		Bio:                  req.Bio,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -211,7 +211,7 @@ func (server *Server) verifyAlumni(ctx *gin.Context) {
 
 	var req verifyAlumniReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -219,7 +219,7 @@ func (server *Server) verifyAlumni(ctx *gin.Context) {
 
 	status, err := server.alumni.Verify(ctx, id, req.Status, verifiedBy)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -229,7 +229,7 @@ func (server *Server) verifyAlumni(ctx *gin.Context) {
 func (server *Server) listPendingAlumniVerifications(ctx *gin.Context) {
 	pending, err := server.alumni.ListPendingVerifications(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -239,7 +239,7 @@ func (server *Server) listPendingAlumniVerifications(ctx *gin.Context) {
 func (server *Server) requestMentorship(ctx *gin.Context) {
 	var req requestMentorshipReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -252,7 +252,7 @@ func (server *Server) requestMentorship(ctx *gin.Context) {
 		Message:   req.Message,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -268,7 +268,7 @@ func (server *Server) listStudentMentorshipRequests(ctx *gin.Context) {
 
 	requests, err := server.alumni.ListStudentMentorships(ctx, studentID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -284,7 +284,7 @@ func (server *Server) listMentorMentorshipRequests(ctx *gin.Context) {
 
 	requests, err := server.alumni.ListMentorRequests(ctx, mentorID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -300,13 +300,13 @@ func (server *Server) updateMentorshipStatus(ctx *gin.Context) {
 
 	var req updateMentorshipReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
 	request, err := server.alumni.UpdateMentorshipStatus(ctx, id, req.Status)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -316,7 +316,7 @@ func (server *Server) updateMentorshipStatus(ctx *gin.Context) {
 func (server *Server) createJobPost(ctx *gin.Context) {
 	var req createJobPostReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -334,7 +334,7 @@ func (server *Server) createJobPost(ctx *gin.Context) {
 		ApplicationUrl: req.ApplicationUrl,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -350,7 +350,7 @@ func (server *Server) updateJobPost(ctx *gin.Context) {
 
 	var req updateJobPostReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -407,7 +407,7 @@ func (server *Server) updateJobPost(ctx *gin.Context) {
 		IsActive:            job.IsActive,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -423,7 +423,7 @@ func (server *Server) getJobPost(ctx *gin.Context) {
 
 	job, err := server.alumni.GetJobPost(ctx, id)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -433,7 +433,7 @@ func (server *Server) getJobPost(ctx *gin.Context) {
 func (server *Server) listJobPosts(ctx *gin.Context) {
 	jobs, err := server.alumni.ListJobPosts(ctx, 100, 0)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -449,7 +449,7 @@ func (server *Server) listUserJobPosts(ctx *gin.Context) {
 
 	jobs, err := server.alumni.ListUserJobPosts(ctx, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -465,7 +465,7 @@ func (server *Server) applyForJob(ctx *gin.Context) {
 
 	var req applyJobReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -478,7 +478,7 @@ func (server *Server) applyForJob(ctx *gin.Context) {
 		CoverLetter: req.CoverLetter,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -494,7 +494,7 @@ func (server *Server) listJobApplications(ctx *gin.Context) {
 
 	applications, err := server.alumni.ListJobApplications(ctx, jobID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -510,7 +510,7 @@ func (server *Server) updateJobApplicationStatus(ctx *gin.Context) {
 
 	var req updateApplicationStatusReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -518,7 +518,7 @@ func (server *Server) updateJobApplicationStatus(ctx *gin.Context) {
 
 	application, err := server.alumni.UpdateApplicationStatus(ctx, id, req.Status, reviewedBy)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -530,7 +530,7 @@ func (server *Server) listStudentJobApplications(ctx *gin.Context) {
 
 	applications, err := server.alumni.ListStudentJobApplications(ctx, applicantID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -545,7 +545,7 @@ func (server *Server) deleteJobPost(ctx *gin.Context) {
 	}
 
 	if err := server.alumni.DeleteJobPost(ctx, id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -555,7 +555,7 @@ func (server *Server) deleteJobPost(ctx *gin.Context) {
 func (server *Server) createAlumniEvent(ctx *gin.Context) {
 	var req createAlumniEventReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -581,7 +581,7 @@ func (server *Server) createAlumniEvent(ctx *gin.Context) {
 		EndDate:     pgtype.Timestamptz{Time: endTime, Valid: true},
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -591,7 +591,7 @@ func (server *Server) createAlumniEvent(ctx *gin.Context) {
 func (server *Server) listAlumniEvents(ctx *gin.Context) {
 	events, err := server.alumni.ListEvents(ctx, 100, 0)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -609,7 +609,7 @@ func (server *Server) registerForAlumniEvent(ctx *gin.Context) {
 
 	attendee, err := server.alumni.RegisterForEvent(ctx, eventID, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -625,7 +625,7 @@ func (server *Server) listAlumniEventAttendees(ctx *gin.Context) {
 
 	attendees, err := server.alumni.ListEventAttendees(ctx, eventID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -661,7 +661,7 @@ func (server *Server) listMentors(ctx *gin.Context) {
 
 	mentors, err := queries.ListAvailableMentors(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -679,7 +679,7 @@ func (server *Server) listMyMentorshipRequests(ctx *gin.Context) {
 
 	items, err := queries.ListMyMentorshipRequests(ctx, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -691,7 +691,7 @@ func (server *Server) updateMyAlumniProfile(ctx *gin.Context) {
 
 	var req updateAlumniStatusReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -703,7 +703,7 @@ func (server *Server) updateMyAlumniProfile(ctx *gin.Context) {
 
 	err := queries.UpdateAlumniProfile(ctx, userID, &req.IsMentorAvailable, req.MentorSpecialization, req.CurrentCompany, req.CurrentPosition, req.LinkedInURL, req.Bio)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -719,7 +719,7 @@ func (server *Server) getAlumniDashboardStats(ctx *gin.Context) {
 
 	stats, err := queries.GetAlumniDashboardStats(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -737,7 +737,7 @@ func (server *Server) getAlumniMyStats(ctx *gin.Context) {
 
 	stats, err := queries.GetAlumniMyStats(ctx, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -782,7 +782,7 @@ func (server *Server) searchAlumniDirectory(ctx *gin.Context) {
 		Offset:  0,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -794,7 +794,7 @@ func (server *Server) updateMyAlumniProfileFull(ctx *gin.Context) {
 
 	var req updateAlumniProfileReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -810,7 +810,7 @@ func (server *Server) updateMyAlumniProfileFull(ctx *gin.Context) {
 		req.WillingToSpeak, nil, req.PrivacyLevel,
 		req.Industry, req.JobTitle, req.CurrentCompany)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -820,7 +820,7 @@ func (server *Server) updateMyAlumniProfileFull(ctx *gin.Context) {
 func (server *Server) createDonation(ctx *gin.Context) {
 	var req createDonationReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -867,7 +867,7 @@ func (server *Server) createDonation(ctx *gin.Context) {
 		PaystackReference: &reference,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -888,7 +888,7 @@ func (server *Server) createDonation(ctx *gin.Context) {
 
 	resp, err := paystackClient.InitializePayment(paystackReq)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to initialize payment: " + err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -911,7 +911,7 @@ func (server *Server) listDonations(ctx *gin.Context) {
 
 	donations, err := queries.ListAllDonations(ctx, db.ListAllDonationsParams{Limit: 50, Offset: 0})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -929,7 +929,7 @@ func (server *Server) listMyDonations(ctx *gin.Context) {
 
 	donations, err := queries.ListDonorDonations(ctx, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -945,7 +945,7 @@ func (server *Server) getDonationStats(ctx *gin.Context) {
 
 	stats, err := queries.GetDonationStats(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -966,7 +966,7 @@ func (server *Server) incrementJobViews(ctx *gin.Context) {
 	}
 
 	if err := queries.IncrementJobViews(ctx, id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

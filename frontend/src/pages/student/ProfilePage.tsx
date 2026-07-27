@@ -6,7 +6,7 @@ import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { updateBasicInfo, uploadProfilePhoto, uploadStudentDocument, listStudentDocuments } from '../../api/profile-edit';
 import { useNotification } from '../../hooks/useNotification';
-import { User, Phone, MapPin, Mail, BookOpen, Lock, Save, Upload, Camera, FileText, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { User, Phone, MapPin, Mail, BookOpen, Lock, Save, Upload, Camera, FileText, CheckCircle, XCircle, Clock, Link as LinkIcon } from 'lucide-react';
 import QRCode from 'qrcode';
 
 const ProfilePage = () => {
@@ -21,6 +21,8 @@ const ProfilePage = () => {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState('');
+  const [savingUrl, setSavingUrl] = useState(false);
   const [documents, setDocuments] = useState<any[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
 
@@ -90,6 +92,22 @@ const ProfilePage = () => {
       notifyError('Upload Failed', err?.response?.data?.error || 'Failed to upload photo.');
     } finally {
       setUploadingPhoto(false);
+    }
+  };
+
+  const handlePhotoUrlSave = async () => {
+    const url = photoUrl.trim();
+    if (!url) return;
+    try {
+      setSavingUrl(true);
+      const { data } = await updateBasicInfo({ avatarUrl: url });
+      updateUser(data);
+      setPhotoUrl('');
+      success('Photo Updated', 'Profile photo URL saved.');
+    } catch (err: any) {
+      notifyError('Save Failed', err?.response?.data?.error || 'Failed to save photo URL.');
+    } finally {
+      setSavingUrl(false);
     }
   };
 
@@ -336,6 +354,22 @@ const ProfilePage = () => {
             />
             <p className="text-[10px] text-surface-400 mt-2">JPG/PNG, max 2MB</p>
             {uploadingPhoto && <p className="text-xs text-primary-500 mt-1">Uploading...</p>}
+            <div className="w-full mt-4 pt-4 border-t border-surface-200 dark:border-surface-700">
+              <p className="text-[10px] text-surface-400 mb-2 uppercase tracking-wider">Or paste an image URL</p>
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={photoUrl}
+                  onChange={(e) => setPhotoUrl(e.target.value)}
+                  placeholder="https://example.com/photo.jpg"
+                  className="flex-1 px-3 py-1.5 text-xs bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                />
+                <Button size="xs" variant="outline" leftIcon={savingUrl ? undefined : <LinkIcon className="w-3 h-3" />}
+                  onClick={handlePhotoUrlSave} disabled={savingUrl || !photoUrl.trim()}>
+                  {savingUrl ? 'Saving...' : 'Set'}
+                </Button>
+              </div>
+            </div>
           </Card>
 
           {/* QR Code */}

@@ -20,7 +20,7 @@ type createProfileUpdateRequestReq struct {
 func (server *Server) createProfileUpdateRequest(ctx *gin.Context) {
 	var req createProfileUpdateRequestReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -36,7 +36,7 @@ func (server *Server) createProfileUpdateRequest(ctx *gin.Context) {
 
 	request, err := server.store.CreateProfileUpdateRequest(ctx, arg)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -68,7 +68,7 @@ func (server *Server) listStudentProfileUpdateRequests(ctx *gin.Context) {
 
 	requests, err := server.store.ListStudentProfileUpdateRequests(ctx, studentID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -83,7 +83,7 @@ type listPendingProfileUpdateRequestsReq struct {
 func (server *Server) listPendingProfileUpdateRequests(ctx *gin.Context) {
 	var req listPendingProfileUpdateRequestsReq
 	if err := ctx.ShouldBindQuery(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -94,7 +94,7 @@ func (server *Server) listPendingProfileUpdateRequests(ctx *gin.Context) {
 
 	requests, err := server.store.ListPendingProfileUpdateRequests(ctx, arg)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -117,7 +117,7 @@ func (server *Server) updateProfileUpdateRequestStatus(ctx *gin.Context) {
 
 	var req updateProfileUpdateRequestStatusReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -143,7 +143,7 @@ func (server *Server) updateProfileUpdateRequestStatus(ctx *gin.Context) {
 
 	request, err := server.store.UpdateProfileUpdateRequestStatus(ctx, arg)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -158,7 +158,7 @@ func (server *Server) deleteProfileUpdateRequest(ctx *gin.Context) {
 	}
 
 	if err := server.store.DeleteProfileUpdateRequest(ctx, id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

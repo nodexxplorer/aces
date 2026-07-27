@@ -21,7 +21,7 @@ type createAppealRequest struct {
 func (server *Server) createGradeAppeal(ctx *gin.Context) {
 	var req createAppealRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -73,7 +73,7 @@ func (server *Server) createGradeAppeal(ctx *gin.Context) {
 		EvidenceUrls: evidenceJSON,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -95,7 +95,7 @@ func (server *Server) listMyAppeals(ctx *gin.Context) {
 
 	appeals, err := queries.ListStudentAppeals(ctx, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -117,7 +117,7 @@ func (server *Server) listPendingAppeals(ctx *gin.Context) {
 
 	appeals, err := queries.ListPendingAppeals(ctx, status)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -161,7 +161,7 @@ func (server *Server) updateAppealStatus(ctx *gin.Context) {
 
 	var req updateAppealRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -208,7 +208,7 @@ func (server *Server) updateAppealStatus(ctx *gin.Context) {
 		RevisedScore:     req.RevisedScore,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

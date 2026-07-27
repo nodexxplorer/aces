@@ -25,7 +25,7 @@ type createNoticeRequest struct {
 func (server *Server) createClassNotice(ctx *gin.Context) {
 	var req createNoticeRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -57,7 +57,7 @@ func (server *Server) createClassNotice(ctx *gin.Context) {
 		ExpiresAt:     expiresAt,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -73,7 +73,7 @@ func (server *Server) listClassNotices(ctx *gin.Context) {
 
 	notices, err := queries.ListClassNotices(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -120,7 +120,7 @@ func (server *Server) updateClassNotice(ctx *gin.Context) {
 
 	var req updateNoticeRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -184,7 +184,7 @@ func (server *Server) updateClassNotice(ctx *gin.Context) {
 		ClassRepID:    userID,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -211,7 +211,7 @@ func (server *Server) deleteClassNotice(ctx *gin.Context) {
 		ClassRepID: userID,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -231,7 +231,7 @@ func (server *Server) createNoticeComment(ctx *gin.Context) {
 
 	var req createNoticeCommentRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -249,7 +249,7 @@ func (server *Server) createNoticeComment(ctx *gin.Context) {
 		Content:  req.Content,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -271,7 +271,7 @@ func (server *Server) listNoticeComments(ctx *gin.Context) {
 
 	comments, err := queries.ListNoticeComments(ctx, noticeID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -293,7 +293,7 @@ type createBroadcastRequest struct {
 func (server *Server) createBroadcast(ctx *gin.Context) {
 	var req createBroadcastRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -333,7 +333,7 @@ func (server *Server) createBroadcast(ctx *gin.Context) {
 		RequiresAcknowledgment: &req.RequiresAcknowledgment,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -356,7 +356,7 @@ func (server *Server) listBroadcasts(ctx *gin.Context) {
 		Limit:   20,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -405,7 +405,7 @@ func (server *Server) acknowledgeBroadcast(ctx *gin.Context) {
 		UserID:      userID,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -427,7 +427,7 @@ func (server *Server) getBroadcastAckCount(ctx *gin.Context) {
 
 	count, err := queries.GetBroadcastAckCount(ctx, broadcastID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -452,7 +452,7 @@ type createEventRequest struct {
 func (server *Server) createDepartmentalEvent(ctx *gin.Context) {
 	var req createEventRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -506,7 +506,7 @@ func (server *Server) createDepartmentalEvent(ctx *gin.Context) {
 		Color:          req.Color,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -521,7 +521,7 @@ type listDepartmentalEventsRequest struct {
 func (server *Server) listDepartmentalEvents(ctx *gin.Context) {
 	var req listDepartmentalEventsRequest
 	if err := ctx.ShouldBindQuery(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -557,7 +557,7 @@ func (server *Server) listDepartmentalEvents(ctx *gin.Context) {
 		EndTime:   pgtype.Timestamptz{Time: end, Valid: true},
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -601,7 +601,7 @@ func (server *Server) deleteDepartmentalEvent(ctx *gin.Context) {
 
 	err = queries.DeleteDepartmentalEvent(ctx, id)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -617,7 +617,7 @@ func (server *Server) updateDepartmentalEvent(ctx *gin.Context) {
 
 	var req createEventRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -669,7 +669,7 @@ func (server *Server) updateDepartmentalEvent(ctx *gin.Context) {
 		Color:          req.Color,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

@@ -6,7 +6,7 @@ import type { UserRole } from './types';
 /* ── Lazy-loaded pages ───────────────────────── */
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
 const LoginCelebrationPage = lazy(() => import('./pages/auth/LoginCelebrationPage'));
-const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
+const ForgotPasswordPage = lazy(() => import('./pages/auth/PasswordResetOTPPage'));
 const StudentSignupPage = lazy(() => import('./pages/auth/StudentSignupPage'));
 const LecturerSignupPage = lazy(() => import('./pages/auth/LecturerSignupPage'));
 const StudentOnboardingPage = lazy(() => import('./pages/onboarding/StudentOnboardingPage'));

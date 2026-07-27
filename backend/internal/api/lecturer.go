@@ -20,7 +20,7 @@ func (server *Server) listLecturers(ctx *gin.Context) {
 
 	lecturers, err := queries.ListLecturers(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -76,7 +76,7 @@ func (server *Server) updateLecturerProfile(ctx *gin.Context) {
 
 	var req updateLecturerRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -97,7 +97,7 @@ func (server *Server) updateLecturerProfile(ctx *gin.Context) {
 		OfficeHours:    req.OfficeHours,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -115,7 +115,7 @@ type assignCourseRequest struct {
 func (server *Server) assignCourseToLecturer(ctx *gin.Context) {
 	var req assignCourseRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -174,7 +174,7 @@ func (server *Server) assignCourseToLecturer(ctx *gin.Context) {
 		IsPrimary:  isPrimary,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -202,7 +202,7 @@ func (server *Server) listLecturerAssignments(ctx *gin.Context) {
 
 	assignments, err := queries.ListLecturerAssignments(ctx, lecturerID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -223,7 +223,7 @@ func (server *Server) removeCourseAssignment(ctx *gin.Context) {
 	}
 
 	if err := queries.RemoveCourseAssignment(ctx, assignmentID); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -243,7 +243,7 @@ type createLeaveRequest struct {
 func (server *Server) createLeaveRequestHandler(ctx *gin.Context) {
 	var req createLeaveRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -272,7 +272,7 @@ func (server *Server) createLeaveRequestHandler(ctx *gin.Context) {
 		CourseHandover: req.CourseHandover,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -289,7 +289,7 @@ func (server *Server) listMyLeaveRequests(ctx *gin.Context) {
 
 	leaves, err := queries.ListLeaveRequests(ctx, lecturerID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -305,7 +305,7 @@ func (server *Server) listAllLeaveRequests(ctx *gin.Context) {
 
 	leaves, err := queries.ListAllLeaveRequests(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -325,7 +325,7 @@ func (server *Server) updateLeaveStatusHandler(ctx *gin.Context) {
 
 	var req updateLeaveStatusRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -337,7 +337,7 @@ func (server *Server) updateLeaveStatusHandler(ctx *gin.Context) {
 
 	actorID := getUserID(ctx)
 	if err := queries.UpdateLeaveStatus(ctx, leaveID, req.Status, actorID); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -391,7 +391,7 @@ func (server *Server) getBursarDashboardStats(ctx *gin.Context) {
 
 	stats, err := queries.GetBursarDashboardStats(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -422,7 +422,7 @@ type recordManualPaymentRequest struct {
 func (server *Server) recordManualPayment(ctx *gin.Context) {
 	var req recordManualPaymentRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -458,7 +458,7 @@ func (server *Server) recordManualPayment(ctx *gin.Context) {
 		PaystackReference: nil,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

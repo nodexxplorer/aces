@@ -62,7 +62,7 @@ type rateTradeRequest struct {
 func (server *Server) listSkillCategories(ctx *gin.Context) {
 	categories, err := server.skillsTrade.ListCategories(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -72,7 +72,7 @@ func (server *Server) listSkillCategories(ctx *gin.Context) {
 func (server *Server) createSkillCategory(ctx *gin.Context) {
 	var req createSkillCategoryRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -82,7 +82,7 @@ func (server *Server) createSkillCategory(ctx *gin.Context) {
 		Icon:        req.Icon,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -92,7 +92,7 @@ func (server *Server) createSkillCategory(ctx *gin.Context) {
 func (server *Server) createSkillListing(ctx *gin.Context) {
 	var req createSkillListingRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -118,7 +118,7 @@ func (server *Server) createSkillListing(ctx *gin.Context) {
 		PortfolioUrl:      req.PortfolioUrl,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -134,7 +134,7 @@ func (server *Server) getSkillListing(ctx *gin.Context) {
 
 	listing, err := server.skillsTrade.GetListing(ctx, id)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -144,7 +144,7 @@ func (server *Server) getSkillListing(ctx *gin.Context) {
 func (server *Server) listSkillListings(ctx *gin.Context) {
 	listings, err := server.skillsTrade.ListListings(ctx, 100, 0)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -160,7 +160,7 @@ func (server *Server) listUserSkillListings(ctx *gin.Context) {
 
 	listings, err := server.skillsTrade.ListUserListings(ctx, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -176,7 +176,7 @@ func (server *Server) updateSkillListing(ctx *gin.Context) {
 
 	var req updateSkillListingRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -200,7 +200,7 @@ func (server *Server) updateSkillListing(ctx *gin.Context) {
 		IsActive:          req.IsActive,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -215,7 +215,7 @@ func (server *Server) deleteSkillListing(ctx *gin.Context) {
 	}
 
 	if err := server.skillsTrade.DeleteListing(ctx, id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -225,7 +225,7 @@ func (server *Server) deleteSkillListing(ctx *gin.Context) {
 func (server *Server) createTradeOffer(ctx *gin.Context) {
 	var req createTradeOfferRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -253,7 +253,7 @@ func (server *Server) createTradeOffer(ctx *gin.Context) {
 		IsBarter:         req.IsBarter,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -269,7 +269,7 @@ func (server *Server) getTradeOffer(ctx *gin.Context) {
 
 	offer, err := server.skillsTrade.GetTradeOffer(ctx, id)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -281,7 +281,7 @@ func (server *Server) listUserTrades(ctx *gin.Context) {
 
 	trades, err := server.skillsTrade.ListUserTrades(ctx, userID, 100, 0)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -297,13 +297,13 @@ func (server *Server) updateTradeStatus(ctx *gin.Context) {
 
 	var req updateTradeStatusRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
 	offer, err := server.skillsTrade.UpdateTradeStatus(ctx, id, req.Status)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -313,7 +313,7 @@ func (server *Server) updateTradeStatus(ctx *gin.Context) {
 func (server *Server) rateTrade(ctx *gin.Context) {
 	var req rateTradeRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -327,7 +327,7 @@ func (server *Server) rateTrade(ctx *gin.Context) {
 		Review:      req.Review,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -343,7 +343,7 @@ func (server *Server) listUserRatings(ctx *gin.Context) {
 
 	ratings, err := server.skillsTrade.ListUserRatings(ctx, userID, 100, 0)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -359,7 +359,7 @@ func (server *Server) getUserReputation(ctx *gin.Context) {
 
 	reputation, err := server.skillsTrade.GetReputation(ctx, userID)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "internal server error"})
 		return
 	}
 

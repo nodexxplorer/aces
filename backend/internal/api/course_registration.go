@@ -21,7 +21,7 @@ type createCourseRegistrationRequest struct {
 func (server *Server) createCourseRegistration(ctx *gin.Context) {
 	var req createCourseRegistrationRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -58,7 +58,7 @@ func (server *Server) createCourseRegistration(ctx *gin.Context) {
 
 	registration, err := server.store.CreateCourseRegistration(ctx, arg)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -90,7 +90,7 @@ func (server *Server) listStudentCourseRegistrations(ctx *gin.Context) {
 
 	registrations, err := server.store.ListStudentCourseRegistrations(ctx, studentID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -113,7 +113,7 @@ func (server *Server) updateCourseRegistration(ctx *gin.Context) {
 
 	var req updateCourseRegistrationRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -143,7 +143,7 @@ func (server *Server) updateCourseRegistration(ctx *gin.Context) {
 
 	registration, err := server.store.UpdateCourseRegistration(ctx, arg)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -166,7 +166,7 @@ func (server *Server) createRegisteredCourse(ctx *gin.Context) {
 
 	var req createRegisteredCourseRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -199,7 +199,7 @@ func (server *Server) createRegisteredCourse(ctx *gin.Context) {
 
 	registeredCourse, err := server.store.CreateRegisteredCourse(ctx, arg)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -215,7 +215,7 @@ func (server *Server) listRegisteredCourses(ctx *gin.Context) {
 
 	registeredCourses, err := server.store.ListRegisteredCoursesByRegistration(ctx, registrationID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -231,7 +231,7 @@ func (server *Server) deleteRegisteredCourse(ctx *gin.Context) {
 	}
 
 	if err := server.store.DeleteRegisteredCourse(ctx, registeredCourseID); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -254,7 +254,7 @@ func (server *Server) updateRegisteredCourse(ctx *gin.Context) {
 
 	var req updateRegisteredCourseRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -275,7 +275,7 @@ func (server *Server) updateRegisteredCourse(ctx *gin.Context) {
 
 	registeredCourse, err := server.store.UpdateRegisteredCourse(ctx, arg)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -291,7 +291,7 @@ type submitRegistrationRequest struct {
 func (server *Server) submitRegistration(ctx *gin.Context) {
 	var req submitRegistrationRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -364,7 +364,7 @@ func (server *Server) submitRegistration(ctx *gin.Context) {
 		Status:     "submitted",
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create registration: " + err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -378,7 +378,7 @@ func (server *Server) submitRegistration(ctx *gin.Context) {
 			IsCarryover:    false,
 		})
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to register course: " + err.Error()})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
 		}
 		registeredCourses = append(registeredCourses, rc)

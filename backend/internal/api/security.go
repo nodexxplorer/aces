@@ -26,7 +26,7 @@ func (server *Server) getMyActiveSessions(ctx *gin.Context) {
 
 	sessions, err := q.ListUserSessions(ctx, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -55,7 +55,7 @@ func (server *Server) revokeSession(ctx *gin.Context) {
 
 	err = q.DeleteActiveSession(ctx, db.DeleteActiveSessionParams{ID: sessionID, UserID: userID})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -77,7 +77,7 @@ func (server *Server) revokeAllSessions(ctx *gin.Context) {
 
 	err := q.DeleteUserSessions(ctx, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

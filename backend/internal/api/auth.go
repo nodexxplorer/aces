@@ -41,15 +41,6 @@ type refreshRequest struct {
 	RefreshToken string `json:"refreshToken"`
 }
 
-type forgotPasswordRequest struct {
-	Email string `json:"email" binding:"required,email"`
-}
-
-type resetPasswordRequest struct {
-	Token       string `json:"token" binding:"required"`
-	NewPassword string `json:"newPassword" binding:"required,min=6,max=72"`
-}
-
 type userResponse struct {
 	ID                  string   `json:"id"`
 	Email               string   `json:"email"`
@@ -233,17 +224,17 @@ func (server *Server) generateAuthResponse(u db.User, onboardingCompleted bool, 
 func (server *Server) studentSignup(ctx *gin.Context) {
 	var req studentSignupRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
 	result, err := server.auth.StudentSignup(ctx, req.Email, req.Password, req.FirstName, req.LastName, req.Phone, req.MatricNumber, req.Level)
 	if err != nil {
-		status := http.StatusInternalServerError
 		if err.Error() == "a user with this email already exists" {
-			status = http.StatusConflict
+			ctx.JSON(http.StatusConflict, gin.H{"error": "internal server error"})
+			return
 		}
-		ctx.JSON(status, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -261,17 +252,17 @@ func (server *Server) studentSignup(ctx *gin.Context) {
 func (server *Server) lecturerSignup(ctx *gin.Context) {
 	var req lecturerSignupRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
 	result, err := server.auth.LecturerSignup(ctx, req.Email, req.Password, req.FirstName, req.LastName, req.Phone, req.StaffId, req.Department, req.Specialization)
 	if err != nil {
-		status := http.StatusInternalServerError
 		if err.Error() == "a user with this email already exists" {
-			status = http.StatusConflict
+			ctx.JSON(http.StatusConflict, gin.H{"error": "internal server error"})
+			return
 		}
-		ctx.JSON(status, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -289,19 +280,54 @@ func (server *Server) lecturerSignup(ctx *gin.Context) {
 func (server *Server) login(ctx *gin.Context) {
 	var req loginRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
 
-	user, onboardingCompleted, err := server.auth.Login(ctx, req.Email, req.Password)
+	identifier := strings.TrimSpace(req.Email)
+
+	// Pre-login: resolve user ID to check lockout status.
+	var preloadedUser *db.User
+	if q, ok := server.store.(*db.Queries); ok {
+		normalized := strings.ToLower(identifier)
+		if u, err := q.GetUserByEmail(ctx, normalized); err == nil {
+			preloadedUser = &u
+		} else if s, err := q.GetStudentByMatric(ctx, strings.ToUpper(identifier)); err == nil {
+			if u2, err := q.GetUser(ctx, s.UserID); err == nil {
+				preloadedUser = &u2
+			}
+		} else if st, err := q.GetStaffByStaffID(ctx, strings.ToUpper(identifier)); err == nil {
+			if u2, err := q.GetUser(ctx, st.UserID); err == nil {
+				preloadedUser = &u2
+			}
+		}
+	}
+
+	// Check lockout before attempting authentication.
+	if preloadedUser != nil {
+		if lockErr := server.checkAccountLockout(ctx, preloadedUser.ID); lockErr != nil {
+			ctx.JSON(http.StatusTooManyRequests, gin.H{"error": "account is temporarily locked due to too many failed attempts"})
+			return
+		}
+	}
+
+	user, onboardingCompleted, err := server.auth.Login(ctx, identifier, req.Password)
 	if err != nil {
+		// Record failed attempt for the resolved user.
+		if preloadedUser != nil {
+			clientIP := ctx.ClientIP()
+			server.recordFailedLoginAttempt(ctx, preloadedUser.ID, clientIP)
+		}
 		status := http.StatusUnauthorized
 		if err.Error() == "account is deactivated" {
 			status = http.StatusForbidden
 		}
-		ctx.JSON(status, gin.H{"error": err.Error()})
+		ctx.JSON(status, gin.H{"error": "internal server error"})
 		return
 	}
+
+	// Successful login: reset any accumulated failed attempts.
+	server.resetFailedAttempts(ctx, user.ID)
 
 	roleNames, _ := server.roles.ListUserRolesByName(ctx, user.ID)
 	if len(roleNames) == 0 {
@@ -333,7 +359,7 @@ func (server *Server) getMe(ctx *gin.Context) {
 
 	user, err := server.auth.GetUserByID(ctx, id)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -430,7 +456,7 @@ func (server *Server) refreshToken(ctx *gin.Context) {
 
 	user, err := server.auth.RefreshToken(ctx, userID)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -452,25 +478,4 @@ func (server *Server) refreshToken(ctx *gin.Context) {
 	}
 	server.setTokenCookies(ctx, &tokenResp)
 	ctx.JSON(http.StatusOK, gin.H{"data": tokenResp})
-}
-
-func (server *Server) forgotPassword(ctx *gin.Context) {
-	var req forgotPasswordRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	_, _ = server.auth.GetUserByID(ctx, uuid.Nil)
-	ctx.JSON(http.StatusOK, gin.H{"message": "if the email exists, a reset link has been sent"})
-}
-
-func (server *Server) resetPassword(ctx *gin.Context) {
-	var req resetPasswordRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"message": "password reset successful"})
 }

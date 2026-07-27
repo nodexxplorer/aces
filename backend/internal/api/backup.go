@@ -24,7 +24,7 @@ func (server *Server) createBackup(ctx *gin.Context) {
 
 	id, err := queries.CreateBackup(ctx, fileName, s3URL, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -46,7 +46,7 @@ func (server *Server) listBackups(ctx *gin.Context) {
 
 	backups, err := queries.ListBackups(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -86,7 +86,7 @@ func (server *Server) getBackupSummary(ctx *gin.Context) {
 
 	summary, err := queries.GetBackupSummary(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
