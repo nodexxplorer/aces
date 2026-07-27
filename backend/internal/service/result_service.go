@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"math/big"
 	"time"
 
 	db "github.com/aces/backend/internal/db/sql"
@@ -69,6 +70,7 @@ func (s *ResultService) Create(ctx context.Context, input CreateResultInput) (db
 		arg.Grade = &g
 	}
 
+	arg.GradePoint.Int = new(big.Int)
 	arg.GradePoint.Int.SetInt64(int64(input.GradePoint * 100))
 	arg.GradePoint.Exp = -2
 	arg.GradePoint.Valid = true
@@ -114,6 +116,7 @@ func (s *ResultService) Update(ctx context.Context, id uuid.UUID, input UpdateRe
 		arg.Grade = &g
 	}
 
+	arg.GradePoint.Int = new(big.Int)
 	arg.GradePoint.Int.SetInt64(int64(input.GradePoint * 100))
 	arg.GradePoint.Exp = -2
 	arg.GradePoint.Valid = true
