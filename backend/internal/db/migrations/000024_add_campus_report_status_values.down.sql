@@ -1,0 +1,3 @@
+-- PostgreSQL does not support removing individual enum values.
+-- The added values ('pending', 'reviewed', 'resolved', 'dismissed') are harmless
+-- and removing them would require recreating the type and migrating all dependent columns.
