@@ -4,8 +4,7 @@ import Button from '../../components/ui/Button';
 import DataTable from '../../components/data-display/DataTable';
 import StatusBadge from '../../components/data-display/StatusBadge';
 import RoleBadge from '../../components/data-display/RoleBadge';
-import { useNotification } from '../../hooks/useNotification';
-import { getDashboardStats, getRecentUsers, getRecentActivity } from '../../api/analytics';
+import { getDashboardAnalytics as getDashboardStats, getRecentUsers, getRecentActivity } from '../../api/analytics';
 import { Users, BookOpen, MessageSquare, FileText, TrendingUp, Loader2 } from 'lucide-react';
 import type { User, UserRole } from '../../types';
 
