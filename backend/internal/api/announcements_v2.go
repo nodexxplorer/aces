@@ -365,7 +365,6 @@ func (server *Server) getAnnouncementStats(ctx *gin.Context) {
 // ==================== STUDENT ANNOUNCEMENTS ====================
 
 func (server *Server) listStudentAnnouncements(ctx *gin.Context) {
-	userID := getUserID(ctx)
 	queries, ok := server.store.(*db.Queries)
 	if !ok {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
@@ -387,7 +386,6 @@ func (server *Server) listStudentAnnouncements(ctx *gin.Context) {
 
 	announcements, err := queries.ListStudentAnnouncements(ctx, db.ListStudentAnnouncementsParams{
 		TargetLevel: nil,
-		Column2:     userID.String(),
 		Limit:       limit,
 		Offset:      offset,
 	})

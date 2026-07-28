@@ -991,3 +991,56 @@ func (q *Queries) VerifyPayment(ctx context.Context, arg VerifyPaymentParams) (P
 	)
 	return i, err
 }
+
+const listRecentVerifiedPayments = `-- name: ListRecentVerifiedPayments :many
+SELECT p.id, p.student_id, p.batch_id, p.due_id, p.type, p.item_name, p.amount, p.paystack_reference, p.status, p.verified_by, p.verified_at, p.paid_at, p.created_at, p.payment_method, p.bank_reference, p.bank_name, p.receipt_url, p.recorded_by, p.notes, u.matric_number, u.full_name AS student_name, d.name AS due_name
+FROM payments p
+JOIN users u ON u.id = p.student_id
+LEFT JOIN dues d ON d.id = p.due_id
+WHERE p.status = 'completed'
+ORDER BY p.verified_at DESC NULLS LAST
+LIMIT $1 OFFSET $2
+`
+
+func (q *Queries) ListRecentVerifiedPayments(ctx context.Context, arg ListAllPaymentsParams) ([]ListAllPaymentsRow, error) {
+	rows, err := q.db.Query(ctx, listRecentVerifiedPayments, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAllPaymentsRow{}
+	for rows.Next() {
+		var i ListAllPaymentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.StudentID,
+			&i.BatchID,
+			&i.DueID,
+			&i.Type,
+			&i.ItemName,
+			&i.Amount,
+			&i.PaystackReference,
+			&i.Status,
+			&i.VerifiedBy,
+			&i.VerifiedAt,
+			&i.PaidAt,
+			&i.CreatedAt,
+			&i.PaymentMethod,
+			&i.BankReference,
+			&i.BankName,
+			&i.ReceiptUrl,
+			&i.RecordedBy,
+			&i.Notes,
+			&i.MatricNumber,
+			&i.StudentName,
+			&i.DueName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

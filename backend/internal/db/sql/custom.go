@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // GetDB returns the underlying DBTX database connection/transaction.
@@ -538,26 +539,27 @@ func (q *Queries) CheckTimetableConflicts(ctx context.Context, arg ListTimetable
 }
 
 type CreateTimetableEntrySimpleParams struct {
-	CourseID    uuid.UUID
-	DayOfWeek   int32
-	StartTime   string
-	EndTime     string
-	Venue       string
-	Level       int32
-	EntryType   string
-	ClassType   *string
-	ExamType    *string
-	LecturerID  *uuid.UUID
+	CourseID     uuid.UUID
+	DayOfWeek    int32
+	StartTime    string
+	EndTime      string
+	Venue        string
+	Level        int32
+	EntryType    string
+	ClassType    *string
+	ExamType     *string
+	LecturerID   *uuid.UUID
 	Invigilators *string
+	ExamDate     *time.Time
 }
 
 func (q *Queries) CreateTimetableEntrySimple(ctx context.Context, arg CreateTimetableEntrySimpleParams) (uuid.UUID, error) {
 	var id uuid.UUID
 	err := q.db.QueryRow(ctx, `
 		INSERT INTO timetable (course_id, day_of_week, start_time, end_time, venue, level, exam_date, session_id, semester_id, created_by, entry_type, class_type, exam_type, lecturer_id, invigilators)
-		VALUES ($1, $2, ('1970-01-01 ' || $3)::timestamptz, ('1970-01-01 ' || $4)::timestamptz, $5, $6, NOW(), NULL, NULL, NULL, $7, $8, $9, $10, $11)
+		VALUES ($1, $2, ('1970-01-01 ' || $3)::timestamptz, ('1970-01-01 ' || $4)::timestamptz, $5, $6, $7, NULL, NULL, NULL, $8, $9, $10, $11, $12)
 		RETURNING id
-	`, arg.CourseID, arg.DayOfWeek, arg.StartTime, arg.EndTime, arg.Venue, arg.Level, arg.EntryType, arg.ClassType, arg.ExamType, arg.LecturerID, arg.Invigilators).Scan(&id)
+	`, arg.CourseID, arg.DayOfWeek, arg.StartTime, arg.EndTime, arg.Venue, arg.Level, arg.ExamDate, arg.EntryType, arg.ClassType, arg.ExamType, arg.LecturerID, arg.Invigilators).Scan(&id)
 	return id, err
 }
 
@@ -568,10 +570,11 @@ func (q *Queries) UpdateTimetableEntryFull(ctx context.Context, arg CreateTimeta
 			start_time = ('1970-01-01 ' || $4)::timestamptz,
 			end_time = ('1970-01-01 ' || $5)::timestamptz,
 			venue = $6, level = $7,
-			entry_type = $8, class_type = $9, exam_type = $10,
-			lecturer_id = $11, invigilators = $12
+			exam_date = $8,
+			entry_type = $9, class_type = $10, exam_type = $11,
+			lecturer_id = $12, invigilators = $13
 		WHERE id = $1
-	`, id, arg.CourseID, arg.DayOfWeek, arg.StartTime, arg.EndTime, arg.Venue, arg.Level, arg.EntryType, arg.ClassType, arg.ExamType, arg.LecturerID, arg.Invigilators)
+	`, id, arg.CourseID, arg.DayOfWeek, arg.StartTime, arg.EndTime, arg.Venue, arg.Level, arg.ExamDate, arg.EntryType, arg.ClassType, arg.ExamType, arg.LecturerID, arg.Invigilators)
 	return err
 }
 
@@ -823,6 +826,22 @@ func (q *Queries) RemoveCourseAssignment(ctx context.Context, id uuid.UUID) erro
 	return err
 }
 
+type IsLecturerAssignedToCourseParams struct {
+	LecturerID uuid.UUID
+	CourseID   uuid.UUID
+}
+
+func (q *Queries) IsLecturerAssignedToCourse(ctx context.Context, arg IsLecturerAssignedToCourseParams) (bool, error) {
+	var assigned bool
+	err := q.db.QueryRow(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM lecturer_course_assignments
+			WHERE lecturer_id = $1 AND course_id = $2
+		) AS assigned
+	`, arg.LecturerID, arg.CourseID).Scan(&assigned)
+	return assigned, err
+}
+
 func (q *Queries) GetLecturerWorkload(ctx context.Context, lecturerID uuid.UUID, sessionID uuid.UUID) (int32, error) {
 	var total int32
 	err := q.db.QueryRow(ctx, `
@@ -982,20 +1001,20 @@ func (q *Queries) GetBursarDashboardStats(ctx context.Context) (BursarDashboardS
 }
 
 type PendingPaymentRow struct {
-	ID                 uuid.UUID      `json:"id"`
-	StudentID          uuid.UUID      `json:"student_id"`
-	StudentName        string         `json:"student_name"`
-	MatricNumber       string         `json:"matric_number"`
-	Level              int32          `json:"level"`
-	DueID              uuid.UUID      `json:"due_id"`
-	DueName            string         `json:"due_name"`
-	Amount             float64        `json:"amount"`
-	PaystackReference  sql.NullString `json:"paystack_reference"`
-	PaymentMethod      string         `json:"payment_method"`
-	BankReference      sql.NullString `json:"bank_reference"`
-	BankName           sql.NullString `json:"bank_name"`
-	Status             string         `json:"status"`
-	CreatedAt          sql.NullTime   `json:"created_at"`
+	ID                 uuid.UUID          `json:"id"`
+	StudentID          uuid.UUID          `json:"student_id"`
+	StudentName        string             `json:"student_name"`
+	MatricNumber       string             `json:"matric_number"`
+	Level              int32              `json:"level"`
+	DueID              uuid.UUID          `json:"due_id"`
+	DueName            string             `json:"due_name"`
+	Amount             float64            `json:"amount"`
+	PaystackReference  sql.NullString     `json:"paystack_reference"`
+	PaymentMethod      string             `json:"payment_method"`
+	BankReference      sql.NullString     `json:"bank_reference"`
+	BankName           sql.NullString     `json:"bank_name"`
+	Status             string             `json:"status"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
 func (q *Queries) ListPendingPayments(ctx context.Context, limit int32) ([]PendingPaymentRow, error) {
@@ -1034,15 +1053,15 @@ func (q *Queries) ListPendingPayments(ctx context.Context, limit int32) ([]Pendi
 }
 
 type RecentPaymentRow struct {
-	ID                 uuid.UUID      `json:"id"`
-	StudentName        string         `json:"student_name"`
-	MatricNumber       string         `json:"matric_number"`
-	DueName            string         `json:"due_name"`
-	Amount             float64        `json:"amount"`
-	PaystackReference  sql.NullString `json:"paystack_reference"`
-	PaymentMethod      string         `json:"payment_method"`
-	Status             string         `json:"status"`
-	CreatedAt          sql.NullTime   `json:"created_at"`
+	ID                 uuid.UUID          `json:"id"`
+	StudentName        string             `json:"student_name"`
+	MatricNumber       string             `json:"matric_number"`
+	DueName            string             `json:"due_name"`
+	Amount             float64            `json:"amount"`
+	PaystackReference  sql.NullString     `json:"paystack_reference"`
+	PaymentMethod      string             `json:"payment_method"`
+	Status             string             `json:"status"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
 func (q *Queries) ListRecentPayments(ctx context.Context, limit int32) ([]RecentPaymentRow, error) {

@@ -1797,7 +1797,7 @@ const listFeedback = `-- name: ListFeedback :many
 SELECT fs.id, fs.user_id, fs.feedback_type, fs.title, fs.description, fs.rating, fs.screenshot_url, fs.device_info, fs.status, fs.admin_response, fs.responded_at, fs.created_at, u.full_name AS user_name
 FROM feedback_submissions fs
 JOIN users u ON u.id = fs.user_id
-WHERE ($1 = '' OR fs.status = $1)
+WHERE ($1::feedback_status = '' OR fs.status = $1::feedback_status)
 ORDER BY fs.created_at DESC
 `
 
@@ -1819,6 +1819,47 @@ type ListFeedbackRow struct {
 
 func (q *Queries) ListFeedback(ctx context.Context, dollar_1 interface{}) ([]ListFeedbackRow, error) {
 	rows, err := q.db.Query(ctx, listFeedback, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListFeedbackRow{}
+	for rows.Next() {
+		var i ListFeedbackRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.FeedbackType,
+			&i.Title,
+			&i.Description,
+			&i.Rating,
+			&i.ScreenshotUrl,
+			&i.DeviceInfo,
+			&i.Status,
+			&i.AdminResponse,
+			&i.RespondedAt,
+			&i.CreatedAt,
+			&i.UserName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAllFeedback = `-- name: ListAllFeedback :many
+SELECT fs.id, fs.user_id, fs.feedback_type, fs.title, fs.description, fs.rating, fs.screenshot_url, fs.device_info, fs.status, fs.admin_response, fs.responded_at, fs.created_at, u.full_name AS user_name
+FROM feedback_submissions fs
+JOIN users u ON u.id = fs.user_id
+ORDER BY fs.created_at DESC
+`
+
+func (q *Queries) ListAllFeedback(ctx context.Context) ([]ListFeedbackRow, error) {
+	rows, err := q.db.Query(ctx, listAllFeedback)
 	if err != nil {
 		return nil, err
 	}

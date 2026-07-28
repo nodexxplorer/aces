@@ -134,10 +134,11 @@ AND (
 )
 AND (
     a.target_audience IS NULL OR a.target_audience = '[]'::jsonb
-    OR a.target_audience @> to_jsonb($2::text)
+    OR a.target_audience @> '["all"]'::jsonb
+    OR a.target_audience @> '["student"]'::jsonb
 )
 ORDER BY a.is_pinned DESC, a.pin_order ASC NULLS LAST, a.created_at DESC
-LIMIT $3 OFFSET $4;
+LIMIT $2 OFFSET $3;
 
 -- name: UpdateAnnouncementV2 :exec
 UPDATE announcements

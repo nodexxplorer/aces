@@ -417,7 +417,13 @@ RETURNING *;
 SELECT fs.*, u.full_name AS user_name
 FROM feedback_submissions fs
 JOIN users u ON u.id = fs.user_id
-WHERE ($1 = '' OR fs.status = $1)
+WHERE ($1::feedback_status = '' OR fs.status = $1::feedback_status)
+ORDER BY fs.created_at DESC;
+
+-- name: ListAllFeedback :many
+SELECT fs.*, u.full_name AS user_name
+FROM feedback_submissions fs
+JOIN users u ON u.id = fs.user_id
 ORDER BY fs.created_at DESC;
 
 -- name: GetFeedback :one

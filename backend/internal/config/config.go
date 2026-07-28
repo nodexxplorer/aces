@@ -64,6 +64,7 @@ type Config struct {
 	OpenAIApiKey       string
 	OpenAIModel        string
 	AIFallbackEnabled  bool
+	FrontendPublicURL  string
 }
 
 func (c *Config) IsProduction() bool {
@@ -110,6 +111,7 @@ func Load() *Config {
 		OpenAIApiKey:       getEnv("OPENAI_API_KEY", ""),
 		OpenAIModel:        getEnv("OPENAI_MODEL", "gpt-4o-mini"),
 		AIFallbackEnabled:  getBool("AI_FALLBACK_ENABLED", true),
+		FrontendPublicURL:  getEnv("FRONTEND_PUBLIC_URL", "http://localhost:5173"),
 	}
 }
 

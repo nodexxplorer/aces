@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/aces/backend/internal/auth"
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -140,6 +141,20 @@ func (server *Server) getAttendanceSheet(ctx *gin.Context) {
 		return
 	}
 
+	// Attendance sheets contain all students' data — restrict to staff/class_rep
+	if !isStaffCaller(ctx) {
+		claimsVal, exists := ctx.Get("claims")
+		if !exists {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			return
+		}
+		c, ok := claimsVal.(*auth.Claims)
+		if !ok || !c.HasRole("class_rep") {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			return
+		}
+	}
+
 	ctx.JSON(http.StatusOK, sheet)
 }
 
@@ -191,9 +206,20 @@ func (server *Server) listStudentAttendance(ctx *gin.Context) {
 		return
 	}
 
+	// If caller is a student, force student_id to their own
+	studentIDStr := q.StudentID
+	if !isStaffCaller(ctx) {
+		callerStudent, err := server.store.GetStudentByUserId(ctx, getUserID(ctx))
+		if err != nil {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
+			return
+		}
+		studentIDStr = callerStudent.ID.String()
+	}
+
 	sheets, err := server.store.ListStudentAttendance(ctx, db.ListStudentAttendanceParams{
 		SessionID: sessionID,
-		Column2:   q.StudentID, // passed as text into the JSONB @> query
+		Column2:   studentIDStr,
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -280,10 +306,21 @@ func (server *Server) getAttendanceSummary(ctx *gin.Context) {
 		return
 	}
 
+	// If caller is a student, force student_id to their own
+	studentIDStr := q.StudentID
+	if !isStaffCaller(ctx) {
+		callerStudent, err := server.store.GetStudentByUserId(ctx, getUserID(ctx))
+		if err != nil {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
+			return
+		}
+		studentIDStr = callerStudent.ID.String()
+	}
+
 	summary, err := server.store.GetAttendanceSummary(ctx, db.GetAttendanceSummaryParams{
 		CourseID:  courseID,
 		SessionID: sessionID,
-		Column3:   q.StudentID,
+		Column3:   studentIDStr,
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -298,7 +335,7 @@ func (server *Server) getAttendanceSummary(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{
 		"course_id":        q.CourseID,
 		"session_id":       q.SessionID,
-		"student_id":       q.StudentID,
+		"student_id":       studentIDStr,
 		"total_classes":    summary.TotalClasses,
 		"attended_classes": summary.AttendedClasses,
 		"absent_classes":   summary.TotalClasses - summary.AttendedClasses,

@@ -132,6 +132,16 @@ SET
 WHERE id = $1
 RETURNING *;
 
+-- name: ListRecentVerifiedPayments :many
+SELECT p.*,
+    u.full_name AS student_name,
+    u.matric_number AS matric_number
+FROM payments p
+JOIN users u ON u.id = p.student_id
+WHERE p.status = 'completed'
+ORDER BY p.verified_at DESC NULLS LAST
+LIMIT $1 OFFSET $2;
+
 -- name: GetStudentPaymentSummary :one
 SELECT
     COUNT(*) FILTER (WHERE status = 'completed') AS total_paid,

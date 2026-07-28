@@ -3,7 +3,7 @@ import Card, { CardHeader, CardTitle, CardDescription } from '../../components/u
 import Button from '../../components/ui/Button';
 import StatusBadge from '../../components/data-display/StatusBadge';
 import { formatCurrency, formatDate } from '../../utils/formatters';
-import { getStudentPayments, getStudentPaymentSummary, initializeCheckout, getMyDues, addToCart, listStudentCart, removeFromCart, clearStudentCart, checkDuePaid } from '../../api/payments';
+import { getStudentPayments, getStudentPaymentSummary, initializeCheckout, checkoutCart, getMyDues, addToCart, listStudentCart, removeFromCart, clearStudentCart, checkDuePaid } from '../../api/payments';
 import { purchaseManual, getMyPurchases } from '../../api/manuals';
 import { useCartStore } from '../../stores/cartStore';
 import type { CartItem } from '../../api/payments';
@@ -249,7 +249,7 @@ const PaymentsPage = () => {
                       <td className="px-4 py-3 font-medium text-surface-900 dark:text-white">{p.item_name}</td>
                       <td className="px-4 py-3 text-surface-700 dark:text-surface-300">{formatCurrency(p.amount)}</td>
                       <td className="px-4 py-3 font-mono text-xs text-surface-500">{p.paystack_reference || 'N/A'}</td>
-                      <td className="px-4 py-3 text-xs text-surface-500">{formatDate(p.createdAt || '')}</td>
+                      <td className="px-4 py-3 text-xs text-surface-500">{formatDate((p as any).created_at || '')}</td>
                       <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
                       <td className="px-4 py-3 text-right">
                         {p.status === 'completed' ? (
@@ -353,8 +353,22 @@ const PaymentsPage = () => {
                 <span className="text-sm font-semibold text-surface-700 dark:text-surface-300">
                   Dues Total: {formatCurrency(duesCartTotal)}
                 </span>
-                <Button leftIcon={<CreditCard className="w-4 h-4" />} onClick={() => {
-                  cart.forEach((item) => handleCheckout(item.id, dueLookup.get(item.due_id)?.name || 'Dues'));
+                <Button leftIcon={<CreditCard className="w-4 h-4" />} onClick={async () => {
+                  try {
+                    if (!user?.email) {
+                      notifyError('Checkout Error', 'User email is required.');
+                      return;
+                    }
+                    const res = await checkoutCart();
+                    success('Redirecting', 'Forwarding to Paystack for Dues...');
+                    if (res && res.authorization_url) {
+                      window.location.href = res.authorization_url;
+                    } else {
+                      notifyError('Checkout Error', 'No redirect URL returned.');
+                    }
+                  } catch {
+                    notifyError('Checkout Error', 'Unable to initiate gateway transaction.');
+                  }
                 }}>
                   Checkout Dues ({cart.length} item{cart.length !== 1 ? 's' : ''})
                 </Button>

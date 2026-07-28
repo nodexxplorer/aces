@@ -9,8 +9,7 @@ import {
   Settings, Briefcase, GraduationCap, DollarSign, Database,
   TrendingUp, ClipboardList, Printer, ListTodo,
   ChevronLeft, ChevronDown, LogOut, X,
-  BarChart3, Clock, Megaphone, Wrench,
- Brain, Calculator, AlertTriangle, Bell
+  BarChart3, Clock, Megaphone, Wrench, AlertTriangle, Bell
 } from 'lucide-react';
 import type { UserRole } from '../../types';
 
@@ -62,7 +61,7 @@ const menuItems: MenuItem[] = [
   { label: 'Payments & Dues', path: '/payments', icon: CreditCard, roles: ['student'] },
 
   { label: 'Connect', path: '/connect', icon: Users },
-  { label: 'Skills & Trade', path: '/skills', icon: TrendingUp },
+  // { label: 'Skills & Trade', path: '/skills', icon: TrendingUp },
 
   { label: 'Alumni Portal', path: '/alumni', icon: GraduationCap, roles: ['student', 'alumni', 'hod', 'delegated_admin'] },
   { label: 'Job Board', path: '/alumni/jobs', icon: Briefcase, roles: ['alumni', 'hod', 'delegated_admin'] },
@@ -104,7 +103,7 @@ const menuItems: MenuItem[] = [
   { label: 'Document Verification', path: '/admin/documents', icon: FileText, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'At-Risk Students', path: '/admin/at-risk', icon: ShieldAlert, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Grade Distribution', path: '/admin/grade-distribution', icon: BarChart3, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Expenses', path: '/admin/expenses', icon: DollarSign, roles: ['hod', 'delegated_admin', 'admin'] },
+  // { label: 'Expenses', path: '/admin/expenses', icon: DollarSign, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Operations', path: '/admin/system', icon: Wrench, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Settings', path: '/admin/settings', icon: Settings, roles: ['hod', 'delegated_admin', 'admin'] },
 
@@ -165,7 +164,7 @@ const mobileSections: NavSection[] = [
     key: 'system',
     roles: ['hod', 'delegated_admin', 'admin'],
     items: [
-      { label: 'AI Blueprint', path: '/ai-blueprint', icon: Brain },
+      // { label: 'AI Blueprint', path: '/ai-blueprint', icon: Brain },
     ],
   },
   {

@@ -46,9 +46,9 @@ const AlumniDashboard = () => {
           <Link to="/alumni/profile">
             <Button variant="outline" size="sm">Edit Profile</Button>
           </Link>
-          <Link to="/alumni/network">
+          {/* <Link to="/alumni/network">
             <Button size="sm" rightIcon={<ArrowRight className="w-4 h-4" />}>Browse Network</Button>
-          </Link>
+          </Link> */}
         </div>
       </div>
 
@@ -104,11 +104,6 @@ const AlumniDashboard = () => {
                   Post a Job
                 </Button>
               </Link>
-              {/* <Link to="/alumni/network">
-                <Button variant="outline" className="w-full justify-start" leftIcon={<Users className="w-4 h-4" />}>
-                  Network
-                </Button>
-              </Link> */}
               <Link to="/alumni/give-back">
                 <Button variant="outline" className="w-full justify-start" leftIcon={<DollarSign className="w-4 h-4" />}>
                   Donate

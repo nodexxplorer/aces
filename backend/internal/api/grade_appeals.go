@@ -143,6 +143,10 @@ func (server *Server) getGradeAppeal(ctx *gin.Context) {
 		return
 	}
 
+	if !requireOwnershipOrStaff(ctx, server.store, appeal.StudentID) {
+		return
+	}
+
 	ctx.JSON(http.StatusOK, gin.H{"data": appeal})
 }
 
@@ -172,6 +176,7 @@ func (server *Server) updateAppealStatus(ctx *gin.Context) {
 	}
 
 	userID := getUserID(ctx)
+	callerIsHOD := isStaffCaller(ctx)
 
 	var lecturerResponse *string
 	var lecturerID pgtype.UUID
@@ -182,9 +187,16 @@ func (server *Server) updateAppealStatus(ctx *gin.Context) {
 
 	switch status {
 	case db.AppealStatusLecturerReview, db.AppealStatusResolved, db.AppealStatusRejected:
-		lecturerID = pgtype.UUID{Bytes: userID, Valid: true}
-		if req.Response != "" {
-			lecturerResponse = &req.Response
+		if callerIsHOD {
+			hodID = pgtype.UUID{Bytes: userID, Valid: true}
+			if req.Response != "" {
+				hodResponse = &req.Response
+			}
+		} else {
+			lecturerID = pgtype.UUID{Bytes: userID, Valid: true}
+			if req.Response != "" {
+				lecturerResponse = &req.Response
+			}
 		}
 	case db.AppealStatusHodReview:
 		hodID = pgtype.UUID{Bytes: userID, Valid: true}

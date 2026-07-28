@@ -192,3 +192,12 @@ func (q *Queries) UpdateSession(ctx context.Context, arg UpdateSessionParams) (S
 	)
 	return i, err
 }
+
+const deactivateAllSessions = `-- name: DeactivateAllSessions :exec
+UPDATE sessions SET is_active = false WHERE is_active = true
+`
+
+func (q *Queries) DeactivateAllSessions(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deactivateAllSessions)
+	return err
+}

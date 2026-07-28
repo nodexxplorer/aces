@@ -141,6 +141,13 @@ func (s *SessionService) Update(ctx context.Context, id uuid.UUID, input UpdateS
 		isArchived = *input.IsArchived
 	}
 
+	// Enforce single active session: if activating this session, deactivate all others first.
+	if isActive && !current.IsActive {
+		if err := s.store.DeactivateAllSessions(ctx); err != nil {
+			return db.Session{}, err
+		}
+	}
+
 	return s.store.UpdateSession(ctx, db.UpdateSessionParams{
 		ID:         id,
 		Name:       name,
@@ -229,6 +236,15 @@ type UpdateSemesterInput struct {
 }
 
 func (s *SemesterService) Update(ctx context.Context, id uuid.UUID, input UpdateSemesterInput) (db.Semester, error) {
+	// Fetch current to detect activation transition.
+	current, err := s.store.GetSemester(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return db.Semester{}, errors.New("semester not found")
+		}
+		return db.Semester{}, err
+	}
+
 	startDate, err := parseFlexibleDate(input.StartDate)
 	if err != nil {
 		return db.Semester{}, errors.New("invalid start_date: " + err.Error())
@@ -237,6 +253,13 @@ func (s *SemesterService) Update(ctx context.Context, id uuid.UUID, input Update
 	endDate, err := parseFlexibleDate(input.EndDate)
 	if err != nil {
 		return db.Semester{}, errors.New("invalid end_date: " + err.Error())
+	}
+
+	// Enforce single active semester: if activating this semester, deactivate all others first.
+	if input.IsActive && !current.IsActive {
+		if err := s.store.DeactivateAllSemesters(ctx); err != nil {
+			return db.Semester{}, err
+		}
 	}
 
 	arg := db.UpdateSemesterParams{

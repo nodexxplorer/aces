@@ -36,3 +36,6 @@ RETURNING *;
 -- name: DeleteSession :exec
 DELETE FROM sessions
 WHERE id = $1;
+
+-- name: DeactivateAllSessions :exec
+UPDATE sessions SET is_active = false WHERE is_active = true;

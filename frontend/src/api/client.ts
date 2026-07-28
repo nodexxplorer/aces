@@ -54,6 +54,10 @@ apiClient.interceptors.response.use(
         }
       }
     }
+    if (error.response?.status === 403) {
+      const msg = error.response?.data?.error || 'You do not have permission to access this resource.';
+      error.displayMessage = msg;
+    }
     return Promise.reject(error);
   }
 );

@@ -16,6 +16,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const ResultsPage = lazy(() => import('./pages/student/ResultsPage'));
 const ResultDetailPage = lazy(() => import('./pages/student/ResultDetailPage'));
 const PaymentsPage = lazy(() => import('./pages/student/PaymentsPage'));
+const PaymentConfirmationPage = lazy(() => import('./pages/student/PaymentConfirmationPage'));
 const TranscriptsPage = lazy(() => import('./pages/student/TranscriptsPage'));
 const CourseRegistrationPage = lazy(() => import('./pages/student/CourseRegistrationPage'));
 const ComplaintsPage = lazy(() => import('./pages/student/ComplaintsPage'));
@@ -244,6 +245,7 @@ export const router = createBrowserRouter([
           { path: '/results/:id', element: <ResultDetailPage /> },
           { path: '/gpa-prediction', element: <Navigate to="/gpa" replace /> },
           { path: '/payments', element: <PaymentsPage /> },
+          { path: '/payments/confirmation', element: <PaymentConfirmationPage /> },
           { path: '/transcripts', element: <TranscriptsPage /> },
           { path: '/courses/register', element: <CourseRegistrationPage /> },
           { path: '/complaints', element: <ComplaintsPage /> },
@@ -264,6 +266,8 @@ export const router = createBrowserRouter([
           { path: '/waiting', element: <WaitingDashboardPage /> },
           { path: '/announcements', element: <Navigate to="/communication" replace /> },
           { path: '/communication', element: <StudentCommunicationPage /> },
+          { path: '/students/communications', element: <Navigate to="/communication" replace /> },
+          { path: '/students/gpa', element: <Navigate to="/gpa" replace /> },
 
           // Lecturer routes
           {

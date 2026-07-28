@@ -288,3 +288,30 @@ func (q *Queries) UpdateRegisteredCourse(ctx context.Context, arg UpdateRegister
 	)
 	return i, err
 }
+
+const listRegisteredCourseIDsByStudent = `-- name: ListRegisteredCourseIDsByStudent :many
+SELECT DISTINCT rc.course_id
+FROM registered_courses rc
+JOIN course_registrations cr ON cr.id = rc.registration_id
+WHERE cr.student_id = $1
+`
+
+func (q *Queries) ListRegisteredCourseIDsByStudent(ctx context.Context, studentID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listRegisteredCourseIDsByStudent, studentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var courseID uuid.UUID
+		if err := rows.Scan(&courseID); err != nil {
+			return nil, err
+		}
+		items = append(items, courseID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

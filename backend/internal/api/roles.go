@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/aces/backend/internal/auth"
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/aces/backend/internal/service"
 	"github.com/gin-gonic/gin"
@@ -35,6 +36,18 @@ func (server *Server) assignUserRole(ctx *gin.Context) {
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
+	}
+
+	// Prevent delegated_admin from assigning admin or delegated_admin roles
+	claimsVal, exists := ctx.Get("claims")
+	if exists {
+		if c, ok := claimsVal.(*auth.Claims); ok && c.HasRole("delegated_admin") && !c.HasAnyRole([]string{"hod", "admin"}) {
+			targetRole := service.ParseRoleNameReverse(req.Role)
+			if targetRole == string(db.UserRoleAdmin) || targetRole == "delegated_admin" {
+				ctx.JSON(http.StatusForbidden, gin.H{"error": "you cannot assign admin or delegated_admin roles"})
+				return
+			}
+		}
 	}
 
 	dbRole := service.ParseRoleNameReverse(req.Role)
@@ -395,15 +408,5 @@ type createRoleRequest struct {
 }
 
 func (server *Server) createRole(ctx *gin.Context) {
-	var req createRoleRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
-		return
-	}
-	ctx.JSON(http.StatusOK, gin.H{"data": gin.H{
-		"name":        req.Name,
-		"description": req.Description,
-		"permissions": req.Permissions,
-		"isActive":    true,
-	}})
+	ctx.JSON(http.StatusNotImplemented, gin.H{"error": "custom role creation is not yet supported"})
 }

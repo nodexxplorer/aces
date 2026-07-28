@@ -211,8 +211,20 @@ func (server *Server) createFeedback(ctx *gin.Context) {
 func (server *Server) listFeedback(ctx *gin.Context) {
 	statusFilter := ctx.Query("status")
 
-	queries := server.store.(*db.Queries)
-	feedbacks, err := queries.ListFeedback(ctx, statusFilter)
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
+		return
+	}
+
+	var feedbacks []db.ListFeedbackRow
+	var err error
+
+	if statusFilter != "" {
+		feedbacks, err = queries.ListFeedback(ctx, statusFilter)
+	} else {
+		feedbacks, err = queries.ListAllFeedback(ctx)
+	}
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list feedback"})
 		return

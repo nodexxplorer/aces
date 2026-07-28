@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle } from '../../components/ui/Card';
 import DataTable from '../../components/data-display/DataTable';
 import StatusBadge from '../../components/data-display/StatusBadge';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../hooks/useAuth';
-import { getPaymentByReference, verifyPayment } from '../../api/payments';
+import { getPaymentByReference, getRecentVerifiedPayments, verifyPayment } from '../../api/payments';
 import { Search, CheckCircle } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 import type { Payment } from '../../types';
@@ -48,6 +48,17 @@ const PaymentVerificationPage = () => {
       setVerifying(false);
     }
   };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const verified = await getRecentVerifiedPayments();
+        setRecentVerifications(verified);
+      } catch {
+        // silently fail
+      }
+    })();
+  }, []);
 
   const columns = [
     { key: 'paystack_reference', label: 'Reference' },

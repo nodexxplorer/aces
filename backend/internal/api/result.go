@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 
+	"github.com/aces/backend/internal/auth"
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/aces/backend/internal/service"
 	"github.com/gin-gonic/gin"
@@ -32,6 +33,39 @@ func (server *Server) createResult(ctx *gin.Context) {
 		return
 	}
 
+	// Validate score bounds
+	if req.CaScore.LessThan(decimal.Zero) || req.CaScore.GreaterThan(decimal.NewFromInt(30)) {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "ca_score must be between 0 and 30"})
+		return
+	}
+	if req.ExamScore.LessThan(decimal.Zero) || req.ExamScore.GreaterThan(decimal.NewFromInt(70)) {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "exam_score must be between 0 and 70"})
+		return
+	}
+
+	// Recompute total, grade, and grade_point server-side
+	computedTotal := req.CaScore.Add(req.ExamScore)
+	computedGrade, computedGradePoint := gradeFromScore(computedTotal)
+
+	// Lecturer-course assignment check
+	if claimsVal, exists := ctx.Get("claims"); exists {
+		if c, ok := claimsVal.(*auth.Claims); ok && c.HasRole("lecturer") && !c.HasAnyRole([]string{"hod", "admin", "delegated_admin"}) {
+			courseID, err := uuid.Parse(req.CourseID)
+			if err != nil {
+				ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid course_id"})
+				return
+			}
+			assigned, err := server.store.IsLecturerAssignedToCourse(ctx, db.IsLecturerAssignedToCourseParams{
+				LecturerID: getUserID(ctx),
+				CourseID:   courseID,
+			})
+			if err != nil || !assigned {
+				ctx.JSON(http.StatusForbidden, gin.H{"error": "you are not assigned to teach this course"})
+				return
+			}
+		}
+	}
+
 	result, err := server.results.Create(ctx, service.CreateResultInput{
 		StudentID:   req.StudentID,
 		CourseID:    req.CourseID,
@@ -39,11 +73,12 @@ func (server *Server) createResult(ctx *gin.Context) {
 		SemesterID:  req.SemesterID,
 		CaScore:     req.CaScore,
 		ExamScore:   req.ExamScore,
-		TotalScore:  req.TotalScore,
-		Grade:       req.Grade,
-		GradePoint:  req.GradePoint,
+		TotalScore:  computedTotal,
+		Grade:       computedGrade,
+		GradePoint:  computedGradePoint,
 		Status:      req.Status,
 		IsCarryover: req.IsCarryover,
+		MatricNumber: req.MatricNumber,
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -66,6 +101,12 @@ func (server *Server) getResult(ctx *gin.Context) {
 		return
 	}
 
+	if result.StudentID != nil {
+		if !requireOwnershipOrStaff(ctx, server.store, *result.StudentID) {
+			return
+		}
+	}
+
 	ctx.JSON(http.StatusOK, result)
 }
 
@@ -74,6 +115,15 @@ func (server *Server) listStudentResults(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid student id"})
 		return
+	}
+
+	// If caller is a student, they can only see their own results
+	if !isStaffCaller(ctx) {
+		callerStudentID, ok := requireOwnershipOrStaffByStudentIDParam(ctx, server.store)
+		if !ok {
+			return
+		}
+		studentID = callerStudentID
 	}
 
 	results, err := server.results.ListByStudent(ctx, studentID)
@@ -104,6 +154,11 @@ func (server *Server) listCourseResults(ctx *gin.Context) {
 	sessionID, err := uuid.Parse(ctx.Param("session_id"))
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid session id"})
+		return
+	}
+
+	if !isStaffCaller(ctx) {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		return
 	}
 
@@ -138,12 +193,47 @@ func (server *Server) updateResult(ctx *gin.Context) {
 		return
 	}
 
+	// Fetch existing result for ownership check and score recomputation
+	existing, err := server.store.GetResult(ctx, id)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "result not found"})
+		return
+	}
+
+	// Validate score bounds
+	if req.CaScore.LessThan(decimal.Zero) || req.CaScore.GreaterThan(decimal.NewFromInt(30)) {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "ca_score must be between 0 and 30"})
+		return
+	}
+	if req.ExamScore.LessThan(decimal.Zero) || req.ExamScore.GreaterThan(decimal.NewFromInt(70)) {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "exam_score must be between 0 and 70"})
+		return
+	}
+
+	// Recompute total, grade, and grade_point server-side
+	computedTotal := req.CaScore.Add(req.ExamScore)
+	computedGrade, computedGradePoint := gradeFromScore(computedTotal)
+
+	// Lecturer-course assignment check
+	if claimsVal, exists := ctx.Get("claims"); exists {
+		if c, ok := claimsVal.(*auth.Claims); ok && c.HasRole("lecturer") && !c.HasAnyRole([]string{"hod", "admin", "delegated_admin"}) {
+			assigned, err := server.store.IsLecturerAssignedToCourse(ctx, db.IsLecturerAssignedToCourseParams{
+				LecturerID: getUserID(ctx),
+				CourseID:   existing.CourseID,
+			})
+			if err != nil || !assigned {
+				ctx.JSON(http.StatusForbidden, gin.H{"error": "you are not assigned to teach this course"})
+				return
+			}
+		}
+	}
+
 	result, err := server.results.Update(ctx, id, service.UpdateResultInput{
 		CaScore:    req.CaScore,
 		ExamScore:  req.ExamScore,
-		TotalScore: req.TotalScore,
-		Grade:      req.Grade,
-		GradePoint: req.GradePoint,
+		TotalScore: computedTotal,
+		Grade:      computedGrade,
+		GradePoint: computedGradePoint,
 		Status:     req.Status,
 	})
 	if err != nil {
@@ -205,6 +295,24 @@ func (server *Server) listAllResults(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"data": results, "total": len(results)})
+}
+
+func gradeFromScore(total decimal.Decimal) (string, float64) {
+	t := total.InexactFloat64()
+	switch {
+	case t >= 70:
+		return "A", 5.0
+	case t >= 60:
+		return "B", 4.0
+	case t >= 50:
+		return "C", 3.0
+	case t >= 45:
+		return "D", 2.0
+	case t >= 40:
+		return "E", 1.0
+	default:
+		return "F", 0.0
+	}
 }
 
 type createResultAuditLogRequest struct {
@@ -302,6 +410,10 @@ func (server *Server) getCarryoverCourse(ctx *gin.Context) {
 		return
 	}
 
+	if !requireOwnershipOrStaff(ctx, server.store, carryover.StudentID) {
+		return
+	}
+
 	ctx.JSON(http.StatusOK, carryover)
 }
 
@@ -343,6 +455,14 @@ func (server *Server) listStudentCarryoverCourses(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid student id"})
 		return
+	}
+
+	if !isStaffCaller(ctx) {
+		callerStudentID, ok := requireOwnershipOrStaffByStudentIDParam(ctx, server.store)
+		if !ok {
+			return
+		}
+		studentID = callerStudentID
 	}
 
 	carryovers, err := server.results.ListCarryovers(ctx, studentID)

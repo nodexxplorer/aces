@@ -82,6 +82,7 @@ const TimetableManagePage = () => {
   const [examType, setExamType] = useState<string>('main');
   const [lecturerId, setLecturerId] = useState('');
   const [invigilators, setInvigilators] = useState('');
+  const [examDate, setExamDate] = useState('');
 
   const fetchData = useCallback(async () => {
     try {
@@ -120,6 +121,7 @@ const TimetableManagePage = () => {
     setExamType('main');
     setLecturerId('');
     setInvigilators('');
+    setExamDate('');
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -132,7 +134,7 @@ const TimetableManagePage = () => {
       setSubmitting(true);
       await createTimetableEntry({
         courseId,
-        dayOfWeek: tab === 'class' ? dayOfWeek : undefined,
+        dayOfWeek,
         startTime,
         endTime,
         venue,
@@ -142,6 +144,7 @@ const TimetableManagePage = () => {
         examType: tab === 'exam' ? examType : undefined,
         lecturerId: lecturerId || undefined,
         invigilators: invigilators || undefined,
+        examDate: tab === 'exam' ? examDate || undefined : undefined,
       });
       setCreateOpen(false);
       resetForm();
@@ -161,7 +164,7 @@ const TimetableManagePage = () => {
       setSubmitting(true);
       await updateTimetableEntry(editingEntry.id, {
         courseId,
-        dayOfWeek: tab === 'class' ? dayOfWeek : undefined,
+        dayOfWeek,
         startTime,
         endTime,
         venue,
@@ -171,6 +174,7 @@ const TimetableManagePage = () => {
         examType: tab === 'exam' ? examType : undefined,
         lecturerId: lecturerId || undefined,
         invigilators: invigilators || undefined,
+        examDate: tab === 'exam' ? examDate || undefined : undefined,
       });
       setEditOpen(false);
       setEditingEntry(null);
@@ -209,6 +213,7 @@ const TimetableManagePage = () => {
     setExamType(entry.exam_type || 'main');
     setLecturerId(entry.lecturer_id || '');
     setInvigilators(entry.invigilators || '');
+    setExamDate(entry.exam_date ? entry.exam_date.substring(0, 10) : '');
     setEditOpen(true);
   };
 
@@ -277,18 +282,16 @@ const TimetableManagePage = () => {
         </select>
       </div>
 
-      {tab === 'class' && (
-        <div>
-          <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Day *</label>
-          <select
-            className="w-full mt-1 px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg"
-            value={dayOfWeek}
-            onChange={(e) => setDayOfWeek(Number(e.target.value))}
-          >
-            {days.map((d, i) => <option key={d} value={i + 1}>{d}</option>)}
-          </select>
-        </div>
-      )}
+      <div>
+        <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Day *</label>
+        <select
+          className="w-full mt-1 px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg"
+          value={dayOfWeek}
+          onChange={(e) => setDayOfWeek(Number(e.target.value))}
+        >
+          {days.map((d, i) => <option key={d} value={i + 1}>{d}</option>)}
+        </select>
+      </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -360,6 +363,18 @@ const TimetableManagePage = () => {
           >
             {examTypes.map((et) => <option key={et.value} value={et.value}>{et.label}</option>)}
           </select>
+        </div>
+      )}
+
+      {tab === 'exam' && (
+        <div>
+          <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Exam Date *</label>
+          <input
+            type="date"
+            className="w-full mt-1 px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg"
+            value={examDate}
+            onChange={(e) => setExamDate(e.target.value)}
+          />
         </div>
       )}
 
@@ -539,6 +554,8 @@ const TimetableManagePage = () => {
                       </div>
                       <p className="text-xs font-medium text-surface-700 dark:text-surface-300 mt-0.5">{entry.courseTitle}</p>
                       <div className="flex items-center gap-3 mt-1 text-[10px] text-surface-400">
+                        <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3" />{entry.day_of_week ? numToDay[entry.day_of_week] : '—'}</span>
+                        {entry.exam_date && <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3" />{entry.exam_date.substring(0, 10)}</span>}
                         <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatTime(entry.start_time)} – {formatTime(entry.end_time)}</span>
                         <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{entry.venue}</span>
                         {entry.level && <span>{entry.level}L</span>}

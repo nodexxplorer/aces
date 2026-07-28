@@ -103,6 +103,12 @@ export const submitRegistration = async (payload: {
   return unwrap<RegistrationWithCourses>(res);
 };
 
+export const getMyRegisteredCourseIDs = async () => {
+  const res = await apiClient.get('/course-registrations/my-course-ids');
+  const raw = unwrap<{ data: string[] } | string[]>(res);
+  return Array.isArray(raw) ? raw : (raw as any)?.data ?? [];
+};
+
 export const getStudentRegistrations = async (studentId: string) => {
   const res = await apiClient.get(`/course-registrations/student/${studentId}`);
   const raw = unwrap<BackendRegistrationDetail[] | { data: BackendRegistrationDetail[] }>(res);

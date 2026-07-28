@@ -87,16 +87,6 @@ export interface AnnouncementStatusCount {
 }
 
 // --- Verification ---
-export const lookupMatric = async (matricNumber: string): Promise<VerificationRecord> => {
-  const res = await apiClient.post('/verification/lookup', { matric_number: matricNumber });
-  return unwrap<VerificationRecord>(res);
-};
-
-export const verifyMatricForSignup = async (matricNumber: string, fullName: string) => {
-  const res = await apiClient.post('/verification/verify', { matric_number: matricNumber, full_name: fullName });
-  return res.data.data;
-};
-
 export const bulkUploadVerificationRecords = async (records: {
   matric_number: string;
   full_name: string;

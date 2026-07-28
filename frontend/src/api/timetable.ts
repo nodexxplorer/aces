@@ -48,6 +48,7 @@ export const updateTimetableEntry = async (entryId: string, payload: {
   examType?: string;
   lecturerId?: string;
   invigilators?: string;
+  examDate?: string;
 }) => {
   const res = await apiClient.put(`/timetable/${entryId}`, payload);
   return unwrap<TimetableEntry>(res);

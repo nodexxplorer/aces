@@ -78,7 +78,29 @@ func (server *Server) getCourseRegistration(ctx *gin.Context) {
 		return
 	}
 
+	if !requireOwnershipOrStaff(ctx, server.store, registration.StudentID) {
+		return
+	}
+
 	ctx.JSON(http.StatusOK, registration)
+}
+
+func (server *Server) listMyRegisteredCourseIDs(ctx *gin.Context) {
+	userID := getUserID(ctx)
+
+	student, err := server.store.GetStudentByUserId(ctx, userID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "student profile not found"})
+		return
+	}
+
+	courseIDs, err := server.store.ListRegisteredCourseIDsByStudent(ctx, student.ID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"data": courseIDs})
 }
 
 func (server *Server) listStudentCourseRegistrations(ctx *gin.Context) {
@@ -86,6 +108,14 @@ func (server *Server) listStudentCourseRegistrations(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid student id"})
 		return
+	}
+
+	if !isStaffCaller(ctx) {
+		callerStudentID, ok := requireOwnershipOrStaffByStudentIDParam(ctx, server.store)
+		if !ok {
+			return
+		}
+		studentID = callerStudentID
 	}
 
 	registrations, err := server.store.ListStudentCourseRegistrations(ctx, studentID)
@@ -210,6 +240,17 @@ func (server *Server) listRegisteredCourses(ctx *gin.Context) {
 	registrationID, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid course registration id"})
+		return
+	}
+
+	// Verify ownership of the parent registration
+	registration, err := server.store.GetCourseRegistration(ctx, registrationID)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "course registration not found"})
+		return
+	}
+
+	if !requireOwnershipOrStaff(ctx, server.store, registration.StudentID) {
 		return
 	}
 
@@ -346,8 +387,8 @@ func (server *Server) submitRegistration(ctx *gin.Context) {
 	}
 
 	// Validate credit load
-	if totalUnits < 12 {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "minimum credit load is 12 units"})
+	if totalUnits < 4 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "minimum credit load is 4 units"})
 		return
 	}
 	if totalUnits > 24 {

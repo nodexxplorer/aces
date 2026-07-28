@@ -3,107 +3,12 @@ package api
 import (
 	"net/http"
 	"strconv"
-	"strings"
 
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
-
-func levenshteinDistance(a, b string) int {
-	la := len(a)
-	lb := len(b)
-	if la == 0 {
-		return lb
-	}
-	if lb == 0 {
-		return la
-	}
-	prev := make([]int, lb+1)
-	curr := make([]int, lb+1)
-	for j := 0; j <= lb; j++ {
-		prev[j] = j
-	}
-	for i := 1; i <= la; i++ {
-		curr[0] = i
-		for j := 1; j <= lb; j++ {
-			cost := 1
-			if a[i-1] == b[j-1] {
-				cost = 0
-			}
-			curr[j] = min(curr[j-1]+1, min(prev[j]+1, prev[j-1]+cost))
-		}
-		prev, curr = curr, prev
-	}
-	return prev[lb]
-}
-
-func stringSimilarity(a, b string) float32 {
-	a = strings.ToLower(strings.TrimSpace(a))
-	b = strings.ToLower(strings.TrimSpace(b))
-	if a == b {
-		return 1.0
-	}
-	maxLen := len(a)
-	if len(b) > maxLen {
-		maxLen = len(b)
-	}
-	if maxLen == 0 {
-		return 1.0
-	}
-	dist := levenshteinDistance(a, b)
-	return float32(1.0-float64(dist)/float64(maxLen))
-}
-
-func (s *Server) lookupMatric(ctx *gin.Context) {
-	var req struct {
-		MatricNumber string `json:"matric_number" binding:"required"`
-	}
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "matric_number is required"})
-		return
-	}
-
-	queries := s.store.(*db.Queries)
-	record, err := queries.GetVerificationRecordByMatric(ctx, req.MatricNumber)
-	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": "verification record not found"})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"record": record})
-}
-
-func (s *Server) verifyMatricForSignup(ctx *gin.Context) {
-	var req struct {
-		MatricNumber string `json:"matric_number" binding:"required"`
-		FullName     string `json:"full_name" binding:"required"`
-	}
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "matric_number and full_name are required"})
-		return
-	}
-
-	queries := s.store.(*db.Queries)
-	record, err := queries.GetVerificationRecordByMatric(ctx, req.MatricNumber)
-	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": "verification record not found"})
-		return
-	}
-
-	matchConfidence := stringSimilarity(record.FullName, req.FullName)
-
-	ctx.JSON(http.StatusOK, gin.H{
-		"match_confidence":  matchConfidence,
-		"verification_id":   record.ID,
-		"verified_name":     record.FullName,
-		"matric_number":     record.MatricNumber,
-		"department":        record.Department,
-		"level":             record.Level,
-		"entry_session":     record.EntrySession,
-	})
-}
 
 func (s *Server) bulkUploadVerificationRecords(ctx *gin.Context) {
 	var req struct {
