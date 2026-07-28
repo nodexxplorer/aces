@@ -23,7 +23,7 @@ type createTaskRequest struct {
 func (server *Server) createStudyTask(ctx *gin.Context) {
 	var req createTaskRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
@@ -36,8 +36,13 @@ func (server *Server) createStudyTask(ctx *gin.Context) {
 	}
 
 	priority := strings.ToLower(strings.TrimSpace(req.Priority))
-	if priority == "" {
+	switch priority {
+	case "high", "medium", "low":
+	case "":
 		priority = "medium"
+	default:
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid priority; must be high, medium, or low"})
+		return
 	}
 
 	arg := db.CreateStudyTaskParams{
@@ -150,7 +155,7 @@ func (server *Server) updateStudyTask(ctx *gin.Context) {
 
 	var req updateTaskRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
@@ -160,7 +165,6 @@ func (server *Server) updateStudyTask(ctx *gin.Context) {
 		return
 	}
 
-	// Fetch existing task to preserve fields not being updated
 	existing, err := queries.GetStudyTask(ctx, db.GetStudyTaskParams{ID: taskID, UserID: userID})
 	if err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "task not found"})
@@ -168,35 +172,49 @@ func (server *Server) updateStudyTask(ctx *gin.Context) {
 	}
 
 	arg := db.UpdateStudyTaskParams{
-		ID:         taskID,
-		UserID:     userID,
-		Title:      existing.Title,
+		ID:          taskID,
+		UserID:      userID,
+		Title:       existing.Title,
 		Description: existing.Description,
-		Priority:   existing.Priority,
-		Status:     existing.Status,
-		DueDate:    existing.DueDate,
-		ReminderAt: existing.ReminderAt,
+		Priority:    existing.Priority,
+		Status:      existing.Status,
+		DueDate:     existing.DueDate,
+		ReminderAt:  existing.ReminderAt,
 	}
 
 	if req.Title != nil {
 		arg.Title = strings.TrimSpace(*req.Title)
+		if arg.Title == "" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "title cannot be empty"})
+			return
+		}
 	}
 	if req.Description != nil {
 		arg.Description = req.Description
 	}
 	if req.Priority != nil {
 		p := strings.ToLower(strings.TrimSpace(*req.Priority))
-		if p == "" {
-			p = "medium"
+		switch p {
+		case "high", "medium", "low":
+			arg.Priority = db.TaskPriority(p)
+		case "":
+			arg.Priority = "medium"
+		default:
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid priority; must be high, medium, or low"})
+			return
 		}
-		arg.Priority = db.TaskPriority(p)
 	}
 	if req.Status != nil {
 		s := strings.ToLower(strings.TrimSpace(*req.Status))
-		if s == "" {
-			s = "pending"
+		switch s {
+		case "pending", "in_progress", "completed", "cancelled":
+			arg.Status = db.TaskStatus(s)
+		case "":
+			arg.Status = "pending"
+		default:
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid status; must be pending, in_progress, completed, or cancelled"})
+			return
 		}
-		arg.Status = db.TaskStatus(s)
 	}
 	if req.DueDate != nil {
 		t, err := time.Parse(time.RFC3339, *req.DueDate)
@@ -216,7 +234,7 @@ func (server *Server) updateStudyTask(ctx *gin.Context) {
 	}
 
 	if err := queries.UpdateStudyTask(ctx, arg); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update task"})
 		return
 	}
 

@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/aces/backend/internal/service"
@@ -22,6 +23,7 @@ type createTimetableEntryRequest struct {
 	ExamType     *string `json:"examType"`
 	LecturerID   *string `json:"lecturerId"`
 	Invigilators *string `json:"invigilators"`
+	ExamDate     *string `json:"examDate"`
 }
 
 type updateTimetableEntryRequest struct {
@@ -36,12 +38,13 @@ type updateTimetableEntryRequest struct {
 	ExamType     *string `json:"examType"`
 	LecturerID   *string `json:"lecturerId"`
 	Invigilators *string `json:"invigilators"`
+	ExamDate     *string `json:"examDate"`
 }
 
 func (server *Server) createTimetableEntry(ctx *gin.Context) {
 	var req createTimetableEntryRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -61,6 +64,16 @@ func (server *Server) createTimetableEntry(ctx *gin.Context) {
 		lecturerID = &lid
 	}
 
+	var examDate *time.Time
+	if req.ExamDate != nil && *req.ExamDate != "" {
+		t, err := time.Parse("2006-01-02", *req.ExamDate)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid examDate, expected YYYY-MM-DD"})
+			return
+		}
+		examDate = &t
+	}
+
 	id, err := server.timetables.Create(ctx, service.CreateTimetableInput{
 		CourseID:     courseID,
 		DayOfWeek:    req.DayOfWeek,
@@ -73,6 +86,7 @@ func (server *Server) createTimetableEntry(ctx *gin.Context) {
 		ExamType:     req.ExamType,
 		LecturerID:   lecturerID,
 		Invigilators: req.Invigilators,
+		ExamDate:     examDate,
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -151,7 +165,7 @@ func (server *Server) updateTimetableEntry(ctx *gin.Context) {
 
 	var req updateTimetableEntryRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -171,6 +185,16 @@ func (server *Server) updateTimetableEntry(ctx *gin.Context) {
 		lecturerID = &lid
 	}
 
+	var examDate *time.Time
+	if req.ExamDate != nil && *req.ExamDate != "" {
+		t, err := time.Parse("2006-01-02", *req.ExamDate)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid examDate, expected YYYY-MM-DD"})
+			return
+		}
+		examDate = &t
+	}
+
 	_ = courseID
 	err = server.timetables.Update(ctx, id, service.UpdateTimetableInput{
 		DayOfWeek:    req.DayOfWeek,
@@ -183,6 +207,7 @@ func (server *Server) updateTimetableEntry(ctx *gin.Context) {
 		ExamType:     req.ExamType,
 		LecturerID:   lecturerID,
 		Invigilators: req.Invigilators,
+		ExamDate:     examDate,
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})

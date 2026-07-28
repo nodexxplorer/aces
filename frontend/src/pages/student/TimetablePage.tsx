@@ -6,7 +6,7 @@ import Tabs from '../../components/ui/Tabs';
 import { getTimetable } from '../../api/timetable';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
-import { Download, MapPin, User, Clock, BookOpen, GraduationCap } from 'lucide-react';
+import { Download, MapPin, User, Clock, BookOpen, GraduationCap, CalendarDays } from 'lucide-react';
 import type { TimetableEntry, EntryType } from '../../types';
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -181,6 +181,8 @@ const TimetablePage = () => {
                         {entry.courseTitle}
                       </p>
                       <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-surface-500">
+                        <span className="flex items-center gap-1"><CalendarDays className="w-3.5 h-3.5" />{entry.day_of_week ? numToDay[entry.day_of_week] : '—'}</span>
+                        {entry.exam_date && <span className="flex items-center gap-1"><CalendarDays className="w-3.5 h-3.5" />{entry.exam_date.substring(0, 10)}</span>}
                         <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{formatTime(entry.start_time)} – {formatTime(entry.end_time)}</span>
                         <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{entry.venue}</span>
                         {entry.level && <span>{entry.level} Level</span>}

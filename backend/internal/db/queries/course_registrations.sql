@@ -52,3 +52,9 @@ SET
     previous_attempt_id = $4
 WHERE id = $1
 RETURNING *;
+
+-- name: ListRegisteredCourseIDsByStudent :many
+SELECT DISTINCT rc.course_id
+FROM registered_courses rc
+JOIN course_registrations cr ON cr.id = rc.registration_id
+WHERE cr.student_id = $1;

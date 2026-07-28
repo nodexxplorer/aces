@@ -114,7 +114,7 @@ func (q *Queries) ListSessionSemesters(ctx context.Context, sessionID uuid.UUID)
 	items := []Semester{}
 	for rows.Next() {
 		var i Semester
-		if err := rows.Scan(
+		err := rows.Scan(
 			&i.ID,
 			&i.SessionID,
 			&i.Name,
@@ -122,7 +122,8 @@ func (q *Queries) ListSessionSemesters(ctx context.Context, sessionID uuid.UUID)
 			&i.EndDate,
 			&i.RegistrationDeadline,
 			&i.IsActive,
-		); err != nil {
+		)
+		if err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -131,6 +132,15 @@ func (q *Queries) ListSessionSemesters(ctx context.Context, sessionID uuid.UUID)
 		return nil, err
 	}
 	return items, nil
+}
+
+const deactivateAllSemesters = `-- name: DeactivateAllSemesters :exec
+UPDATE semesters SET is_active = false WHERE is_active = true
+`
+
+func (q *Queries) DeactivateAllSemesters(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deactivateAllSemesters)
+	return err
 }
 
 const updateSemester = `-- name: UpdateSemester :one

@@ -101,6 +101,11 @@ export const getDefaulters = async () => {
   return unwrap<Defaulter[]>(res);
 };
 
+export const getRecentVerifiedPayments = async (params?: PaginationParams) => {
+  const res = await apiClient.get('/payments/recent-verified', { params: { limit: 20, offset: 0, ...params } });
+  return unwrap<Payment[]>(res);
+};
+
 // ─── Cart ───────────────────────────────────────────────────────────────────
 
 export interface CartItem {
@@ -130,4 +135,9 @@ export const removeFromCart = async (cartItemId: string) => {
 
 export const clearStudentCart = async (_studentId: string) => {
   await apiClient.delete(`/payments/cart/me`);
+};
+
+export const checkoutCart = async () => {
+  const res = await apiClient.post('/payments/checkout-cart');
+  return unwrap<{ authorization_url: string; reference: string; access_code: string; batch_id: string }>(res);
 };

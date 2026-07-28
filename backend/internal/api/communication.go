@@ -282,8 +282,14 @@ func (server *Server) getMyNotificationPreferences(ctx *gin.Context) {
 
 	prefs, err := server.notificationsFull.GetPreferences(ctx, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-		return
+		// Auto-create default preferences if none exist
+		prefs, err = server.notificationsFull.UpdatePreferences(ctx, db.UpsertNotificationPreferencesParams{
+			UserID: userID,
+		})
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
 	}
 
 	ctx.JSON(http.StatusOK, prefs)

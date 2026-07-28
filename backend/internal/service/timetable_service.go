@@ -29,6 +29,7 @@ type CreateTimetableInput struct {
 	ExamType     *string
 	LecturerID   *uuid.UUID
 	Invigilators *string
+	ExamDate     *time.Time
 }
 
 func (s *TimetableService) Create(ctx context.Context, input CreateTimetableInput) (uuid.UUID, error) {
@@ -48,6 +49,7 @@ func (s *TimetableService) Create(ctx context.Context, input CreateTimetableInpu
 		ExamType:     input.ExamType,
 		LecturerID:   input.LecturerID,
 		Invigilators: input.Invigilators,
+		ExamDate:     input.ExamDate,
 	})
 }
 
@@ -73,6 +75,7 @@ type UpdateTimetableInput struct {
 	ExamType     *string
 	LecturerID   *uuid.UUID
 	Invigilators *string
+	ExamDate     *time.Time
 }
 
 func (s *TimetableService) Update(ctx context.Context, id uuid.UUID, input UpdateTimetableInput) error {
@@ -97,6 +100,7 @@ func (s *TimetableService) Update(ctx context.Context, id uuid.UUID, input Updat
 		ExamType:     input.ExamType,
 		LecturerID:   input.LecturerID,
 		Invigilators: input.Invigilators,
+		ExamDate:     input.ExamDate,
 	}, id)
 }
 

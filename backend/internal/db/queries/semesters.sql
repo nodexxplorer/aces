@@ -33,3 +33,6 @@ RETURNING *;
 -- name: DeleteSemester :exec
 DELETE FROM semesters
 WHERE id = $1;
+
+-- name: DeactivateAllSemesters :exec
+UPDATE semesters SET is_active = false WHERE is_active = true;

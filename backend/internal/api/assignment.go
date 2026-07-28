@@ -199,7 +199,6 @@ type createAssignmentGradeRequest struct {
 	Score        decimal.Decimal `json:"score"`
 	Feedback     *string         `json:"feedback"`
 	IsLate       bool            `json:"is_late"`
-	GradedBy     string          `json:"graded_by" binding:"required,uuid"`
 }
 
 func (server *Server) createAssignmentGrade(ctx *gin.Context) {
@@ -211,7 +210,21 @@ func (server *Server) createAssignmentGrade(ctx *gin.Context) {
 
 	assignmentID, _ := uuid.Parse(req.AssignmentID)
 	studentID, _ := uuid.Parse(req.StudentID)
-	gradedBy, _ := uuid.Parse(req.GradedBy)
+
+	// Derive graded_by from the JWT caller — never trust the client
+	gradedBy := getUserID(ctx)
+
+	// Fetch assignment to validate score bounds
+	assignment, err := server.store.GetAssignment(ctx, assignmentID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "assignment not found"})
+		return
+	}
+
+	if req.Score.LessThan(decimal.Zero) || req.Score.GreaterThan(decimal.NewFromInt(int64(assignment.MaxScore))) {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "score must be between 0 and max_score"})
+		return
+	}
 
 	arg := db.CreateAssignmentGradeParams{
 		AssignmentID: assignmentID,
@@ -238,6 +251,15 @@ func (server *Server) getAssignmentGrade(ctx *gin.Context) {
 	if err != nil || err2 != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid assignment_id or student_id query param"})
 		return
+	}
+
+	// If caller is a student, they can only view their own grade
+	if !isStaffCaller(ctx) {
+		callerStudentID, ok := requireOwnershipOrStaffByStudentIDParam(ctx, server.store)
+		if !ok {
+			return
+		}
+		studentID = callerStudentID
 	}
 
 	arg := db.GetAssignmentGradeParams{
@@ -277,6 +299,14 @@ func (server *Server) listStudentAssignmentGrades(ctx *gin.Context) {
 		return
 	}
 
+	if !isStaffCaller(ctx) {
+		callerStudentID, ok := requireOwnershipOrStaffByStudentIDParam(ctx, server.store)
+		if !ok {
+			return
+		}
+		studentID = callerStudentID
+	}
+
 	grades, err := server.store.ListStudentAssignmentGrades(ctx, studentID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -290,7 +320,6 @@ type updateAssignmentGradeRequest struct {
 	Score    decimal.Decimal `json:"score"`
 	Feedback *string         `json:"feedback"`
 	IsLate   bool            `json:"is_late"`
-	GradedBy string          `json:"graded_by" binding:"required,uuid"`
 }
 
 func (server *Server) updateAssignmentGrade(ctx *gin.Context) {
@@ -306,7 +335,8 @@ func (server *Server) updateAssignmentGrade(ctx *gin.Context) {
 		return
 	}
 
-	gradedBy, _ := uuid.Parse(req.GradedBy)
+	// Derive graded_by from the JWT caller — never trust the client
+	gradedBy := getUserID(ctx)
 
 	arg := db.UpdateAssignmentGradeParams{
 		ID:       id,

@@ -276,7 +276,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 	attendance := api.Group("/attendance")
 	{
 		attendance.POST("", middleware.RequireRoles("class_rep", "hod", "delegated_admin"), server.createAttendanceSheet)
-		attendance.GET("/course", server.listCourseAttendanceSheets)
+		attendance.GET("/course", middleware.RequireRoles("lecturer", "hod", "admin", "delegated_admin", "class_rep"), server.listCourseAttendanceSheets)
 		attendance.GET("/student", server.listStudentAttendance)
 		attendance.GET("/summary", server.getAttendanceSummary)
 		attendance.GET("/:id", server.getAttendanceSheet)
@@ -313,12 +313,13 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 
 	courseRegistrations := api.Group("/course-registrations")
 	{
-		courseRegistrations.POST("", middleware.RequireRoles("student", "hod", "delegated_admin"), server.createCourseRegistration)
+		courseRegistrations.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createCourseRegistration)
 		courseRegistrations.POST("/submit", middleware.RequireRoles("student"), server.submitRegistration)
+		courseRegistrations.GET("/my-course-ids", middleware.RequireRoles("student"), server.listMyRegisteredCourseIDs)
 		courseRegistrations.GET("/student/:student_id", server.listStudentCourseRegistrations)
 		courseRegistrations.GET("/:id", server.getCourseRegistration)
 		courseRegistrations.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin", "class_rep"), server.updateCourseRegistration)
-		courseRegistrations.POST("/:id/courses", middleware.RequireRoles("student", "hod", "delegated_admin"), server.createRegisteredCourse)
+		courseRegistrations.POST("/:id/courses", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createRegisteredCourse)
 		courseRegistrations.GET("/:id/courses", server.listRegisteredCourses)
 		courseRegistrations.PUT("/:id/courses/:registered_course_id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateRegisteredCourse)
 		courseRegistrations.DELETE("/:id/courses/:registered_course_id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteRegisteredCourse)
@@ -399,11 +400,13 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 
 		payments.POST("", middleware.RequireRoles("student"), server.createPayment)
 		payments.POST("/checkout", middleware.RequireRoles("student"), server.initializeCheckout)
+		payments.POST("/checkout-cart", middleware.RequireRoles("student"), server.checkoutCart)
 		payments.GET("/student/:student_id", server.listStudentPayments)
 		payments.GET("/summary/:student_id", server.getStudentPaymentSummary)
 		payments.GET("/check-paid", server.checkDuePaid)
 		payments.GET("/by-reference", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.getPaymentByReference)
 		payments.GET("/defaulters", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.listDefaulters)
+		payments.GET("/recent-verified", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.listRecentVerifiedPayments)
 		payments.GET("", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.listAllPayments)
 		payments.GET("/:id", server.getPayment)
 		payments.PUT("/:id/status", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.updatePaymentStatus)
@@ -648,8 +651,8 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 	// ── Bursar Dashboard ──
 	bursar := api.Group("/bursar")
 	{
-		bursar.GET("/dashboard", middleware.RequireRoles("class_bursar", "dept_bursar", "hod", "delegated_admin"), server.getBursarDashboardStats)
-		bursar.POST("/record-payment", middleware.RequireRoles("class_bursar", "dept_bursar", "hod", "delegated_admin"), server.recordManualPayment)
+		bursar.GET("/dashboard", middleware.RequireRoles("bursar_class", "bursar_dept", "hod", "delegated_admin"), server.getBursarDashboardStats)
+		bursar.POST("/record-payment", middleware.RequireRoles("bursar_class", "bursar_dept", "hod", "delegated_admin"), server.recordManualPayment)
 	}
 
 	// ── AI Integration ──
@@ -669,7 +672,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 	{
 		predictions.GET("/gpa", middleware.RequireRoles("student"), server.getStudentGPAPrediction)
 		predictions.GET("/at-risk", middleware.RequireRoles("hod", "delegated_admin", "admin", "class_rep"), server.getAtRiskStudents)
-		predictions.GET("/revenue", middleware.RequireRoles("hod", "delegated_admin", "admin", "class_bursar", "dept_bursar"), server.getRevenueForecast)
+		predictions.GET("/revenue", middleware.RequireRoles("hod", "delegated_admin", "admin", "bursar_class", "bursar_dept"), server.getRevenueForecast)
 		predictions.GET("/grade-distribution", middleware.RequireRoles("hod", "delegated_admin", "admin", "lecturer"), server.getGradeDistribution)
 		predictions.GET("/pass-rate/:id", middleware.RequireRoles("hod", "delegated_admin", "admin", "lecturer"), server.getCoursePassRate)
 		predictions.POST("/store", middleware.RequireRoles("hod", "delegated_admin", "admin"), server.storeAIPrediction)
@@ -824,8 +827,6 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 	api.DELETE("/comments/:id", server.deletePostComment)
 
 	// ── Verification & Onboarding V2 ──
-	api.POST("/verification/lookup", server.lookupMatric)
-	api.POST("/verification/verify", server.verifyMatricForSignup)
 	verification := api.Group("/verification")
 	verification.Use(middleware.RequireRoles("hod", "admin", "delegated_admin"))
 	{

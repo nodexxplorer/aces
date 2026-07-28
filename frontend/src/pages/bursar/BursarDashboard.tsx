@@ -18,10 +18,7 @@ import {
   CreditCard,
   RefreshCw,
   CheckCircle,
-  XCircle,
   Loader2,
-  Search,
-  ExternalLink,
   PenLine,
   ArrowUpRight,
 } from 'lucide-react';
@@ -370,7 +367,7 @@ const BursarDashboard = () => {
             </CardHeader>
             <div className="space-y-3">
               <a
-                href="/bursar/verify-payments"
+                href="/bursar/verify"
                 className="flex items-center justify-between p-3 rounded-lg border border-surface-200 dark:border-surface-700/50 hover:bg-surface-50 dark:hover:bg-surface-700/30 transition-colors group"
               >
                 <div className="flex items-center gap-3">

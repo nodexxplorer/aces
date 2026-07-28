@@ -162,6 +162,7 @@ type Querier interface {
 	CreateResult(ctx context.Context, arg CreateResultParams) (Result, error)
 	CreateResultAuditLog(ctx context.Context, arg CreateResultAuditLogParams) (ResultAuditLog, error)
 	LinkResultsByMatric(ctx context.Context, arg LinkResultsByMatricParams) error
+	IsLecturerAssignedToCourse(ctx context.Context, arg IsLecturerAssignedToCourseParams) (bool, error)
 	// ==================== ROLE ASSIGNMENT LOGS ====================
 	CreateRoleAssignmentLog(ctx context.Context, arg CreateRoleAssignmentLogParams) (RoleAssignmentLog, error)
 	// ==================== ROLE PROMOTIONS ====================
@@ -225,6 +226,8 @@ type Querier interface {
 	DeleteRegisteredCourse(ctx context.Context, id uuid.UUID) error
 	DeleteSemester(ctx context.Context, id uuid.UUID) error
 	DeleteSession(ctx context.Context, id uuid.UUID) error
+	DeactivateAllSessions(ctx context.Context) error
+	DeactivateAllSemesters(ctx context.Context) error
 	DeleteSkillListing(ctx context.Context, id uuid.UUID) error
 	DeleteStaff(ctx context.Context, id uuid.UUID) error
 	DeleteStudyTask(ctx context.Context, arg DeleteStudyTaskParams) error
@@ -391,6 +394,7 @@ type Querier interface {
 	ListAllClassRepReports(ctx context.Context, dollar_1 string) ([]ListAllClassRepReportsRow, error)
 	ListAllDonations(ctx context.Context, arg ListAllDonationsParams) ([]ListAllDonationsRow, error)
 	ListAllPayments(ctx context.Context, arg ListAllPaymentsParams) ([]ListAllPaymentsRow, error)
+	ListRecentVerifiedPayments(ctx context.Context, arg ListAllPaymentsParams) ([]ListAllPaymentsRow, error)
 	ListAllProfileEditLogs(ctx context.Context, arg ListAllProfileEditLogsParams) ([]ListAllProfileEditLogsRow, error)
 	ListAllRoleAssignmentLogs(ctx context.Context, arg ListAllRoleAssignmentLogsParams) ([]ListAllRoleAssignmentLogsRow, error)
 	ListAlumni(ctx context.Context, arg ListAlumniParams) ([]ListAlumniRow, error)
@@ -426,6 +430,7 @@ type Querier interface {
 	ListElectionNominees(ctx context.Context, electionID uuid.UUID) ([]ListElectionNomineesRow, error)
 	ListEventAttendees(ctx context.Context, eventID uuid.UUID) ([]ListEventAttendeesRow, error)
 	ListExpenses(ctx context.Context, dollar_1 interface{}) ([]ListExpensesRow, error)
+	ListAllFeedback(ctx context.Context) ([]ListFeedbackRow, error)
 	ListFeatureFlags(ctx context.Context) ([]FeatureFlag, error)
 	ListFeedPosts(ctx context.Context, arg ListFeedPostsParams) ([]ListFeedPostsRow, error)
 	ListFeedback(ctx context.Context, dollar_1 interface{}) ([]ListFeedbackRow, error)
@@ -464,6 +469,7 @@ type Querier interface {
 	ListPublishedAnnouncements(ctx context.Context, arg ListPublishedAnnouncementsParams) ([]ListPublishedAnnouncementsRow, error)
 	ListReadReceiptsByAnnouncement(ctx context.Context, announcementID uuid.UUID) ([]ListReadReceiptsByAnnouncementRow, error)
 	ListRecentBroadcasts(ctx context.Context, limit int32) ([]ListRecentBroadcastsRow, error)
+	ListRegisteredCourseIDsByStudent(ctx context.Context, studentID uuid.UUID) ([]uuid.UUID, error)
 	ListRegisteredCoursesByRegistration(ctx context.Context, registrationID uuid.UUID) ([]RegisteredCourse, error)
 	ListResultAuditLogs(ctx context.Context, resultID uuid.UUID) ([]ResultAuditLog, error)
 	ListRoleAssignmentLogsByUser(ctx context.Context, arg ListRoleAssignmentLogsByUserParams) ([]ListRoleAssignmentLogsByUserRow, error)

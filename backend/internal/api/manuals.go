@@ -36,7 +36,8 @@ type updateManualRequest struct {
 }
 
 type purchaseManualRequest struct {
-	ManualID string `json:"manual_id" binding:"required"`
+	ManualID  string `json:"manual_id"  binding:"required"`
+	PaymentID *string `json:"payment_id" binding:"omitempty,uuid"`
 }
 
 type addToPrintQueueRequest struct {
@@ -267,6 +268,41 @@ func (server *Server) purchaseManual(ctx *gin.Context) {
 		return
 	}
 
+	// Fetch the manual to check its price
+	manual, err := queries.GetManual(ctx, manualID)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "manual not found"})
+		return
+	}
+
+	// For priced manuals, require a completed payment.
+	var paymentIDPtr *uuid.UUID
+	if !manual.Price.IsZero() {
+		if req.PaymentID == nil {
+			ctx.JSON(http.StatusPaymentRequired, gin.H{"error": "payment is required for priced manuals"})
+			return
+		}
+		payID, err := uuid.Parse(*req.PaymentID)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid payment_id"})
+			return
+		}
+		paymentRecord, err := server.store.GetPayment(ctx, payID)
+		if err != nil {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "payment not found"})
+			return
+		}
+		if paymentRecord.StudentID != studentID {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "payment does not belong to you"})
+			return
+		}
+		if paymentRecord.Status != "completed" {
+			ctx.JSON(http.StatusPaymentRequired, gin.H{"error": "payment has not been completed"})
+			return
+		}
+		paymentIDPtr = &payID
+	}
+
 	// Fetch student profile for QR data
 	student, err := queries.GetStudentByUserIDFull(ctx, getUserID(ctx))
 	if err != nil {
@@ -283,9 +319,15 @@ func (server *Server) purchaseManual(ctx *gin.Context) {
 	}, manualQRSecret)
 	qrCodeImageURL, _ := utils.GenerateQRCodeImage(qrPayload)
 
+	var paymentID pgtype.UUID
+	if paymentIDPtr != nil {
+		paymentID = pgtype.UUID{Bytes: *paymentIDPtr, Valid: true}
+	}
+
 	purchase, err := server.manuals.Purchase(ctx, db.CreateManualPurchaseParams{
 		StudentID:  studentID,
 		ManualID:   manualID,
+		PaymentID:  paymentID,
 		QrCodeData: &qrPayload,
 		QrCodeUrl:  &qrCodeImageURL,
 	})

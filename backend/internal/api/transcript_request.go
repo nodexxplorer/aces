@@ -31,19 +31,14 @@ func (server *Server) createTranscriptRequest(ctx *gin.Context) {
 		return
 	}
 
-	// Resolve student ID: prefer explicit, fallback to JWT user
-	var studentID uuid.UUID
-	if req.StudentID != "" {
-		studentID, _ = uuid.Parse(req.StudentID)
-	} else {
-		userID := getUserID(ctx)
-		student, err := server.store.GetStudentByUserId(ctx, userID)
-		if err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": "student record not found"})
-			return
-		}
-		studentID = student.ID
+	// Students can only create transcript requests for themselves
+	userID := getUserID(ctx)
+	student, err := server.store.GetStudentByUserId(ctx, userID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "student record not found"})
+		return
 	}
+	studentID := student.ID
 
 	transcriptReq, err := server.transcripts.Create(ctx, service.CreateTranscriptInput{
 		StudentID: studentID,
@@ -70,6 +65,10 @@ func (server *Server) getTranscriptRequest(ctx *gin.Context) {
 		return
 	}
 
+	if !requireOwnershipOrStaff(ctx, server.store, transcriptReq.StudentID) {
+		return
+	}
+
 	ctx.JSON(http.StatusOK, gin.H{"data": transcriptReq})
 }
 
@@ -78,6 +77,14 @@ func (server *Server) listStudentTranscriptRequests(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid student id"})
 		return
+	}
+
+	if !isStaffCaller(ctx) {
+		callerStudentID, ok := requireOwnershipOrStaffByStudentIDParam(ctx, server.store)
+		if !ok {
+			return
+		}
+		studentID = callerStudentID
 	}
 
 	requests, err := server.transcripts.ListByStudent(ctx, studentID)

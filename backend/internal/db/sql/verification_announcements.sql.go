@@ -1232,15 +1232,15 @@ AND (
 )
 AND (
     a.target_audience IS NULL OR a.target_audience = '[]'::jsonb
-    OR a.target_audience @> to_jsonb($2::text)
+    OR a.target_audience @> '["all"]'::jsonb
+    OR a.target_audience @> '["student"]'::jsonb
 )
 ORDER BY a.is_pinned DESC, a.pin_order ASC NULLS LAST, a.created_at DESC
-LIMIT $3 OFFSET $4
+LIMIT $2 OFFSET $3
 `
 
 type ListStudentAnnouncementsParams struct {
 	TargetLevel *int32 `json:"target_level"`
-	Column2     string `json:"column_2"`
 	Limit       int32  `json:"limit"`
 	Offset      int32  `json:"offset"`
 }
@@ -1274,7 +1274,6 @@ type ListStudentAnnouncementsRow struct {
 func (q *Queries) ListStudentAnnouncements(ctx context.Context, arg ListStudentAnnouncementsParams) ([]ListStudentAnnouncementsRow, error) {
 	rows, err := q.db.Query(ctx, listStudentAnnouncements,
 		arg.TargetLevel,
-		arg.Column2,
 		arg.Limit,
 		arg.Offset,
 	)

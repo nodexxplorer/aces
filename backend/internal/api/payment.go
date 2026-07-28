@@ -910,6 +910,15 @@ func (server *Server) initializeCheckout(ctx *gin.Context) {
 		return
 	}
 
+	// Ownership check: students can only check out their own payments.
+	if !isStaffRole(ctx) {
+		ownStudentID, err := server.getStudentIDFromUser(ctx)
+		if err != nil || ownStudentID != paymentRecord.StudentID {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "not authorized to check out this payment"})
+			return
+		}
+	}
+
 	if paymentRecord.Status == "completed" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "payment already completed"})
 		return
@@ -939,7 +948,7 @@ func (server *Server) initializeCheckout(ctx *gin.Context) {
 		Email:       req.Email,
 		Amount:      amountKobo,
 		Reference:   reference,
-		CallbackURL: fmt.Sprintf("%s/payments/verify", server.config.ServerAddress),
+		CallbackURL: fmt.Sprintf("%s/payments/confirmation", server.config.FrontendPublicURL),
 		Metadata: payment.Metadata{
 			"payment_id": paymentRecord.ID.String(),
 			"student_id": paymentRecord.StudentID.String(),
@@ -963,6 +972,109 @@ func (server *Server) initializeCheckout(ctx *gin.Context) {
 	})
 }
 
+// checkoutCart POST /payments/checkout-cart
+func (server *Server) checkoutCart(ctx *gin.Context) {
+	studentID, err := server.getStudentIDFromUser(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "could not identify student"})
+		return
+	}
+
+	cartItems, err := server.store.ListStudentCart(ctx, studentID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	if len(cartItems) == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "cart is empty"})
+		return
+	}
+
+	totalAmount := decimal.Zero
+	for _, item := range cartItems {
+		totalAmount = totalAmount.Add(item.Amount)
+	}
+
+	batch, err := server.store.CreatePaymentBatch(ctx, db.CreatePaymentBatchParams{
+		StudentID:   studentID,
+		TotalAmount: totalAmount,
+	})
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	reference := fmt.Sprintf("ACES-%s-%d", batch.ID.String()[:8], time.Now().Unix())
+	batchID := batch.ID
+
+	for _, item := range cartItems {
+		due, err := server.store.GetDue(ctx, item.DueID)
+		itemName := "Due Payment"
+		dueType := db.PaymentType("other")
+		if err == nil {
+			itemName = due.Name
+			dueType = due.Type
+		}
+		_, err = server.store.CreatePayment(ctx, db.CreatePaymentParams{
+			StudentID: studentID,
+			BatchID:   pgtype.UUID{Bytes: batchID, Valid: true},
+			DueID:     item.DueID,
+			Type:      dueType,
+			ItemName:  itemName,
+			Amount:    item.Amount,
+		})
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
+	}
+
+	if q, ok := server.store.(interface{ GetDB() db.DBTX }); ok {
+		_, _ = q.GetDB().Exec(ctx, "UPDATE payment_batches SET paystack_reference = $1 WHERE id = $2", reference, batchID)
+	}
+
+	paystackClient := payment.NewPaystackClient(server.config.PaystackSecretKey, server.config.PaystackPublicKey)
+
+	claimsVal, exists := ctx.Get("claims")
+	if !exists {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
+		return
+	}
+	claims, ok := claimsVal.(*auth.Claims)
+	if !ok {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	resp, err := paystackClient.InitializePayment(payment.InitPaymentRequest{
+		Email:       claims.Email,
+		Amount:      totalAmount.Mul(decimal.NewFromInt(100)).IntPart(),
+		Reference:   reference,
+		CallbackURL: fmt.Sprintf("%s/payments/confirmation", server.config.FrontendPublicURL),
+		Metadata: payment.Metadata{
+			"batch_id":   batchID.String(),
+			"student_id": studentID.String(),
+		},
+	})
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "unable to initialize payment gateway"})
+		return
+	}
+
+	_ = server.store.ClearStudentCart(ctx, studentID)
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status":  true,
+		"message": "checkout initialized",
+		"data": gin.H{
+			"authorization_url": resp.Data.AuthorizationURL,
+			"reference":         resp.Data.Reference,
+			"access_code":       resp.Data.AccessCode,
+			"batch_id":          batchID.String(),
+		},
+	})
+}
+
 // listAllPayments GET /payments
 func (server *Server) listAllPayments(ctx *gin.Context) {
 	var q listAllPaymentsQuery
@@ -972,6 +1084,26 @@ func (server *Server) listAllPayments(ctx *gin.Context) {
 	}
 
 	payments, err := server.store.ListAllPayments(ctx, db.ListAllPaymentsParams{
+		Limit:  q.Limit,
+		Offset: q.Offset,
+	})
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, payments)
+}
+
+// listRecentVerifiedPayments GET /payments/recent-verified
+func (server *Server) listRecentVerifiedPayments(ctx *gin.Context) {
+	var q listAllPaymentsQuery
+	if err := ctx.ShouldBindQuery(&q); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
+		return
+	}
+
+	payments, err := server.store.ListRecentVerifiedPayments(ctx, db.ListAllPaymentsParams{
 		Limit:  q.Limit,
 		Offset: q.Offset,
 	})
