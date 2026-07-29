@@ -1132,6 +1132,33 @@ func (server *Server) getPaymentByReference(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, payment)
 }
 
+// getMyPaymentByReference GET /payments/my-reference?reference=XXX
+// Student-accessible endpoint to look up their own payment by Paystack reference.
+func (server *Server) getMyPaymentByReference(ctx *gin.Context) {
+	var q getPaymentByReferenceQuery
+	if err := ctx.ShouldBindQuery(&q); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "reference is required"})
+		return
+	}
+
+	payment, err := server.store.GetPaymentByReference(ctx, &q.Reference)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "payment not found for this reference"})
+		return
+	}
+
+	// Students can only view their own payments.
+	if !isStaffRole(ctx) {
+		studentID, err := server.getStudentIDFromUser(ctx)
+		if err != nil || payment.StudentID != studentID {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "payment not found for this reference"})
+			return
+		}
+	}
+
+	ctx.JSON(http.StatusOK, payment)
+}
+
 // listDefaulters GET /payments/defaulters
 func (server *Server) listDefaulters(ctx *gin.Context) {
 	defaulters, err := server.store.ListDefaultersByLevel(ctx)

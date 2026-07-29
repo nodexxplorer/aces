@@ -200,6 +200,11 @@ func (server *Server) updateResult(ctx *gin.Context) {
 		return
 	}
 
+	// Preserve existing status if not provided in request
+	if req.Status == "" {
+		req.Status = string(existing.Status)
+	}
+
 	// Validate score bounds
 	if req.CaScore.LessThan(decimal.Zero) || req.CaScore.GreaterThan(decimal.NewFromInt(30)) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "ca_score must be between 0 and 30"})
@@ -289,7 +294,7 @@ func (server *Server) listAllResults(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
 		return
 	}
-	results, err := queries.ListAllResults(ctx, 100, 0)
+	results, err := queries.ListAllResults(ctx, 5000, 0)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
@@ -487,4 +492,25 @@ func (server *Server) deleteCarryoverCourse(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "carryover course deleted successfully"})
+}
+
+func (server *Server) deleteResult(ctx *gin.Context) {
+	id, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid result id"})
+		return
+	}
+
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
+		return
+	}
+
+	if err := queries.DeleteResult(ctx, id); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "result deleted successfully"})
 }

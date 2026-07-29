@@ -58,3 +58,6 @@ export const getAllResults = async (params?: PaginationParams) => {
   return data.data;
 };
 
+export const deleteResult = async (resultId: string) => {
+  await apiClient.delete(`/results/${resultId}`);
+};

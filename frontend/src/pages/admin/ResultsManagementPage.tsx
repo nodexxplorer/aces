@@ -8,11 +8,11 @@ import {
   Search, Loader2, Edit3, Save, X, CheckCircle, AlertTriangle,
   Upload, Download, FileSpreadsheet, CheckCircle2, XCircle, Trash2, Send, Database, PenLine
 } from 'lucide-react';
-import { getAllResults, updateScore, approveResult, enterScore } from '../../api/results';
+import { getAllResults, updateScore, approveResult, enterScore, deleteResult } from '../../api/results';
 import { getCourses } from '../../api/courses';
 import { getSessions, listSessionSemesters } from '../../api/sessions';
-import { getStudents } from '../../api/users';
-import type { Course, Session } from '../../types';
+import { searchStudentsForRoles } from '../../api/role-management';
+import type { Course, Session, StudentForRoleManagement } from '../../types';
 
 type Tab = 'manage' | 'bulk' | 'single';
 
@@ -69,8 +69,13 @@ function ManageTab() {
   const handleSave = async (id: string) => {
     const ca = parseFloat(editCa);
     const exam = parseFloat(editExam);
-    if (isNaN(ca) || ca < 0 || ca > 40) { notifyError('Invalid', 'CA score must be between 0 and 40'); return; }
-    if (isNaN(exam) || exam < 0 || exam > 100) { notifyError('Invalid', 'Exam score must be between 0 and 100'); return; }
+    if (isNaN(ca) || ca < 0 || ca > 30) { notifyError('Invalid', 'CA score must be between 0 and 30'); return; }
+    if (isNaN(exam) || exam < 0 || exam > 70) { notifyError('Invalid', 'Exam score must be between 0 and 70'); return; }
+    const total = ca + exam;
+    if (total > 100) {
+      notifyError('Invalid', 'Total score (CA + Exam) cannot exceed 100');
+      return;
+    }
     try {
       setSaveLoading(true);
       await updateScore(id, { caScore: ca, examScore: exam });
@@ -239,7 +244,7 @@ function BulkUploadTab() {
   const [semesters, setSemesters] = useState<any[]>([]);
   const [selectedSemester, setSelectedSemester] = useState('');
   const [courses, setCourses] = useState<Course[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
+  const [students, setStudents] = useState<StudentForRoleManagement[]>([]);
   const [existingResults, setExistingResults] = useState<any[]>([]);
   const [rawRows, setRawRows] = useState<CsvRow[]>([]);
   const [validatedRows, setValidatedRows] = useState<ValidatedRow[]>([]);
@@ -250,14 +255,14 @@ function BulkUploadTab() {
   const fetchMetadata = useCallback(async () => {
     try {
       setLoadingMeta(true);
-      const [sess, crs, stu] = await Promise.all([
+      const [sess, crs, stuRes] = await Promise.all([
         getSessions().catch(() => []),
         getCourses().catch(() => []),
-        getStudents({ perPage: 2000 }).catch(() => []),
+        searchStudentsForRoles({ per_page: 500 }).catch(() => ({ data: [] })),
       ]);
       setSessions(Array.isArray(sess) ? sess : []);
       setCourses(Array.isArray(crs) ? crs : []);
-      setStudents(Array.isArray(stu) ? stu : []);
+      setStudents(Array.isArray((stuRes as any).data) ? (stuRes as any).data : []);
     } catch {
       notifyError('Error', 'Could not load metadata');
     } finally {
@@ -314,15 +319,18 @@ function BulkUploadTab() {
       const errors: string[] = [];
       const ca = parseFloat(row.ca_score);
       const exam = parseFloat(row.exam_score);
-      if (isNaN(ca) || ca < 0 || ca > 40) errors.push('CA score must be 0–40');
-      if (isNaN(exam) || exam < 0 || exam > 100) errors.push('Exam score must be 0–100');
+      if (isNaN(ca) || ca < 0 || ca > 30) errors.push('CA score must be 0–30');
+      if (isNaN(exam) || exam < 0 || exam > 70) errors.push('Exam score must be 0–70');
+      if (!isNaN(ca) && !isNaN(exam) && ca + exam > 100) {
+        errors.push('Total score cannot exceed 100');
+      }
 
-      const student = students.find((s: any) =>
-        (s.matric_number || s.matricNumber || '').toLowerCase() === row.matric_number.toLowerCase()
+      const student = students.find((s) =>
+        (s.matric_number || '').toLowerCase() === row.matric_number.toLowerCase()
       );
       let studentId: string | undefined, courseId: string | undefined, studentName: string | undefined, courseTitle: string | undefined;
       if (!student) { errors.push('Student not found (will be linked on registration)'); }
-      else { studentId = student.id; studentName = student.full_name || student.fullName || student.email; }
+      else { studentId = student.student_id; studentName = student.full_name || student.email; }
 
       const course = courses.find((c: any) => (c.code || '').toLowerCase() === row.course_code.toLowerCase());
       if (!course) { errors.push('Course not found'); }
@@ -516,11 +524,11 @@ function SingleEntryTab() {
   const [semesters, setSemesters] = useState<any[]>([]);
   const [selectedSemester, setSelectedSemester] = useState('');
   const [courses, setCourses] = useState<Course[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
+  const [students, setStudents] = useState<StudentForRoleManagement[]>([]);
   const [loadingMeta, setLoadingMeta] = useState(false);
 
   const [studentSearch, setStudentSearch] = useState('');
-  const [selectedStudent, setSelectedStudent] = useState<any>(null);
+  const [selectedStudent, setSelectedStudent] = useState<StudentForRoleManagement | null>(null);
   const [showStudentDropdown, setShowStudentDropdown] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState('');
   const [caScore, setCaScore] = useState('');
@@ -530,14 +538,14 @@ function SingleEntryTab() {
   const fetchMetadata = useCallback(async () => {
     try {
       setLoadingMeta(true);
-      const [sess, crs, stu] = await Promise.all([
+      const [sess, crs, stuRes] = await Promise.all([
         getSessions().catch(() => []),
         getCourses().catch(() => []),
-        getStudents({ perPage: 5000 }).catch(() => []),
+        searchStudentsForRoles({ per_page: 500 }).catch(() => ({ data: [] })),
       ]);
       setSessions(Array.isArray(sess) ? sess : []);
       setCourses(Array.isArray(crs) ? crs : []);
-      setStudents(Array.isArray(stu) ? stu : []);
+      setStudents(Array.isArray((stuRes as any).data) ? (stuRes as any).data : []);
     } catch {
       notifyError('Error', 'Could not load metadata');
     } finally {
@@ -555,11 +563,11 @@ function SingleEntryTab() {
     }
   }, [selectedSession]);
 
-  const filteredStudents = students.filter((s: any) => {
+  const filteredStudents = students.filter((s) => {
     if (!studentSearch || studentSearch.length < 2) return false;
     const q = studentSearch.toLowerCase();
-    const name = (s.full_name || s.fullName || s.email || '').toLowerCase();
-    const matric = (s.matric_number || s.matricNumber || '').toLowerCase();
+    const name = (s.full_name || s.email || '').toLowerCase();
+    const matric = (s.matric_number || '').toLowerCase();
     return name.includes(q) || matric.includes(q);
   }).slice(0, 20);
 
@@ -574,20 +582,24 @@ function SingleEntryTab() {
 
     const caVal = parseFloat(caScore);
     const examVal = parseFloat(examScore);
-    if (isNaN(caVal) || caVal < 0 || caVal > 40) { notifyError('Invalid CA', 'CA score must be between 0 and 40'); return; }
-    if (isNaN(examVal) || examVal < 0 || examVal > 100) { notifyError('Invalid Exam', 'Exam score must be between 0 and 100'); return; }
+    if (isNaN(caVal) || caVal < 0 || caVal > 30) { notifyError('Invalid CA', 'CA score must be between 0 and 30'); return; }
+    if (isNaN(examVal) || examVal < 0 || examVal > 70) { notifyError('Invalid Exam', 'Exam score must be between 0 and 70'); return; }
+    if (caVal + examVal > 100) {
+      notifyError('Invalid Total', 'CA + Exam total cannot exceed 100');
+      return;
+    }
 
     try {
       setSubmitting(true);
       await enterScore({
-        studentId: selectedStudent.id,
+        studentId: selectedStudent.student_id,
         courseId: selectedCourse,
         sessionId: selectedSession,
         semesterId: selectedSemester,
         caScore: caVal,
         examScore: examVal,
       });
-      success('Result Entered', `${selectedStudent.matric_number || selectedStudent.matricNumber} — ${caVal + examVal} total`);
+      success('Result Entered', `${selectedStudent.matric_number} — ${caVal + examVal} total`);
       setCaScore('');
       setExamScore('');
       setSelectedStudent(null);
@@ -626,7 +638,7 @@ function SingleEntryTab() {
               <input
                 type="text"
                 placeholder="Search by name or matric number..."
-                value={selectedStudent ? `${selectedStudent.matric_number || selectedStudent.matricNumber} — ${selectedStudent.full_name || selectedStudent.fullName || selectedStudent.email}` : studentSearch}
+                value={selectedStudent ? `${selectedStudent.matric_number} — ${selectedStudent.full_name || selectedStudent.email}` : studentSearch}
                 onChange={(e) => { setStudentSearch(e.target.value); setSelectedStudent(null); setShowStudentDropdown(true); }}
                 onFocus={() => { if (!selectedStudent) setShowStudentDropdown(true); }}
                 onBlur={() => setTimeout(() => setShowStudentDropdown(false), 200)}
@@ -641,12 +653,12 @@ function SingleEntryTab() {
             </div>
             {showStudentDropdown && !selectedStudent && filteredStudents.length > 0 && (
               <div className="absolute z-20 mt-1 w-full bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                {filteredStudents.map((s: any) => (
+                {filteredStudents.map((s) => (
                   <button key={s.id}
                     className="w-full text-left px-4 py-2.5 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors border-b border-surface-100 dark:border-surface-700 last:border-0"
                     onMouseDown={(e) => { e.preventDefault(); setSelectedStudent(s); setStudentSearch(''); setShowStudentDropdown(false); }}>
-                    <p className="text-sm font-medium text-surface-900 dark:text-white">{s.matric_number || s.matricNumber}</p>
-                    <p className="text-xs text-surface-500">{s.full_name || s.fullName || s.email}</p>
+                    <p className="text-sm font-medium text-surface-900 dark:text-white">{s.matric_number}</p>
+                    <p className="text-xs text-surface-500">{s.full_name || s.email}</p>
                   </button>
                 ))}
               </div>
@@ -659,14 +671,14 @@ function SingleEntryTab() {
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">CA Score (0–30)</label>
-              <input type="number" min={0} max={40} step={0.5} value={caScore}
+              <input type="number" min={0} max={30} step={0.5} value={caScore}
                 onChange={(e) => setCaScore(e.target.value)}
                 placeholder="0"
                 className="w-full px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20" />
             </div>
             <div>
               <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Exam Score (0–70)</label>
-              <input type="number" min={0} max={100} step={0.5} value={examScore}
+              <input type="number" min={0} max={70} step={0.5} value={examScore}
                 onChange={(e) => setExamScore(e.target.value)}
                 placeholder="0"
                 className="w-full px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20" />

@@ -9,7 +9,7 @@ import { useCartStore } from '../../stores/cartStore';
 import type { CartItem } from '../../api/payments';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
-import { CreditCard, Download, ShoppingCart, Trash2, Plus, Loader2, Receipt, BookOpen } from 'lucide-react';
+import { CreditCard, Download, ShoppingCart, Trash2, Plus, Loader2, Receipt } from 'lucide-react';
 import type { Payment, DuePayment } from '../../types';
 
 const PaymentsPage = () => {
@@ -306,17 +306,24 @@ const PaymentsPage = () => {
             </Card>
           )}
 
-          {/* Dues Cart Items */}
-          {cart.length > 0 && (
+          {/* Unified Cart */}
+          {(cart.length > 0 || manualCartCount() > 0) && (
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="flex items-center gap-2"><ShoppingCart className="w-5 h-5" /> Dues Cart</CardTitle>
-                    <CardDescription>Review and checkout your selected dues</CardDescription>
+                    <CardTitle className="flex items-center gap-2">
+                      <ShoppingCart className="w-5 h-5" /> Cart
+                    </CardTitle>
+                    <CardDescription>Review and checkout your selected items</CardDescription>
                   </div>
-                  <Button variant="outline" size="sm" onClick={handleClearCart} leftIcon={<Trash2 className="w-4 h-4" />}>
-                    Clear Dues
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { handleClearCart(); clearManualCart(); }}
+                    leftIcon={<Trash2 className="w-4 h-4" />}
+                  >
+                    Clear All
                   </Button>
                 </div>
               </CardHeader>
@@ -324,9 +331,9 @@ const PaymentsPage = () => {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-surface-200 dark:border-surface-700">
-                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">DUE</th>
+                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">ITEM</th>
+                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">TYPE</th>
                       <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">AMOUNT</th>
-                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">ADDED</th>
                       <th className="text-right px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">ACTION</th>
                     </tr>
                   </thead>
@@ -336,8 +343,8 @@ const PaymentsPage = () => {
                       return (
                         <tr key={item.id} className="border-b border-surface-100 dark:border-surface-800">
                           <td className="px-4 py-3 font-medium text-surface-900 dark:text-white">{due?.name || 'Unknown Due'}</td>
+                          <td className="px-4 py-3"><span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Due</span></td>
                           <td className="px-4 py-3 text-surface-700 dark:text-surface-300">{formatCurrency(Number(item.amount))}</td>
-                          <td className="px-4 py-3 text-xs text-surface-500">{item.added_at ? new Date(item.added_at).toLocaleDateString() : ''}</td>
                           <td className="px-4 py-3 text-right">
                             <Button size="xs" variant="danger" leftIcon={cartBusyId === item.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} onClick={() => handleRemoveFromCart(item.id)} disabled={cartBusyId === item.id}>
                               Remove
@@ -346,65 +353,10 @@ const PaymentsPage = () => {
                         </tr>
                       );
                     })}
-                  </tbody>
-                </table>
-              </div>
-              <div className="flex items-center justify-between p-4 border-t border-surface-200 dark:border-surface-700">
-                <span className="text-sm font-semibold text-surface-700 dark:text-surface-300">
-                  Dues Total: {formatCurrency(duesCartTotal)}
-                </span>
-                <Button leftIcon={<CreditCard className="w-4 h-4" />} onClick={async () => {
-                  try {
-                    if (!user?.email) {
-                      notifyError('Checkout Error', 'User email is required.');
-                      return;
-                    }
-                    const res = await checkoutCart();
-                    success('Redirecting', 'Forwarding to Paystack for Dues...');
-                    if (res && res.authorization_url) {
-                      window.location.href = res.authorization_url;
-                    } else {
-                      notifyError('Checkout Error', 'No redirect URL returned.');
-                    }
-                  } catch {
-                    notifyError('Checkout Error', 'Unable to initiate gateway transaction.');
-                  }
-                }}>
-                  Checkout Dues ({cart.length} item{cart.length !== 1 ? 's' : ''})
-                </Button>
-              </div>
-            </Card>
-          )}
-
-          {/* Manual Cart Items */}
-          {manualCartItems.length > 0 && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2"><BookOpen className="w-5 h-5" /> Manuals Cart</CardTitle>
-                    <CardDescription>Review and checkout your selected manuals</CardDescription>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={clearManualCart} leftIcon={<Trash2 className="w-4 h-4" />}>
-                    Clear Manuals
-                  </Button>
-                </div>
-              </CardHeader>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-surface-200 dark:border-surface-700">
-                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">MANUAL</th>
-                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">LEVEL</th>
-                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">PRICE</th>
-                      <th className="text-right px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">ACTION</th>
-                    </tr>
-                  </thead>
-                  <tbody>
                     {manualCartItems.map((item) => (
                       <tr key={item.manual.id} className="border-b border-surface-100 dark:border-surface-800">
                         <td className="px-4 py-3 font-medium text-surface-900 dark:text-white">{item.manual.title}</td>
-                        <td className="px-4 py-3 text-xs text-surface-500">Level {item.manual.level}</td>
+                        <td className="px-4 py-3"><span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Manual</span></td>
                         <td className="px-4 py-3 text-surface-700 dark:text-surface-300">{formatCurrency(item.manual.price)}</td>
                         <td className="px-4 py-3 text-right">
                           <Button size="xs" variant="danger" leftIcon={<Trash2 className="w-3.5 h-3.5" />} onClick={() => removeManualItem(item.manual.id)}>
@@ -416,13 +368,45 @@ const PaymentsPage = () => {
                   </tbody>
                 </table>
               </div>
-              <div className="flex items-center justify-between p-4 border-t border-surface-200 dark:border-surface-700">
-                <span className="text-sm font-semibold text-surface-700 dark:text-surface-300">
-                  Manuals Total: {formatCurrency(manualCartTotal())}
-                </span>
-                <Button leftIcon={manualCheckoutBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />} onClick={handleManualCheckout} disabled={manualCheckoutBusy}>
-                  {manualCheckoutBusy ? 'Processing...' : `Checkout Manuals (${manualCartCount()} item${manualCartCount() !== 1 ? 's' : ''})`}
-                </Button>
+              <div className="flex items-center justify-between p-4 border-t border-surface-200 dark:border-surface-700 flex-wrap gap-3">
+                <div className="text-sm text-surface-700 dark:text-surface-300 space-y-0.5">
+                  {cart.length > 0 && <div>Dues: {formatCurrency(duesCartTotal)}</div>}
+                  {manualCartCount() > 0 && <div>Manuals: {formatCurrency(manualCartTotal())}</div>}
+                  <div className="font-semibold">Total: {formatCurrency(combinedCartTotal)}</div>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {cart.length > 0 && (
+                    <Button
+                      variant="outline"
+                      leftIcon={<CreditCard className="w-4 h-4" />}
+                      onClick={async () => {
+                        try {
+                          if (!user?.email) { notifyError('Checkout Error', 'User email is required.'); return; }
+                          const res = await checkoutCart();
+                          success('Redirecting', 'Forwarding to Paystack for dues payment...');
+                          if (res && res.authorization_url) {
+                            window.location.href = res.authorization_url;
+                          } else {
+                            notifyError('Checkout Error', 'No redirect URL returned.');
+                          }
+                        } catch {
+                          notifyError('Checkout Error', 'Unable to initiate gateway transaction.');
+                        }
+                      }}
+                    >
+                      Pay Dues ({cart.length})
+                    </Button>
+                  )}
+                  {manualCartCount() > 0 && (
+                    <Button
+                      leftIcon={manualCheckoutBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+                      onClick={handleManualCheckout}
+                      disabled={manualCheckoutBusy}
+                    >
+                      {manualCheckoutBusy ? 'Processing...' : `Get Manuals (${manualCartCount()})`}
+                    </Button>
+                  )}
+                </div>
               </div>
             </Card>
           )}

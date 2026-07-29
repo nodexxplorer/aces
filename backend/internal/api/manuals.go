@@ -268,36 +268,18 @@ func (server *Server) purchaseManual(ctx *gin.Context) {
 		return
 	}
 
-	// Fetch the manual to check its price
-	manual, err := queries.GetManual(ctx, manualID)
-	if err != nil {
+	// Verify the manual exists
+	if _, err := queries.GetManual(ctx, manualID); err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "manual not found"})
 		return
 	}
 
-	// For priced manuals, require a completed payment.
+	// Optional payment_id for linking to a payment record.
 	var paymentIDPtr *uuid.UUID
-	if !manual.Price.IsZero() {
-		if req.PaymentID == nil {
-			ctx.JSON(http.StatusPaymentRequired, gin.H{"error": "payment is required for priced manuals"})
-			return
-		}
+	if req.PaymentID != nil {
 		payID, err := uuid.Parse(*req.PaymentID)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid payment_id"})
-			return
-		}
-		paymentRecord, err := server.store.GetPayment(ctx, payID)
-		if err != nil {
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "payment not found"})
-			return
-		}
-		if paymentRecord.StudentID != studentID {
-			ctx.JSON(http.StatusForbidden, gin.H{"error": "payment does not belong to you"})
-			return
-		}
-		if paymentRecord.Status != "completed" {
-			ctx.JSON(http.StatusPaymentRequired, gin.H{"error": "payment has not been completed"})
 			return
 		}
 		paymentIDPtr = &payID
@@ -744,18 +726,12 @@ func (server *Server) enrollPractical(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, enrollment)
 }
 
-// ─── Generate Cover PDF (Student downloads personalized cover) ───
+// ─── Generate Cover PDF (Student downloads personalized cover, Admin can also download) ───
 
 func (server *Server) downloadManualCover(ctx *gin.Context) {
 	purchaseID, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid purchase ID"})
-		return
-	}
-
-	studentID, err := server.getStudentIDFromUser(ctx)
-	if err != nil {
-		ctx.JSON(http.StatusForbidden, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -771,9 +747,13 @@ func (server *Server) downloadManualCover(ctx *gin.Context) {
 		return
 	}
 
-	if purchase.StudentID != studentID {
-		ctx.JSON(http.StatusForbidden, gin.H{"error": "not your purchase"})
-		return
+	// Students can only download their own cover; staff/admin can download any.
+	if !isStaffCaller(ctx) {
+		studentID, err := server.getStudentIDFromUser(ctx)
+		if err != nil || purchase.StudentID != studentID {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "not your purchase"})
+			return
+		}
 	}
 
 	manual, err := queries.GetManual(ctx, purchase.ManualID)
@@ -782,13 +762,14 @@ func (server *Server) downloadManualCover(ctx *gin.Context) {
 		return
 	}
 
-	student, err := queries.GetStudentByUserIDFull(ctx, getUserID(ctx))
+	// Fetch the student who owns the purchase (not necessarily the caller).
+	student, err := queries.GetStudent(ctx, purchase.StudentID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "student profile not found"})
 		return
 	}
 
-	user, err := server.users.GetByID(ctx, getUserID(ctx))
+	user, err := server.users.GetByID(ctx, student.UserID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "user not found"})
 		return
@@ -804,14 +785,25 @@ func (server *Server) downloadManualCover(ctx *gin.Context) {
 		}
 	}
 
+	// Resolve session and semester names from the manual record
+	sessionName := "2025/2026"
+	semesterName := "Second Semester"
+	if manual.SessionID.Valid {
+		if sess, err := queries.GetSession(ctx, uuid.UUID(manual.SessionID.Bytes)); err == nil {
+			sessionName = sess.Name
+		}
+	}
+
 	pdfBytes, err := utils.GenerateManualCover(utils.CoverPageInput{
-		StudentName:   user.FullName,
-		RegNo:         student.MatricNumber,
-		Department:    "Computer Engineering",
-		Level:         int(manual.Level),
-		CourseCode:    courseCode,
-		CourseTitle:   courseTitle,
-		QRCodeData:    purchase.QrCodeData,
+		StudentName: user.FullName,
+		RegNo:       student.MatricNumber,
+		Department:  "Computer Engineering",
+		Level:       int(manual.Level),
+		CourseCode:  courseCode,
+		CourseTitle: courseTitle,
+		Session:     sessionName,
+		Semester:    semesterName,
+		QRCodeData:  purchase.QrCodeData,
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
