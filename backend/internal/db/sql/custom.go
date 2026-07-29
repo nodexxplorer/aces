@@ -234,6 +234,7 @@ type ListAllResultsRow struct {
 	CourseCode     string     `json:"courseCode"`
 	CourseTitle    string     `json:"courseTitle"`
 	StudentName    string     `json:"studentName"`
+	MatricNumber   string     `json:"matric_number"`
 }
 
 func (q *Queries) ListAllResults(ctx context.Context, limit, offset int32) ([]ListAllResultsRow, error) {
@@ -244,7 +245,8 @@ func (q *Queries) ListAllResults(ctx context.Context, limit, offset int32) ([]Li
 			r.is_carryover, r.created_at::text,
 			COALESCE(c.code, '') as course_code,
 			COALESCE(c.title, '') as course_title,
-			COALESCE(u.full_name, '') as student_name
+			COALESCE(u.full_name, '') as student_name,
+			COALESCE(s.matric_number, r.matric_number, '') as matric_number
 		FROM results r
 		LEFT JOIN courses c ON c.id = r.course_id
 		LEFT JOIN students s ON s.id = r.student_id
@@ -264,7 +266,7 @@ func (q *Queries) ListAllResults(ctx context.Context, limit, offset int32) ([]Li
 			&i.CaScore, &i.ExamScore, &i.TotalScore,
 			&i.Grade, &i.GradePoint, &i.Status, &i.ApprovedBy, &i.RejectionReason,
 			&i.IsCarryover, &i.CreatedAt,
-			&i.CourseCode, &i.CourseTitle, &i.StudentName,
+			&i.CourseCode, &i.CourseTitle, &i.StudentName, &i.MatricNumber,
 		); err != nil {
 			return nil, err
 		}
@@ -274,6 +276,12 @@ func (q *Queries) ListAllResults(ctx context.Context, limit, offset int32) ([]Li
 		return nil, err
 	}
 	return items, nil
+}
+
+// DeleteResult permanently removes a result record.
+func (q *Queries) DeleteResult(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, `DELETE FROM results WHERE id = $1`, id)
+	return err
 }
 
 // ==================== LIST USERS WITH STUDENT DATA ====================

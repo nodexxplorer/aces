@@ -21,6 +21,11 @@ export const getPaymentByReference = async (reference: string) => {
   return unwrap<Payment>(res);
 };
 
+export const getMyPaymentByReference = async (reference: string) => {
+  const res = await apiClient.get('/payments/my-reference', { params: { reference } });
+  return unwrap<Payment>(res);
+};
+
 export const getStudentPaymentSummary = async (studentId: string) => {
   const res = await apiClient.get(`/payments/summary/${studentId}`);
   return unwrap<{ total_paid: number; total_pending: number; amount_paid: number; amount_pending: number }>(res);

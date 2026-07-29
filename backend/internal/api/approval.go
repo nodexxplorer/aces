@@ -134,18 +134,33 @@ func (server *Server) approveSignup(ctx *gin.Context) {
 		return
 	}
 
+	now := time.Now()
+
 	// Try getting approval by user_id first, then fallback to approval ID
 	approval, err := server.store.GetSignupApprovalByUserId(ctx, id)
 	if err != nil {
-		approval, err = server.store.GetSignupApproval(ctx, id)
-		if err != nil {
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "approval record not found"})
+		approval2, err2 := server.store.GetSignupApproval(ctx, id)
+		if err2 != nil {
+			// No signup_approvals record — user was created directly by admin.
+			// Approve them directly by updating the users table.
+			targetUserID := id
+			_, err3 := server.store.ApproveUserStatus(ctx, db.ApproveUserStatusParams{
+				ID:         targetUserID,
+				IsApproved: true,
+				ApprovedBy: pgtype.UUID{Bytes: adminID, Valid: true},
+				ApprovedAt: pgtype.Timestamptz{Time: now, Valid: true},
+			})
+			if err3 != nil {
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+				return
+			}
+			ctx.JSON(http.StatusOK, gin.H{"message": "user approved successfully"})
 			return
 		}
+		approval = approval2
 	}
 
-	// 2. Update status of the approval request to 'approved'
-	now := time.Now()
+	// Update the signup_approvals record
 	_, err = server.store.UpdateSignupApproval(ctx, db.UpdateSignupApprovalParams{
 		ID:         approval.ID,
 		Status:     "approved",
@@ -157,7 +172,7 @@ func (server *Server) approveSignup(ctx *gin.Context) {
 		return
 	}
 
-	// 3. Set the corresponding user to approved
+	// Set the corresponding user to approved
 	_, err = server.store.ApproveUserStatus(ctx, db.ApproveUserStatusParams{
 		ID:         approval.UserID,
 		IsApproved: true,
@@ -193,18 +208,31 @@ func (server *Server) rejectSignup(ctx *gin.Context) {
 		return
 	}
 
-	// Try getting approval by user_id first, then fallback to approval ID
+	now := time.Now()
+
 	approval, err := server.store.GetSignupApprovalByUserId(ctx, id)
 	if err != nil {
-		approval, err = server.store.GetSignupApproval(ctx, id)
-		if err != nil {
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "approval record not found"})
+		approval2, err2 := server.store.GetSignupApproval(ctx, id)
+		if err2 != nil {
+			// No signup_approvals record — reject directly.
+			targetUserID := id
+			_, err3 := server.store.ApproveUserStatus(ctx, db.ApproveUserStatusParams{
+				ID:         targetUserID,
+				IsApproved: false,
+				ApprovedBy: pgtype.UUID{Bytes: adminID, Valid: true},
+				ApprovedAt: pgtype.Timestamptz{Time: now, Valid: true},
+			})
+			if err3 != nil {
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+				return
+			}
+			ctx.JSON(http.StatusOK, gin.H{"message": "user rejected successfully"})
 			return
 		}
+		approval = approval2
 	}
 
 	// 2. Update status of the approval request to 'rejected'
-	now := time.Now()
 	_, err = server.store.UpdateSignupApproval(ctx, db.UpdateSignupApprovalParams{
 		ID:              approval.ID,
 		Status:          "rejected",

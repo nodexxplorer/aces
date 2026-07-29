@@ -90,18 +90,24 @@ export default function StudyPlannerPage() {
   };
 
   const handleStatusChange = async (task: StudyTask, nextStatus: Status) => {
+    setError('');
     try {
       await updateStudyTask(task.id, { status: nextStatus });
-      await fetchTasks();
+      // Optimistically update local state immediately
+      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: nextStatus } : t));
+      // Refetch in background to sync with server — don't surface errors here
+      fetchTasks().catch(() => {});
     } catch {
       setError('Failed to update task status');
     }
   };
 
   const handleDelete = async (taskId: string) => {
+    setError('');
     try {
       await deleteStudyTask(taskId);
-      await fetchTasks();
+      setTasks(prev => prev.filter(t => t.id !== taskId));
+      fetchTasks().catch(() => {});
     } catch {
       setError('Failed to delete task');
     }

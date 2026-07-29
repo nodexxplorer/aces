@@ -4,7 +4,6 @@ import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
 import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
-import { getUsers } from '../../api/users';
 import { getCourses } from '../../api/courses';
 import { getSessions, listSessionSemesters } from '../../api/sessions';
 import {
@@ -15,15 +14,17 @@ import {
   removeCourseFromRegistration,
   updateRegistrationStatus,
 } from '../../api/course-registrations';
+import { searchStudentsForRoles } from '../../api/role-management';
 import { useNotification } from '../../hooks/useNotification';
 import { BookOpen, User, Plus, Trash2, CheckCircle, XCircle, Loader2, Search } from 'lucide-react';
-import type { User as UserType, Course, AcademicSession, SemesterEntry } from '../../types';
+import type { Course, AcademicSession, SemesterEntry, StudentForRoleManagement } from '../../types';
 
 const AdminCourseRegistrationsPage = () => {
   const { success, error: notifyError } = useNotification();
 
-  const [students, setStudents] = useState<UserType[]>([]);
-  const [selectedStudentId, setSelectedStudentId] = useState<string>('');
+  const [students, setStudents] = useState<StudentForRoleManagement[]>([]);
+  const [selectedStudentId, setSelectedStudentId] = useState<string>(''); // stores student_id (students table UUID)
+  const [selectedStudentUserId, setSelectedStudentUserId] = useState<string>(''); // stores user.id for display
   const [studentSearch, setStudentSearch] = useState<string>('');
 
   const [sessions, setSessions] = useState<AcademicSession[]>([]);
@@ -54,11 +55,8 @@ const AdminCourseRegistrationsPage = () => {
   // Load students, sessions, all courses
   useEffect(() => {
     setLoadingStudents(true);
-    getUsers({ role: 'student', page_size: 100 })
-      .then((res) => {
-        const list = Array.isArray(res) ? res : ((res as any)?.data ?? []);
-        setStudents(list);
-      })
+    searchStudentsForRoles({ per_page: 200 })
+      .then((res) => setStudents(res.data))
       .catch(() => notifyError('Error', 'Failed to load students list'))
       .finally(() => setLoadingStudents(false));
 
@@ -196,13 +194,14 @@ const AdminCourseRegistrationsPage = () => {
   };
 
   const filteredStudents = students.filter((s) => {
-    const name = (s.fullName || `${s.firstName || ''} ${s.lastName || ''}`).toLowerCase();
+    const name = (s.full_name || '').toLowerCase();
     const email = (s.email || '').toLowerCase();
+    const matric = (s.matric_number || '').toLowerCase();
     const q = studentSearch.toLowerCase();
-    return name.includes(q) || email.includes(q);
+    return name.includes(q) || email.includes(q) || matric.includes(q);
   });
 
-  const selectedStudentObj = students.find((s) => s.id === selectedStudentId);
+  const selectedStudentObj = students.find((s) => s.student_id === selectedStudentId);
   const activeRegCourses = activeRegistration ? registeredCoursesMap[activeRegistration.id] || [] : [];
 
   return (
@@ -241,12 +240,15 @@ const AdminCourseRegistrationsPage = () => {
           ) : (
             <div className="space-y-1 max-h-[450px] overflow-y-auto pr-1">
               {filteredStudents.map((s) => {
-                const name = s.fullName || `${s.firstName || ''} ${s.lastName || ''}`.trim() || s.email;
-                const isSelected = s.id === selectedStudentId;
+                const name = s.full_name || s.email;
+                const isSelected = s.student_id === selectedStudentId;
                 return (
                   <button
                     key={s.id}
-                    onClick={() => setSelectedStudentId(s.id)}
+                    onClick={() => {
+                      setSelectedStudentId(s.student_id);
+                      setSelectedStudentUserId(s.id);
+                    }}
                     className={`w-full text-left p-2.5 rounded-lg text-sm transition-all ${
                       isSelected
                         ? 'bg-primary-500 text-white font-medium shadow-sm'
@@ -255,7 +257,7 @@ const AdminCourseRegistrationsPage = () => {
                   >
                     <p className="truncate font-semibold">{name}</p>
                     <p className={`text-xs truncate ${isSelected ? 'text-primary-100' : 'text-surface-400'}`}>
-                      {s.email}
+                      {s.matric_number ? `${s.matric_number} · ${s.email}` : s.email}
                     </p>
                   </button>
                 );
@@ -278,7 +280,7 @@ const AdminCourseRegistrationsPage = () => {
               <Card glass className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
                   <h3 className="font-bold text-lg text-surface-900 dark:text-surface-100">
-                    {selectedStudentObj?.fullName || selectedStudentObj?.email}
+                    {selectedStudentObj?.full_name || selectedStudentObj?.email}
                   </h3>
                   <p className="text-xs text-surface-400">Student ID: {selectedStudentId}</p>
                 </div>
@@ -460,7 +462,7 @@ const AdminCourseRegistrationsPage = () => {
       >
         <div className="space-y-4">
           <p className="text-xs text-surface-400">
-            Create an official registration session/semester record for student: <span className="font-semibold text-surface-700 dark:text-surface-200">{selectedStudentObj?.fullName || selectedStudentObj?.email}</span>
+            Create an official registration session/semester record for student: <span className="font-semibold text-surface-700 dark:text-surface-200">{selectedStudentObj?.full_name || selectedStudentObj?.email}</span>
           </p>
 
           <Select

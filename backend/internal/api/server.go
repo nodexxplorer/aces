@@ -334,6 +334,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		results.GET("/course/:course_id/session/:session_id", server.listCourseResults)
 		results.PUT("/:id", middleware.RequireRoles("lecturer", "hod", "delegated_admin"), server.updateResult)
 		results.PUT("/:id/status", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateResultStatus)
+		results.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteResult)
 		results.POST("/:id/audit-logs", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createResultAuditLog)
 		results.GET("/:id/audit-logs", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listResultAuditLogs)
 	}
@@ -404,6 +405,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		payments.GET("/student/:student_id", server.listStudentPayments)
 		payments.GET("/summary/:student_id", server.getStudentPaymentSummary)
 		payments.GET("/check-paid", server.checkDuePaid)
+		payments.GET("/my-reference", middleware.RequireRoles("student"), server.getMyPaymentByReference)
 		payments.GET("/by-reference", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.getPaymentByReference)
 		payments.GET("/defaulters", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.listDefaulters)
 		payments.GET("/recent-verified", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.listRecentVerifiedPayments)
@@ -492,7 +494,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		// Student purchase flow
 		manualsGroup.POST("/purchase", middleware.RequireRoles("student"), server.purchaseManual)
 		manualsGroup.GET("/my-purchases", middleware.RequireRoles("student"), server.listMyPurchases)
-		manualsGroup.GET("/:id/cover", middleware.RequireRoles("student"), server.downloadManualCover)
+		manualsGroup.GET("/:id/cover", server.downloadManualCover)
 
 		// Admin: bought list & print queue
 		manualsGroup.GET("/:id/purchases", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.listManualPurchasesByManual)

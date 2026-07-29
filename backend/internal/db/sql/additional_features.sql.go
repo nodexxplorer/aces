@@ -3050,7 +3050,7 @@ const updateStudyTask = `-- name: UpdateStudyTask :exec
 UPDATE study_tasks
 SET title = $3, description = $4, priority = $5, status = $6,
     due_date = $7, reminder_at = $8,
-    completed_at = CASE WHEN $6 = 'completed' THEN NOW() ELSE completed_at END,
+    completed_at = CASE WHEN $6::text = 'completed' THEN NOW() ELSE completed_at END,
     updated_at = NOW()
 WHERE id = $1 AND user_id = $2
 `

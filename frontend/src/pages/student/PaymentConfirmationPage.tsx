@@ -3,7 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { CheckCircle, Clock, XCircle, ArrowLeft } from 'lucide-react';
-import { getPaymentByReference } from '../../api/payments';
+import { getMyPaymentByReference } from '../../api/payments';
 import type { Payment } from '../../types';
 
 const PaymentConfirmationPage = () => {
@@ -20,7 +20,7 @@ const PaymentConfirmationPage = () => {
 
     const verify = async () => {
       try {
-        const data = await getPaymentByReference(reference);
+        const data = await getMyPaymentByReference(reference);
         setPayment(data);
         if (data?.status === 'completed') {
           setStatus('success');

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"time"
@@ -341,6 +342,23 @@ func (server *Server) login(ctx *gin.Context) {
 	}
 
 	server.setTokenCookies(ctx, &resp.Tokens)
+
+	// Fire-and-forget: notify the user of successful login
+	go func() {
+		_, _ = server.notificationsFull.CreateAndPush(
+			context.Background(),
+			user.ID,
+			"AUTH_LOGIN_SUCCESS",
+			"auth",
+			"low",
+			"Login Successful",
+			"You have successfully signed in to ACES Zone.",
+			"/dashboard",
+			"Go to Dashboard",
+			nil, nil, nil, nil,
+		)
+	}()
+
 	ctx.JSON(http.StatusOK, gin.H{"data": resp})
 }
 
