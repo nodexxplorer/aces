@@ -218,28 +218,30 @@ func (q *Queries) DeleteUserHard(ctx context.Context, userID uuid.UUID) error {
 
 // ListAllResults fetches all results with course code and student name joined.
 type ListAllResultsRow struct {
-	ID             uuid.UUID  `json:"id"`
-	StudentID      *uuid.UUID `json:"student_id"`
-	CourseID       uuid.UUID  `json:"course_id"`
-	CaScore        string     `json:"ca_score"`
-	ExamScore      string     `json:"exam_score"`
-	TotalScore     string     `json:"total_score"`
-	Grade          string     `json:"grade"`
-	GradePoint     float64    `json:"grade_point"`
-	Status         string     `json:"status"`
-	ApprovedBy     *uuid.UUID `json:"approved_by"`
-	RejectionReason *string   `json:"rejection_reason"`
-	IsCarryover    bool       `json:"is_carryover"`
-	CreatedAt      string     `json:"created_at"`
-	CourseCode     string     `json:"courseCode"`
-	CourseTitle    string     `json:"courseTitle"`
-	StudentName    string     `json:"studentName"`
-	MatricNumber   string     `json:"matric_number"`
+	ID              uuid.UUID  `json:"id"`
+	StudentID       *uuid.UUID `json:"student_id"`
+	CourseID        uuid.UUID  `json:"course_id"`
+	SessionID       *uuid.UUID `json:"session_id"`
+	SemesterID      *uuid.UUID `json:"semester_id"`
+	CaScore         string     `json:"ca_score"`
+	ExamScore       string     `json:"exam_score"`
+	TotalScore      string     `json:"total_score"`
+	Grade           string     `json:"grade"`
+	GradePoint      float64    `json:"grade_point"`
+	Status          string     `json:"status"`
+	ApprovedBy      *uuid.UUID `json:"approved_by"`
+	RejectionReason *string    `json:"rejection_reason"`
+	IsCarryover     bool       `json:"is_carryover"`
+	CreatedAt       string     `json:"created_at"`
+	CourseCode      string     `json:"courseCode"`
+	CourseTitle     string     `json:"courseTitle"`
+	StudentName     string     `json:"studentName"`
+	MatricNumber    string     `json:"matric_number"`
 }
 
 func (q *Queries) ListAllResults(ctx context.Context, limit, offset int32) ([]ListAllResultsRow, error) {
 	rows, err := q.db.Query(ctx, `
-		SELECT r.id, r.student_id, r.course_id,
+		SELECT r.id, r.student_id, r.course_id, r.session_id, r.semester_id,
 			r.ca_score::text, r.exam_score::text, r.total_score::text,
 			r.grade, r.grade_point, r.status, r.approved_by, r.rejection_reason,
 			r.is_carryover, r.created_at::text,
@@ -262,7 +264,7 @@ func (q *Queries) ListAllResults(ctx context.Context, limit, offset int32) ([]Li
 	for rows.Next() {
 		var i ListAllResultsRow
 		if err := rows.Scan(
-			&i.ID, &i.StudentID, &i.CourseID,
+			&i.ID, &i.StudentID, &i.CourseID, &i.SessionID, &i.SemesterID,
 			&i.CaScore, &i.ExamScore, &i.TotalScore,
 			&i.Grade, &i.GradePoint, &i.Status, &i.ApprovedBy, &i.RejectionReason,
 			&i.IsCarryover, &i.CreatedAt,

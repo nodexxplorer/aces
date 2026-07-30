@@ -50,18 +50,47 @@ const BulkUploadPage = () => {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
-    if (selected) {
-      setFile(selected);
-      // Simulate file parsing
-      setTimeout(() => {
-        setPreviewData([
-          { matricNumber: 'ENG/2021/001', name: 'John Doe', ca: 25, exam: 54 },
-          { matricNumber: 'ENG/2021/002', name: 'Jane Smith', ca: 32, exam: 40, error: 'CA score exceeds 30' },
-          { matricNumber: 'ENG/2021/003', name: 'Bob Alabi', ca: 18, exam: 72, error: 'Exam score exceeds 70' },
-        ]);
-        success('File Parsed', 'Found 3 grade records. View details below.');
-      }, 1000);
-    }
+    if (!selected) return;
+    setFile(selected);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const lines = text.trim().split('\n').filter((l) => l.trim());
+      if (lines.length < 2) {
+        error('Invalid CSV', 'CSV file is empty or missing data rows.');
+        return;
+      }
+      const header = lines[0].toLowerCase().split(',').map((h) => h.trim());
+      const matricIdx = header.findIndex((h) => h.includes('matric'));
+      const nameIdx = header.findIndex((h) => h.includes('name'));
+      const caIdx = header.findIndex((h) => h.includes('ca'));
+      const examIdx = header.findIndex((h) => h.includes('exam'));
+
+      if (matricIdx === -1 || caIdx === -1 || examIdx === -1) {
+        error('Invalid CSV Headers', 'Headers must include Matric Number, CA, and Exam columns.');
+        return;
+      }
+
+      const rows: PreviewRow[] = lines.slice(1).map((line) => {
+        const cols = line.split(',').map((c) => c.trim());
+        const matricNumber = cols[matricIdx] || '';
+        const name = nameIdx !== -1 ? cols[nameIdx] : '—';
+        const ca = parseFloat(cols[caIdx] || '0');
+        const exam = parseFloat(cols[examIdx] || '0');
+
+        let err: string | undefined;
+        if (!matricNumber) err = 'Missing Matric Number';
+        else if (isNaN(ca) || ca < 0 || ca > 30) err = 'CA score must be 0–30';
+        else if (isNaN(exam) || exam < 0 || exam > 70) err = 'Exam score must be 0–70';
+        else if (ca + exam > 100) err = 'Total score exceeds 100';
+
+        return { matricNumber, name, ca: isNaN(ca) ? 0 : ca, exam: isNaN(exam) ? 0 : exam, error: err };
+      });
+
+      setPreviewData(rows);
+      success('File Parsed', `Found ${rows.length} grade records.`);
+    };
+    reader.readAsText(selected);
   };
 
   const handleCommit = async () => {
@@ -71,12 +100,32 @@ const BulkUploadPage = () => {
       return;
     }
 
+    const selAssign = assignments.find((a) => a.course_id === course);
+    if (!selAssign) {
+      error('Missing Course', 'Select an assigned course.');
+      return;
+    }
+
     setCommitting(true);
+    let successCount = 0;
     try {
-      await new Promise((r) => setTimeout(r, 1500));
-      success('Grades Committed', 'Successfully imported bulk Excel grading list.');
+      const { enterScore } = await import('../../api/results');
+      for (const row of previewData) {
+        await enterScore({
+          courseId: selAssign.course_id,
+          sessionId: selAssign.session_id,
+          semesterId: (selAssign as any).semester_id || (selAssign as any).semesterId || '',
+          caScore: row.ca,
+          examScore: row.exam,
+          matricNumber: row.matricNumber,
+        });
+        successCount++;
+      }
+      success('Grades Committed', `Successfully uploaded ${successCount} grade records.`);
       setFile(null);
       setPreviewData([]);
+    } catch (err: any) {
+      error('Upload Error', err?.response?.data?.error || err?.message || 'Failed to submit some grades');
     } finally {
       setCommitting(false);
     }

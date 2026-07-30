@@ -200,6 +200,8 @@ type updateUserRequest struct {
 	FirstNameCamel  *string `json:"firstName"`
 	LastName        *string `json:"last_name"`
 	LastNameCamel   *string `json:"lastName"`
+	FullName        *string `json:"fullName"`
+	FullNameSnake   *string `json:"full_name"`
 	Phone           *string `json:"phone"`
 	AvatarUrl       *string `json:"avatar_url"`
 	AvatarUrlCamel  *string `json:"avatarUrl"`
@@ -252,6 +254,23 @@ func (server *Server) updateUser(ctx *gin.Context) {
 		lastName = req.LastName
 	} else if req.LastNameCamel != nil {
 		lastName = req.LastNameCamel
+	}
+
+	fn := req.FullName
+	if fn == nil {
+		fn = req.FullNameSnake
+	}
+	if fn != nil && *fn != "" {
+		parts := strings.SplitN(strings.TrimSpace(*fn), " ", 2)
+		f := parts[0]
+		firstName = &f
+		if len(parts) > 1 {
+			l := parts[1]
+			lastName = &l
+		} else {
+			empty := ""
+			lastName = &empty
+		}
 	}
 
 	var avatarUrl *string
