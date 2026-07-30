@@ -23,7 +23,7 @@ type CreateTimetableInput struct {
 	EndTime      string
 	Venue        string
 	Level        int32
-	DayOfWeek    int32
+	DayOfWeek    *int32
 	EntryType    string
 	ClassType    *string
 	ExamType     *string
@@ -69,7 +69,7 @@ type UpdateTimetableInput struct {
 	EndTime      string
 	Venue        string
 	Level        int32
-	DayOfWeek    int32
+	DayOfWeek    *int32
 	EntryType    string
 	ClassType    *string
 	ExamType     *string

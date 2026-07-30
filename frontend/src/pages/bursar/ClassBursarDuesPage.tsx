@@ -48,7 +48,6 @@ const ClassBursarDuesPage = () => {
         type: 'class_dues',
         amount,
         level: level ? parseInt(level) : undefined,
-        created_by: user.id,
       });
       success('Due Created', 'Class due created successfully');
       setName('');

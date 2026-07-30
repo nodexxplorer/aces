@@ -64,7 +64,6 @@ export default function DuesPage() {
         type: activeTab,
         amount,
         level: level ? parseInt(level) : undefined,
-        created_by: user.id,
       });
       success('Due Created', `${TAB_CONFIG[activeTab].title.replace(' Dues', ' due')} created successfully`);
       setName(''); setAmount(''); setDescription(''); setLevel('');

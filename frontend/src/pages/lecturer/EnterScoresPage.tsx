@@ -1,60 +1,74 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Select from '../../components/ui/Select';
 import Button from '../../components/ui/Button';
 import { useNotification } from '../../hooks/useNotification';
+import { useAuth } from '../../hooks/useAuth';
 import { calculateGrade } from '../../utils/cgpa';
-import { Save, AlertCircle } from 'lucide-react';
+import { Save, AlertCircle, Loader2 } from 'lucide-react';
+import { listLecturerAssignments, type LecturerAssignment } from '../../api/lecturers';
+import { getCourseResults, updateScore } from '../../api/results';
 
-interface StudentScoreRow {
-  studentId: string;
-  matricNumber: string;
-  name: string;
-  ca: string;
-  exam: string;
-}
-
-const mockClassList: StudentScoreRow[] = [
-  { studentId: 'stud-1', matricNumber: 'ENG/2021/001', name: 'John Doe', ca: '25', exam: '50' },
-  { studentId: 'stud-2', matricNumber: 'ENG/2021/002', name: 'Jane Smith', ca: '20', exam: '45' },
-  { studentId: 'stud-3', matricNumber: 'ENG/2021/003', name: 'Bob Alabi', ca: '18', exam: '38' },
-];
+interface Row { resultId?: string; matricNumber: string; name: string; ca: string; exam: string; }
 
 const EnterScoresPage = () => {
-  const { success, warning } = useNotification();
-  const [course, setCourse] = useState('cpe511');
-  const [scores, setScores] = useState<StudentScoreRow[]>(mockClassList);
+  const { user } = useAuth();
+  const { success, warning, error: notifyError } = useNotification();
+  const [assignments, setAssignments] = useState<LecturerAssignment[]>([]);
+  const [selectedId, setSelectedId] = useState('');
+  const [rows, setRows] = useState<Row[]>([]);
+  const [loadingA, setLoadingA] = useState(true);
+  const [loadingR, setLoadingR] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const handleScoreChange = (idx: number, field: 'ca' | 'exam', val: string) => {
-    // Validate character matches digit
-    if (val !== '' && !/^\d+$/.test(val)) return;
+  useEffect(() => {
+    if (!user?.id) return;
+    listLecturerAssignments(user.id)
+      .then((d) => { const a = Array.isArray(d) ? d : []; setAssignments(a); if (a.length) setSelectedId(a[0].id); })
+      .catch(() => notifyError('Error', 'Failed to load assignments'))
+      .finally(() => setLoadingA(false));
+  }, [user?.id]);
 
-    setScores((prev) => {
-      const copy = [...prev];
-      copy[idx] = { ...copy[idx], [field]: val };
-      return copy;
-    });
+  const sel = assignments.find((a) => a.id === selectedId);
+
+  const load = useCallback(async () => {
+    if (!sel) return;
+    setLoadingR(true);
+    try {
+      const res = await getCourseResults(sel.course_id, sel.session_id);
+      setRows((res || []).map((r: any) => ({
+        resultId: r.id,
+        matricNumber: r.matric_number || r.matricNumber || '—',
+        name: r.student_name || r.studentName || '—',
+        ca: String(r.ca_score ?? r.caScore ?? ''),
+        exam: String(r.exam_score ?? r.examScore ?? ''),
+      })));
+    } catch { setRows([]); }
+    finally { setLoadingR(false); }
+  }, [sel?.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const change = (i: number, f: 'ca' | 'exam', v: string) => {
+    if (v !== '' && !/^\d+(\.\d*)?$/.test(v)) return;
+    setRows((p) => { const c = [...p]; c[i] = { ...c[i], [f]: v }; return c; });
   };
 
   const handleSave = async () => {
-    // Check constraints
-    for (const r of scores) {
-      const caVal = parseInt(r.ca || '0');
-      const examVal = parseInt(r.exam || '0');
-      if (caVal > 30 || examVal > 70) {
-        warning('Input Error', `CA score must be <= 30 and Exam score must be <= 70. Check details for ${r.name}.`);
-        return;
-      }
+    for (const r of rows) {
+      const ca = parseFloat(r.ca || '0'), exam = parseFloat(r.exam || '0');
+      if (ca > 30 || exam > 70) { warning('Input Error', `CA ≤ 30, Exam ≤ 70. Check ${r.name}.`); return; }
     }
-
     setSaving(true);
-    try {
-      await new Promise((r) => setTimeout(r, 1200));
-      success('Grades Saved', 'Students academic score registry successfully updated.');
-    } finally {
-      setSaving(false);
+    let ok = 0, fail = 0;
+    for (const r of rows) {
+      if (!r.resultId) continue;
+      try { await updateScore(r.resultId, { caScore: parseFloat(r.ca || '0'), examScore: parseFloat(r.exam || '0') }); ok++; }
+      catch { fail++; }
     }
+    setSaving(false);
+    if (!fail) success('Saved', `${ok} score(s) updated.`);
+    else notifyError('Partial', `${ok} saved, ${fail} failed.`);
   };
 
   return (
@@ -62,81 +76,51 @@ const EnterScoresPage = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Enter Class Scores</h1>
-          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-            Input continuous assessments and examination scores directly.
-          </p>
+          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Update CA and exam scores for your course.</p>
         </div>
-        <Button isLoading={saving} onClick={handleSave} leftIcon={<Save className="w-4 h-4" />}>
-          Save Changes
-        </Button>
+        <Button isLoading={saving} onClick={handleSave} leftIcon={<Save className="w-4 h-4" />} disabled={!rows.length}>Save Changes</Button>
       </div>
-
       <Card>
         <CardHeader className="flex-row items-center justify-between gap-4">
-          <div>
-            <CardTitle>Score Sheet</CardTitle>
-            <CardDescription>Spreadsheet-like interface for grade submissions</CardDescription>
-          </div>
-          <Select
-            options={[
-              { value: 'cpe511', label: 'CPE 511 (Embedded Systems)' },
-              { value: 'cpe513', label: 'CPE 513 (Computer Architecture II)' },
-            ]}
-            value={course}
-            onChange={(e) => setCourse(e.target.value)}
-          />
+          <div><CardTitle>Score Sheet</CardTitle><CardDescription>Edit scores for the selected course</CardDescription></div>
+          {loadingA ? <Loader2 className="w-5 h-5 animate-spin text-primary-500" /> : (
+            <Select options={assignments.map((a) => ({ value: a.id, label: `${a.course_code} — ${a.course_title}` }))}
+              value={selectedId} onChange={(e) => setSelectedId(e.target.value)} placeholder="Select course" />
+          )}
         </CardHeader>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-surface-50 dark:bg-surface-800/50 border-b border-surface-200 dark:border-surface-700">
-                <th className="text-left px-6 py-3 text-xs font-semibold text-surface-500 uppercase">Matric Number</th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-surface-500 uppercase">Name</th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-surface-500 uppercase w-28">CA (30)</th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-surface-500 uppercase w-28">Exam (70)</th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-surface-500 uppercase w-24">Total</th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-surface-500 uppercase w-24">Grade</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-surface-150 dark:divide-surface-800/80">
-              {scores.map((row, idx) => {
-                const caVal = parseInt(row.ca || '0');
-                const examVal = parseInt(row.exam || '0');
-                const total = caVal + examVal;
-                const isError = caVal > 30 || examVal > 70;
-                const grade = calculateGrade(total);
-
-                return (
-                  <tr key={row.studentId} className={isError ? 'bg-danger-500/5' : ''}>
-                    <td className="px-6 py-4 font-semibold text-surface-900 dark:text-white">{row.matricNumber}</td>
-                    <td className="px-6 py-4 text-surface-700 dark:text-surface-300">{row.name}</td>
-                    <td className="px-6 py-2">
-                      <input
-                        type="text"
-                        value={row.ca}
-                        maxLength={2}
-                        onChange={(e) => handleScoreChange(idx, 'ca', e.target.value)}
-                        className={`w-20 px-2 py-1 text-sm bg-white dark:bg-surface-900 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 ${caVal > 30 ? 'border-danger-500 focus:border-danger-500' : 'border-surface-300 dark:border-surface-600 focus:border-primary-500'}`}
-                      />
-                    </td>
-                    <td className="px-6 py-2">
-                      <input
-                        type="text"
-                        value={row.exam}
-                        maxLength={2}
-                        onChange={(e) => handleScoreChange(idx, 'exam', e.target.value)}
-                        className={`w-20 px-2 py-1 text-sm bg-white dark:bg-surface-900 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 ${examVal > 70 ? 'border-danger-500 focus:border-danger-500' : 'border-surface-300 dark:border-surface-600 focus:border-primary-500'}`}
-                      />
-                    </td>
-                    <td className="px-6 py-4 font-bold text-surface-900 dark:text-white">{isError ? '-' : total}</td>
-                    <td className="px-6 py-4 font-bold text-primary-500">{isError ? <AlertCircle className="w-5 h-5 text-danger-500" /> : grade}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        {loadingR ? (
+          <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-primary-500 mr-2" /><span className="text-sm text-surface-500">Loading scores...</span></div>
+        ) : rows.length === 0 ? (
+          <div className="text-center py-12 text-sm text-surface-400">No results found for this course. Submit via Single Entry first.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-surface-50 dark:bg-surface-800/50 border-b border-surface-200 dark:border-surface-700">
+                  {['Matric', 'Name', 'CA (30)', 'Exam (70)', 'Total', 'Grade'].map((h) => (
+                    <th key={h} className="text-left px-6 py-3 text-xs font-semibold text-surface-500 uppercase">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-100 dark:divide-surface-800">
+                {rows.map((r, i) => {
+                  const ca = parseFloat(r.ca || '0'), exam = parseFloat(r.exam || '0');
+                  const total = ca + exam, isErr = ca > 30 || exam > 70;
+                  return (
+                    <tr key={i} className={isErr ? 'bg-danger-500/5' : ''}>
+                      <td className="px-6 py-4 font-mono text-xs">{r.matricNumber}</td>
+                      <td className="px-6 py-4">{r.name}</td>
+                      <td className="px-6 py-2"><input type="text" value={r.ca} maxLength={4} onChange={(e) => change(i, 'ca', e.target.value)} className={`w-20 px-2 py-1 text-sm bg-white dark:bg-surface-900 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 ${ca > 30 ? 'border-danger-500' : 'border-surface-300 dark:border-surface-600'}`} /></td>
+                      <td className="px-6 py-2"><input type="text" value={r.exam} maxLength={4} onChange={(e) => change(i, 'exam', e.target.value)} className={`w-20 px-2 py-1 text-sm bg-white dark:bg-surface-900 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 ${exam > 70 ? 'border-danger-500' : 'border-surface-300 dark:border-surface-600'}`} /></td>
+                      <td className="px-6 py-4 font-bold">{isErr ? '-' : total}</td>
+                      <td className="px-6 py-4 font-bold text-primary-500">{isErr ? <AlertCircle className="w-5 h-5 text-danger-500" /> : calculateGrade(total)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
     </div>
   );
