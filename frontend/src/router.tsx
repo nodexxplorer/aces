@@ -242,7 +242,7 @@ export const router = createBrowserRouter([
 
           // Student-only routes (lecturers cannot access)
           {
-            element: <RoleRoute roles={['student', 'class_rep', 'hod', 'delegated_admin', 'admin', 'dept_bursar', 'class_bursar', 'alumni']} />,
+            element: <RoleRoute roles={['student', 'class_rep','dept_bursar', 'class_bursar', 'alumni']} />,
             children: [
               { path: '/results', element: <ResultsPage /> },
               { path: '/results/:id', element: <ResultDetailPage /> },

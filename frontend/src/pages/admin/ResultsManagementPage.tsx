@@ -8,7 +8,7 @@ import {
   Search, Loader2, Edit3, Save, X, CheckCircle, AlertTriangle,
   Upload, Download, FileSpreadsheet, CheckCircle2, XCircle, Trash2, Send, Database, PenLine
 } from 'lucide-react';
-import { getAllResults, updateScore, approveResult, enterScore, deleteResult } from '../../api/results';
+import { getAllResults, updateScore, approveResult, enterScore, deleteResult, getStudentResults } from '../../api/results';
 import { getCourses } from '../../api/courses';
 import { getSessions, listSessionSemesters } from '../../api/sessions';
 import { searchStudentsForRoles } from '../../api/role-management';
@@ -52,12 +52,9 @@ function ManageTab() {
     setSel(student); setExpKey(null); setEditId(null); setLoadingR(true);
     setSRes([]); setSemesterMap({});
     try {
-      const data = await getAllResults({ limit: 5000, offset: 0 });
-      const all = Array.isArray(data) ? data : [];
-      const filt = all.filter((r: any) =>
-        r.student_id === student.student_id ||
-        (r.matric_number || r.matricNumber || '') === (student.matric_number || '')
-      );
+      // Use getStudentResults to get the target student's results with full session_id and semester_id
+      const data = await getStudentResults(student.student_id || student.id);
+      const filt = Array.isArray(data) ? data : [];
       setSRes(filt);
       // Load semesters for each session in the results
       const sids = [...new Set(filt.map((r: any) => r.session_id).filter(Boolean))] as string[];
