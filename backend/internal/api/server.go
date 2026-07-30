@@ -364,7 +364,6 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		notifications.GET("/preferences", server.getMyNotificationPreferences)
 		notifications.PUT("/preferences", server.updateMyNotificationPreferences)
 		notifications.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createNotification)
-		notifications.POST("/broadcast", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.broadcastNotification)
 	}
 
 	timetables := api.Group("/timetable")
@@ -609,15 +608,6 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		classRep.GET("/attendance-sessions/mine", middleware.RequireRoles("class_rep"), server.listMyAttendanceSessions)
 		classRep.GET("/attendance-sessions/:id/checkins", middleware.RequireRoles("class_rep"), server.listAttendanceSessionCheckins)
 		classRep.POST("/checkin", middleware.RequireRoles("class_rep"), server.checkInStudent)
-
-		// Elections
-		classRep.POST("/elections", middleware.RequireRoles("hod", "admin"), server.createElection)
-		classRep.GET("/elections", server.listElections)
-		classRep.GET("/elections/:id", server.getElection)
-		classRep.POST("/elections/:id/nominate", middleware.RequireRoles("student"), server.nominateForElection)
-		classRep.POST("/elections/:id/vote", middleware.RequireRoles("student"), server.castVote)
-		classRep.PUT("/elections/:id/complete", middleware.RequireRoles("hod", "admin"), server.completeElection)
-		classRep.PUT("/nominees/:nominee_id/approve", middleware.RequireRoles("hod", "admin"), server.approveNominee)
 
 		// Reports
 		classRep.POST("/reports", middleware.RequireRoles("class_rep"), server.submitClassRepReport)

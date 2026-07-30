@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -674,4 +676,52 @@ func (server *Server) deleteHelpArticle(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "article deleted"})
+}
+
+// SeedHelpArticles inserts default help articles if the table is empty.
+func SeedHelpArticles(ctx context.Context, store db.Querier) error {
+	existing, err := store.ListHelpArticles(ctx)
+	if err != nil || len(existing) > 0 {
+		return err
+	}
+	q, ok := store.(*db.Queries)
+	if !ok {
+		return nil
+	}
+	t := true
+	type art struct{ cat, title, content string; ord int32 }
+	articles := []art{
+		{"Getting Started", "How to log in to ACES Zone", "1. Go to the ACES Zone login page.\n2. Enter your matric number or email and password.\n3. Click Sign In.\n\nForgot password? Click the Forgot Password link on the login page for OTP reset.", 1},
+		{"Getting Started", "Complete your onboarding profile", "After first login you are prompted to complete onboarding.\n1. Enter date of birth, phone number, admission mode, year admitted.\n2. Provide emergency contact name and phone.\n3. Enter home address.\n4. Click Submit.\nYou must complete onboarding before accessing all features.", 2},
+		{"Getting Started", "Why is my account pending approval?", "New accounts require approval by a department admin or class representative.\nYou will be notified once approved.\nIf pending for over 48 hours, contact your class rep or HOD.", 3},
+		{"Results", "How to view your academic results", "Navigate to Results in the sidebar.\nResults are grouped by session and semester.\nClick View on any row to expand the full course breakdown.\nClick Print to print a semester result slip.", 1},
+		{"Results", "What do result statuses mean?", "Pending: submitted by lecturer, not yet approved.\nApproved: verified and official.\nRejected: rejected by HOD, lecturer must resubmit.\nYour CGPA only includes approved results.", 2},
+		{"Results", "How to appeal a grade", "1. Go to Results in the sidebar.\n2. Click Grade Appeals.\n3. Select the course, provide your reason and evidence.\n4. Submit the appeal.\nThe lecturer and HOD will review it. You will be notified of the outcome.", 3},
+		{"Payments", "How to pay your dues", "1. Go to Payments and Dues.\n2. Switch to the Cart tab.\n3. Click Add next to any unpaid due.\n4. Click Pay Dues to proceed to Paystack.\n5. Complete payment. You will be redirected back automatically.", 1},
+		{"Payments", "What if my payment failed?", "Check your bank balance.\nReturn to Transactions and click Pay Now to retry the same payment.\nDo not pay multiple times for the same due. The system tracks your reference.", 2},
+		{"Payments", "How to purchase a lab manual", "1. Go to Manuals in the sidebar.\n2. Browse and click Add to Cart.\n3. Go to Payments Cart tab.\n4. Click Get Manuals.\nAfter purchase go to My Manuals for your QR code.", 3},
+		{"Course Registration", "How to register for courses", "1. Go to Course Registration in the sidebar.\n2. Select session and semester.\n3. Add courses and review total credit units.\n4. Submit for review.\nYour class rep or HOD will approve your registration.", 1},
+		{"Course Registration", "What is the credit unit limit?", "The maximum credit units per semester is set by your department. Typically 24 units per semester for undergraduates.\nRegistrations exceeding the limit will be flagged during review.", 2},
+		{"Manuals", "How to download my manual cover page", "1. Go to My Manuals.\n2. Click Download Cover.\n3. Print the cover and attach it to your manual before submission.\nThe cover page includes a QR code used for verification.", 1},
+		{"Manuals", "How is the QR code used for verification?", "During lab submission the QR code on your cover is scanned to verify your identity, confirm payment, and link you to this academic session.\nEnsure the code is printed clearly.", 2},
+		{"Profile", "How to update your profile", "1. Go to Profile in the sidebar.\n2. Edit phone, address, emergency contact, or bio.\n3. Click Save.\nNote: Matric number, level, and academic standing can only be changed by the HOD.", 1},
+		{"Profile", "How to change your password", "1. Go to Profile.\n2. Scroll to Security.\n3. Enter your current and new password.\n4. Click Update Password.\nIf you cannot log in, use Forgot Password on the login page.", 2},
+		{"Timetable", "How to view your timetable", "Navigate to Timetable in the sidebar.\nFilter between class and exam timetable views.\nYou will receive a notification whenever a new timetable is published or updated.", 1},
+		{"Study Planner", "How to use the Study Planner", "1. Navigate to Study Planner in the sidebar.\n2. Click New Task.\n3. Add a title, priority level, and optional due date.\n4. Click Start on a task to mark it In Progress.\n5. Click Complete when done.\nTasks are sorted by priority and due date automatically.", 1},
+		{"Troubleshooting", "I cannot see my results", "1. Confirm your account is approved (check dashboard banner).\n2. Ask your lecturer if results have been submitted for your courses.\n3. Results require HOD approval before appearing.\n4. Refresh the page or log out and back in.\nContact your HOD if results remain missing after 24 hours.", 1},
+		{"Troubleshooting", "The payment page is showing an error", "Common issues:\n- Cart empty error: Add a due first before checking out.\n- Paystack redirect failed: Check internet and try again.\n- Payment pending after 5 minutes: Wait for webhook to process, then refresh.\n\nContact support with your payment reference number if the problem persists after 10 minutes.", 2},
+		{"Troubleshooting", "My manual QR code is not scanning", "Ensure the cover page PDF was printed at full size (100% scale, no fit-to-page).\nThe QR code must not be distorted or cut off.\nIf the code is damaged, go to My Manuals and download a fresh copy to reprint.", 3},
+	}
+	for _, a := range articles {
+		ord := a.ord
+		_, _ = q.CreateHelpArticle(ctx, db.CreateHelpArticleParams{
+			Category:    a.cat,
+			Title:       a.title,
+			Content:     a.content,
+			SortOrder:   &ord,
+			IsPublished: &t,
+		})
+	}
+	log.Printf("[startup] seeded %d help articles", len(articles))
+	return nil
 }

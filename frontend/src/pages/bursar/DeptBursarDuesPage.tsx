@@ -48,7 +48,6 @@ const DeptBursarDuesPage = () => {
         type: 'dept_dues',
         amount,
         level: level ? parseInt(level) : undefined,
-        created_by: user.id,
       });
       success('Due Created', 'Department due created successfully');
       setName('');

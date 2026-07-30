@@ -398,6 +398,7 @@ type TimetableListItem struct {
 	IsPublished     bool       `json:"is_published"`
 	HasConflict     bool       `json:"has_conflict"`
 	ConflictDetails []byte     `json:"conflict_details"`
+	ExamDate        *string    `json:"exam_date"`
 }
 
 type ListTimetableByTypeParams struct {
@@ -413,7 +414,8 @@ func (q *Queries) ListTimetableByType(ctx context.Context, arg ListTimetableByTy
 			COALESCE(c.title, '') as course_title,
 			t.entry_type, t.class_type, t.exam_type, t.lecturer_id,
 			(SELECT full_name FROM users WHERE id = t.lecturer_id) as lecturer_name,
-			t.invigilators, t.is_published, t.has_conflict, t.conflict_details
+			t.invigilators, t.is_published, t.has_conflict, t.conflict_details,
+			CASE WHEN t.exam_date > '1970-01-02'::timestamptz THEN t.exam_date::date::text ELSE NULL END as exam_date
 		FROM timetable t
 		LEFT JOIN courses c ON c.id = t.course_id
 		WHERE t.entry_type = $1
@@ -441,6 +443,7 @@ func (q *Queries) ListTimetableByType(ctx context.Context, arg ListTimetableByTy
 			&i.CourseCode, &i.CourseTitle,
 			&i.EntryType, &i.ClassType, &i.ExamType, &i.LecturerID,
 			&i.LecturerName, &i.Invigilators, &i.IsPublished, &i.HasConflict, &i.ConflictDetails,
+			&i.ExamDate,
 		); err != nil {
 			return nil, err
 		}
@@ -460,7 +463,8 @@ func (q *Queries) ListAllTimetableEntries(ctx context.Context) ([]TimetableListI
 			COALESCE(c.title, '') as course_title,
 			t.entry_type, t.class_type, t.exam_type, t.lecturer_id,
 			(SELECT full_name FROM users WHERE id = t.lecturer_id) as lecturer_name,
-			t.invigilators, t.is_published, t.has_conflict, t.conflict_details
+			t.invigilators, t.is_published, t.has_conflict, t.conflict_details,
+			CASE WHEN t.exam_date > '1970-01-02'::timestamptz THEN t.exam_date::date::text ELSE NULL END as exam_date
 		FROM timetable t
 		LEFT JOIN courses c ON c.id = t.course_id
 		ORDER BY t.entry_type, t.day_of_week NULLS LAST, t.exam_date NULLS LAST, t.start_time
@@ -478,6 +482,7 @@ func (q *Queries) ListAllTimetableEntries(ctx context.Context) ([]TimetableListI
 			&i.CourseCode, &i.CourseTitle,
 			&i.EntryType, &i.ClassType, &i.ExamType, &i.LecturerID,
 			&i.LecturerName, &i.Invigilators, &i.IsPublished, &i.HasConflict, &i.ConflictDetails,
+			&i.ExamDate,
 		); err != nil {
 			return nil, err
 		}
@@ -548,7 +553,7 @@ func (q *Queries) CheckTimetableConflicts(ctx context.Context, arg ListTimetable
 
 type CreateTimetableEntrySimpleParams struct {
 	CourseID     uuid.UUID
-	DayOfWeek    int32
+	DayOfWeek    *int32
 	StartTime    string
 	EndTime      string
 	Venue        string
@@ -563,26 +568,51 @@ type CreateTimetableEntrySimpleParams struct {
 
 func (q *Queries) CreateTimetableEntrySimple(ctx context.Context, arg CreateTimetableEntrySimpleParams) (uuid.UUID, error) {
 	var id uuid.UUID
+
+	// Convert *uuid.UUID to pgtype.UUID for proper NULL encoding
+	lecturerPG := pgtype.UUID{}
+	if arg.LecturerID != nil {
+		lecturerPG = pgtype.UUID{Bytes: *arg.LecturerID, Valid: true}
+	}
+
+	// Convert *time.Time to pgtype.Timestamptz for proper NULL encoding
+	examDatePG := pgtype.Timestamptz{}
+	if arg.ExamDate != nil {
+		examDatePG = pgtype.Timestamptz{Time: *arg.ExamDate, Valid: true}
+	}
+
 	err := q.db.QueryRow(ctx, `
 		INSERT INTO timetable (course_id, day_of_week, start_time, end_time, venue, level, exam_date, session_id, semester_id, created_by, entry_type, class_type, exam_type, lecturer_id, invigilators)
-		VALUES ($1, $2, ('1970-01-01 ' || $3)::timestamptz, ('1970-01-01 ' || $4)::timestamptz, $5, $6, $7, NULL, NULL, NULL, $8, $9, $10, $11, $12)
+		VALUES ($1, $2, ('1970-01-01 ' || $3)::timestamptz, ('1970-01-01 ' || $4)::timestamptz, $5, $6, COALESCE($7, '1970-01-01T00:00:00Z'::timestamptz), NULL, NULL, NULL, $8, $9, $10, $11, $12)
 		RETURNING id
-	`, arg.CourseID, arg.DayOfWeek, arg.StartTime, arg.EndTime, arg.Venue, arg.Level, arg.ExamDate, arg.EntryType, arg.ClassType, arg.ExamType, arg.LecturerID, arg.Invigilators).Scan(&id)
+	`, arg.CourseID, arg.DayOfWeek, arg.StartTime, arg.EndTime, arg.Venue, arg.Level, examDatePG, arg.EntryType, arg.ClassType, arg.ExamType, lecturerPG, arg.Invigilators).Scan(&id)
 	return id, err
 }
 
 func (q *Queries) UpdateTimetableEntryFull(ctx context.Context, arg CreateTimetableEntrySimpleParams, id uuid.UUID) error {
+	// Convert *uuid.UUID to pgtype.UUID for proper NULL encoding
+	lecturerPG := pgtype.UUID{}
+	if arg.LecturerID != nil {
+		lecturerPG = pgtype.UUID{Bytes: *arg.LecturerID, Valid: true}
+	}
+
+	// Convert *time.Time to pgtype.Timestamptz for proper NULL encoding
+	examDatePG := pgtype.Timestamptz{}
+	if arg.ExamDate != nil {
+		examDatePG = pgtype.Timestamptz{Time: *arg.ExamDate, Valid: true}
+	}
+
 	_, err := q.db.Exec(ctx, `
 		UPDATE timetable SET
 			course_id = $2, day_of_week = $3,
 			start_time = ('1970-01-01 ' || $4)::timestamptz,
 			end_time = ('1970-01-01 ' || $5)::timestamptz,
 			venue = $6, level = $7,
-			exam_date = $8,
+			exam_date = COALESCE($8, '1970-01-01T00:00:00Z'::timestamptz),
 			entry_type = $9, class_type = $10, exam_type = $11,
 			lecturer_id = $12, invigilators = $13
 		WHERE id = $1
-	`, id, arg.CourseID, arg.DayOfWeek, arg.StartTime, arg.EndTime, arg.Venue, arg.Level, arg.ExamDate, arg.EntryType, arg.ClassType, arg.ExamType, arg.LecturerID, arg.Invigilators)
+	`, id, arg.CourseID, arg.DayOfWeek, arg.StartTime, arg.EndTime, arg.Venue, arg.Level, examDatePG, arg.EntryType, arg.ClassType, arg.ExamType, lecturerPG, arg.Invigilators)
 	return err
 }
 

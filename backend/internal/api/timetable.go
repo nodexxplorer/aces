@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -13,7 +14,7 @@ import (
 
 type createTimetableEntryRequest struct {
 	CourseID     string  `json:"courseId" binding:"required"`
-	DayOfWeek    int32   `json:"dayOfWeek" binding:"required,min=1,max=5"`
+	DayOfWeek    *int32  `json:"dayOfWeek"`
 	StartTime    string  `json:"startTime" binding:"required"`
 	EndTime      string  `json:"endTime" binding:"required"`
 	Venue        string  `json:"venue" binding:"required"`
@@ -28,7 +29,7 @@ type createTimetableEntryRequest struct {
 
 type updateTimetableEntryRequest struct {
 	CourseID     string  `json:"courseId" binding:"required"`
-	DayOfWeek    int32   `json:"dayOfWeek" binding:"required,min=1,max=5"`
+	DayOfWeek    *int32  `json:"dayOfWeek"`
 	StartTime    string  `json:"startTime" binding:"required"`
 	EndTime      string  `json:"endTime" binding:"required"`
 	Venue        string  `json:"venue" binding:"required"`
@@ -89,6 +90,7 @@ func (server *Server) createTimetableEntry(ctx *gin.Context) {
 		ExamDate:     examDate,
 	})
 	if err != nil {
+		log.Printf("ERROR creating timetable entry: %v", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
@@ -210,6 +212,7 @@ func (server *Server) updateTimetableEntry(ctx *gin.Context) {
 		ExamDate:     examDate,
 	})
 	if err != nil {
+		log.Printf("ERROR updating timetable entry %s: %v", id, err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}

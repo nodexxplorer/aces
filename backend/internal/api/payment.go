@@ -27,7 +27,6 @@ type createDueRequest struct {
 	SessionID   *string `json:"session_id"   binding:"omitempty,uuid"`
 	SemesterID  *string `json:"semester_id"  binding:"omitempty,uuid"`
 	Deadline    *string `json:"deadline"`    // RFC3339
-	CreatedBy   string  `json:"created_by"   binding:"required,uuid"`
 }
 
 type updateDueRequest struct {
@@ -41,7 +40,7 @@ type updateDueRequest struct {
 }
 
 type listDuesQuery struct {
-	Limit  int32 `form:"limit"  binding:"required,min=1,max=100"`
+	Limit  int32 `form:"limit"  binding:"min=1,max=100"`
 	Offset int32 `form:"offset" binding:"min=0"`
 }
 
@@ -71,7 +70,7 @@ type createPaymentBatchRequest struct {
 }
 
 type listStudentBatchesQuery struct {
-	Limit  int32 `form:"limit"  binding:"required,min=1,max=100"`
+	Limit  int32 `form:"limit"  binding:"min=1,max=100"`
 	Offset int32 `form:"offset" binding:"min=0"`
 }
 
@@ -98,7 +97,7 @@ type createPaymentRequest struct {
 }
 
 type listStudentPaymentsQuery struct {
-	Limit  int32 `form:"limit"  binding:"required,min=1,max=100"`
+	Limit  int32 `form:"limit"  binding:"min=1,max=100"`
 	Offset int32 `form:"offset" binding:"min=0"`
 }
 
@@ -112,7 +111,7 @@ type verifyPaymentRequest struct {
 }
 
 type checkDuePaidQuery struct {
-	StudentID string `form:"student_id" binding:"required,uuid"`
+	StudentID string `form:"student_id" binding:"omitempty,uuid"`
 	DueID     string `form:"due_id"     binding:"required,uuid"`
 }
 
@@ -161,9 +160,9 @@ func (server *Server) createDue(ctx *gin.Context) {
 		return
 	}
 
-	createdBy, err := uuid.Parse(req.CreatedBy)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid created_by"})
+	createdBy := getUserID(ctx)
+	if createdBy == uuid.Nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 
@@ -232,11 +231,10 @@ func (server *Server) getDue(ctx *gin.Context) {
 // listDues GET /payments/dues
 func (server *Server) listDues(ctx *gin.Context) {
 	var q listDuesQuery
-	if err := ctx.ShouldBindQuery(&q); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
-		return
+	_ = ctx.ShouldBindQuery(&q)
+	if q.Limit == 0 {
+		q.Limit = 100
 	}
-
 	dues, err := server.store.ListDues(ctx, db.ListDuesParams{
 		Limit:  q.Limit,
 		Offset: q.Offset,
@@ -414,6 +412,31 @@ func (server *Server) removeFromCart(ctx *gin.Context) {
 		return
 	}
 
+	// Students can only remove items from their own cart.
+	if !isStaffRole(ctx) {
+		studentID, err := server.getStudentIDFromUser(ctx)
+		if err != nil {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			return
+		}
+		cartItems, err := server.store.ListStudentCart(ctx, studentID)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
+		found := false
+		for _, item := range cartItems {
+			if item.ID == id {
+				found = true
+				break
+			}
+		}
+		if !found {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "cart item not found"})
+			return
+		}
+	}
+
 	if err := server.store.RemoveFromCart(ctx, id); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
@@ -519,9 +542,9 @@ func (server *Server) listStudentPaymentBatches(ctx *gin.Context) {
 	}
 
 	var q listStudentBatchesQuery
-	if err := ctx.ShouldBindQuery(&q); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
-		return
+	_ = ctx.ShouldBindQuery(&q)
+	if q.Limit == 0 {
+		q.Limit = 50
 	}
 
 	batches, err := server.store.ListStudentPaymentBatches(ctx, db.ListStudentPaymentBatchesParams{
@@ -702,9 +725,9 @@ func (server *Server) listStudentPayments(ctx *gin.Context) {
 	}
 
 	var q listStudentPaymentsQuery
-	if err := ctx.ShouldBindQuery(&q); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
-		return
+	_ = ctx.ShouldBindQuery(&q)
+	if q.Limit == 0 {
+		q.Limit = 50
 	}
 
 	payments, err := server.store.ListStudentPayments(ctx, db.ListStudentPaymentsParams{
@@ -838,25 +861,27 @@ func (server *Server) checkDuePaid(ctx *gin.Context) {
 		return
 	}
 
-	studentID, err := uuid.Parse(q.StudentID)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid student_id"})
-		return
-	}
-
-	// Students can only check their own payment status.
-	if !isStaffRole(ctx) {
-		callerStudentID, err := server.getStudentIDFromUser(ctx)
-		if err != nil || callerStudentID != studentID {
-			ctx.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
-			return
-		}
-	}
-
 	dueID, err := uuid.Parse(q.DueID)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid due_id"})
 		return
+	}
+
+	// For students always resolve from JWT — ignore any supplied student_id.
+	// Staff may optionally pass a student_id to check on behalf of a student.
+	var studentID uuid.UUID
+	if isStaffRole(ctx) && q.StudentID != "" {
+		studentID, err = uuid.Parse(q.StudentID)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid student_id"})
+			return
+		}
+	} else {
+		studentID, err = server.getStudentIDFromUser(ctx)
+		if err != nil {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			return
+		}
 	}
 
 	isPaid, err := server.store.CheckDuePaid(ctx, db.CheckDuePaidParams{
@@ -869,14 +894,14 @@ func (server *Server) checkDuePaid(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"student_id": q.StudentID,
+		"student_id": studentID.String(),
 		"due_id":     q.DueID,
 		"is_paid":    isPaid,
 	})
 }
 
 type listAllPaymentsQuery struct {
-	Limit  int32 `form:"limit"  binding:"required,min=1,max=100"`
+	Limit  int32 `form:"limit"  binding:"min=1,max=100"`
 	Offset int32 `form:"offset" binding:"min=0"`
 }
 
@@ -1078,9 +1103,9 @@ func (server *Server) checkoutCart(ctx *gin.Context) {
 // listAllPayments GET /payments
 func (server *Server) listAllPayments(ctx *gin.Context) {
 	var q listAllPaymentsQuery
-	if err := ctx.ShouldBindQuery(&q); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
-		return
+	_ = ctx.ShouldBindQuery(&q)
+	if q.Limit == 0 {
+		q.Limit = 50
 	}
 
 	payments, err := server.store.ListAllPayments(ctx, db.ListAllPaymentsParams{
@@ -1098,9 +1123,9 @@ func (server *Server) listAllPayments(ctx *gin.Context) {
 // listRecentVerifiedPayments GET /payments/recent-verified
 func (server *Server) listRecentVerifiedPayments(ctx *gin.Context) {
 	var q listAllPaymentsQuery
-	if err := ctx.ShouldBindQuery(&q); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
-		return
+	_ = ctx.ShouldBindQuery(&q)
+	if q.Limit == 0 {
+		q.Limit = 50
 	}
 
 	payments, err := server.store.ListRecentVerifiedPayments(ctx, db.ListAllPaymentsParams{

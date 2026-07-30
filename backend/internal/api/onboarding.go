@@ -107,6 +107,16 @@ func (server *Server) studentOnboarding(ctx *gin.Context) {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
 		}
+
+		// Persist extra fields (date_of_birth, emergency contact, home address)
+		// to the users table where they are stored.
+		_ = queries.UpdateUserExtraFields(
+			ctx, userID,
+			&req.DateOfBirth,
+			&req.EmergencyContact,
+			&req.EmergencyContactNum,
+			&req.HomeAddress,
+		)
 	} else {
 		// Fallback to original method
 		_, err = server.students.UpdateOnboarding(ctx, userID, &admissionMode, nil)

@@ -130,11 +130,15 @@ const TimetableManagePage = () => {
       notifyError('Validation', 'Please fill all required fields');
       return;
     }
+    if (tab === 'exam' && !examDate) {
+      notifyError('Validation', 'Exam date is required for exam entries');
+      return;
+    }
     try {
       setSubmitting(true);
       await createTimetableEntry({
         courseId,
-        dayOfWeek,
+        dayOfWeek: tab === 'class' ? dayOfWeek : undefined,
         startTime,
         endTime,
         venue,
@@ -144,7 +148,7 @@ const TimetableManagePage = () => {
         examType: tab === 'exam' ? examType : undefined,
         lecturerId: lecturerId || undefined,
         invigilators: invigilators || undefined,
-        examDate: tab === 'exam' ? examDate || undefined : undefined,
+        examDate: tab === 'exam' ? examDate : undefined,
       });
       setCreateOpen(false);
       resetForm();
@@ -160,11 +164,15 @@ const TimetableManagePage = () => {
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingEntry) return;
+    if (tab === 'exam' && !examDate) {
+      notifyError('Validation', 'Exam date is required for exam entries');
+      return;
+    }
     try {
       setSubmitting(true);
       await updateTimetableEntry(editingEntry.id, {
         courseId,
-        dayOfWeek,
+        dayOfWeek: tab === 'class' ? dayOfWeek : undefined,
         startTime,
         endTime,
         venue,
@@ -174,7 +182,7 @@ const TimetableManagePage = () => {
         examType: tab === 'exam' ? examType : undefined,
         lecturerId: lecturerId || undefined,
         invigilators: invigilators || undefined,
-        examDate: tab === 'exam' ? examDate || undefined : undefined,
+        examDate: tab === 'exam' ? examDate : undefined,
       });
       setEditOpen(false);
       setEditingEntry(null);
@@ -282,16 +290,31 @@ const TimetableManagePage = () => {
         </select>
       </div>
 
-      <div>
-        <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Day *</label>
-        <select
-          className="w-full mt-1 px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg"
-          value={dayOfWeek}
-          onChange={(e) => setDayOfWeek(Number(e.target.value))}
-        >
-          {days.map((d, i) => <option key={d} value={i + 1}>{d}</option>)}
-        </select>
-      </div>
+      {tab === 'class' && (
+        <div>
+          <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Day *</label>
+          <select
+            className="w-full mt-1 px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg"
+            value={dayOfWeek}
+            onChange={(e) => setDayOfWeek(Number(e.target.value))}
+          >
+            {days.map((d, i) => <option key={d} value={i + 1}>{d}</option>)}
+          </select>
+        </div>
+      )}
+
+      {tab === 'exam' && (
+        <div>
+          <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Exam Date *</label>
+          <input
+            type="date"
+            className="w-full mt-1 px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg"
+            value={examDate}
+            onChange={(e) => setExamDate(e.target.value)}
+            required
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -366,17 +389,7 @@ const TimetableManagePage = () => {
         </div>
       )}
 
-      {tab === 'exam' && (
-        <div>
-          <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Exam Date *</label>
-          <input
-            type="date"
-            className="w-full mt-1 px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg"
-            value={examDate}
-            onChange={(e) => setExamDate(e.target.value)}
-          />
-        </div>
-      )}
+
 
       <div>
         <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Lecturer ID (optional)</label>
@@ -554,8 +567,11 @@ const TimetableManagePage = () => {
                       </div>
                       <p className="text-xs font-medium text-surface-700 dark:text-surface-300 mt-0.5">{entry.courseTitle}</p>
                       <div className="flex items-center gap-3 mt-1 text-[10px] text-surface-400">
-                        <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3" />{entry.day_of_week ? numToDay[entry.day_of_week] : '—'}</span>
-                        {entry.exam_date && <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3" />{entry.exam_date.substring(0, 10)}</span>}
+                        {entry.exam_date ? (
+                          <span className="flex items-center gap-1 font-semibold text-surface-600 dark:text-surface-300"><CalendarDays className="w-3 h-3" />{new Date(entry.exam_date).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                        ) : (
+                          <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3" />{entry.day_of_week ? numToDay[entry.day_of_week] : 'No date set'}</span>
+                        )}
                         <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatTime(entry.start_time)} – {formatTime(entry.end_time)}</span>
                         <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{entry.venue}</span>
                         {entry.level && <span>{entry.level}L</span>}

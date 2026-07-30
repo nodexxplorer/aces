@@ -55,7 +55,6 @@ export const createDue = async (payload: {
   session_id?: string;
   semester_id?: string;
   deadline?: string;
-  created_by: string;
 }) => {
   const res = await apiClient.post('/payments/dues', payload);
   return unwrap<DuePayment>(res);
@@ -91,8 +90,8 @@ export const updatePaymentStatus = async (paymentId: string, status: string) => 
   return unwrap<Payment>(res);
 };
 
-export const checkDuePaid = async (dueId: string, studentId: string) => {
-  const res = await apiClient.get('/payments/check-paid', { params: { due_id: dueId, student_id: studentId } });
+export const checkDuePaid = async (dueId: string, _studentId?: string) => {
+  const res = await apiClient.get('/payments/check-paid', { params: { due_id: dueId } });
   return unwrap<{ student_id: string; due_id: string; is_paid: boolean }>(res);
 };
 

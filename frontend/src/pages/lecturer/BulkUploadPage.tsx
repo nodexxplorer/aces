@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Select from '../../components/ui/Select';
 import Button from '../../components/ui/Button';
 import { useNotification } from '../../hooks/useNotification';
 import { FileSpreadsheet, Upload, Check, AlertCircle } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
+import { listLecturerAssignments, type LecturerAssignment } from '../../api/lecturers';
 
 interface PreviewRow {
   matricNumber: string;
@@ -19,6 +21,20 @@ const BulkUploadPage = () => {
   const [file, setFile] = useState<File | null>(null);
   const [previewData, setPreviewData] = useState<PreviewRow[]>([]);
   const [committing, setCommitting] = useState(false);
+
+  const { user } = useAuth();
+  const [assignments, setAssignments] = useState<LecturerAssignment[]>([]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    listLecturerAssignments(user.id)
+      .then((d) => {
+        const arr = Array.isArray(d) ? d : [];
+        setAssignments(arr);
+        if (arr.length > 0) setCourse(arr[0].course_id);
+      })
+      .catch(() => {});
+  }, [user?.id]);
 
   const handleDownloadTemplate = () => {
     const csvContent = 'data:text/csv;charset=utf-8,Matric Number,Name,CA (Max 30),Exam (Max 70)\nENG/2021/001,John Doe,28,52\nENG/2021/002,Jane Smith,22,48';
@@ -89,10 +105,7 @@ const BulkUploadPage = () => {
             <div className="p-4 pt-0 space-y-4">
               <Select
                 label="Module Course Code"
-                options={[
-                  { value: 'cpe511', label: 'CPE 511 (Embedded Systems)' },
-                  { value: 'cpe513', label: 'CPE 513 (Computer Architecture II)' },
-                ]}
+                options={assignments.map((a) => ({ value: a.course_id, label: `${a.course_code} — ${a.course_title}` }))}
                 value={course}
                 onChange={(e) => setCourse(e.target.value)}
               />

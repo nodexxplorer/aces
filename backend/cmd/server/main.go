@@ -34,6 +34,16 @@ func main() {
 	log.Println("Database connection established")
 
 	store := db.New(connPool)
+
+	// Seed help articles on first run
+	go func() {
+		seedCtx, seedCancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer seedCancel()
+		if err := api.SeedHelpArticles(seedCtx, store); err != nil {
+			log.Printf("[startup] help seeding: %v", err)
+		}
+	}()
+
 	server := api.NewServer(store, connPool, cfg)
 
 	srv := &http.Server{

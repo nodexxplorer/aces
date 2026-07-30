@@ -360,42 +360,4 @@ func (server *Server) updateMyNotificationPreferences(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, prefs)
 }
 
-type broadcastNotificationRequest struct {
-	Title          string   `json:"title" binding:"required"`
-	Message        string   `json:"message" binding:"required"`
-	Category       string   `json:"category" binding:"omitempty"`
-	Priority       string   `json:"priority" binding:"omitempty"`
-	TargetAudience string   `json:"target_audience" binding:"required,oneof=all role level"`
-	TargetRoles    []string `json:"target_roles"`
-	TargetLevel    int32    `json:"target_level"`
-}
 
-func (server *Server) broadcastNotification(ctx *gin.Context) {
-	var req broadcastNotificationRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
-		return
-	}
-
-	senderID := getUserID(ctx)
-
-	count, err := server.notificationsFull.BroadcastNotification(ctx,
-		req.Title,
-		req.Message,
-		req.Category,
-		req.Priority,
-		req.TargetAudience,
-		req.TargetRoles,
-		req.TargetLevel,
-		&senderID,
-	)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-		return
-	}
-
-	ctx.JSON(http.StatusCreated, gin.H{
-		"message": "broadcast sent",
-		"count":   count,
-	})
-}

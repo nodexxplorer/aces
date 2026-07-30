@@ -18,202 +18,179 @@ type Tab = 'manage' | 'bulk' | 'single';
 
 /* ── Manage Tab ──────────────────────────────── */
 
-const PAGE_SIZE = 25;
-
 function ManageTab() {
   const { success, error: notifyError } = useNotification();
-  const [results, setResults] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [offset, setOffset] = useState(0);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editCa, setEditCa] = useState('');
-  const [editExam, setEditExam] = useState('');
-  const [saveLoading, setSaveLoading] = useState(false);
+  const [students, setStudents] = useState<StudentForRoleManagement[]>([]);
+  const [stuSearch, setStuSearch] = useState('');
+  const [sel, setSel] = useState<StudentForRoleManagement | null>(null);
+  const [loadingStu, setLoadingStu] = useState(true);
+  const [sRes, setSRes] = useState<any[]>([]);
+  const [mgCrs, setMgCrs] = useState<Course[]>([]);
+  const [mgSess, setMgSess] = useState<Session[]>([]);
+  const [semesterMap, setSemesterMap] = useState<Record<string, any[]>>({});
+  const [loadingR, setLoadingR] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [eCa, setECa] = useState('');
+  const [eEx, setEEx] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [expKey, setExpKey] = useState<string | null>(null);
 
-  const fetchResults = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await getAllResults({ limit: 5000, offset: 0 });
-      setResults(Array.isArray(data) ? data : []);
-    } catch (err: any) {
-      notifyError('Load Failed', err?.response?.data?.error || err?.message || 'Could not load results');
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    setLoadingStu(true);
+    Promise.all([
+      searchStudentsForRoles({ per_page: 500 }).catch(() => ({ data: [] })),
+      getCourses().catch(() => []),
+      getSessions().catch(() => []),
+    ]).then(([sr, cr, se]) => {
+      setStudents(Array.isArray((sr as any).data) ? (sr as any).data : []);
+      setMgCrs(Array.isArray(cr) ? cr : []);
+      setMgSess(Array.isArray(se) ? se : []);
+    }).catch(() => notifyError('Error', 'Failed to load')).finally(() => setLoadingStu(false));
   }, []);
 
-  useEffect(() => { fetchResults(); }, [fetchResults]);
-
-  const filtered = results.filter((r) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      (r.studentName || r.student_name || '').toLowerCase().includes(q) ||
-      (r.matricNumber || r.matric_number || '').toLowerCase().includes(q) ||
-      (r.courseCode || r.course_code || r.course?.code || '').toLowerCase().includes(q) ||
-      (r.courseTitle || r.course_title || r.course?.title || '').toLowerCase().includes(q)
-    );
-  });
-
-  const paginated = filtered.slice(offset, offset + PAGE_SIZE);
-
-  const startEdit = (r: any) => {
-    setEditingId(r.id);
-    setEditCa(String(r.caScore ?? r.ca_score ?? 0));
-    setEditExam(String(r.examScore ?? r.exam_score ?? 0));
-  };
-
-  const cancelEdit = () => { setEditingId(null); setEditCa(''); setEditExam(''); };
-
-  const handleSave = async (id: string) => {
-    const ca = parseFloat(editCa);
-    const exam = parseFloat(editExam);
-    if (isNaN(ca) || ca < 0 || ca > 30) { notifyError('Invalid', 'CA score must be between 0 and 30'); return; }
-    if (isNaN(exam) || exam < 0 || exam > 70) { notifyError('Invalid', 'Exam score must be between 0 and 70'); return; }
-    const total = ca + exam;
-    if (total > 100) {
-      notifyError('Invalid', 'Total score (CA + Exam) cannot exceed 100');
-      return;
-    }
+  const loadR = useCallback(async (student: StudentForRoleManagement) => {
+    setSel(student); setExpKey(null); setEditId(null); setLoadingR(true);
+    setSRes([]); setSemesterMap({});
     try {
-      setSaveLoading(true);
-      await updateScore(id, { caScore: ca, examScore: exam });
-      setResults((prev) => prev.map((r) => r.id === id ? { ...r, caScore: ca, ca_score: ca, examScore: exam, exam_score: exam } : r));
-      success('Saved', 'Score updated successfully');
-      cancelEdit();
-    } catch (err: any) {
-      notifyError('Update Failed', err?.response?.data?.error || err?.message || 'Could not update score');
-    } finally {
-      setSaveLoading(false);
-    }
-  };
+      const data = await getAllResults({ limit: 5000, offset: 0 });
+      const all = Array.isArray(data) ? data : [];
+      const filt = all.filter((r: any) =>
+        r.student_id === student.student_id ||
+        (r.matric_number || r.matricNumber || '') === (student.matric_number || '')
+      );
+      setSRes(filt);
+      // Load semesters for each session in the results
+      const sids = [...new Set(filt.map((r: any) => r.session_id).filter(Boolean))] as string[];
+      const semMap: Record<string, any[]> = {};
+      await Promise.all(sids.map(async (sid: string) => {
+        try { semMap[sid] = await listSessionSemesters(sid); } catch { semMap[sid] = []; }
+      }));
+      setSemesterMap(semMap);
+    } catch { notifyError('Error', 'Failed to load results'); }
+    finally { setLoadingR(false); }
+  }, []);
 
-  const handleApprove = async (id: string) => {
-    try {
-      await approveResult(id);
-      setResults((prev) => prev.map((r) => r.id === id ? { ...r, status: 'approved' } : r));
-      success('Approved', 'Result approved');
-    } catch (err: any) {
-      notifyError('Approval Failed', err?.response?.data?.error || err?.message || 'Could not approve');
-    }
-  };
+  const pf = (v: any) => { const n = parseFloat(String(v ?? 0)); return isNaN(n) ? 0 : n; };
+  const cLk = new Map(mgCrs.map(c => [c.id, c]));
 
-  const g = (r: any, ...keys: string[]) => { for (const k of keys) if (r[k] !== undefined) return r[k]; return undefined; };
+  const courseLookup = new Map(mgCrs.map(c => [c.id, c]));
+  const sessionLookup = new Map(mgSess.map(s => [s.id, s]));
+
+  const sections = (() => {
+    const map = new Map<string, any[]>();
+    for (const r of sRes) {
+      const key = `${r.session_id ?? 'unknown'}_${r.semester_id ?? 'unknown'}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(r);
+    }
+    const arr: any[] = [];
+    let sn = 1;
+    const keys = [...map.keys()].sort();
+    let cumulativeGP = 0, cumulativeUnits = 0;
+    for (const key of keys) {
+      const [sessionId, semesterId] = key.split('_');
+      const sectionResults = map.get(key)!;
+      const session = sessionLookup.get(sessionId);
+      const sems = semesterMap[sessionId] ?? [];
+      const sem = sems.find((s: any) => s.id === semesterId);
+      let secGP = 0, secUnits = 0;
+      for (const r of sectionResults) {
+        const c = courseLookup.get(r.course_id);
+        const units = c?.unit ?? 0;
+        const gp = pf(r.grade_point);
+        secGP += units * gp;
+        secUnits += units;
+      }
+      cumulativeGP += secGP;
+      cumulativeUnits += secUnits;
+      arr.push({
+        k: key,
+        sn: sn++,
+        sessionId,
+        semesterId,
+        sessName: session?.name ?? sessionId?.slice(0, 8) ?? '—',
+        semName: sem ? (sem.name.charAt(0).toUpperCase() + sem.name.slice(1)) + ' Semester' : (semesterId?.slice(0, 8) ?? '—'),
+        rows: sectionResults,
+        gpa: cumulativeUnits > 0 ? cumulativeGP / cumulativeUnits : 0,
+        totalUnits: cumulativeUnits,
+      });
+    }
+    return arr;
+  })();
+
+  const doSave = async (id: string) => {
+    const ca = parseFloat(eCa), ex = parseFloat(eEx);
+    if (isNaN(ca) || ca < 0 || ca > 30) { notifyError('Invalid', 'CA 0–30'); return; }
+    if (isNaN(ex) || ex < 0 || ex > 70) { notifyError('Invalid', 'Exam 0–70'); return; }
+    if (ca + ex > 100) { notifyError('Invalid', 'Total ≤ 100'); return; }
+    setSaving(true);
+    try { await updateScore(id, { caScore: ca, examScore: ex }); setSRes(p => p.map(r => r.id === id ? { ...r, ca_score: ca, exam_score: ex } : r)); success('Saved', 'Updated'); setEditId(null); }
+    catch (err: any) { notifyError('Error', err?.message || 'Failed'); } finally { setSaving(false); }
+  };
+  const doApprove = async (id: string) => { try { await approveResult(id); setSRes(p => p.map(r => r.id === id ? { ...r, status: 'approved' } : r)); success('Approved', ''); } catch (err: any) { notifyError('Error', err?.message || 'Failed'); } };
+  const doDelete = async (id: string) => { if (!confirm('Delete permanently?')) return; try { await deleteResult(id); setSRes(p => p.filter(r => r.id !== id)); success('Deleted', ''); } catch (err: any) { notifyError('Error', err?.message || 'Failed'); } };
+  const filtStu = students.filter(s => { const q = stuSearch.toLowerCase(); return (s.full_name || '').toLowerCase().includes(q) || (s.matric_number || '').toLowerCase().includes(q); });
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
-          <input
-            type="text"
-            placeholder="Search by name, matric, or course..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setOffset(0); }}
-            className="w-full pl-10 pr-4 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-          />
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <Card className="p-4 space-y-3">
+        <p className="text-sm font-semibold text-surface-700 dark:text-surface-300 flex items-center gap-2"><Search className="w-4 h-4 text-primary-500" /> Select Student</p>
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-3 top-2.5 text-surface-400" />
+          <input type="text" placeholder="Search name or matric..." value={stuSearch} onChange={e => setStuSearch(e.target.value)} className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800 focus:outline-none focus:ring-2 focus:ring-primary-500/20" />
         </div>
-        <span className="text-xs text-surface-500">{filtered.length} result(s)</span>
-      </div>
-
-      <Card>
-        {loading ? (
-          <div className="flex items-center justify-center p-12">
-            <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
-            <span className="ml-2 text-sm text-surface-500">Loading results...</span>
+        {loadingStu ? <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-primary-500" /></div> : (
+          <div className="space-y-1 max-h-[480px] overflow-y-auto pr-1">
+            {filtStu.map(s => (<button key={s.id} onClick={() => loadR(s)} className={`w-full text-left p-2.5 rounded-lg text-sm transition-all ${sel?.id === s.id ? 'bg-primary-500 text-white font-medium shadow-sm' : 'hover:bg-surface-100 dark:hover:bg-surface-800 text-surface-700 dark:text-surface-300'}`}><p className="truncate font-semibold">{s.full_name}</p><p className={`text-xs truncate ${sel?.id === s.id ? 'text-primary-100' : 'text-surface-400'}`}>{s.matric_number} · {s.level ? `${s.level } Level` : '—'}</p></button>))}
+            {filtStu.length === 0 && <p className="text-xs text-center text-surface-400 py-4">No students found</p>}
           </div>
-        ) : paginated.length === 0 ? (
-          <div className="text-center py-12 text-sm text-surface-400">No results found</div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-surface-200 dark:border-surface-700">
-                    {['Student', 'Matric No.', 'Course', 'CA', 'Exam', 'Total', 'Status', 'Actions'].map((h) => (
-                      <th key={h} className={`px-4 py-3 font-medium text-surface-600 dark:text-surface-400 ${h === 'Actions' ? 'text-right' : 'text-left'}`}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-surface-100 dark:divide-surface-700">
-                  {paginated.map((r) => {
-                    const isEditing = editingId === r.id;
-                    const ca = g(r, 'caScore', 'ca_score') ?? 0;
-                    const exam = g(r, 'examScore', 'exam_score') ?? 0;
-                    const total = ca + exam;
-                    const statusColor = r.status === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                      : r.status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                      : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
-                    return (
-                      <tr key={r.id} className="hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors">
-                        <td className="px-4 py-3 font-medium text-surface-900 dark:text-white">{g(r, 'studentName', 'student_name') || '—'}</td>
-                        <td className="px-4 py-3 font-mono text-xs text-surface-700 dark:text-surface-300">{g(r, 'matricNumber', 'matric_number') || '—'}</td>
-                        <td className="px-4 py-3">
-                          <div>
-                            <p className="font-medium text-surface-900 dark:text-white">{g(r, 'courseCode', 'course_code', 'course.code') || '—'}</p>
-                            <p className="text-[10px] text-surface-500">{g(r, 'courseTitle', 'course_title', 'course.title') || ''}</p>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          {isEditing ? (
-                            <input type="number" value={editCa} onChange={(e) => setEditCa(e.target.value)} min={0} max={40}
-                              className="w-16 px-2 py-1 text-xs border border-surface-300 dark:border-surface-600 rounded bg-white dark:bg-surface-700 text-surface-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500" />
-                          ) : <span className="font-mono text-xs">{ca}</span>}
-                        </td>
-                        <td className="px-4 py-3">
-                          {isEditing ? (
-                            <input type="number" value={editExam} onChange={(e) => setEditExam(e.target.value)} min={0} max={100}
-                              className="w-16 px-2 py-1 text-xs border border-surface-300 dark:border-surface-600 rounded bg-white dark:bg-surface-700 text-surface-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500" />
-                          ) : <span className="font-mono text-xs">{exam}</span>}
-                        </td>
-                        <td className="px-4 py-3">
-                          {isEditing ? (
-                            <span className="font-mono text-xs font-semibold">{parseFloat(editCa || '0') + parseFloat(editExam || '0')}</span>
-                          ) : <span className="font-mono text-xs font-semibold">{total}</span>}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${statusColor}`}>
-                            {r.status || 'pending'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            {isEditing ? (
-                              <>
-                                <Button size="xs" variant="success"
-                                  leftIcon={saveLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                                  onClick={() => handleSave(r.id)} disabled={saveLoading}>Save</Button>
-                                <Button size="xs" variant="outline" leftIcon={<X className="w-3.5 h-3.5" />} onClick={cancelEdit}>Cancel</Button>
-                              </>
-                            ) : (
-                              <>
-                                <Button size="xs" variant="ghost" leftIcon={<Edit3 className="w-3.5 h-3.5" />} onClick={() => startEdit(r)}>Edit</Button>
-                                {r.status !== 'approved' && (
-                                  <Button size="xs" variant="success" leftIcon={<CheckCircle className="w-3.5 h-3.5" />} onClick={() => handleApprove(r.id)}>Approve</Button>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <div className="flex items-center justify-between px-4 py-3 border-t border-surface-200 dark:border-surface-700">
-              <span className="text-xs text-surface-500">
-                Showing {offset + 1}–{Math.min(offset + PAGE_SIZE, offset + paginated.length)} of {filtered.length}
-              </span>
-              <div className="flex gap-2">
-                <Button size="xs" variant="outline" disabled={offset === 0} onClick={() => setOffset((p) => Math.max(0, p - PAGE_SIZE))}>Previous</Button>
-                <Button size="xs" variant="outline" disabled={filtered.length <= PAGE_SIZE || offset + PAGE_SIZE >= filtered.length} onClick={() => setOffset((p) => p + PAGE_SIZE)}>Next</Button>
-              </div>
-            </div>
-          </>
         )}
       </Card>
+      <div className="md:col-span-2 space-y-4">
+        {!sel ? (
+          <Card className="p-12 flex flex-col items-center text-center"><Database className="w-12 h-12 text-surface-300 dark:text-surface-600 mb-3" /><p className="font-semibold text-surface-700 dark:text-surface-300">Select a student</p><p className="text-sm text-surface-400 mt-1">Choose a student from the list to view and manage their results.</p></Card>
+        ) : loadingR ? (
+          <Card className="p-12 flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin text-primary-500" /><span className="text-sm text-surface-500">Loading results...</span></Card>
+        ) : (<>
+          <Card className="p-4"><h3 className="font-bold text-lg text-surface-900 dark:text-white">{sel.full_name}</h3><p className="text-xs text-surface-400 mt-0.5">{sel.matric_number} · {sel.level ? `${sel.level * 100} Level` : '—'} · {sections.length} semester(s) on record</p></Card>
+          {sections.length === 0 ? <Card className="p-8 text-center text-sm text-surface-400">No results found for this student.</Card> : (
+            <Card><div className="overflow-x-auto"><table className="w-full text-sm">
+              <thead><tr className="border-b border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800/50">{['S/N','Session','Semester','Courses','CGPA to Date','Actions'].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wide">{h}</th>)}</tr></thead>
+              <tbody>{sections.map((sec: any) => { const isE = expKey === sec.k; return (<>
+                <tr key={sec.k} className="border-b border-surface-100 dark:border-surface-700/50 hover:bg-surface-50 dark:hover:bg-surface-800/30 transition-colors">
+                  <td className="px-4 py-3 font-mono text-xs text-surface-500">{sec.sn}</td>
+                  <td className="px-4 py-3 font-semibold text-surface-900 dark:text-white">{sec.sessName}</td>
+                  <td className="px-4 py-3 text-surface-700 dark:text-surface-300">{sec.semName}</td>
+                  <td className="px-4 py-3">{sec.rows.length}</td>
+                  <td className="px-4 py-3 font-bold text-primary-600 dark:text-primary-400">{sec.gpa.toFixed(2)}</td>
+                  <td className="px-4 py-3"><Button size="xs" variant="ghost" leftIcon={isE ? <X className="w-3.5 h-3.5" /> : <Edit3 className="w-3.5 h-3.5" />} onClick={() => setExpKey(isE ? null : sec.k)}>{isE ? 'Hide' : 'View'}</Button></td>
+                </tr>
+                {isE && (<tr key={`${sec.k}_d`}><td colSpan={6} className="bg-surface-50 dark:bg-surface-800/20"><div className="px-4 py-3 border-b border-surface-200 dark:border-surface-700 overflow-x-auto">
+                  <table className="w-full text-xs"><thead><tr className="border-b border-surface-200 dark:border-surface-700">{['Student','Matric No.','Course','CA','Exam','Total','Status','Actions'].map(h => <th key={h} className="px-3 py-2 text-left font-semibold text-surface-500 dark:text-surface-400">{h}</th>)}</tr></thead>
+                    <tbody className="divide-y divide-surface-100 dark:divide-surface-700/50">
+                      {sec.rows.map((r: any) => { const isEd = editId === r.id; const ca = pf(r.ca_score ?? r.caScore); const ex = pf(r.exam_score ?? r.examScore); const tot = pf(r.total_score ?? r.totalScore) || (ca + ex); const code = r.courseCode || r.course_code || cLk.get(r.course_id)?.code || '—'; const sc = r.status === 'approved' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : r.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'; return (
+                        <tr key={r.id} className="hover:bg-white dark:hover:bg-surface-800/40">
+                          <td className="px-3 py-2">{sel.full_name}</td>
+                          <td className="px-3 py-2 font-mono">{r.matric_number || sel.matric_number || '—'}</td>
+                          <td className="px-3 py-2 font-semibold font-mono">{code}</td>
+                          <td className="px-3 py-2">{isEd ? <input type="number" value={eCa} onChange={e => setECa(e.target.value)} className="w-14 px-1 py-0.5 border rounded text-xs bg-white dark:bg-surface-900 dark:border-surface-600 focus:outline-none" /> : ca}</td>
+                          <td className="px-3 py-2">{isEd ? <input type="number" value={eEx} onChange={e => setEEx(e.target.value)} className="w-14 px-1 py-0.5 border rounded text-xs bg-white dark:bg-surface-900 dark:border-surface-600 focus:outline-none" /> : ex}</td>
+                          <td className="px-3 py-2 font-semibold">{isEd ? (parseFloat(eCa||'0')+parseFloat(eEx||'0')).toFixed(0) : tot}</td>
+                          <td className="px-3 py-2"><span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${sc}`}>{r.status ?? 'pending'}</span></td>
+                          <td className="px-3 py-2"><div className="flex items-center gap-1">
+                            {isEd ? (<><Button size="xs" variant="success" leftIcon={saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} onClick={() => doSave(r.id)} disabled={saving}>Save</Button><Button size="xs" variant="outline" leftIcon={<X className="w-3 h-3" />} onClick={() => setEditId(null)}>Cancel</Button></>
+                            ) : (<><Button size="xs" variant="ghost" leftIcon={<Edit3 className="w-3 h-3" />} onClick={() => { setEditId(r.id); setECa(String(pf(r.ca_score))); setEEx(String(pf(r.exam_score))); }}>Edit</Button>{r.status !== 'approved' && <Button size="xs" variant="success" leftIcon={<CheckCircle className="w-3 h-3" />} onClick={() => doApprove(r.id)}>Approve</Button>}<Button size="xs" variant="danger" leftIcon={<Trash2 className="w-3 h-3" />} onClick={() => doDelete(r.id)}>Delete</Button></>)}
+                          </div></td>
+                        </tr>); })}
+                    </tbody>
+                  </table>
+                  <div className="text-right text-xs text-surface-500 mt-2">CGPA to date: <span className="text-primary-600 dark:text-primary-400 font-bold">{sec.gpa.toFixed(2)}</span></div>
+                </div></td></tr>)}
+              </>); })}</tbody>
+            </table></div></Card>
+          )}
+        </>)}
+      </div>
     </div>
   );
 }
