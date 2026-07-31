@@ -25,7 +25,7 @@ export default function CourseHubPage() {
       <div className="flex gap-1 border-b border-surface-200 dark:border-surface-800 pb-px">
         {([
           { key: 'courses' as Tab, label: 'Courses', icon: Settings },
-          { key: 'registrations' as Tab, label: 'Student Registrations', icon: Users },
+          { key: 'registrations' as Tab, label: 'Course Enrollment', icon: Users },
         ]).map(({ key, label, icon: Icon }) => (
           <button
             key={key}

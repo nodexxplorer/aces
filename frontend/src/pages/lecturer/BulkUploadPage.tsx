@@ -154,7 +154,10 @@ const BulkUploadPage = () => {
             <div className="p-4 pt-0 space-y-4">
               <Select
                 label="Module Course Code"
-                options={assignments.map((a) => ({ value: a.course_id, label: `${a.course_code} — ${a.course_title}` }))}
+                options={assignments.map((a) => ({
+                  value: a.course_id,
+                  label: `${a.course_code} — ${a.course_title}${a.semester ? ` (${a.semester.toUpperCase()})` : ''}`,
+                }))}
                 value={course}
                 onChange={(e) => setCourse(e.target.value)}
               />

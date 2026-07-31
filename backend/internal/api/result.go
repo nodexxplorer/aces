@@ -66,6 +66,33 @@ func (server *Server) createResult(ctx *gin.Context) {
 		}
 	}
 
+	// Prevent duplicate result submission for the same student + course + session
+	queries, okStore := server.store.(*db.Queries)
+	if okStore {
+		courseUUID, _ := uuid.Parse(req.CourseID)
+		sessionUUID, _ := uuid.Parse(req.SessionID)
+		var existingCount int
+		if req.StudentID != "" {
+			studentUUID, errS := uuid.Parse(req.StudentID)
+			if errS == nil {
+				_ = queries.GetDB().QueryRow(ctx, `
+					SELECT COUNT(*)::int FROM results
+					WHERE course_id = $1 AND session_id = $2 AND student_id = $3
+				`, courseUUID, sessionUUID, studentUUID).Scan(&existingCount)
+			}
+		}
+		if existingCount == 0 && req.MatricNumber != nil && *req.MatricNumber != "" {
+			_ = queries.GetDB().QueryRow(ctx, `
+				SELECT COUNT(*)::int FROM results
+				WHERE course_id = $1 AND session_id = $2 AND LOWER(matric_number) = LOWER($3)
+			`, courseUUID, sessionUUID, *req.MatricNumber).Scan(&existingCount)
+		}
+		if existingCount > 0 {
+			ctx.JSON(http.StatusConflict, gin.H{"error": "Result for this student and course has already been submitted for this session"})
+			return
+		}
+	}
+
 	result, err := server.results.Create(ctx, service.CreateResultInput{
 		StudentID:   req.StudentID,
 		CourseID:    req.CourseID,

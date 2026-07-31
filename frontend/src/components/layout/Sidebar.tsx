@@ -9,7 +9,7 @@ import {
   Settings, Briefcase, GraduationCap, DollarSign, Database,
   TrendingUp, ClipboardList, Printer, ListTodo,
   ChevronLeft, ChevronDown, LogOut, X,
-  BarChart3, Clock, Megaphone, Wrench, AlertTriangle, Bell
+  BarChart3, Clock, Megaphone, Wrench, AlertTriangle, Bell, PenLine
 } from 'lucide-react';
 import type { UserRole } from '../../types';
 
@@ -68,6 +68,7 @@ const menuItems: MenuItem[] = [
   { label: 'Give Back', path: '/alumni/give-back', icon: DollarSign, roles: ['alumni', 'hod', 'delegated_admin'] },
 
   { label: 'Lecturer Portal', path: '/lecturer', icon: LayoutDashboard, roles: ['lecturer'] },
+  { label: 'Single Entry', path: '/lecturer/single-entry', icon: PenLine, roles: ['lecturer'] },
   { label: 'Enter Scores', path: '/lecturer/scores', icon: ClipboardList, roles: ['lecturer'] },
   { label: 'Bulk Upload', path: '/lecturer/bulk-upload', icon: Database, roles: ['lecturer'] },
   { label: 'Manage Assignments', path: '/lecturer/assignments', icon: ListTodo, roles: ['lecturer'] },

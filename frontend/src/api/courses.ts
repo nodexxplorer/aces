@@ -76,3 +76,9 @@ export const updateCourse = async (courseId: string, payload: Partial<Course>) =
 export const deleteCourse = async (courseId: string) => {
   await apiClient.delete(`/courses/${courseId}`);
 };
+
+export const getCourseClassList = async (courseId: string) => {
+  const res = await apiClient.get(`/courses/${courseId}/class-list`);
+  const raw = unwrap<{ data: Array<{ student_id?: string; matric_number: string; name: string; course_code: string; status: string }> } | Array<{ student_id?: string; matric_number: string; name: string; course_code: string; status: string }>>(res);
+  return Array.isArray(raw) ? raw : (raw as any)?.data ?? [];
+};

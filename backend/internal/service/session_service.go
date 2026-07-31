@@ -47,10 +47,26 @@ func (s *SessionService) Create(ctx context.Context, name, startDateStr, endDate
 		return db.Session{}, errors.New("invalid end_date: " + err.Error())
 	}
 
-	return s.store.CreateSession(ctx, db.CreateSessionParams{
+	// Deactivate previous sessions and semesters so new session becomes active
+	_ = s.store.DeactivateAllSessions(ctx)
+	_ = s.store.DeactivateAllSemesters(ctx)
+
+	session, err := s.store.CreateSession(ctx, db.CreateSessionParams{
 		Name:      strings.TrimSpace(name),
 		StartDate: pgtype.Timestamptz{Time: startDate, Valid: true},
 		EndDate:   pgtype.Timestamptz{Time: endDate, Valid: true},
+	})
+	if err != nil {
+		return db.Session{}, err
+	}
+
+	return s.store.UpdateSession(ctx, db.UpdateSessionParams{
+		ID:         session.ID,
+		Name:       session.Name,
+		StartDate:  session.StartDate,
+		EndDate:    session.EndDate,
+		IsActive:   true,
+		IsArchived: session.IsArchived,
 	})
 }
 
@@ -181,11 +197,26 @@ func (s *SemesterService) Create(ctx context.Context, sessionID uuid.UUID, name,
 		return db.Semester{}, errors.New("invalid end_date: " + err.Error())
 	}
 
-	return s.store.CreateSemester(ctx, db.CreateSemesterParams{
+	// Deactivate previous semesters so new semester becomes active
+	_ = s.store.DeactivateAllSemesters(ctx)
+
+	semester, err := s.store.CreateSemester(ctx, db.CreateSemesterParams{
 		SessionID: sessionID,
 		Name:      db.SemesterSeason(name),
 		StartDate: pgtype.Timestamptz{Time: startDate, Valid: true},
 		EndDate:   pgtype.Timestamptz{Time: endDate, Valid: true},
+	})
+	if err != nil {
+		return db.Semester{}, err
+	}
+
+	return s.store.UpdateSemester(ctx, db.UpdateSemesterParams{
+		ID:        semester.ID,
+		SessionID: semester.SessionID,
+		Name:      semester.Name,
+		StartDate: semester.StartDate,
+		EndDate:   semester.EndDate,
+		IsActive:  true,
 	})
 }
 

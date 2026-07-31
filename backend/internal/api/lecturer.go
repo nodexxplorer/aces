@@ -165,8 +165,16 @@ func (server *Server) assignCourseToLecturer(ctx *gin.Context) {
 		isPrimary = *req.IsPrimary
 	}
 
+	// Resolve actual lecturer profile ID if a user_id was passed
+	actualLecturerID := lecturerID
+	var profileID uuid.UUID
+	errProfile := queries.GetDB().QueryRow(ctx, `SELECT id FROM lecturers WHERE id = $1 OR user_id = $1`, lecturerID).Scan(&profileID)
+	if errProfile == nil {
+		actualLecturerID = profileID
+	}
+
 	assignmentID, err := queries.AssignCourseToLecturer(ctx, db.AssignCourseToLecturerParams{
-		LecturerID: lecturerID,
+		LecturerID: actualLecturerID,
 		CourseID:   courseID,
 		SessionID:  sessionID,
 		Semester:   semester,
@@ -178,8 +186,8 @@ func (server *Server) assignCourseToLecturer(ctx *gin.Context) {
 		return
 	}
 
-	// Also update courses.lecturer_id
-	_, _ = queries.GetDB().Exec(ctx, `UPDATE courses SET lecturer_id = $2 WHERE id = $1`, courseID, lecturerID)
+	// Update courses.lecturer_id with both lecturer profile ID and user_id fallback
+	_, _ = queries.GetDB().Exec(ctx, `UPDATE courses SET lecturer_id = $2 WHERE id = $1`, courseID, actualLecturerID)
 
 	ctx.JSON(http.StatusCreated, gin.H{
 		"id":      assignmentID,
@@ -188,7 +196,7 @@ func (server *Server) assignCourseToLecturer(ctx *gin.Context) {
 }
 
 func (server *Server) listLecturerAssignments(ctx *gin.Context) {
-	lecturerID, err := uuid.Parse(ctx.Param("id"))
+	paramID, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid lecturer id"})
 		return
@@ -200,10 +208,62 @@ func (server *Server) listLecturerAssignments(ctx *gin.Context) {
 		return
 	}
 
-	assignments, err := queries.ListLecturerAssignments(ctx, lecturerID)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-		return
+	// First try matchingParam directly
+	assignments, err := queries.ListLecturerAssignments(ctx, paramID)
+	if err != nil || len(assignments) == 0 {
+		// Fallback 1: Lookup lecturer by user_id
+		var lecturerID uuid.UUID
+		errLookup := queries.GetDB().QueryRow(ctx, `SELECT id FROM lecturers WHERE user_id = $1`, paramID).Scan(&lecturerID)
+		if errLookup == nil {
+			if a, err2 := queries.ListLecturerAssignments(ctx, lecturerID); err2 == nil && len(a) > 0 {
+				assignments = a
+			}
+		}
+	}
+
+	// Fallback 2: If assignments table has no records, fetch courses directly assigned to this lecturer/user
+	if len(assignments) == 0 {
+		type courseFallback struct {
+			ID          uuid.UUID `db:"id"`
+			Code        string    `db:"code"`
+			Title       string    `db:"title"`
+			Unit        int32     `db:"unit"`
+			Level       int32     `db:"level"`
+			SessionID   uuid.UUID `db:"session_id"`
+			Semester    string    `db:"semester"`
+		}
+		rows, errFB := queries.GetDB().Query(ctx, `
+			SELECT c.id, c.code, c.title, c.unit, c.level,
+			       COALESCE(s.id, '00000000-0000-0000-0000-000000000000'::uuid) as session_id,
+			       COALESCE(sem.name, 'harmattan') as semester
+			FROM courses c
+			LEFT JOIN sessions s ON s.is_active = true
+			LEFT JOIN semesters sem ON sem.session_id = s.id AND sem.is_active = true
+			LEFT JOIN lecturers l ON l.user_id = $1 OR l.id = $1
+			WHERE c.lecturer_id = l.id OR c.lecturer_id = $1
+		`, paramID)
+		if errFB == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var cf courseFallback
+				if errScan := rows.Scan(&cf.ID, &cf.Code, &cf.Title, &cf.Unit, &cf.Level, &cf.SessionID, &cf.Semester); errScan == nil {
+					assignments = append(assignments, db.LecturerCourseAssignmentRow{
+						ID:             cf.ID,
+						LecturerID:     paramID,
+						CourseID:       cf.ID,
+						CourseCode:     cf.Code,
+						CourseTitle:    cf.Title,
+						CourseUnit:     cf.Unit,
+						Level:          cf.Level,
+						SessionID:      cf.SessionID,
+						Semester:       cf.Semester,
+						IsPrimary:      true,
+						AssignedBy:     paramID,
+						AssignedByName: "System",
+					})
+				}
+			}
+		}
 	}
 
 	ctx.JSON(http.StatusOK, assignments)

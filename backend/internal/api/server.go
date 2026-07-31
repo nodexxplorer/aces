@@ -292,6 +292,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		courses.GET("/filter", server.listCoursesByLevelAndSemester)
 		courses.GET("/count", server.countCourses)
 		courses.GET("/:id", server.getCourse)
+		courses.GET("/:id/class-list", server.getCourseClassList)
 		courses.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateCourse)
 		courses.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteCourse)
 	}
