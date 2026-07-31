@@ -79,7 +79,7 @@ const LecturerManagementPage = () => {
     );
   });
 
-  const unassignedCourses = courses.filter((c) => !c.lecturerId && c.isActive);
+  const availableCourses = courses.filter((c) => c.isActive);
 
   const handleSelectLecturer = async (lecturer: LecturerProfile) => {
     setSelectedLecturer(lecturer);
@@ -456,13 +456,13 @@ const LecturerManagementPage = () => {
             value={assignCourseId}
             onChange={(e) => setAssignCourseId(e.target.value)}
             placeholder="Select a course..."
-            options={unassignedCourses.map((c) => ({
+            options={availableCourses.map((c) => ({
               value: c.id,
               label: `${c.code} — ${c.title} (${c.unit} unit${c.unit !== 1 ? 's' : ''})`,
             }))}
           />
-          {unassignedCourses.length === 0 && (
-            <p className="text-xs text-surface-400">No unassigned active courses available.</p>
+          {availableCourses.length === 0 && (
+            <p className="text-xs text-surface-400">No active courses available.</p>
           )}
           <div className="flex gap-2 justify-end pt-2">
             <Button variant="ghost" onClick={() => { setAssignModalOpen(false); setAssignCourseId(''); }}>

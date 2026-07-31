@@ -34,6 +34,7 @@ const ScoreEntryPage = lazy(() => import('./pages/lecturer/ScoreEntryPage'));
 const BulkUploadPage = lazy(() => import('./pages/lecturer/BulkUploadPage'));
 const AssignmentsPage = lazy(() => import('./pages/lecturer/AssignmentsPage'));
 const LecturerClassListPage = lazy(() => import('./pages/lecturer/ClassListPage'));
+const LecturerSingleEntryPage = lazy(() => import('./pages/lecturer/SingleEntryPage'));
 const LecturerReportsPage = lazy(() => import('./pages/lecturer/LecturerReportsPage'));
 
 // Class Rep
@@ -282,6 +283,7 @@ export const router = createBrowserRouter([
             children: [
               { path: '/lecturer', element: <LecturerDashboard /> },
               { path: '/lecturer/scores', element: <ScoreEntryPage /> },
+              { path: '/lecturer/single-entry', element: <LecturerSingleEntryPage /> },
               { path: '/lecturer/bulk-upload', element: <BulkUploadPage /> },
               { path: '/lecturer/assignments', element: <AssignmentsPage /> },
               { path: '/lecturer/class-list', element: <LecturerClassListPage /> },

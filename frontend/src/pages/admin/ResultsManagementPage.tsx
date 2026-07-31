@@ -16,6 +16,22 @@ import type { Course, Session, StudentForRoleManagement } from '../../types';
 
 type Tab = 'manage' | 'bulk' | 'single';
 
+function isSameSemester(courseSemester?: string, selectedSemesterName?: string): boolean {
+  if (!selectedSemesterName || !courseSemester) return true;
+  const cSem = courseSemester.toLowerCase().trim();
+  const sSem = selectedSemesterName.toLowerCase().trim();
+
+  const isFirstC = cSem.includes('first') || cSem.includes('harmattan') || cSem === '1';
+  const isFirstS = sSem.includes('first') || sSem.includes('harmattan') || sSem === '1';
+
+  const isSecondC = cSem.includes('second') || cSem.includes('rain') || cSem === '2';
+  const isSecondS = sSem.includes('second') || sSem.includes('rain') || sSem === '2';
+
+  if (isFirstS) return isFirstC;
+  if (isSecondS) return isSecondC;
+  return true;
+}
+
 /* ── Manage Tab ──────────────────────────────── */
 
 function ManageTab() {
@@ -287,8 +303,13 @@ function BulkUploadTab() {
     });
   };
 
+
+
   const validateRows = (rows: CsvRow[]) => {
     const seen = new Set<string>();
+    const selectedSemObj = semesters.find((s: any) => s.id === selectedSemester);
+    const selectedSemName = selectedSemObj?.name || '';
+
     const validated: ValidatedRow[] = rows.map((row) => {
       const errors: string[] = [];
       const ca = parseFloat(row.ca_score);
@@ -307,8 +328,15 @@ function BulkUploadTab() {
       else { studentId = student.student_id; studentName = student.full_name || student.email; }
 
       const course = courses.find((c: any) => (c.code || '').toLowerCase() === row.course_code.toLowerCase());
-      if (!course) { errors.push('Course not found'); }
-      else { courseId = course.id; courseTitle = course.title; }
+      if (!course) {
+        errors.push('Course not found');
+      } else {
+        courseId = course.id;
+        courseTitle = course.title;
+        if (selectedSemName && !isSameSemester(course.semester, selectedSemName)) {
+          errors.push(`Course is for ${course.semester || 'another'} semester, not ${selectedSemName}`);
+        }
+      }
 
       let isDuplicate = false;
       const matchingStudentId = studentId;
@@ -639,8 +667,24 @@ function SingleEntryTab() {
             )}
           </div>
 
-          <Select label="Course" options={courses.map((c) => ({ value: c.id, label: `${c.code} — ${c.title}` }))}
-            value={selectedCourse} onChange={(e) => setSelectedCourse(e.target.value)} placeholder="Select course" />
+          {(() => {
+            const selectedSemObj = semesters.find((s: any) => s.id === selectedSemester);
+            const selectedSemName = selectedSemObj?.name || '';
+            const availableCourses = courses.filter((c) => isSameSemester(c.semester, selectedSemName));
+            return (
+              <Select
+                label="Course"
+                options={availableCourses.map((c) => ({
+                  value: c.id,
+                  label: `${c.code} — ${c.title}${c.semester ? ` (${c.semester.toUpperCase()})` : ''}`,
+                }))}
+                value={selectedCourse}
+                onChange={(e) => setSelectedCourse(e.target.value)}
+                placeholder={!selectedSemester ? 'Select semester first' : 'Select course'}
+                disabled={!selectedSemester}
+              />
+            );
+          })()}
 
           <div className="grid grid-cols-3 gap-4">
             <div>

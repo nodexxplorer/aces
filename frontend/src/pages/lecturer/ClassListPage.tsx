@@ -6,7 +6,7 @@ import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../hooks/useAuth';
 import { Printer, Download, Loader2, Users } from 'lucide-react';
 import { listLecturerAssignments, type LecturerAssignment } from '../../api/lecturers';
-import { getCourseResults } from '../../api/results';
+import { getCourseClassList } from '../../api/courses';
 
 interface StudentRow {
   matricNumber: string;
@@ -42,12 +42,12 @@ const ClassListPage = () => {
     if (!sel) return;
     setLoadingS(true);
     try {
-      const res = await getCourseResults(sel.course_id, sel.session_id);
+      const res = await getCourseClassList(sel.course_id);
       setStudents((res || []).map((r: any) => ({
         matricNumber: r.matric_number || r.matricNumber || '—',
-        name: r.student_name || r.studentName || '—',
+        name: r.name || r.student_name || r.studentName || '—',
         courseCode: sel.course_code,
-        status: r.status || 'pending',
+        status: r.status || 'enrolled',
       })));
     } catch { setStudents([]); }
     finally { setLoadingS(false); }
@@ -84,7 +84,7 @@ const ClassListPage = () => {
             <CardDescription>Filtered by assigned course</CardDescription>
           </div>
           {loadingA ? <Loader2 className="w-5 h-5 animate-spin text-primary-500" /> : (
-            <Select options={assignments.map((a) => ({ value: a.id, label: `${a.course_code} — ${a.course_title}` }))}
+            <Select options={assignments.map((a) => ({ value: a.id, label: `${a.course_code} — ${a.course_title}${a.semester ? ` (${a.semester.toUpperCase()})` : ''}` }))}
               value={selectedId} onChange={(e) => setSelectedId(e.target.value)} placeholder="Select course" />
           )}
         </CardHeader>

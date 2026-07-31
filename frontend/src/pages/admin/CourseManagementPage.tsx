@@ -9,6 +9,7 @@ import { useNotification } from '../../hooks/useNotification';
 import { Plus, Trash2, Loader2, UserCheck, Users, BookOpen, Archive } from 'lucide-react';
 import { getCourses, createCourse, deleteCourse, updateCourse } from '../../api/courses';
 import { getUsers } from '../../api/users';
+import { assignCourseToLecturer } from '../../api/lecturers';
 import type { User as UserType } from '../../types';
 
 const CourseManagementPage = () => {
@@ -124,6 +125,9 @@ const CourseManagementPage = () => {
     if (!selectedCourse) return;
     try {
       setAssigning(true);
+      if (selectedLecturerId) {
+        await assignCourseToLecturer(selectedLecturerId, selectedCourse.id);
+      }
       await updateCourse(selectedCourse.id, {
         lecturer_id: selectedLecturerId,
         lecturerId: selectedLecturerId,
