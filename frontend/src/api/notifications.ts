@@ -75,7 +75,8 @@ export const getMyNotifications = async (params?: {
 
 export const getUnreadCount = async (): Promise<number> => {
   const { data } = await apiClient.get('/notifications/unread-count');
-  return (data.data ?? data).count ?? 0;
+  const res = data.data ?? data;
+  return res.count ?? res.unread_count ?? 0;
 };
 
 export const getUnreadByCategory = async (): Promise<CategoryCount[]> => {

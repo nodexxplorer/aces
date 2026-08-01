@@ -2,6 +2,7 @@ package api
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 
 	db "github.com/aces/backend/internal/db/sql"
@@ -537,6 +538,25 @@ func (server *Server) recordManualPayment(ctx *gin.Context) {
 				paid_at = NOW()
 			WHERE id = $1
 		`, payment.ID, bankRef, bankName, notes, recordedBy)
+	}
+
+	// Notify the student about the manual payment
+	if student, err := server.store.GetStudent(ctx, studentID); err == nil {
+		eType := "payment"
+		eID := payment.ID
+		server.notifyUser(
+			ctx,
+			student.UserID,
+			"payment",
+			"dues",
+			"high",
+			"Payment Recorded",
+			fmt.Sprintf("A manual payment of ₦%s for %s has been recorded and verified on your behalf.", due.Amount.String(), due.Name),
+			"/payments",
+			"View Dues",
+			&eType,
+			&eID,
+		)
 	}
 
 	ctx.JSON(http.StatusCreated, gin.H{

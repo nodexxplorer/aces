@@ -1560,3 +1560,217 @@ func (q *Queries) UpdateAlumniProfileFull(ctx context.Context, userID uuid.UUID,
 		industry, jobTitle, currentCompany)
 	return err
 }
+
+// DeleteCourseRegistration deletes a registration header and its registered courses.
+func (q *Queries) DeleteCourseRegistration(ctx context.Context, id uuid.UUID) error {
+	_, _ = q.db.Exec(ctx, `DELETE FROM registered_courses WHERE registration_id = $1`, id)
+	_, err := q.db.Exec(ctx, `DELETE FROM course_registrations WHERE id = $1`, id)
+	return err
+}
+
+type RegisteredStudentForAttendanceRow struct {
+	StudentID          uuid.UUID `json:"student_id"`
+	UserID             uuid.UUID `json:"user_id"`
+	MatricNumber       string    `json:"matric_number"`
+	FullName           string    `json:"full_name"`
+	Level              int32     `json:"level"`
+	ProfilePictureUrl  *string   `json:"profile_picture_url"`
+	RegistrationStatus string    `json:"registration_status"`
+	RegisteredAt       time.Time `json:"registered_at"`
+}
+
+// GetRegisteredStudentsForAttendance returns students who have registered for a specific course (verified registration status).
+func (q *Queries) GetRegisteredStudentsForAttendance(ctx context.Context, courseID uuid.UUID, semesterID uuid.UUID) ([]RegisteredStudentForAttendanceRow, error) {
+	rows, err := q.db.Query(ctx, `
+		SELECT 
+			s.id AS student_id,
+			s.user_id,
+			s.matric_number,
+			u.full_name,
+			s.level,
+			u.profile_picture_url,
+			cr.status AS registration_status,
+			cr.created_at AS registered_at
+		FROM registered_courses rc
+		JOIN course_registrations cr ON cr.id = rc.registration_id
+		JOIN students s ON s.id = cr.student_id
+		JOIN users u ON u.id = s.user_id
+		WHERE rc.course_id = $1 
+		  AND cr.semester_id = $2
+		  AND cr.status = 'verified'
+		ORDER BY s.matric_number ASC
+	`, courseID, semesterID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []RegisteredStudentForAttendanceRow
+	for rows.Next() {
+		var r RegisteredStudentForAttendanceRow
+		if err := rows.Scan(
+			&r.StudentID,
+			&r.UserID,
+			&r.MatricNumber,
+			&r.FullName,
+			&r.Level,
+			&r.ProfilePictureUrl,
+			&r.RegistrationStatus,
+			&r.RegisteredAt,
+		); err != nil {
+			return nil, err
+		}
+		results = append(results, r)
+	}
+	return results, rows.Err()
+}
+
+type ClassRepTimetableEntryRow struct {
+	TimetableEntryID    uuid.UUID  `json:"timetable_entry_id"`
+	CourseID            uuid.UUID  `json:"course_id"`
+	CourseCode          string     `json:"course_code"`
+	CourseTitle         string     `json:"course_title"`
+	LecturerName        string     `json:"lecturer_name"`
+	Venue               string     `json:"venue"`
+	DayOfWeek           string     `json:"day_of_week"`
+	StartTime           string     `json:"start_time"`
+	EndTime             string     `json:"end_time"`
+	CardStatus          string     `json:"card_status"`
+	AttendanceSessionID *uuid.UUID `json:"attendance_session_id"`
+	AttendanceStatus    *string    `json:"attendance_status"`
+}
+
+// GetClassRepTimetableEntries returns timetable entries for the class rep's level and active semester.
+func (q *Queries) GetClassRepTimetableEntries(ctx context.Context, level int32, semesterID uuid.UUID) ([]ClassRepTimetableEntryRow, error) {
+	rows, err := q.db.Query(ctx, `
+		SELECT 
+			t.id AS timetable_entry_id,
+			t.course_id,
+			c.code AS course_code,
+			c.title AS course_title,
+			COALESCE(u.full_name, 'TBA') AS lecturer_name,
+			t.venue,
+			t.day_of_week,
+			t.start_time,
+			t.end_time,
+			'upcoming' AS card_status,
+			asess.id AS attendance_session_id,
+			asess.status AS attendance_status
+		FROM timetable t
+		JOIN courses c ON c.id = t.course_id
+		LEFT JOIN lecturers l ON l.id = t.lecturer_id
+		LEFT JOIN users u ON u.id = l.user_id
+		LEFT JOIN attendance_sessions asess ON asess.course_id = t.course_id AND asess.created_at::date = CURRENT_DATE
+		WHERE t.level = $1 AND t.semester_id = $2
+		ORDER BY 
+			CASE t.day_of_week
+				WHEN 'Monday' THEN 1
+				WHEN 'Tuesday' THEN 2
+				WHEN 'Wednesday' THEN 3
+				WHEN 'Thursday' THEN 4
+				WHEN 'Friday' THEN 5
+				WHEN 'Saturday' THEN 6
+				WHEN 'Sunday' THEN 7
+				ELSE 8
+			END, t.start_time ASC
+	`, level, semesterID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []ClassRepTimetableEntryRow
+	for rows.Next() {
+		var r ClassRepTimetableEntryRow
+		if err := rows.Scan(
+			&r.TimetableEntryID,
+			&r.CourseID,
+			&r.CourseCode,
+			&r.CourseTitle,
+			&r.LecturerName,
+			&r.Venue,
+			&r.DayOfWeek,
+			&r.StartTime,
+			&r.EndTime,
+			&r.CardStatus,
+			&r.AttendanceSessionID,
+			&r.AttendanceStatus,
+		); err != nil {
+			return nil, err
+		}
+		results = append(results, r)
+	}
+	return results, rows.Err()
+}
+
+type PendingAttendanceReviewRow struct {
+	SessionID      uuid.UUID `json:"session_id"`
+	CourseID       uuid.UUID `json:"course_id"`
+	CourseCode     string    `json:"course_code"`
+	CourseTitle    string    `json:"course_title"`
+	ScheduledDate  string    `json:"scheduled_date"`
+	ClassRepName   string    `json:"class_rep_name"`
+	ClassRepMatric string    `json:"class_rep_matric"`
+	TotalPresent   int32     `json:"total_present"`
+	TotalAbsent    int32     `json:"total_absent"`
+	TotalLate      int32     `json:"total_late"`
+	TotalExcused   int32     `json:"total_excused"`
+	Status         string    `json:"status"`
+	SubmittedAt    time.Time `json:"submitted_at"`
+}
+
+// GetPendingAttendanceReviews returns attendance sessions pending review for a lecturer.
+func (q *Queries) GetPendingAttendanceReviews(ctx context.Context, lecturerUserID uuid.UUID) ([]PendingAttendanceReviewRow, error) {
+	rows, err := q.db.Query(ctx, `
+		SELECT 
+			asess.id AS session_id,
+			asess.course_id,
+			c.code AS course_code,
+			c.title AS course_title,
+			COALESCE(asess.date::text, asess.created_at::date::text) AS scheduled_date,
+			COALESCE(u.full_name, 'Class Rep') AS class_rep_name,
+			COALESCE(st.matric_number, '') AS class_rep_matric,
+			COALESCE(asess.total_present, 0) AS total_present,
+			COALESCE(asess.total_absent, 0) AS total_absent,
+			0 AS total_late,
+			0 AS total_excused,
+			asess.status,
+			asess.created_at AS submitted_at
+		FROM attendance_sessions asess
+		JOIN courses c ON c.id = asess.course_id
+		LEFT JOIN users u ON u.id = asess.class_rep_id
+		LEFT JOIN students st ON st.user_id = u.id
+		WHERE asess.status IN ('pending_lecturer_review', 'pending', 'submitted')
+		ORDER BY asess.created_at DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []PendingAttendanceReviewRow
+	for rows.Next() {
+		var r PendingAttendanceReviewRow
+		if err := rows.Scan(
+			&r.SessionID,
+			&r.CourseID,
+			&r.CourseCode,
+			&r.CourseTitle,
+			&r.ScheduledDate,
+			&r.ClassRepName,
+			&r.ClassRepMatric,
+			&r.TotalPresent,
+			&r.TotalAbsent,
+			&r.TotalLate,
+			&r.TotalExcused,
+			&r.Status,
+			&r.SubmittedAt,
+		); err != nil {
+			return nil, err
+		}
+		results = append(results, r)
+	}
+	return results, rows.Err()
+}
+
+

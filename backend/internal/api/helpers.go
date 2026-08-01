@@ -1,7 +1,10 @@
 package api
 
 import (
+	"context"
+	"log"
 	"net/http"
+	"time"
 
 	"github.com/aces/backend/internal/auth"
 	db "github.com/aces/backend/internal/db/sql"
@@ -85,4 +88,44 @@ func requireOwnershipOrStaffByStudentIDParam(ctx *gin.Context, store db.Querier)
 		return uuid.Nil, false
 	}
 	return student.ID, true
+}
+
+func (server *Server) notifyUser(
+	ctx context.Context,
+	userID uuid.UUID,
+	notifType string,
+	category string,
+	priority string,
+	title string,
+	message string,
+	actionURL string,
+	actionLabel string,
+	entityType *string,
+	entityID *uuid.UUID,
+) {
+	if server.notificationsFull == nil || userID == uuid.Nil {
+		return
+	}
+	go func() {
+		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, err := server.notificationsFull.CreateAndPush(
+			bgCtx,
+			userID,
+			notifType,
+			category,
+			priority,
+			title,
+			message,
+			actionURL,
+			actionLabel,
+			nil,
+			entityType,
+			entityID,
+			nil,
+		)
+		if err != nil {
+			log.Printf("[notification] failed to send notification (type=%s, user=%s): %v", notifType, userID, err)
+		}
+	}()
 }

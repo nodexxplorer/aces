@@ -154,3 +154,8 @@ export const updateRegistrationStatus = async (registrationId: string, status: s
   const res = await apiClient.put(`/course-registrations/${registrationId}`, { status });
   return unwrap<BackendRegistration>(res);
 };
+
+export const deleteCourseRegistration = async (registrationId: string) => {
+  await apiClient.delete(`/course-registrations/${registrationId}`);
+};
+

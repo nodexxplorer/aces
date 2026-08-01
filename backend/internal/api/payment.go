@@ -595,6 +595,24 @@ func (server *Server) updatePaymentBatchStatus(ctx *gin.Context) {
 		return
 	}
 
+	if student, err := server.store.GetStudent(ctx, batch.StudentID); err == nil {
+		eType := "payment_batch"
+		eID := batch.ID
+		server.notifyUser(
+			ctx,
+			student.UserID,
+			"payment",
+			"dues",
+			"normal",
+			"Payment Batch Updated",
+			fmt.Sprintf("Your payment batch status was updated to %s.", batch.Status),
+			"/payments",
+			"View Dues",
+			&eType,
+			&eID,
+		)
+	}
+
 	ctx.JSON(http.StatusOK, batch)
 }
 
@@ -777,6 +795,24 @@ func (server *Server) updatePaymentStatus(ctx *gin.Context) {
 		return
 	}
 
+	if student, err := server.store.GetStudent(ctx, payment.StudentID); err == nil {
+		eType := "payment"
+		eID := payment.ID
+		server.notifyUser(
+			ctx,
+			student.UserID,
+			"payment",
+			"dues",
+			"normal",
+			"Payment Status Updated",
+			fmt.Sprintf("Your payment for %s status was updated to %s.", payment.ItemName, payment.Status),
+			"/payments",
+			"View Dues",
+			&eType,
+			&eID,
+		)
+	}
+
 	ctx.JSON(http.StatusOK, payment)
 }
 
@@ -831,6 +867,24 @@ func (server *Server) verifyPayment(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
+	}
+
+	if student, err := server.store.GetStudent(ctx, payment.StudentID); err == nil {
+		eType := "payment"
+		eID := payment.ID
+		server.notifyUser(
+			ctx,
+			student.UserID,
+			"payment",
+			"dues",
+			"high",
+			"Payment Verified",
+			fmt.Sprintf("Your payment of ₦%s for %s has been verified.", payment.Amount.String(), payment.ItemName),
+			"/payments",
+			"View Dues",
+			&eType,
+			&eID,
+		)
 	}
 
 	ctx.JSON(http.StatusOK, payment)

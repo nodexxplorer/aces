@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -145,6 +146,37 @@ func (server *Server) updateProfileUpdateRequestStatus(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
+	}
+
+	// Notify the student about profile update request status change
+	if student, sErr := server.store.GetStudent(ctx, request.StudentID); sErr == nil {
+		eType := "profile_update_request"
+		eID := request.ID
+		title := "Profile Update Request Updated"
+		msg := fmt.Sprintf("Your profile update request for %s has been updated to %s.", request.FieldName, request.Status)
+		priority := "normal"
+		if request.Status == "approved" {
+			title = "Profile Update Approved"
+			msg = fmt.Sprintf("Your request to update %s has been approved.", request.FieldName)
+			priority = "high"
+		} else if request.Status == "rejected" {
+			title = "Profile Update Rejected"
+			msg = fmt.Sprintf("Your request to update %s has been rejected.", request.FieldName)
+			priority = "high"
+		}
+		server.notifyUser(
+			ctx,
+			student.UserID,
+			"general",
+			"system",
+			priority,
+			title,
+			msg,
+			"/profile",
+			"View Profile",
+			&eType,
+			&eID,
+		)
 	}
 
 	ctx.JSON(http.StatusOK, request)

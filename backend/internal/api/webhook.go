@@ -5,6 +5,7 @@ import (
 	"crypto/sha512"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -103,6 +104,24 @@ func (server *Server) handlePaystackWebhook(ctx *gin.Context) {
 			log.Printf("[paystack-webhook] Failed to update payment %s: %v", reference, err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update payment"})
 			return
+		}
+
+		if student, err := server.store.GetStudent(ctx, payment.StudentID); err == nil {
+			eType := "payment"
+			eID := payment.ID
+			server.notifyUser(
+				ctx,
+				student.UserID,
+				"payment",
+				"dues",
+				"high",
+				"Payment Completed",
+				fmt.Sprintf("Your payment of ₦%s for %s has been completed successfully.", payment.Amount.String(), payment.ItemName),
+				"/payments",
+				"View Dues",
+				&eType,
+				&eID,
+			)
 		}
 
 		// If payment is part of a batch, check if all batch payments are now completed
