@@ -1597,7 +1597,6 @@ func (q *Queries) GetRegisteredStudentsForAttendance(ctx context.Context, course
 		JOIN users u ON u.id = s.user_id
 		WHERE rc.course_id = $1 
 		  AND cr.semester_id = $2
-		  AND cr.status = 'verified'
 		ORDER BY s.matric_number ASC
 	`, courseID, semesterID)
 	if err != nil {

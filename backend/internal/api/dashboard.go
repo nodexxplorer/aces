@@ -361,13 +361,14 @@ func (server *Server) getClassRepClassList(ctx *gin.Context) {
 		IsDefaulter  bool   `json:"is_defaulter"`
 	}
 
-	assignment, err := queries.GetActiveClassRepAssignment(ctx, userID)
-	if err != nil {
-		ctx.JSON(http.StatusOK, []classRepStudent{})
-		return
+	level := int32(400)
+	if assignment, err := queries.GetActiveClassRepAssignment(ctx, userID); err == nil {
+		level = assignment.Level
+	} else if student, serr := queries.GetStudentByUserId(ctx, userID); serr == nil {
+		level = student.Level
 	}
 
-	students, err := queries.ListStudentsByLevel(ctx, int32(assignment.Level))
+	students, err := queries.ListStudentsByLevel(ctx, level)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
@@ -668,7 +669,7 @@ func (server *Server) createAttendanceSession(ctx *gin.Context) {
 		Status:     "draft",
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create session: " + err.Error()})
 		return
 	}
 
@@ -693,7 +694,7 @@ func (server *Server) openAttendanceSession(ctx *gin.Context) {
 		ID:     id,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to open session: " + err.Error()})
 		return
 	}
 
@@ -976,17 +977,97 @@ func (server *Server) listPendingCourseRegistrations(ctx *gin.Context) {
 		return
 	}
 
-	assignment, err := queries.GetActiveClassRepAssignment(ctx, userID)
-	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": "no active class rep assignment found"})
-		return
+	level := int32(400)
+	if assignment, err := queries.GetActiveClassRepAssignment(ctx, userID); err == nil {
+		level = assignment.Level
+	} else if student, serr := queries.GetStudentByUserId(ctx, userID); serr == nil {
+		level = student.Level
 	}
 
-	regs, err := queries.ListPendingCourseRegistrationsByLevel(ctx, assignment.Level)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-		return
+	type pendingStudentItem struct {
+		ID           string `json:"id"`
+		UserID       string `json:"user_id"`
+		Name         string `json:"name"`
+		MatricNumber string `json:"matric_number"`
+		Email        string `json:"email"`
+		Level        int32  `json:"level"`
+		Type         string `json:"type"`
 	}
 
-	ctx.JSON(http.StatusOK, regs)
+	items := []pendingStudentItem{}
+
+	// 1. Pending signup approvals by level
+	approvals, err := queries.ListPendingSignupApprovalsByType(ctx, "student")
+	if err == nil {
+		for _, app := range approvals {
+			if app.Level != nil && *app.Level == level {
+				user, uerr := queries.GetUser(ctx, app.UserID)
+				name := "Student"
+				email := ""
+				if uerr == nil {
+					name = user.FullName
+					email = user.Email
+				}
+				regNo := ""
+				if app.RegNo != nil {
+					regNo = *app.RegNo
+				}
+				items = append(items, pendingStudentItem{
+					ID:           app.ID.String(),
+					UserID:       app.UserID.String(),
+					Name:         name,
+					MatricNumber: regNo,
+					Email:        email,
+					Level:        level,
+					Type:         "User Registration",
+				})
+			}
+		}
+	}
+
+	// 2. Unapproved student accounts in `users` for this level
+	students, serr := queries.ListStudentsByLevel(ctx, level)
+	if serr == nil {
+		for _, s := range students {
+			user, uerr := queries.GetUser(ctx, s.UserID)
+			if uerr == nil && !user.IsApproved {
+				alreadyAdded := false
+				for _, it := range items {
+					if it.UserID == s.UserID.String() {
+						alreadyAdded = true
+						break
+					}
+				}
+				if !alreadyAdded {
+					items = append(items, pendingStudentItem{
+						ID:           user.ID.String(),
+						UserID:       user.ID.String(),
+						Name:         user.FullName,
+						MatricNumber: s.MatricNumber,
+						Email:        user.Email,
+						Level:        level,
+						Type:         "Account Registration",
+					})
+				}
+			}
+		}
+	}
+
+	// 3. Pending course forms
+	regs, rerr := queries.ListPendingCourseRegistrationsByLevel(ctx, level)
+	if rerr == nil {
+		for _, r := range regs {
+			items = append(items, pendingStudentItem{
+				ID:           r.ID.String(),
+				UserID:       r.StudentID.String(),
+				Name:         r.StudentName,
+				MatricNumber: r.MatricNumber,
+				Email:        "",
+				Level:        r.Level,
+				Type:         "Course Form",
+			})
+		}
+	}
+
+	ctx.JSON(http.StatusOK, items)
 }
