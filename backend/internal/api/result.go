@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/aces/backend/internal/auth"
@@ -310,6 +311,36 @@ func (server *Server) updateResultStatus(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
+	}
+
+	// Notify student about result status change
+	if result.StudentID != nil {
+		if student, err := server.store.GetStudent(ctx, *result.StudentID); err == nil {
+			eType := "result"
+			eID := result.ID
+			title := "Result Status Updated"
+			msg := fmt.Sprintf("Your result status has been updated to %s.", req.Status)
+			if req.Status == "approved" {
+				title = "Result Approved"
+				msg = "Your result has been approved and is now official."
+			} else if req.Status == "rejected" {
+				title = "Result Rejected"
+				msg = "Your result submission was rejected. Please check for details."
+			}
+			server.notifyUser(
+				ctx,
+				student.UserID,
+				"result",
+				"results",
+				"high",
+				title,
+				msg,
+				"/results",
+				"View Results",
+				&eType,
+				&eID,
+			)
+		}
 	}
 
 	ctx.JSON(http.StatusOK, result)

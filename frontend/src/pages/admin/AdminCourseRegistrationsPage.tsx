@@ -13,6 +13,7 @@ import {
   addCourseToRegistration,
   removeCourseFromRegistration,
   updateRegistrationStatus,
+  deleteCourseRegistration,
 } from '../../api/course-registrations';
 import { searchStudentsForRoles } from '../../api/role-management';
 import { useNotification } from '../../hooks/useNotification';
@@ -270,6 +271,22 @@ const AdminCourseRegistrationsPage = () => {
     }
   };
 
+  const handleDeleteRegistration = async (regIdToDelete?: string) => {
+    const targetId = regIdToDelete || currentRegistration?.id;
+    if (!targetId) return;
+    if (!confirm('Are you sure you want to delete this course registration header and all enrolled courses within it?')) return;
+    try {
+      await deleteCourseRegistration(targetId);
+      success('Registration Deleted', 'Course registration header deleted successfully');
+      setRegisteredCourses([]);
+      if (selectedStudent?.student_id) {
+        await loadStudentRegistrations(selectedStudent.student_id);
+      }
+    } catch (err: any) {
+      notifyError('Error', err?.message || 'Failed to delete course registration');
+    }
+  };
+
   // Filter student list for dropdown
   const filteredStudents = students.filter((s) => {
     if (!studentSearch || studentSearch.length < 2) return false;
@@ -411,17 +428,28 @@ const AdminCourseRegistrationsPage = () => {
 
               <div className="flex items-center gap-3">
                 {currentRegistration ? (
-                  <Badge
-                    variant={
-                      currentRegistration.status === 'approved'
-                        ? 'success'
-                        : currentRegistration.status === 'submitted'
-                        ? 'warning'
-                        : 'default'
-                    }
-                  >
-                    Status: {currentRegistration.status.toUpperCase()}
-                  </Badge>
+                  <>
+                    <Badge
+                      variant={
+                        currentRegistration.status === 'approved'
+                          ? 'success'
+                          : currentRegistration.status === 'submitted'
+                          ? 'warning'
+                          : 'default'
+                      }
+                    >
+                      Status: {currentRegistration.status.toUpperCase()}
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      leftIcon={<Trash2 className="w-4 h-4" />}
+                      onClick={() => handleDeleteRegistration()}
+                      title="Delete this entire registration header"
+                    >
+                      Delete Header
+                    </Button>
+                  </>
                 ) : (
                   <Badge variant="default">NOT REGISTERED THIS SEMESTER</Badge>
                 )}
@@ -509,6 +537,14 @@ const AdminCourseRegistrationsPage = () => {
                       Reject Header
                     </Button>
                   )}
+                  <Button
+                    size="xs"
+                    variant="danger"
+                    leftIcon={<Trash2 className="w-3.5 h-3.5" />}
+                    onClick={() => handleDeleteRegistration()}
+                  >
+                    Delete Registration
+                  </Button>
                 </div>
               </CardHeader>
 
@@ -591,21 +627,32 @@ const AdminCourseRegistrationsPage = () => {
                     const sess = sessions.find((s) => s.id === reg.session_id);
                     const isSelectedReg = reg.id === currentRegistration?.id;
                     return (
-                      <button
-                        key={reg.id}
-                        onClick={() => {
-                          setSelectedSession(reg.session_id);
-                          setSelectedSemester(reg.semester_id);
-                        }}
-                        className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all text-left ${
-                          isSelectedReg
-                            ? 'bg-primary-50 dark:bg-primary-950/40 border-primary-500 text-primary-600 dark:text-primary-400 font-semibold shadow-sm'
-                            : 'border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800 text-surface-700 dark:text-surface-300 hover:bg-surface-100'
-                        }`}
-                      >
-                        <p>{sess?.name || 'Session'}</p>
-                        <p className="text-[10px] text-surface-400">Status: {reg.status}</p>
-                      </button>
+                      <div key={reg.id} className="relative group flex items-center">
+                        <button
+                          onClick={() => {
+                            setSelectedSession(reg.session_id);
+                            setSelectedSemester(reg.semester_id);
+                          }}
+                          className={`px-3 py-2 pr-7 rounded-lg text-xs font-medium border transition-all text-left ${
+                            isSelectedReg
+                              ? 'bg-primary-50 dark:bg-primary-950/40 border-primary-500 text-primary-600 dark:text-primary-400 font-semibold shadow-sm'
+                              : 'border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800 text-surface-700 dark:text-surface-300 hover:bg-surface-100'
+                          }`}
+                        >
+                          <p>{sess?.name || 'Session'}</p>
+                          <p className="text-[10px] text-surface-400">Status: {reg.status}</p>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteRegistration(reg.id);
+                          }}
+                          className="absolute right-1.5 p-1 text-surface-400 hover:text-danger-500 rounded transition-colors"
+                          title="Delete this registration record"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     );
                   })}
                 </div>

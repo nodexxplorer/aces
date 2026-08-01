@@ -7,7 +7,7 @@ import {
   LayoutDashboard, BookOpen, CreditCard, FileText, HelpCircle,
   Calendar, User, BookMarked, Users, Award, ShieldAlert,
   Settings, Briefcase, GraduationCap, DollarSign, Database,
-  TrendingUp, ClipboardList, Printer, ListTodo,
+  TrendingUp, ClipboardList, Printer, ListTodo, ClipboardCheck,
   ChevronLeft, ChevronDown, LogOut, X,
   BarChart3, Clock, Megaphone, Wrench, AlertTriangle, Bell, PenLine
 } from 'lucide-react';
@@ -73,8 +73,10 @@ const menuItems: MenuItem[] = [
   { label: 'Bulk Upload', path: '/lecturer/bulk-upload', icon: Database, roles: ['lecturer'] },
   { label: 'Manage Assignments', path: '/lecturer/assignments', icon: ListTodo, roles: ['lecturer'] },
   { label: 'Class List', path: '/lecturer/class-list', icon: Users, roles: ['lecturer'] },
+  { label: 'Review Attendance', path: '/lecturer/attendance-review', icon: ClipboardCheck, roles: ['lecturer'] },
 
   { label: 'Class Rep Portal', path: '/class-rep', icon: LayoutDashboard, roles: ['class_rep'] },
+  { label: 'Semester Timetable', path: '/timetable', icon: Calendar, roles: ['class_rep'] },
   { label: 'Track Attendance', path: '/class-rep/attendance', icon: ClipboardList, roles: ['class_rep'] },
   { label: 'Submit Assignments', path: '/class-rep/assignments', icon: ListTodo, roles: ['class_rep'] },
   { label: 'Pending Registrations', path: '/class-rep/pending', icon: ShieldAlert, roles: ['class_rep'] },
@@ -95,7 +97,7 @@ const menuItems: MenuItem[] = [
   { label: 'Sessions', path: '/admin/sessions', icon: Calendar, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Announcements', path: '/admin/announcements', icon: Megaphone, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Academics', path: '/admin/academics', icon: GraduationCap, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Complaints', path: '/admin/complaints', icon: HelpCircle, roles: ['hod', 'delegated_admin', 'admin'] },
+  // { label: 'Complaints', path: '/admin/complaints', icon: HelpCircle, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Timetable', path: '/admin/timetable', icon: Clock, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Manuals', path: '/admin/manuals', icon: BookOpen, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Print Queue', path: '/admin/print-queue', icon: Printer, roles: ['hod', 'delegated_admin', 'admin'] },

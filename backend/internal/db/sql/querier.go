@@ -209,6 +209,10 @@ type Querier interface {
 	DeleteClassNotice(ctx context.Context, arg DeleteClassNoticeParams) error
 	DeleteComplaint(ctx context.Context, id uuid.UUID) error
 	DeleteCourse(ctx context.Context, id uuid.UUID) error
+	DeleteCourseRegistration(ctx context.Context, id uuid.UUID) error
+	GetRegisteredStudentsForAttendance(ctx context.Context, courseID uuid.UUID, semesterID uuid.UUID) ([]RegisteredStudentForAttendanceRow, error)
+	GetClassRepTimetableEntries(ctx context.Context, level int32, semesterID uuid.UUID) ([]ClassRepTimetableEntryRow, error)
+	GetPendingAttendanceReviews(ctx context.Context, lecturerUserID uuid.UUID) ([]PendingAttendanceReviewRow, error)
 	DeleteCourseSubcategory(ctx context.Context, id uuid.UUID) error
 	DeleteDepartmentalEvent(ctx context.Context, id uuid.UUID) error
 	DeleteDue(ctx context.Context, id uuid.UUID) error

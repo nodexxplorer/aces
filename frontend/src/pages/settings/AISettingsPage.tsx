@@ -27,9 +27,25 @@ const AISettingsPage = () => {
     }
   };
 
-  const handleToggle = (key: keyof AISettings) => {
+  const handleToggle = async (key: keyof AISettings) => {
     if (!settings) return;
-    setSettings({ ...settings, [key]: !settings[key] });
+    const nextVal = !settings[key];
+    const updated = { ...settings, [key]: nextVal };
+    setSettings(updated);
+
+    try {
+      await updateAISettings({
+        chatbot_enabled: updated.chatbot_enabled,
+        personalization_enabled: updated.personalization_enabled,
+        face_recognition_enabled: updated.face_recognition_enabled,
+        data_collection_consent: updated.data_collection_consent,
+        preferred_language: updated.preferred_language,
+      });
+      success('Setting Updated', 'AI preference saved successfully.');
+    } catch {
+      setSettings(settings); // revert
+      error('Failed to update setting');
+    }
   };
 
   const handleSave = async () => {
@@ -41,6 +57,7 @@ const AISettingsPage = () => {
         personalization_enabled: settings.personalization_enabled,
         face_recognition_enabled: settings.face_recognition_enabled,
         data_collection_consent: settings.data_collection_consent,
+        preferred_language: settings.preferred_language,
       });
       success('Settings Saved', 'Your AI preferences have been updated.');
     } catch {

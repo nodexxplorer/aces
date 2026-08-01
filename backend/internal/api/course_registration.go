@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -175,6 +176,37 @@ func (server *Server) updateCourseRegistration(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
+	}
+
+	// Notify the student about registration status change
+	if student, err := server.store.GetStudent(ctx, registration.StudentID); err == nil {
+		eType := "course_registration"
+		eID := registration.ID
+		title := "Registration Status Updated"
+		msg := fmt.Sprintf("Your course registration status has been updated to %s.", registration.Status)
+		priority := "normal"
+		if registration.Status == "approved" {
+			title = "Registration Approved"
+			msg = "Your course registration has been approved."
+			priority = "high"
+		} else if registration.Status == "rejected" {
+			title = "Registration Rejected"
+			msg = "Your course registration has been rejected. Please contact the department for details."
+			priority = "high"
+		}
+		server.notifyUser(
+			ctx,
+			student.UserID,
+			"academic",
+			"results",
+			priority,
+			title,
+			msg,
+			"/course-registration",
+			"View Registration",
+			&eType,
+			&eID,
+		)
 	}
 
 	ctx.JSON(http.StatusOK, registration)
@@ -430,3 +462,19 @@ func (server *Server) submitRegistration(ctx *gin.Context) {
 		"registered_courses": registeredCourses,
 	})
 }
+
+func (server *Server) deleteCourseRegistration(ctx *gin.Context) {
+	registrationID, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid course registration id"})
+		return
+	}
+
+	if err := server.store.DeleteCourseRegistration(ctx, registrationID); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "course registration deleted successfully"})
+}
+

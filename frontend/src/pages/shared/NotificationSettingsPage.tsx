@@ -63,10 +63,21 @@ const NotificationSettingsPage = () => {
     if (preferences) setLocalPrefs(preferences);
   }, [preferences]);
 
-  const updateField = (field: string, value: boolean | string | null) => {
+  const updateField = async (field: string, value: boolean | string | null) => {
     if (!localPrefs) return;
-    setLocalPrefs({ ...localPrefs, [field]: value });
+    const updated = { ...localPrefs, [field]: value };
+    setLocalPrefs(updated);
     setHasChanges(true);
+
+    if (typeof value === 'boolean') {
+      try {
+        await updatePreferences(updated);
+        setHasChanges(false);
+        success('Setting Updated', 'Notification preference saved.');
+      } catch {
+        notifyError('Error', 'Failed to save preference setting.');
+      }
+    }
   };
 
   const handleSave = async () => {

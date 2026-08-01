@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/aces/backend/internal/service"
@@ -163,6 +164,37 @@ func (server *Server) updateTranscriptRequest(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
+	}
+
+	// Notify the student about transcript request status change
+	if student, err := server.store.GetStudent(ctx, transcriptReq.StudentID); err == nil {
+		eType := "transcript_request"
+		eID := transcriptReq.ID
+		title := "Transcript Request Updated"
+		msg := fmt.Sprintf("Your transcript request status has been updated to %s.", req.Status)
+		priority := "normal"
+		if req.Status == "ready" || req.Status == "completed" {
+			title = "Transcript Ready"
+			msg = "Your transcript request has been processed and is ready."
+			priority = "high"
+		} else if req.Status == "rejected" {
+			title = "Transcript Request Rejected"
+			msg = "Your transcript request has been rejected."
+			priority = "high"
+		}
+		server.notifyUser(
+			ctx,
+			student.UserID,
+			"academic",
+			"system",
+			priority,
+			title,
+			msg,
+			"/transcripts",
+			"View Transcripts",
+			&eType,
+			&eID,
+		)
 	}
 
 	ctx.JSON(http.StatusOK, transcriptReq)

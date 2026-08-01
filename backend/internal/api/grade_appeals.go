@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	db "github.com/aces/backend/internal/db/sql"
@@ -222,6 +223,46 @@ func (server *Server) updateAppealStatus(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
+	}
+
+	// Notify the student about their grade appeal status change
+	// The StudentID in grade_appeals is actually the user_id (set via getUserID)
+	appeal, errGet := queries.GetGradeAppeal(ctx, appealID)
+	if errGet == nil {
+		title := "Grade Appeal Updated"
+		msg := fmt.Sprintf("Your grade appeal status has been updated to %s.", req.Status)
+		priority := "normal"
+		switch status {
+		case db.AppealStatusResolved:
+			title = "Grade Appeal Resolved"
+			msg = "Your grade appeal has been resolved. Please check the outcome."
+			priority = "high"
+		case db.AppealStatusRejected:
+			title = "Grade Appeal Rejected"
+			msg = "Your grade appeal has been rejected."
+			priority = "high"
+		case db.AppealStatusLecturerReview:
+			title = "Grade Appeal Under Lecturer Review"
+			msg = "Your grade appeal is now being reviewed by the lecturer."
+		case db.AppealStatusHodReview:
+			title = "Grade Appeal Under HOD Review"
+			msg = "Your grade appeal has been escalated to the HOD for review."
+		}
+		eType := "grade_appeal"
+		eID := appealID
+		server.notifyUser(
+			ctx,
+			appeal.StudentID,
+			"academic",
+			"results",
+			priority,
+			title,
+			msg,
+			"/grade-appeals",
+			"View Appeals",
+			&eType,
+			&eID,
+		)
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"data": gin.H{"message": "appeal status updated"}})

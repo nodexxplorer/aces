@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"net/http"
 	"strings"
 	"time"
@@ -247,6 +246,22 @@ func (server *Server) studentSignup(ctx *gin.Context) {
 
 	server.setTokenCookies(ctx, &resp.Tokens)
 	_ = result.Student
+
+	// Welcome notification for new student
+	server.notifyUser(
+		ctx,
+		result.User.ID,
+		"general",
+		"system",
+		"normal",
+		"Welcome to ACES Zone!",
+		"Your student account has been created. Your account is pending approval.",
+		"/dashboard",
+		"Go to Dashboard",
+		nil,
+		nil,
+	)
+
 	ctx.JSON(http.StatusCreated, gin.H{"data": resp})
 }
 
@@ -275,6 +290,22 @@ func (server *Server) lecturerSignup(ctx *gin.Context) {
 
 	server.setTokenCookies(ctx, &resp.Tokens)
 	_ = result.Staff
+
+	// Welcome notification for new lecturer
+	server.notifyUser(
+		ctx,
+		result.User.ID,
+		"general",
+		"system",
+		"normal",
+		"Welcome to ACES Zone!",
+		"Your lecturer account has been created. Your account is pending approval.",
+		"/dashboard",
+		"Go to Dashboard",
+		nil,
+		nil,
+	)
+
 	ctx.JSON(http.StatusCreated, gin.H{"data": resp})
 }
 
@@ -344,20 +375,19 @@ func (server *Server) login(ctx *gin.Context) {
 	server.setTokenCookies(ctx, &resp.Tokens)
 
 	// Fire-and-forget: notify the user of successful login
-	go func() {
-		_, _ = server.notificationsFull.CreateAndPush(
-			context.Background(),
-			user.ID,
-			"AUTH_LOGIN_SUCCESS",
-			"auth",
-			"low",
-			"Login Successful",
-			"You have successfully signed in to ACES Zone.",
-			"/dashboard",
-			"Go to Dashboard",
-			nil, nil, nil, nil,
-		)
-	}()
+	server.notifyUser(
+		ctx,
+		user.ID,
+		"general",
+		"auth",
+		"low",
+		"Login Successful",
+		"You have successfully signed in to ACES Zone.",
+		"/dashboard",
+		"Go to Dashboard",
+		nil,
+		nil,
+	)
 
 	ctx.JSON(http.StatusOK, gin.H{"data": resp})
 }

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/aces/backend/internal/service"
@@ -107,6 +108,25 @@ func (server *Server) updateComplaint(ctx *gin.Context) {
 		return
 	}
 
+	// Notify the student about complaint status change
+	if student, err := server.store.GetStudent(ctx, complaint.StudentID); err == nil {
+		eType := "complaint"
+		eID := complaint.ID
+		server.notifyUser(
+			ctx,
+			student.UserID,
+			"general",
+			"system",
+			"normal",
+			"Complaint Status Updated",
+			fmt.Sprintf("Your complaint \"%s\" status has been updated to %s.", complaint.Subject, complaint.Status),
+			"/complaints",
+			"View Complaints",
+			&eType,
+			&eID,
+		)
+	}
+
 	ctx.JSON(http.StatusOK, gin.H{"data": complaint})
 }
 
@@ -170,6 +190,25 @@ func (server *Server) resolveComplaint(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
+	}
+
+	// Notify the student about complaint resolution
+	if student, err := server.store.GetStudent(ctx, complaint.StudentID); err == nil {
+		eType := "complaint"
+		eID := complaint.ID
+		server.notifyUser(
+			ctx,
+			student.UserID,
+			"general",
+			"system",
+			"high",
+			"Complaint Resolved",
+			fmt.Sprintf("Your complaint \"%s\" has been resolved.", complaint.Subject),
+			"/complaints",
+			"View Complaints",
+			&eType,
+			&eID,
+		)
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"data": complaint})

@@ -184,6 +184,21 @@ func (server *Server) approveSignup(ctx *gin.Context) {
 		return
 	}
 
+	// Notify the user that their registration has been approved
+	server.notifyUser(
+		ctx,
+		approval.UserID,
+		"general",
+		"system",
+		"high",
+		"Account Approved",
+		"Your account has been approved! You now have full access to ACES Zone.",
+		"/dashboard",
+		"Go to Dashboard",
+		nil,
+		nil,
+	)
+
 	ctx.JSON(http.StatusOK, gin.H{"message": "user registration approved successfully"})
 }
 
@@ -256,6 +271,25 @@ func (server *Server) rejectSignup(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
+
+	// Notify the user that their registration has been rejected
+	msg := "Your account registration has been rejected."
+	if req.Reason != "" {
+		msg = "Your account registration has been rejected. Reason: " + req.Reason
+	}
+	server.notifyUser(
+		ctx,
+		approval.UserID,
+		"general",
+		"system",
+		"high",
+		"Account Rejected",
+		msg,
+		"",
+		"",
+		nil,
+		nil,
+	)
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "user registration rejected successfully"})
 }

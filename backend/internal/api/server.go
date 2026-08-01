@@ -276,6 +276,10 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 	attendance := api.Group("/attendance")
 	{
 		attendance.POST("", middleware.RequireRoles("class_rep", "hod", "delegated_admin"), server.createAttendanceSheet)
+		attendance.GET("/registered-students/:course_id", server.getRegisteredStudentsForAttendance)
+		attendance.POST("/sessions/:id/submit", middleware.RequireRoles("class_rep", "hod", "delegated_admin"), server.submitAttendanceSession)
+		attendance.GET("/sessions/:id/pdf", server.downloadAttendancePDF)
+		attendance.POST("/sessions/:id/review", middleware.RequireRoles("lecturer", "hod", "admin"), server.reviewAttendanceSession)
 		attendance.GET("/course", middleware.RequireRoles("lecturer", "hod", "admin", "delegated_admin", "class_rep"), server.listCourseAttendanceSheets)
 		attendance.GET("/student", server.listStudentAttendance)
 		attendance.GET("/summary", server.getAttendanceSummary)
@@ -320,6 +324,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		courseRegistrations.GET("/student/:student_id", server.listStudentCourseRegistrations)
 		courseRegistrations.GET("/:id", server.getCourseRegistration)
 		courseRegistrations.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin", "class_rep"), server.updateCourseRegistration)
+		courseRegistrations.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteCourseRegistration)
 		courseRegistrations.POST("/:id/courses", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createRegisteredCourse)
 		courseRegistrations.GET("/:id/courses", server.listRegisteredCourses)
 		courseRegistrations.PUT("/:id/courses/:registered_course_id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateRegisteredCourse)
@@ -602,6 +607,8 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		classRep.GET("/list", middleware.RequireRoles("hod", "admin"), server.listClassReps)
 		classRep.DELETE("/:id", middleware.RequireRoles("hod", "admin"), server.deactivateClassRep)
 
+		classRep.GET("/timetable", server.getClassRepTimetable)
+
 		// Attendance sessions
 		classRep.POST("/attendance-sessions", middleware.RequireRoles("class_rep"), server.createAttendanceSession)
 		classRep.PUT("/attendance-sessions/:id/open", middleware.RequireRoles("class_rep"), server.openAttendanceSession)
@@ -625,6 +632,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 	lecturers := api.Group("/lecturers")
 	{
 		lecturers.GET("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listLecturers)
+		lecturers.GET("/attendance/pending", middleware.RequireRoles("lecturer", "hod", "admin"), server.getLecturerPendingAttendanceReviews)
 		lecturers.GET("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin", "lecturer"), server.getLecturerProfile)
 		lecturers.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateLecturerProfile)
 		lecturers.POST("/assign-course", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.assignCourseToLecturer)

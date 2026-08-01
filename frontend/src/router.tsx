@@ -36,6 +36,7 @@ const AssignmentsPage = lazy(() => import('./pages/lecturer/AssignmentsPage'));
 const LecturerClassListPage = lazy(() => import('./pages/lecturer/ClassListPage'));
 const LecturerSingleEntryPage = lazy(() => import('./pages/lecturer/SingleEntryPage'));
 const LecturerReportsPage = lazy(() => import('./pages/lecturer/LecturerReportsPage'));
+const LecturerAttendanceReviewPage = lazy(() => import('./pages/lecturer/AttendanceReviewPage'));
 
 // Class Rep
 const ClassRepDashboard = lazy(() => import('./pages/class-rep/ClassRepDashboard'));
@@ -288,6 +289,7 @@ export const router = createBrowserRouter([
               { path: '/lecturer/assignments', element: <AssignmentsPage /> },
               { path: '/lecturer/class-list', element: <LecturerClassListPage /> },
               { path: '/lecturer/reports', element: <LecturerReportsPage /> },
+              { path: '/lecturer/attendance-review', element: <LecturerAttendanceReviewPage /> },
             ],
           },
 
