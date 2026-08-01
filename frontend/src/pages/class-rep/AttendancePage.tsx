@@ -26,6 +26,7 @@ import {
   type TimetableEntry,
   type RegisteredStudentAttendance,
 } from '../../api/attendance';
+import { getCourses } from '../../api/courses';
 
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : 'An unexpected error occurred';
@@ -52,15 +53,44 @@ const AttendancePage = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const [ttRes, classList, sessionsList] = await Promise.allSettled([
+        const [ttRes, coursesRes, sessionsList] = await Promise.allSettled([
           getClassRepTimetable(),
-          getClassRepClassList(),
+          getCourses(),
           listMyAttendanceSessions(),
         ]);
 
-        if (ttRes.status === 'fulfilled' && ttRes.value.entries?.length > 0) {
-          setTimetable(ttRes.value.entries);
-          setSelectedCourseId(ttRes.value.entries[0].course_id);
+        let level = 400;
+        let entries: TimetableEntry[] = [];
+        if (ttRes.status === 'fulfilled') {
+          if (ttRes.value.level) {
+            level = ttRes.value.level;
+          }
+          if (ttRes.value.entries?.length > 0) {
+            entries = ttRes.value.entries;
+          }
+        }
+
+        if (entries.length === 0 && coursesRes.status === 'fulfilled' && coursesRes.value.length > 0) {
+          const levelCourses = coursesRes.value.filter((c) => c.level === level);
+          const sourceCourses = levelCourses.length > 0 ? levelCourses : coursesRes.value;
+
+          entries = sourceCourses.map((c) => ({
+            timetable_entry_id: c.id,
+            course_id: c.id,
+            course_code: c.code,
+            course_title: c.title,
+            lecturer_name: 'Department Lecturer',
+            venue: 'Main Hall',
+            day_of_week: 'Semester Course',
+            start_time: '08:00',
+            end_time: '10:00',
+            card_status: 'upcoming',
+          }));
+        }
+
+        setTimetable(entries);
+        if (entries.length > 0) {
+          setSelectedCourseId(entries[0].course_id);
         }
 
         if (sessionsList.status === 'fulfilled') {
@@ -85,22 +115,25 @@ const AttendancePage = () => {
     load();
   }, [notifyError]);
 
-  // Load verified registered students whenever selected course changes
+  // Load registered students for the selected course
   useEffect(() => {
     if (!selectedCourseId) return;
     const fetchRegistered = async () => {
       try {
         const res = await getRegisteredStudentsForAttendance(selectedCourseId);
-        if (res.students) {
+        if (res.students && res.students.length > 0) {
           setStudents(res.students);
+          return;
         }
-      } catch {
-        // Fallback to general class list if empty
+      } catch (e) {
+        console.error('Failed to fetch registered students', e);
+      }
+      try {
         const list = await getClassRepClassList();
         setStudents(
           list.map((s) => ({
             student_id: s.id,
-            user_id: s.user_id,
+            user_id: s.id,
             matric_number: s.matric_number,
             full_name: s.full_name,
             level: s.level,
@@ -108,6 +141,8 @@ const AttendancePage = () => {
             registered_at: new Date().toISOString(),
           }))
         );
+      } catch (e) {
+        console.error('Failed to load class list fallback', e);
       }
     };
     fetchRegistered();
