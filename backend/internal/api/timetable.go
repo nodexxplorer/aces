@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	db "github.com/aces/backend/internal/db/sql"
@@ -324,17 +325,19 @@ func (server *Server) checkTimetableConflicts(ctx *gin.Context) {
 		for j := i + 1; j < len(entries); j++ {
 			a, b := entries[i], entries[j]
 
-			// Same day check for class timetable
+			// Same day check
 			if a.DayOfWeek != nil && b.DayOfWeek != nil {
 				if *a.DayOfWeek != *b.DayOfWeek {
 					continue
 				}
 			}
 
-			// Time overlap check (string comparison works for HH:MM format)
+			// Time overlap check (HH:MM string comparison)
 			if a.StartTime < b.EndTime && b.StartTime < a.EndTime {
 				// Venue clash
-				if a.Venue == b.Venue {
+				venueA := strings.TrimSpace(strings.ToLower(a.Venue))
+				venueB := strings.TrimSpace(strings.ToLower(b.Venue))
+				if venueA != "" && venueA == venueB {
 					conflicts = append(conflicts, conflict{
 						Type:     "venue_clash",
 						Message:  a.CourseCode + " and " + b.CourseCode + " both in " + a.Venue + " at overlapping times",

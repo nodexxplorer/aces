@@ -85,8 +85,10 @@ func (server *Server) getUser(ctx *gin.Context) {
 				resp.AdmissionMode = student.AdmissionMode
 				resp.YearAdmitted = student.YearAdmitted
 				if student.Cgpa.Valid {
-					cgpa := student.Cgpa.Int.Int64()
-					resp.CGPA = &cgpa
+					if f, err := student.Cgpa.Float64Value(); err == nil {
+						cgpaVal := f.Float64
+						resp.CGPA = &cgpaVal
+					}
 				}
 				standing := string(*student.AcademicStanding)
 				resp.AcademicStanding = &standing
@@ -365,8 +367,10 @@ func (server *Server) updateUser(ctx *gin.Context) {
 				resp.AdmissionMode = student.AdmissionMode
 				resp.YearAdmitted = student.YearAdmitted
 			if student.Cgpa.Valid {
-				cgpa := student.Cgpa.Int.Int64()
-				resp.CGPA = &cgpa
+				if f, err := student.Cgpa.Float64Value(); err == nil {
+					cgpaVal := f.Float64
+					resp.CGPA = &cgpaVal
+				}
 			}
 			standing := string(*student.AcademicStanding)
 			resp.AcademicStanding = &standing

@@ -12,9 +12,6 @@ export type ComplaintStatus = 'open' | 'in_progress' | 'resolved' | 'closed' | '
 export type ComplaintPriority = 'low' | 'medium' | 'high' | 'critical';
 export type TranscriptStatus = 'pending' | 'processing' | 'ready' | 'collected' | 'approved' | 'printed';
 export type ConnectionStatus = 'pending' | 'accepted' | 'rejected' | 'blocked';
-export type TradeStatus = 'pending' | 'accepted' | 'rejected' | 'completed' | 'cancelled';
-export type SkillLevel = 'beginner' | 'intermediate' | 'expert';
-export type PriceType = 'fixed' | 'hourly' | 'negotiable';
 export type AlumniStatusType = 'pending' | 'active' | 'suspended' | 'honorary';
 export type MentorshipStatus = 'pending' | 'accepted' | 'rejected' | 'completed';
 export type JobType = 'full_time' | 'part_time' | 'internship' | 'contract';
@@ -475,67 +472,6 @@ export interface GroupMessage extends BaseEntity {
   senderId: string;
   content: string;
   sender?: User;
-}
-
-// ───── Skills & Trade ─────
-export interface SkillCategory extends BaseEntity {
-  name: string;
-  description?: string;
-  icon?: string;
-  isActive?: boolean;
-}
-
-export interface SkillListing extends BaseEntity {
-  userId?: string;
-  categoryId?: string;
-  title: string;
-  description?: string;
-  level: SkillLevel;
-  isPaid: boolean;
-  price?: number;
-  priceType?: PriceType;
-  isBarterAvailable: boolean;
-  barterPreferences?: string;
-  availability?: string;
-  isActive?: boolean;
-  user?: User;
-  category?: SkillCategory;
-  averageRating?: number;
-  totalReviews?: number;
-  portfolioUrl?: string;
-}
-
-export interface TradeOffer extends BaseEntity {
-  offererId: string;
-  recipientId: string;
-  offererSkillId: string;
-  recipientSkillId?: string;
-  offererDescription?: string;
-  recipientDescription?: string;
-  status: TradeStatus;
-  completedAt?: string;
-  offerer?: User;
-  recipient?: User;
-  offererSkill?: SkillListing;
-  recipientSkill?: SkillListing;
-}
-
-export interface SkillRating extends BaseEntity {
-  tradeId: string;
-  raterId: string;
-  rateeId: string;
-  rating: number;
-  review?: string;
-  rater?: User;
-}
-
-export interface UserReputation extends BaseEntity {
-  userId: string;
-  totalTrades: number;
-  completedTrades: number;
-  averageRating: number;
-  totalReviews: number;
-  reputationScore: number;
 }
 
 // ───── Alumni ─────

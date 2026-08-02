@@ -80,8 +80,8 @@ func (s *AIServer) Feedback(ctx *gin.Context) {
 		return
 	}
 
-	if err := s.aiService.Feedback(ctx.Request.Context(), interactionID, req.Feedback, req.WasAccurate); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+	if err := s.aiService.Feedback(ctx.Request.Context(), userID, interactionID, req.Feedback, req.WasAccurate); err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "interaction not found"})
 		return
 	}
 

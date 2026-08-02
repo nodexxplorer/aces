@@ -1772,4 +1772,128 @@ func (q *Queries) GetPendingAttendanceReviews(ctx context.Context, lecturerUserI
 	return results, rows.Err()
 }
 
+type AttendanceSessionDetails struct {
+	ID             uuid.UUID
+	CourseID       uuid.UUID
+	ClassRepID     uuid.UUID
+	LecturerID     *uuid.UUID
+	DepartmentName string
+	CourseCode     string
+	CourseTitle    string
+	Level          int32
+	Date           time.Time
+	StartTime      string
+	EndTime        string
+	Venue          string
+	LecturerName   string
+	ClassRepName   string
+}
+
+// GetAttendanceSessionDetails returns full session metadata for PDF generation.
+func (q *Queries) GetAttendanceSessionDetails(ctx context.Context, sessionID uuid.UUID) (*AttendanceSessionDetails, error) {
+	row := q.db.QueryRow(ctx, `
+		SELECT 
+			asess.id,
+			asess.course_id,
+			asess.class_rep_id,
+			c.lecturer_id,
+			COALESCE(c.code, '') AS course_code,
+			COALESCE(c.title, '') AS course_title,
+			COALESCE(c.level, 400) AS level,
+			COALESCE(asess.date, asess.created_at) AS date,
+			COALESCE(TO_CHAR(asess.started_at, 'HH24:MI'), '08:00') AS start_time,
+			COALESCE(TO_CHAR(asess.closed_at, 'HH24:MI'), '10:00') AS end_time,
+			COALESCE(asess.venue, 'LT 1') AS venue,
+			COALESCE(lec.full_name, 'N/A') AS lecturer_name,
+			COALESCE(rep.full_name, 'Class Representative') AS class_rep_name
+		FROM attendance_sessions asess
+		JOIN courses c ON c.id = asess.course_id
+		LEFT JOIN users rep ON rep.id = asess.class_rep_id
+		LEFT JOIN users lec ON lec.id = c.lecturer_id
+		WHERE asess.id = $1
+	`, sessionID)
+
+	var d AttendanceSessionDetails
+	var lecID pgtype.UUID
+
+	err := row.Scan(
+		&d.ID,
+		&d.CourseID,
+		&d.ClassRepID,
+		&lecID,
+		&d.CourseCode,
+		&d.CourseTitle,
+		&d.Level,
+		&d.Date,
+		&d.StartTime,
+		&d.EndTime,
+		&d.Venue,
+		&d.LecturerName,
+		&d.ClassRepName,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if lecID.Valid {
+		var uid [16]byte = lecID.Bytes
+		u := uuid.UUID(uid)
+		d.LecturerID = &u
+	}
+	d.DepartmentName = "COMPUTER ENGINEERING"
+	return &d, nil
+}
+
+type HasCompletedPaymentForManualParams struct {
+	StudentID uuid.UUID
+	ManualID  uuid.UUID
+	PaymentID *uuid.UUID
+}
+
+func (q *Queries) HasCompletedPaymentForManual(ctx context.Context, arg HasCompletedPaymentForManualParams) (bool, error) {
+	if arg.PaymentID != nil {
+		var exists bool
+		err := q.db.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM payments
+				WHERE id = $1 AND student_id = $2 AND status = 'completed'
+			)
+		`, *arg.PaymentID, arg.StudentID).Scan(&exists)
+		return exists, err
+	}
+
+	var exists bool
+	err := q.db.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM payments p
+			JOIN manuals m ON m.id = $2
+			WHERE p.student_id = $1 
+			  AND p.status = 'completed'
+			  AND (p.type = 'manual' OR p.item_name ILIKE '%' || m.title || '%')
+		)
+	`, arg.StudentID, arg.ManualID).Scan(&exists)
+	return exists, err
+}
+
+func (q *Queries) GetAIInteraction(ctx context.Context, id uuid.UUID) (AiInteraction, error) {
+	row := q.db.QueryRow(ctx, `SELECT id, user_id, feature, session_id, input_text, output_text, confidence_score, context, model_used, response_time_ms, user_feedback, was_accurate, created_at FROM ai_interactions WHERE id = $1`, id)
+	var i AiInteraction
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Feature,
+		&i.SessionID,
+		&i.InputText,
+		&i.OutputText,
+		&i.ConfidenceScore,
+		&i.Context,
+		&i.ModelUsed,
+		&i.ResponseTimeMs,
+		&i.UserFeedback,
+		&i.WasAccurate,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+
 

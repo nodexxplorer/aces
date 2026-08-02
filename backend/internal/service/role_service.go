@@ -117,9 +117,24 @@ func (s *RoleService) getUserRoleNames(ctx context.Context, userID uuid.UUID) ([
 	if err != nil {
 		return nil, err
 	}
-	names := []string{"student"}
+
+	// Look up the user's actual base role from the users table
+	var baseRole string
+	if q, ok := s.store.(*db.Queries); ok {
+		if u, uErr := q.GetUser(ctx, userID); uErr == nil {
+			baseRole = string(u.Role)
+		}
+	}
+	if baseRole == "" {
+		baseRole = "student"
+	}
+
+	names := []string{baseRole}
 	for _, r := range roles {
-		names = append(names, string(r.Role))
+		rn := string(r.Role)
+		if rn != baseRole { // avoid duplicating the base role
+			names = append(names, rn)
+		}
 	}
 	return names, nil
 }

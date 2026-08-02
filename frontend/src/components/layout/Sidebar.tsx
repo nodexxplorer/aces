@@ -139,7 +139,6 @@ const mobileSections: NavSection[] = [
     key: 'community',
     items: [
       { label: 'Connect', path: '/connect', icon: Users },
-      { label: 'Skills & Trade', path: '/skills', icon: TrendingUp },
     ],
   },
   {

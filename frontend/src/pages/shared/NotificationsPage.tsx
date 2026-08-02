@@ -16,7 +16,6 @@ const categoryTabs = [
   { id: 'message', label: 'Messages' },
   { id: 'auth', label: 'Auth' },
   { id: 'connect', label: 'Connect' },
-  { id: 'skill', label: 'Skills' },
   { id: 'alumni', label: 'Alumni' },
   { id: 'announcement', label: 'Announcements' },
   { id: 'approval', label: 'Approvals' },

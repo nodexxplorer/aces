@@ -181,42 +181,7 @@ export const listNoticeComments = async (noticeId: string) => {
   return unwrap<{ id: string; content: string; author_name: string; created_at: string }[]>(res);
 };
 
-// Emergency Broadcasts
-export interface Broadcast {
-  id: string;
-  sender_id: string;
-  title: string;
-  message: string;
-  priority: string;
-  template?: string;
-  channels: string[];
-  target_roles: string[];
-  requires_acknowledgment: boolean;
-  created_at: string;
-  sender_name?: string;
-  acknowledged?: boolean;
-  ack_count?: number;
-}
 
-export const createBroadcast = async (data: { title: string; message: string; priority?: string; channels?: string[]; target_roles?: string[]; requires_acknowledgment?: boolean }) => {
-  const res = await apiClient.post('/broadcasts', data);
-  return unwrap<Broadcast>(res);
-};
-
-export const listBroadcasts = async () => {
-  const res = await apiClient.get('/broadcasts');
-  return unwrap<Broadcast[]>(res);
-};
-
-export const acknowledgeBroadcast = async (id: string) => {
-  const res = await apiClient.post(`/broadcasts/${id}/ack`);
-  return unwrap<{ message: string }>(res);
-};
-
-export const getBroadcastAckCount = async (id: string) => {
-  const res = await apiClient.get(`/broadcasts/${id}/ack-count`);
-  return unwrap<{ ack_count: number }>(res);
-};
 
 // Calendar Events
 export interface CalendarEvent {
