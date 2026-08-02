@@ -156,11 +156,6 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
-ALTER TYPE report_status ADD VALUE IF NOT EXISTS 'pending';
-ALTER TYPE report_status ADD VALUE IF NOT EXISTS 'reviewed';
-ALTER TYPE report_status ADD VALUE IF NOT EXISTS 'resolved';
-ALTER TYPE report_status ADD VALUE IF NOT EXISTS 'dismissed';
-
 CREATE TABLE campus_reports (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     reporter_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -168,11 +163,12 @@ CREATE TABLE campus_reports (
     target_id UUID NOT NULL,
     reason VARCHAR(100) NOT NULL,
     description TEXT,
-    status report_status NOT NULL DEFAULT 'pending',
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
     reviewed_by UUID REFERENCES users(id),
     reviewed_at TIMESTAMPTZ,
     action_taken TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+
 );
 
 CREATE INDEX idx_campus_reports_status ON campus_reports(status);
