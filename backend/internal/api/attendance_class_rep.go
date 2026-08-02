@@ -142,6 +142,20 @@ func (server *Server) downloadAttendancePDF(ctx *gin.Context) {
 		return
 	}
 
+	session, err := server.store.GetAttendanceSessionDetails(ctx, sessionID)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "attendance session not found"})
+		return
+	}
+
+	userID := getUserID(ctx)
+	isClassRep := session.ClassRepID == userID
+	isLecturer := session.LecturerID != nil && *session.LecturerID == userID
+	if !isStaffRole(ctx) && !isClassRep && !isLecturer {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "not authorized to download this attendance sheet"})
+		return
+	}
+
 	// Fetch checkins
 	checkins, err := server.store.ListAttendanceSessionCheckins(ctx, sessionID)
 	if err != nil {
@@ -161,21 +175,21 @@ func (server *Server) downloadAttendancePDF(ctx *gin.Context) {
 		records = append(records, utils.AttendancePDFRecord{
 			MatricNumber: c.MatricNumber,
 			FullName:     c.StudentName,
-			Level:        400,
+			Level:        int(session.Level),
 			Status:       st,
 		})
 	}
 
 	pdfBytes, err := utils.GenerateAttendancePDF(utils.AttendancePDFInput{
-		DepartmentName: "ELECTRICAL & COMPUTER ENGINEERING",
-		CourseCode:     "CSC 401",
-		CourseTitle:    "Data Structures & Algorithms",
-		ScheduledDate:  time.Now().Format("2006-01-02"),
-		StartTime:      "08:00",
-		EndTime:        "10:00",
-		Venue:          "LT 1",
-		LecturerName:   "Dr. Lecturer",
-		ClassRepName:   "Class Representative",
+		DepartmentName: session.DepartmentName,
+		CourseCode:     session.CourseCode,
+		CourseTitle:    session.CourseTitle,
+		ScheduledDate:  session.Date.Format("2006-01-02"),
+		StartTime:      session.StartTime,
+		EndTime:        session.EndTime,
+		Venue:          session.Venue,
+		LecturerName:   session.LecturerName,
+		ClassRepName:   session.ClassRepName,
 		Records:        records,
 	})
 	if err != nil {

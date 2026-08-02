@@ -110,15 +110,7 @@ const StudentCommunicationPage = lazy(() => import('./pages/student/StudentCommu
 // Campus Connect (new)
 const ConnectPage = lazy(() => import('./pages/connect/ConnectPage'));
 
-// Skills & Trade
-const SkillsMarketplacePage = lazy(() => import('./pages/skills-trade/SkillsMarketplacePage'));
-const MySkillsPage = lazy(() => import('./pages/skills-trade/MySkillsPage'));
-const CreateSkillListingPage = lazy(() => import('./pages/skills-trade/CreateSkillListingPage'));
-const TradeOffersPage = lazy(() => import('./pages/skills-trade/TradeOffersPage'));
-const MyTradesPage = lazy(() => import('./pages/skills-trade/MyTradesPage'));
-const CreateTradeOfferPage = lazy(() => import('./pages/skills-trade/CreateTradeOfferPage'));
-const SkillDetailPage = lazy(() => import('./pages/skills-trade/SkillDetailPage'));
-const RatingsPage = lazy(() => import('./pages/skills-trade/RatingsPage'));
+
 
 // Alumni
 const AlumniDashboard = lazy(() => import('./pages/alumni/AlumniDashboard'));
@@ -127,6 +119,7 @@ const AlumniNetworkPage = lazy(() => import('./pages/alumni/AlumniNetworkPage'))
 const GiveBackPage = lazy(() => import('./pages/alumni/GiveBackPage'));
 const AlumniEventsPage = lazy(() => import('./pages/alumni/AlumniEventsPage'));
 const AlumniProfilePage = lazy(() => import('./pages/alumni/AlumniProfilePage'));
+const DonationConfirmationPage = lazy(() => import('./pages/alumni/DonationConfirmationPage'));
 
 // Shared
 const NotificationsPage = lazy(() => import('./pages/shared/NotificationsPage'));
@@ -358,19 +351,7 @@ export const router = createBrowserRouter([
           // Campus Connect (new)
           { path: '/connect', element: <ConnectPage /> },
 
-          // Skills & Trade
-          { path: '/skills', element: <SkillsMarketplacePage /> },
-          { path: '/skills/my-skills', element: <MySkillsPage /> },
-          { path: '/skills/create', element: <CreateSkillListingPage /> },
-          { path: '/skills/create/:id', element: <CreateSkillListingPage /> },
-          { path: '/skills/create/:id/edit', element: <CreateSkillListingPage /> },
-          { path: '/skills/:id/edit', element: <CreateSkillListingPage /> },
-          { path: '/skills/edit/:id', element: <CreateSkillListingPage /> },
-          { path: '/skills/:id', element: <SkillDetailPage /> },
-          { path: '/trades', element: <TradeOffersPage /> },
-          { path: '/trades/my-trades', element: <MyTradesPage /> },
-          { path: '/trades/create', element: <CreateTradeOfferPage /> },
-          { path: '/ratings', element: <RatingsPage /> },
+
 
           // Alumni
           {
@@ -382,6 +363,7 @@ export const router = createBrowserRouter([
               { path: '/alumni/my-jobs', element: <Navigate to="/alumni/jobs" replace /> },
               { path: '/alumni/network', element: <AlumniNetworkPage /> },
               { path: '/alumni/give-back', element: <GiveBackPage /> },
+              { path: '/alumni/give-back/confirmation', element: <DonationConfirmationPage /> },
               { path: '/alumni/events', element: <AlumniEventsPage /> },
             ],
           },

@@ -240,11 +240,14 @@ type Querier interface {
 	DeleteUser(ctx context.Context, id uuid.UUID) error
 	DeleteUserSessions(ctx context.Context, userID uuid.UUID) error
 	FinalizeAttendanceSheet(ctx context.Context, id uuid.UUID) (AttendanceSheet, error)
+	GetAIInteraction(ctx context.Context, id uuid.UUID) (AiInteraction, error)
 	GetAIInteractionStats(ctx context.Context, createdAt pgtype.Timestamptz) (GetAIInteractionStatsRow, error)
 	GetAIModelByName(ctx context.Context, modelName string) (AiModel, error)
 	GetAISettings(ctx context.Context, userID uuid.UUID) (AiUserSetting, error)
 	GetAcademicStandingRules(ctx context.Context) ([]AcademicStandingRule, error)
 	GetActiveClassRepAssignment(ctx context.Context, classRepID uuid.UUID) (ClassRepAssignment, error)
+	GetAttendanceSessionDetails(ctx context.Context, sessionID uuid.UUID) (*AttendanceSessionDetails, error)
+	HasCompletedPaymentForManual(ctx context.Context, arg HasCompletedPaymentForManualParams) (bool, error)
 	GetActiveSemester(ctx context.Context) (Semester, error)
 	GetActiveSession(ctx context.Context) (Session, error)
 	GetActiveSessionByToken(ctx context.Context, sessionToken string) (ActiveSession, error)

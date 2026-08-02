@@ -48,30 +48,7 @@ export interface AttendanceCheckin {
   matric_number: string;
 }
 
-export interface ClassRepElection {
-  id: string;
-  level: number;
-  academic_year: string;
-  status: string;
-  nomination_start: string | null;
-  nomination_end: string | null;
-  voting_start: string | null;
-  voting_end: string | null;
-  winner_id: string | null;
-  total_votes: number;
-  created_at: string;
-}
 
-export interface ElectionNominee {
-  id: string;
-  election_id: string;
-  student_id: string;
-  manifesto: string | null;
-  nominated_by: string;
-  status: string;
-  student_name: string;
-  vote_count: number;
-}
 
 export interface ClassRepReport {
   id: string;
@@ -197,58 +174,6 @@ export async function checkInStudent(
     remark: remark || null,
   });
   return unwrap<AttendanceCheckin>(res);
-}
-
-// ─── Elections ───────────────────────────────────────────────────────────────
-
-export async function createElection(
-  level: number,
-  academicYear: string,
-  nominationStart?: string,
-  nominationEnd?: string,
-  votingStart?: string,
-  votingEnd?: string
-): Promise<ClassRepElection> {
-  const res = await apiClient.post('/class-rep/elections', {
-    level,
-    academic_year: academicYear,
-    nomination_start: nominationStart || null,
-    nomination_end: nominationEnd || null,
-    voting_start: votingStart || null,
-    voting_end: votingEnd || null,
-  });
-  return unwrap<ClassRepElection>(res);
-}
-
-export async function listElections(): Promise<ClassRepElection[]> {
-  const res = await apiClient.get('/class-rep/elections');
-  return unwrap<ClassRepElection[]>(res);
-}
-
-export async function getElection(id: string): Promise<{ election: ClassRepElection; nominees: ElectionNominee[]; results: ElectionNominee[] }> {
-  const res = await apiClient.get(`/class-rep/elections/${id}`);
-  return unwrap(res);
-}
-
-export async function nominateForElection(electionId: string, studentId: string, manifesto?: string): Promise<void> {
-  await apiClient.post(`/class-rep/elections/${electionId}/nominate`, {
-    student_id: studentId,
-    manifesto: manifesto || '',
-  });
-}
-
-export async function castElectionVote(electionId: string, nomineeId: string): Promise<void> {
-  await apiClient.post(`/class-rep/elections/${electionId}/vote`, {
-    nominee_id: nomineeId,
-  });
-}
-
-export async function approveNominee(nomineeId: string): Promise<void> {
-  await apiClient.put(`/class-rep/elections/${nomineeId}/approve`);
-}
-
-export async function completeElection(electionId: string): Promise<void> {
-  await apiClient.put(`/class-rep/elections/${electionId}/complete`);
 }
 
 // ─── Reports ─────────────────────────────────────────────────────────────────

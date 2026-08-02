@@ -28,8 +28,15 @@ import {
 } from '../../api/attendance';
 import { getCourses } from '../../api/courses';
 
-const getErrorMessage = (error: unknown) =>
-  error instanceof Error ? error.message : 'An unexpected error occurred';
+const getErrorMessage = (error: unknown) => {
+  if (typeof error === 'object' && error !== null) {
+    const err = error as any;
+    if (err.response?.data?.error) return err.response.data.error;
+    if (err.response?.data?.message) return err.response.data.message;
+    if (err.message) return err.message;
+  }
+  return 'An unexpected error occurred';
+};
 
 type StatusType = 'present' | 'absent' | 'late' | 'excused';
 
@@ -71,10 +78,10 @@ const AttendancePage = () => {
         }
 
         if (entries.length === 0 && coursesRes.status === 'fulfilled' && coursesRes.value.length > 0) {
-          const levelCourses = coursesRes.value.filter((c) => c.level === level);
+          const levelCourses = coursesRes.value.filter((c: any) => c.level === level);
           const sourceCourses = levelCourses.length > 0 ? levelCourses : coursesRes.value;
 
-          entries = sourceCourses.map((c) => ({
+          entries = sourceCourses.map((c: any) => ({
             timetable_entry_id: c.id,
             course_id: c.id,
             course_code: c.code,

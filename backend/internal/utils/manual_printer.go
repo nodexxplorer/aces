@@ -173,7 +173,8 @@ func buildCoverContent(input CoverPageInput, sessionSemester string, qrMatrix []
 	nameY := studentIDY - g(14)            // -> NAME field: 14mm (scaled)
 	regY := nameY - mm(12)                 // NAME -> REG. NO: 12mm (literal)
 	deptFieldY := regY - mm(12)            // REG. NO -> DEPARTMENT: 12mm (literal)
-	sessionLabelY := deptFieldY - mm(12)   // DEPARTMENT -> SESSION-SEMESTER: 12mm (literal)
+	levelFieldY := deptFieldY - mm(12)     // DEPARTMENT -> LEVEL: 12mm (literal)
+	sessionLabelY := levelFieldY - mm(12)  // LEVEL -> SESSION-SEMESTER: 12mm (literal)
 	sessionValueY := sessionLabelY - mm(4) // label -> value: 4mm (literal)
 
 	txt.WriteString("BT\n")
@@ -209,6 +210,9 @@ func buildCoverContent(input CoverPageInput, sessionSemester string, qrMatrix []
 	pdfAt(&txt, fieldLabelX, deptFieldY, 10.5, "F2", "DEPARTMENT:")
 	pdfAt(&txt, fieldValueX, deptFieldY, 10.5, "F1", input.Department)
 
+	pdfAt(&txt, fieldLabelX, levelFieldY, 10.5, "F2", "LEVEL:")
+	pdfAt(&txt, fieldValueX, levelFieldY, 10.5, "F1", pdfSafe(fmt.Sprintf("%dL", input.Level)))
+
 	// Session/Semester — no line, just label then value directly underneath.
 	pdfAt(&txt, fieldLabelX, sessionLabelY, 10.5, "F2", "SESSION\u00b7SEMESTER:")
 	pdfAt(&txt, fieldLabelX, sessionValueY, 12, "F1", sessionSemester)
@@ -237,7 +241,7 @@ func buildCoverContent(input CoverPageInput, sessionSemester string, qrMatrix []
 
 	// ── Graphics: field underlines (0.6pt, spec) ────────────────────────────
 	gfx.WriteString("0.6 w\n")
-	for _, fy := range []float64{nameY, regY, deptFieldY} {
+	for _, fy := range []float64{nameY, regY, deptFieldY, levelFieldY} {
 		ly := fy - 4
 		gfx.WriteString(fmt.Sprintf("%.2f %.2f m\n", fieldLabelX, ly))
 		gfx.WriteString(fmt.Sprintf("%.2f %.2f l\n", fieldLabelX+fieldUnderW, ly))

@@ -446,7 +446,14 @@ Rules:
 	}
 }
 
-func (s *AIService) Feedback(ctx context.Context, interactionID uuid.UUID, feedback string, accurate *bool) error {
+func (s *AIService) Feedback(ctx context.Context, userID, interactionID uuid.UUID, feedback string, accurate *bool) error {
+	interaction, err := s.queries().GetAIInteraction(ctx, interactionID)
+	if err != nil {
+		return err
+	}
+	if interaction.UserID != userID {
+		return fmt.Errorf("interaction not found")
+	}
 	return s.queries().UpdateAIInteractionFeedback(ctx, db.UpdateAIInteractionFeedbackParams{
 		ID:           interactionID,
 		UserFeedback: &feedback,

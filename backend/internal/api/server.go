@@ -68,7 +68,6 @@ type Server struct {
 	roles         *service.RoleService
 	manuals       *service.ManualService
 	campusConnect *service.CampusConnectService
-	skillsTrade   *service.SkillsTradeService
 	alumni        *service.AlumniService
 	ai            *service.AIService
 	wsHub         *ws.Hub
@@ -105,7 +104,6 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		roles:         service.NewRoleService(store),
 		manuals:       service.NewManualService(store),
 		campusConnect: service.NewCampusConnectService(store),
-		skillsTrade:   service.NewSkillsTradeService(store),
 		alumni:        service.NewAlumniService(store),
 		ai:            service.NewAIService(store, cfg),
 		wsHub:         hub,
@@ -278,7 +276,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		attendance.POST("", middleware.RequireRoles("class_rep", "hod", "delegated_admin"), server.createAttendanceSheet)
 		attendance.GET("/registered-students/:course_id", server.getRegisteredStudentsForAttendance)
 		attendance.POST("/sessions/:id/submit", middleware.RequireRoles("class_rep", "hod", "delegated_admin"), server.submitAttendanceSession)
-		attendance.GET("/sessions/:id/pdf", server.downloadAttendancePDF)
+		attendance.GET("/sessions/:id/pdf", middleware.RequireRoles("class_rep", "lecturer", "hod", "admin", "delegated_admin"), server.downloadAttendancePDF)
 		attendance.POST("/sessions/:id/review", middleware.RequireRoles("lecturer", "hod", "admin"), server.reviewAttendanceSession)
 		attendance.GET("/course", middleware.RequireRoles("lecturer", "hod", "admin", "delegated_admin", "class_rep"), server.listCourseAttendanceSheets)
 		attendance.GET("/student", server.listStudentAttendance)
@@ -354,10 +352,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		carryovers.GET("/student/:student_id", server.listStudentCarryoverCourses)
 	}
 
-	announcements := api.Group("/announcements")
-	{
-		announcements.GET("", server.listActiveAnnouncements)
-	}
+
 
 	notifications := api.Group("/notifications")
 	{
@@ -529,30 +524,12 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		connect.GET("/directory", server.getStudentDirectory)
 	}
 
-	// ── Skills & Trade ──
-	skills := api.Group("/skills-trade")
-	{
-		skills.GET("/categories", server.listSkillCategories)
-		skills.POST("/categories", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createSkillCategory)
-		skills.POST("/listings", server.createSkillListing)
-		skills.GET("/listings", server.listSkillListings)
-		skills.GET("/listings/:id", server.getSkillListing)
-		skills.GET("/listings/user/:id", server.listUserSkillListings)
-		skills.PUT("/listings/:id", server.updateSkillListing)
-		skills.DELETE("/listings/:id", server.deleteSkillListing)
-		skills.POST("/trades", server.createTradeOffer)
-		skills.GET("/trades", server.listUserTrades)
-		skills.GET("/trades/:id", server.getTradeOffer)
-		skills.PUT("/trades/:id", server.updateTradeStatus)
-		skills.POST("/ratings", server.rateTrade)
-		skills.GET("/ratings/user/:id", server.listUserRatings)
-		skills.GET("/reputation/user/:id", server.getUserReputation)
-	}
+
 
 	// ── Backups ──
 	backups := api.Group("/backups")
 	{
-		backups.GET("", server.listBackups)
+		backups.GET("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listBackups)
 		backups.GET("/summary", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getBackupSummary)
 		backups.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createBackup)
 		backups.POST("/:id/restore", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.restoreBackup)
@@ -590,7 +567,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		alumniGroup.POST("/events/:id/register", server.registerForAlumniEvent)
 		alumniGroup.GET("/events/:id/attendees", server.listAlumniEventAttendees)
 		alumniGroup.POST("/donations", server.createDonation)
-		alumniGroup.GET("/donations", server.listDonations)
+		alumniGroup.GET("/donations", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listDonations)
 		alumniGroup.GET("/donations/mine", server.listMyDonations)
 		alumniGroup.GET("/donations/stats", server.getDonationStats)
 	}
@@ -601,27 +578,27 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 	// ── Class Representative Management ──
 	classRep := api.Group("/class-rep")
 	{
-		classRep.GET("/class-list", middleware.RequireRoles("class_rep"), server.getClassRepClassList)
-		classRep.GET("/pending-registrations", middleware.RequireRoles("class_rep"), server.listPendingCourseRegistrations)
-		classRep.POST("/appoint", middleware.RequireRoles("hod", "admin"), server.appointClassRep)
-		classRep.GET("/list", middleware.RequireRoles("hod", "admin"), server.listClassReps)
-		classRep.DELETE("/:id", middleware.RequireRoles("hod", "admin"), server.deactivateClassRep)
+		classRep.GET("/class-list", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.getClassRepClassList)
+		classRep.GET("/pending-registrations", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.listPendingCourseRegistrations)
+		classRep.POST("/appoint", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.appointClassRep)
+		classRep.GET("/list", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listClassReps)
+		classRep.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deactivateClassRep)
 
 		classRep.GET("/timetable", server.getClassRepTimetable)
 
 		// Attendance sessions
-		classRep.POST("/attendance-sessions", middleware.RequireRoles("class_rep"), server.createAttendanceSession)
-		classRep.PUT("/attendance-sessions/:id/open", middleware.RequireRoles("class_rep"), server.openAttendanceSession)
-		classRep.PUT("/attendance-sessions/:id/close", middleware.RequireRoles("class_rep"), server.closeAttendanceSession)
-		classRep.GET("/attendance-sessions/mine", middleware.RequireRoles("class_rep"), server.listMyAttendanceSessions)
-		classRep.GET("/attendance-sessions/:id/checkins", middleware.RequireRoles("class_rep"), server.listAttendanceSessionCheckins)
-		classRep.POST("/checkin", middleware.RequireRoles("class_rep"), server.checkInStudent)
+		classRep.POST("/attendance-sessions", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.createAttendanceSession)
+		classRep.PUT("/attendance-sessions/:id/open", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.openAttendanceSession)
+		classRep.PUT("/attendance-sessions/:id/close", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.closeAttendanceSession)
+		classRep.GET("/attendance-sessions/mine", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.listMyAttendanceSessions)
+		classRep.GET("/attendance-sessions/:id/checkins", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.listAttendanceSessionCheckins)
+		classRep.POST("/checkin", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.checkInStudent)
 
 		// Reports
-		classRep.POST("/reports", middleware.RequireRoles("class_rep"), server.submitClassRepReport)
-		classRep.GET("/reports", middleware.RequireRoles("class_rep"), server.listClassRepReports)
-		classRep.GET("/reports/all", middleware.RequireRoles("hod", "admin"), server.listAllClassRepReports)
-		classRep.PUT("/reports/:id/status", middleware.RequireRoles("hod", "admin"), server.updateClassRepReportStatus)
+		classRep.POST("/reports", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.submitClassRepReport)
+		classRep.GET("/reports", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.listClassRepReports)
+		classRep.GET("/reports/all", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listAllClassRepReports)
+		classRep.PUT("/reports/:id/status", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateClassRepReportStatus)
 
 		// Performance reviews
 		classRep.POST("/performance", middleware.RequireRoles("hod", "admin"), server.createPerformanceReview)
@@ -747,7 +724,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		feedback.POST("", server.createFeedback)
 		feedback.GET("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listFeedback)
 		feedback.GET("/my", server.listMyFeedback)
-		feedback.GET("/:id", server.getFeedback)
+		feedback.GET("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getFeedback)
 		feedback.PUT("/:id/status", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateFeedbackStatus)
 	}
 

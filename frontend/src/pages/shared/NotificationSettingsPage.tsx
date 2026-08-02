@@ -41,7 +41,6 @@ const categories = [
   { key: 'dues', label: 'Dues & Payments' },
   { key: 'messages', label: 'Messages' },
   { key: 'connect', label: 'Campus Connect' },
-  { key: 'skills', label: 'Skills & Trade' },
   { key: 'alumni', label: 'Alumni' },
   { key: 'system', label: 'System' },
 ] as const;

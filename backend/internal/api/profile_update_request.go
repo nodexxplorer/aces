@@ -1,8 +1,11 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aces/backend/internal/db/sql"
@@ -148,6 +151,16 @@ func (server *Server) updateProfileUpdateRequestStatus(ctx *gin.Context) {
 		return
 	}
 
+	// Apply field change when request is approved
+	if request.Status == "approved" {
+		if student, sErr := server.store.GetStudent(ctx, request.StudentID); sErr == nil {
+			if applyErr := applyProfileFieldUpdate(ctx, server.store, student.UserID, request.StudentID, request.FieldName, request.NewValue); applyErr != nil {
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to apply approved profile update"})
+				return
+			}
+		}
+	}
+
 	// Notify the student about profile update request status change
 	if student, sErr := server.store.GetStudent(ctx, request.StudentID); sErr == nil {
 		eType := "profile_update_request"
@@ -180,6 +193,69 @@ func (server *Server) updateProfileUpdateRequestStatus(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, request)
+}
+
+func applyProfileFieldUpdate(ctx context.Context, store interface{}, userID, studentID uuid.UUID, fieldName, newValue string) error {
+	q, ok := store.(*db.Queries)
+	if !ok {
+		return fmt.Errorf("invalid store")
+	}
+
+	switch strings.ToLower(fieldName) {
+	case "first_name", "firstname":
+		_, err := q.GetDB().Exec(ctx, "UPDATE users SET first_name = $1, updated_at = NOW() WHERE id = $2", newValue, userID)
+		return err
+	case "last_name", "lastname":
+		_, err := q.GetDB().Exec(ctx, "UPDATE users SET last_name = $1, updated_at = NOW() WHERE id = $2", newValue, userID)
+		return err
+	case "middle_name", "middlename":
+		_, err := q.GetDB().Exec(ctx, "UPDATE users SET middle_name = $1, updated_at = NOW() WHERE id = $2", newValue, userID)
+		return err
+	case "phone", "phone_number":
+		_, err := q.GetDB().Exec(ctx, "UPDATE users SET phone = $1, updated_at = NOW() WHERE id = $2", newValue, userID)
+		return err
+	case "home_address", "homeaddress":
+		_, err := q.GetDB().Exec(ctx, "UPDATE users SET home_address = $1, updated_at = NOW() WHERE id = $2", newValue, userID)
+		return err
+	case "date_of_birth", "dateofbirth":
+		t, err := time.Parse("2006-01-02", newValue)
+		if err != nil {
+			t, err = time.Parse(time.RFC3339, newValue)
+		}
+		if err != nil {
+			return err
+		}
+		_, err = q.GetDB().Exec(ctx, "UPDATE users SET date_of_birth = $1, updated_at = NOW() WHERE id = $2", t, userID)
+		return err
+	case "emergency_contact_name", "emergencycontactname":
+		_, err := q.GetDB().Exec(ctx, "UPDATE users SET emergency_contact_name = $1, updated_at = NOW() WHERE id = $2", newValue, userID)
+		return err
+	case "emergency_contact_phone", "emergencycontactphone":
+		_, err := q.GetDB().Exec(ctx, "UPDATE users SET emergency_contact_phone = $1, updated_at = NOW() WHERE id = $2", newValue, userID)
+		return err
+	case "matric_number", "matricnumber":
+		_, err := q.GetDB().Exec(ctx, "UPDATE students SET matric_number = $1, updated_at = NOW() WHERE id = $2", newValue, studentID)
+		return err
+	case "level":
+		lvl, err := strconv.Atoi(newValue)
+		if err != nil {
+			return err
+		}
+		_, err = q.GetDB().Exec(ctx, "UPDATE students SET level = $1, updated_at = NOW() WHERE id = $2", lvl, studentID)
+		return err
+	case "admission_mode", "admissionmode":
+		_, err := q.GetDB().Exec(ctx, "UPDATE students SET admission_mode = $1, updated_at = NOW() WHERE id = $2", newValue, studentID)
+		return err
+	case "year_admitted", "yearadmitted":
+		yr, err := strconv.Atoi(newValue)
+		if err != nil {
+			return err
+		}
+		_, err = q.GetDB().Exec(ctx, "UPDATE students SET year_admitted = $1, updated_at = NOW() WHERE id = $2", yr, studentID)
+		return err
+	default:
+		return fmt.Errorf("unsupported profile field: %s", fieldName)
+	}
 }
 
 func (server *Server) deleteProfileUpdateRequest(ctx *gin.Context) {

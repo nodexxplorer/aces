@@ -269,7 +269,8 @@ func (server *Server) purchaseManual(ctx *gin.Context) {
 	}
 
 	// Verify the manual exists
-	if _, err := queries.GetManual(ctx, manualID); err != nil {
+	manual, err := queries.GetManual(ctx, manualID)
+	if err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "manual not found"})
 		return
 	}
@@ -283,6 +284,18 @@ func (server *Server) purchaseManual(ctx *gin.Context) {
 			return
 		}
 		paymentIDPtr = &payID
+	}
+
+	if !manual.Price.IsZero() {
+		paid, err := queries.HasCompletedPaymentForManual(ctx, db.HasCompletedPaymentForManualParams{
+			StudentID: studentID,
+			ManualID:  manualID,
+			PaymentID: paymentIDPtr,
+		})
+		if err != nil || !paid {
+			ctx.JSON(http.StatusPaymentRequired, gin.H{"error": "payment required before purchasing this manual"})
+			return
+		}
 	}
 
 	// Fetch student profile for QR data

@@ -45,11 +45,17 @@ func (server *Server) createStudyTask(ctx *gin.Context) {
 		return
 	}
 
+	title := strings.TrimSpace(req.Title)
+	if title == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "title cannot be empty"})
+		return
+	}
+
 	arg := db.CreateStudyTaskParams{
-		UserID:    userID,
-		Title:     strings.TrimSpace(req.Title),
-		Priority:  db.TaskPriority(priority),
-		DueDate:   pgtype.Timestamptz{Valid: false},
+		UserID:     userID,
+		Title:      title,
+		Priority:   db.TaskPriority(priority),
+		DueDate:    pgtype.Timestamptz{Valid: false},
 		ReminderAt: pgtype.Timestamptz{Valid: false},
 	}
 
@@ -106,6 +112,9 @@ func (server *Server) listMyStudyTasks(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
+	}
+	if tasks == nil {
+		tasks = []db.ListUserStudyTasksRow{}
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"data": tasks})
@@ -282,6 +291,9 @@ func (server *Server) getUpcomingTasks(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
+	}
+	if tasks == nil {
+		tasks = []db.GetUpcomingTasksRow{}
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"data": tasks})

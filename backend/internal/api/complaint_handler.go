@@ -82,7 +82,11 @@ func (server *Server) getComplaint(ctx *gin.Context) {
 
 	complaint, err := server.complaints.GetByID(ctx, id)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": "internal server error"})
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "complaint not found"})
+		return
+	}
+
+	if !requireOwnershipOrStaff(ctx, server.store, complaint.StudentID) {
 		return
 	}
 

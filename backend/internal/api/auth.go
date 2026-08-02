@@ -64,7 +64,7 @@ type userResponse struct {
 	EntryYear        *int32  `json:"entryYear,omitempty"`
 	AdmissionMode    *string `json:"admissionMode,omitempty"`
 	YearAdmitted     *int32  `json:"yearAdmitted,omitempty"`
-	CGPA             *int64  `json:"cgpa,omitempty"`
+	CGPA             *float64 `json:"cgpa,omitempty"`
 	AcademicStanding *string `json:"academicStanding,omitempty"`
 	DateOfBirth          *string `json:"dateOfBirth,omitempty"`
 	EmergencyContactName *string `json:"emergencyContactName,omitempty"`

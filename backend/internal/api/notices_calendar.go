@@ -137,8 +137,8 @@ func (server *Server) updateClassNotice(ctx *gin.Context) {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "notice not found"})
 		return
 	}
-	if existing.ClassRepID != userID {
-		ctx.JSON(http.StatusForbidden, gin.H{"error": "only the author can update this notice"})
+	if !isStaffRole(ctx) && existing.ClassRepID != userID {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "you do not own this notice"})
 		return
 	}
 
@@ -181,7 +181,7 @@ func (server *Server) updateClassNotice(ctx *gin.Context) {
 		AllowComments: allowComments,
 		AttachmentUrl: attachmentURL,
 		ExpiresAt:     expiresAt,
-		ClassRepID:    userID,
+		ClassRepID:    existing.ClassRepID,
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -206,9 +206,19 @@ func (server *Server) deleteClassNotice(ctx *gin.Context) {
 
 	userID := getUserID(ctx)
 
+	existing, err := queries.GetClassNotice(ctx, noticeID)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "notice not found"})
+		return
+	}
+	if !isStaffRole(ctx) && existing.ClassRepID != userID {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "you do not own this notice"})
+		return
+	}
+
 	err = queries.DeleteClassNotice(ctx, db.DeleteClassNoticeParams{
 		ID:         noticeID,
-		ClassRepID: userID,
+		ClassRepID: existing.ClassRepID,
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})

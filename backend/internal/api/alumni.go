@@ -871,14 +871,20 @@ func (server *Server) createDonation(ctx *gin.Context) {
 		return
 	}
 
+	donorUser, err := server.users.GetByID(ctx, donorID)
+	if err != nil || donorUser.Email == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid donor email"})
+		return
+	}
+
 	amountKobo := int64(req.Amount * 100)
 	paystackClient := payment.NewPaystackClient(server.config.PaystackSecretKey, server.config.PaystackPublicKey)
 
 	paystackReq := payment.InitPaymentRequest{
-		Email:       "donor@aces.ng",
+		Email:       donorUser.Email,
 		Amount:      amountKobo,
 		Reference:   reference,
-		CallbackURL: fmt.Sprintf("%s/give-back/verify?ref=%s", server.config.ServerAddress, reference),
+		CallbackURL: fmt.Sprintf("%s/alumni/give-back/confirmation?ref=%s", server.config.FrontendPublicURL, reference),
 		Metadata: payment.Metadata{
 			"donation_id": donation.ID.String(),
 			"channel":     req.Channel,

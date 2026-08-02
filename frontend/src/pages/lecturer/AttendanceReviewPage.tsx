@@ -116,7 +116,7 @@ const LecturerAttendanceReviewPage = () => {
                     Reject
                   </Button>
                   <Button
-                    variant="warning"
+                    variant="secondary"
                     isLoading={actionLoading === r.session_id}
                     leftIcon={<AlertCircle className="w-4 h-4" />}
                     onClick={() => handleReview(r.session_id, 'request_changes')}
