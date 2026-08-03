@@ -22,15 +22,31 @@ func corsMiddleware(allowedOrigins []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")
 
-		for _, allowed := range allowedOrigins {
-			if strings.EqualFold(origin, allowed) {
+		if origin != "" {
+			trimmedOrigin := strings.TrimSuffix(strings.TrimSpace(origin), "/")
+			matched := false
+			for _, allowed := range allowedOrigins {
+				trimmedAllowed := strings.TrimSuffix(strings.TrimSpace(allowed), "/")
+				if trimmedAllowed == "*" || strings.EqualFold(trimmedOrigin, trimmedAllowed) {
+					matched = true
+					break
+				}
+			}
+
+			if matched || strings.HasSuffix(trimmedOrigin, ".vercel.app") {
 				c.Header("Access-Control-Allow-Origin", origin)
-				break
 			}
 		}
 
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+
+		reqHeaders := c.Request.Header.Get("Access-Control-Request-Headers")
+		if reqHeaders != "" {
+			c.Header("Access-Control-Allow-Headers", reqHeaders)
+		} else {
+			c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With")
+		}
+
 		c.Header("Access-Control-Allow-Credentials", "true")
 		c.Header("Access-Control-Max-Age", "86400")
 
