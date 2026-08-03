@@ -95,7 +95,7 @@ func Load() *Config {
 		JWTSecret:          jwtSecret,
 		JWTAccessDuration:  getDuration("JWT_ACCESS_MINUTES", 60),
 		JWTRefreshDuration: getDuration("JWT_REFRESH_DAYS", 7*24*60),
-		AllowedOrigins:     getSlice("ALLOWED_ORIGINS", []string{"http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://localhost:5175"}), // comma-separated list in env; restrict to your domain(s) in production
+		AllowedOrigins:     getSlice("ALLOWED_ORIGINS", []string{"http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://localhost:5175", "https://aces-ivory.vercel.app"}), // comma-separated list in env; restrict to your domain(s) in production
 		PaystackSecretKey:  getEnv("PAYSTACK_SECRET_KEY", ""),
 		PaystackPublicKey:  getEnv("PAYSTACK_PUBLIC_KEY", ""),
 		StorageLocalPath:   getEnv("STORAGE_LOCAL_PATH", "./uploads"),
