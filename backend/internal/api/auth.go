@@ -85,16 +85,16 @@ type tokenPair struct {
 }
 
 func (server *Server) setTokenCookies(ctx *gin.Context, pair *tokenPair) {
-	secure := server.config.IsProduction()
+	secure := server.config.IsProduction() || ctx.GetHeader("X-Forwarded-Proto") == "https"
 
-	ctx.SetSameSite(http.SameSiteLaxMode)
+	ctx.SetSameSite(http.SameSiteNoneMode)
 	ctx.SetCookie("aces_access_token", pair.AccessToken, int(server.config.JWTAccessDuration.Seconds()), "/", "", secure, true)
 	ctx.SetCookie("aces_refresh_token", pair.RefreshToken, int(server.config.JWTRefreshDuration.Seconds()), "/", "", secure, true)
 }
 
 func (server *Server) clearTokenCookies(ctx *gin.Context) {
-	secure := server.config.IsProduction()
-	ctx.SetSameSite(http.SameSiteLaxMode)
+	secure := server.config.IsProduction() || ctx.GetHeader("X-Forwarded-Proto") == "https"
+	ctx.SetSameSite(http.SameSiteNoneMode)
 	ctx.SetCookie("aces_access_token", "", -1, "/", "", secure, true)
 	ctx.SetCookie("aces_refresh_token", "", -1, "/", "", secure, true)
 }
