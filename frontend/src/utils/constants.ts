@@ -11,7 +11,7 @@ export const COLORS = {
 } as const;
 
 export const LEVELS = [1, 2, 3, 4, 5] as const;
-export const SEMESTERS = ['harmattan', 'rain'] as const;
+export const SEMESTERS = ['first', 'second'] as const;
 
 export const GRADE_POINTS: Record<string, number> = {
   A: 5.0, B: 4.0, C: 3.0, D: 2.0, E: 1.0, F: 0.0,

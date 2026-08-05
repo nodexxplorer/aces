@@ -44,7 +44,7 @@ export const getSemester = async (semesterId: string) => {
 
 export const createSemester = async (payload: {
   session_id: string;
-  name: 'harmattan' | 'rain';
+  name: string;
   start_date?: string;
   end_date?: string;
   registration_deadline?: string;

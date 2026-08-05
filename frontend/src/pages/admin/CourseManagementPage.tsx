@@ -27,7 +27,7 @@ const CourseManagementPage = () => {
   const [title, setTitle] = useState('');
   const [units, setUnits] = useState('3');
   const [level, setLevel] = useState('500');
-  const [semester, setSemester] = useState('harmattan');
+  const [semester, setSemester] = useState('first');
   const [courseType, setCourseType] = useState('departmental');
   const [submitting, setSubmitting] = useState(false);
   const [assigning, setAssigning] = useState(false);
@@ -348,8 +348,8 @@ const CourseManagementPage = () => {
               value={semester}
               onChange={(e) => setSemester(e.target.value)}
             >
-              <option value="harmattan">Harmattan</option>
-              <option value="rain">Rain</option>
+              <option value="first">First Semester</option>
+              <option value="second">Second Semester</option>
             </select>
           </div>
           <div>

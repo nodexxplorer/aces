@@ -21,7 +21,7 @@ export type EventAttendeeStatus = 'registered' | 'attended' | 'cancelled';
 export type GroupType = 'study' | 'project' | 'interest' | 'alumni';
 export type GroupMemberRole = 'admin' | 'moderator' | 'member';
 export type CourseSubcategory = 'core' | 'elective' | 'general' | 'practical';
-export type Semester = 'harmattan' | 'rain';
+export type Semester = 'first' | 'second' | 'harmattan' | 'rain';
 export type Grade = 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
 
 // ───── Base ─────
@@ -134,7 +134,7 @@ export type AcademicSession = Session;
 
 export interface SemesterEntry extends BaseEntity {
   session_id: string;
-  name: 'harmattan' | 'rain';
+  name: 'first' | 'second' | 'harmattan' | 'rain';
   start_date?: string;
   end_date?: string;
   registration_deadline?: string;

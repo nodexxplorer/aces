@@ -14,7 +14,7 @@ type createStudentRequest struct {
 	Level            int32  `json:"level" binding:"required,min=100,max=700"`
 	EntryYear        int32  `json:"entry_year" binding:"required"`
 	CurrentSessionID string `json:"current_session_id" binding:"omitempty,uuid"`
-	CurrentSemester  string `json:"current_semester" binding:"omitempty,oneof=harmattan rain"`
+	CurrentSemester  string `json:"current_semester" binding:"omitempty,oneof=first second harmattan rain"`
 }
 
 func (server *Server) createStudent(ctx *gin.Context) {

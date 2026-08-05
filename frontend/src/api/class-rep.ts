@@ -4,6 +4,7 @@ import apiClient, { unwrap } from './client';
 
 export interface ClassRepStudent {
   id: string;
+  user_id?: string;
   full_name: string;
   matric_number: string;
   email: string;

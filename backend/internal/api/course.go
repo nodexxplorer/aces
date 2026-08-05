@@ -16,7 +16,7 @@ type createCourseRequest struct {
 	Description    *string `json:"description" binding:"omitempty"`
 	Unit           int32   `json:"unit" binding:"required,min=1"`
 	Level          int32   `json:"level" binding:"required,min=100"`
-	Semester       string  `json:"semester" binding:"required,oneof=harmattan rain"`
+	Semester       string  `json:"semester" binding:"required,oneof=first second harmattan rain"`
 	LecturerID     *string `json:"lecturer_id" binding:"omitempty,uuid"`
 	PrerequisiteID *string `json:"prerequisite_id" binding:"omitempty,uuid"`
 	MaxCreditHours *int32  `json:"max_credit_hours" binding:"omitempty,min=1"`
@@ -66,7 +66,7 @@ func (server *Server) createCourse(ctx *gin.Context) {
 					Semester string
 				}
 				_ = queries.GetDB().QueryRow(ctx, `
-					SELECT s.id, COALESCE(sem.name, 'harmattan') as semester
+					SELECT s.id, COALESCE(sem.name, 'first') as semester
 					FROM sessions s
 					LEFT JOIN semesters sem ON sem.session_id = s.id AND sem.is_active = true
 					WHERE s.is_active = true
@@ -242,14 +242,14 @@ func (server *Server) updateCourse(ctx *gin.Context) {
 				sessionID := uuid.Nil
 				sem := semester
 				if sem == "" {
-					sem = "harmattan"
+					sem = "first"
 				}
 				var si struct {
 					ID       uuid.UUID
 					Semester string
 				}
 				_ = queries.GetDB().QueryRow(ctx, `
-					SELECT s.id, COALESCE(sem.name, 'harmattan') as semester
+					SELECT s.id, COALESCE(sem.name, 'first') as semester
 					FROM sessions s
 					LEFT JOIN semesters sem ON sem.session_id = s.id AND sem.is_active = true
 					WHERE s.is_active = true
@@ -307,8 +307,8 @@ func (server *Server) listCoursesByLevelAndSemester(ctx *gin.Context) {
 		return
 	}
 
-	if semester != "harmattan" && semester != "rain" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "semester must be harmattan or rain"})
+	if semester != "harmattan" && semester != "rain" && semester != "first" && semester != "second" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "semester must be first, second, harmattan or rain"})
 		return
 	}
 

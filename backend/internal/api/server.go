@@ -9,7 +9,8 @@ import (
 	"github.com/aces/backend/internal/auth"
 	"github.com/aces/backend/internal/cache"
 	"github.com/aces/backend/internal/config"
-	"github.com/aces/backend/internal/db/sql"
+	db "github.com/aces/backend/internal/db/sql"
+	"github.com/aces/backend/internal/email"
 	"github.com/aces/backend/internal/middleware"
 	"github.com/aces/backend/internal/service"
 	"github.com/aces/backend/internal/storage"
@@ -96,23 +97,32 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 	hub := ws.NewHub()
 	go hub.Run()
 
+	emailSender := email.NewSMTPSender(
+		cfg.SMTPHost,
+		cfg.SMTPPort,
+		cfg.SMTPUsername,
+		cfg.SMTPPassword,
+		cfg.SMTPFrom,
+		cfg.SMTPMock,
+	)
+
 	server := &Server{
 		store:        store,
 		dbPool:       dbPool,
 		tokenManager: tm,
 		config:       cfg,
 
-		auth:          service.NewAuthService(store),
-		users:         service.NewUserService(store),
-		students:      service.NewStudentService(store),
-		courses:       service.NewCourseService(store),
-		results:       service.NewResultService(store),
-		sessions:      service.NewSessionService(store),
-		semesters:     service.NewSemesterService(store),
-		complaints:    service.NewComplaintService(store),
-		announcements: service.NewAnnouncementService(store),
-		notifications:    service.NewNotificationService(store),
-		notificationsFull: service.NewNotificationServiceFull(db.New(dbPool), hub),
+		auth:              service.NewAuthService(store),
+		users:             service.NewUserService(store),
+		students:          service.NewStudentService(store),
+		courses:           service.NewCourseService(store),
+		results:           service.NewResultService(store),
+		sessions:          service.NewSessionService(store),
+		semesters:         service.NewSemesterService(store),
+		complaints:        service.NewComplaintService(store),
+		announcements:     service.NewAnnouncementService(store),
+		notifications:     service.NewNotificationService(store),
+		notificationsFull: service.NewNotificationServiceFull(db.New(dbPool), hub, emailSender),
 		transcripts:   service.NewTranscriptService(store),
 		analytics:     service.NewAnalyticsService(store),
 		cgpa:          service.NewCGPAService(store),
@@ -380,7 +390,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		notifications.DELETE("/:id", server.deleteNotification)
 		notifications.GET("/preferences", server.getMyNotificationPreferences)
 		notifications.PUT("/preferences", server.updateMyNotificationPreferences)
-		notifications.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createNotification)
+		notifications.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin", "class_rep"), server.createNotification)
 	}
 
 	timetables := api.Group("/timetable")

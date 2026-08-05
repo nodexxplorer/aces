@@ -87,7 +87,7 @@ const ResultDetailPage = () => {
               </div>
               <div className="flex items-center gap-2.5 text-sm text-surface-600 dark:text-surface-400">
                 <Calendar className="w-4 h-4 text-primary-500" />
-                <span>Semester: {result.semester === 'harmattan' ? 'Harmattan (First)' : 'Rain (Second)'}</span>
+                <span>Semester: {result.semester === 'first' || result.semester === 'harmattan' ? 'First Semester' : result.semester === 'second' || result.semester === 'rain' ? 'Second Semester' : result.semester}</span>
               </div>
             </div>
           </div>

@@ -18,7 +18,7 @@ CREATE TYPE user_role AS ENUM (
     'bursar_class'
 );
 
-CREATE TYPE semester_season AS ENUM ('harmattan', 'rain');
+CREATE TYPE semester_season AS ENUM ('first', 'second', 'harmattan', 'rain');
 
 CREATE TYPE academic_standing AS ENUM (
     'good_standing',

@@ -53,7 +53,7 @@ const menuItems: MenuItem[] = [
   { label: 'Manuals Marketplace', path: '/manuals', icon: BookOpen, roles: ['student'] },
   { label: 'My Manuals', path: '/manuals/my', icon: BookMarked, roles: ['student'] },
   { label: 'Complaints', path: '/complaints', icon: HelpCircle, roles: ['student'] },
-  { label: 'Support', path: '/support', icon: HelpCircle, roles: ['student', 'hod', 'delegated_admin', 'admin'] },
+  { label: 'Support', path: '/support', icon: HelpCircle, roles: ['student', 'lecturer', 'class_rep', 'class_bursar', 'dept_bursar', 'alumni'] },
 
   { label: 'Job Board', path: '/student/jobs', icon: Briefcase, roles: ['student'] },
   { label: 'My Applications', path: '/student/applications', icon: FileText, roles: ['student'] },

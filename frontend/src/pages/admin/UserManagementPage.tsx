@@ -8,7 +8,7 @@ import StatusBadge from '../../components/data-display/StatusBadge';
 import RoleBadge from '../../components/data-display/RoleBadge';
 import { useNotification } from '../../hooks/useNotification';
 import { Search, UserCheck, ShieldAlert, Loader2, UserPlus, X, RotateCcw, Pencil, Trash2, AlertTriangle } from 'lucide-react';
-import { getUsers, approveUser, updateUser, createUser, deleteUser } from '../../api/users';
+import { getUsers, getUser, approveUser, updateUser, createUser, deleteUser } from '../../api/users';
 import { useAuth } from '../../hooks/useAuth';
 import type { User, UserRole } from '../../types';
 
@@ -148,7 +148,7 @@ const UserManagementPage = () => {
     }
   };
 
-  const openEditModal = (user: User) => {
+  const openEditModal = async (user: User) => {
     setEditUser(user);
     setEditForm({
       first_name: user.firstName || (user as any).first_name || '',
@@ -165,13 +165,36 @@ const UserManagementPage = () => {
       emergencyContactPhone: (user as any).emergencyContactPhone || (user as any).emergency_contact_phone || '',
       homeAddress: (user as any).homeAddress || (user as any).home_address || '',
     });
+
+    try {
+      const fullUser: any = await getUser(user.id);
+      if (fullUser) {
+        setEditForm({
+          first_name: fullUser.firstName || fullUser.first_name || '',
+          last_name: fullUser.lastName || fullUser.last_name || '',
+          email: fullUser.email || '',
+          phone: fullUser.phone || '',
+          role: fullUser.role || fullUser.activeRole || 'student',
+          dateOfBirth: fullUser.dateOfBirth || fullUser.date_of_birth || '',
+          matricNumber: fullUser.matricNumber || fullUser.matric_number || '',
+          level: fullUser.level ? String(fullUser.level) : '',
+          admissionMode: fullUser.admissionMode || fullUser.admission_mode || '',
+          yearAdmitted: fullUser.yearAdmitted ? String(fullUser.yearAdmitted) : (fullUser.year_admitted ? String(fullUser.year_admitted) : ''),
+          emergencyContactName: fullUser.emergencyContactName || fullUser.emergency_contact_name || '',
+          emergencyContactPhone: fullUser.emergencyContactPhone || fullUser.emergency_contact_phone || '',
+          homeAddress: fullUser.homeAddress || fullUser.home_address || '',
+        });
+      }
+    } catch (e) {
+      console.error('Failed to fetch full user profile for modal', e);
+    }
   };
 
   const handleEditSubmit = async () => {
     if (!editUser) return;
     try {
       setEditLoading(true);
-      await updateUser(editUser.id, {
+      const res: any = await updateUser(editUser.id, {
         first_name: editForm.first_name,
         last_name: editForm.last_name,
         email: editForm.email,
@@ -186,16 +209,27 @@ const UserManagementPage = () => {
         emergencyContactPhone: editForm.emergencyContactPhone || undefined,
         homeAddress: editForm.homeAddress || undefined,
       } as any);
+
+      const updatedUser = res?.data || res || {};
       setUsers((prev) => prev.map((u) => {
         if (u.id !== editUser.id) return u;
         return {
           ...u,
+          ...updatedUser,
           firstName: editForm.first_name,
           lastName: editForm.last_name,
           email: editForm.email,
           phone: editForm.phone,
           role: editForm.role as UserRole,
           activeRole: editForm.role as UserRole,
+          dateOfBirth: editForm.dateOfBirth,
+          matricNumber: editForm.matricNumber,
+          level: editForm.level,
+          admissionMode: editForm.admissionMode,
+          yearAdmitted: editForm.yearAdmitted,
+          emergencyContactName: editForm.emergencyContactName,
+          emergencyContactPhone: editForm.emergencyContactPhone,
+          homeAddress: editForm.homeAddress,
         };
       }));
       success('User Updated', 'User details have been saved');

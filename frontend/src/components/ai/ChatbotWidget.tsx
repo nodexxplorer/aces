@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { MessageCircle, X, Send, ThumbsUp, ThumbsDown, Bot, User, Sparkles } from 'lucide-react';
+import { MessageCircle, X, Send, Bot, User, Sparkles, HelpCircle, Sun, Moon, Monitor } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { sendChatMessage, getQuickActions } from '../../api/ai';
-import type { ChatResponse, QuickAction } from '../../api/ai';
+import type { QuickAction } from '../../api/ai';
+import { useDarkMode } from '../../hooks/useDarkMode';
 import { cn } from '../../utils/cn';
-import { formatCurrency } from '../../utils/formatters';
 
 interface Message {
   id: string;
@@ -17,14 +18,23 @@ interface Message {
 }
 
 const ChatbotWidget = () => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [quickActions, setQuickActions] = useState<QuickAction[]>([]);
   const [sessionId] = useState(() => crypto.randomUUID());
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const { mode, setMode } = useDarkMode();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const isAdminPage = location.pathname.startsWith('/admin');
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -35,7 +45,7 @@ const ChatbotWidget = () => {
   }, [messages, scrollToBottom]);
 
   useEffect(() => {
-    if (isOpen && messages.length === 0) {
+    if (isChatOpen && messages.length === 0) {
       getQuickActions().then(setQuickActions).catch(() => {});
       setMessages([{
         id: 'welcome',
@@ -45,10 +55,22 @@ const ChatbotWidget = () => {
         suggestions: ['Show my schedule', 'Check my grades', 'How to pay dues'],
       }]);
     }
-    if (isOpen) {
+    if (isChatOpen) {
       setTimeout(() => inputRef.current?.focus(), 300);
     }
-  }, [isOpen, messages.length]);
+  }, [isChatOpen, messages.length]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+    if (isMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isMenuOpen]);
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
@@ -96,10 +118,35 @@ const ChatbotWidget = () => {
     }
   };
 
+  const cycleTheme = () => {
+    if (mode === 'light') setMode('dark');
+    else if (mode === 'dark') setMode('system');
+    else setMode('light');
+  };
+
+  const getThemeInfo = () => {
+    if (mode === 'dark') return { label: 'Theme: Dark', Icon: Moon, color: 'text-accent-400' };
+    if (mode === 'light') return { label: 'Theme: Light', Icon: Sun, color: 'text-amber-500' };
+    return { label: 'Theme: System', Icon: Monitor, color: 'text-indigo-400' };
+  };
+
+  const themeInfo = getThemeInfo();
+
+  const handleFabClick = () => {
+    if (isChatOpen) {
+      setIsChatOpen(false);
+    } else if (isMenuOpen) {
+      setIsMenuOpen(false);
+    } else {
+      setIsMenuOpen(true);
+    }
+  };
+
   return (
-    <>
+    <div ref={menuRef}>
+      {/* ── Chatbot Modal Window ── */}
       <AnimatePresence>
-        {isOpen && (
+        {isChatOpen && (
           <motion.div
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -119,8 +166,9 @@ const ChatbotWidget = () => {
                 </div>
               </div>
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={() => setIsChatOpen(false)}
                 className="p-1 hover:bg-white/20 rounded-lg transition-colors"
+                aria-label="Close chatbot"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -241,21 +289,80 @@ const ChatbotWidget = () => {
         )}
       </AnimatePresence>
 
-      {/* Floating Button */}
+      {/* ── Collapsible Speed Dial Menu Options ── */}
+      <AnimatePresence>
+        {isMenuOpen && !isChatOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 15, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 15, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
+            className="fixed bottom-20 right-4 sm:right-6 z-50 flex flex-col items-end gap-2.5"
+          >
+            {/* Theme Changer Option */}
+            <motion.button
+              whileHover={{ scale: 1.03, x: -2 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={cycleTheme}
+              className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-surface-900/90 dark:bg-surface-800/90 text-white border border-surface-700/60 shadow-xl backdrop-blur-md hover:bg-surface-800 dark:hover:bg-surface-700 transition-all text-sm font-medium cursor-pointer"
+            >
+              <themeInfo.Icon className={cn("w-4 h-4", themeInfo.color)} />
+              <span>{themeInfo.label}</span>
+            </motion.button>
+
+            {/* Support Page Option - Hidden on Admin Page */}
+            {!isAdminPage && (
+              <motion.button
+                whileHover={{ scale: 1.03, x: -2 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => {
+                  navigate('/support');
+                  setIsMenuOpen(false);
+                }}
+                className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-surface-900/90 dark:bg-surface-800/90 text-white border border-surface-700/60 shadow-xl backdrop-blur-md hover:bg-surface-800 dark:hover:bg-surface-700 transition-all text-sm font-medium cursor-pointer"
+              >
+                <HelpCircle className="w-4 h-4 text-sky-400" />
+                <span>Support Page</span>
+              </motion.button>
+            )}
+
+            {/* AI Chatbot Option */}
+            <motion.button
+              whileHover={{ scale: 1.03, x: -2 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => {
+                setIsChatOpen(true);
+                setIsMenuOpen(false);
+              }}
+              className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-surface-900/90 dark:bg-surface-800/90 text-white border border-surface-700/60 shadow-xl backdrop-blur-md hover:bg-surface-800 dark:hover:bg-surface-700 transition-all text-sm font-medium cursor-pointer"
+            >
+              <MessageCircle className="w-4 h-4 text-primary-400" />
+              <span>AI Chatbot</span>
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Main Collapsible Footer Button ── */}
       <motion.button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleFabClick}
         className={cn(
-          "fixed bottom-4 right-4 sm:right-6 z-50 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-colors",
-          isOpen
-            ? "bg-surface-800 dark:bg-surface-200 text-white dark:text-surface-900"
+          "fixed bottom-4 right-4 sm:right-6 z-50 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 border border-surface-200/20 dark:border-surface-700/50",
+          isMenuOpen || isChatOpen
+            ? "bg-surface-200 dark:bg-surface-800 text-surface-900 dark:text-white"
             : "bg-primary-500 text-white hover:bg-primary-600"
         )}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
+        aria-label="Toggle action menu"
       >
-        {isOpen ? <X className="w-6 h-6" /> : <MessageCircle className="w-6 h-6" />}
+        {isMenuOpen || isChatOpen ? (
+          <X className="w-6 h-6" />
+        ) : (
+          <Sparkles className="w-6 h-6" />
+        )}
       </motion.button>
-    </>
+    </div>
   );
 };
 

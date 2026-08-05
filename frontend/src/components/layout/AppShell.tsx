@@ -3,7 +3,6 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 import Footer from './Footer';
-import ThemeToggle from '../ui/ThemeToggle';
 import { ToastContainer } from '../feedback/Toast';
 import CookieConsent from '../feedback/CookieConsent';
 import AdminMobileGuard from './AdminMobileGuard';
@@ -35,7 +34,6 @@ const AppShell = () => {
       </div>
       <ChatbotWidget />
       <OfflineBanner />
-      <ThemeToggle />
       <ToastContainer />
       <CookieConsent />
     </div>

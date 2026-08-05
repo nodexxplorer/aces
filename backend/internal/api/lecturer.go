@@ -141,7 +141,7 @@ func (server *Server) assignCourseToLecturer(ctx *gin.Context) {
 	assignedByID := getUserID(ctx)
 
 	sessionID := uuid.Nil
- semester := "harmattan"
+	semester := "first"
 
 	// Try to get active session/semester
 	type sessionInfo struct {
@@ -150,7 +150,7 @@ func (server *Server) assignCourseToLecturer(ctx *gin.Context) {
 	}
 	var si sessionInfo
 	_ = queries.GetDB().QueryRow(ctx, `
-		SELECT s.id, COALESCE(sem.name, 'harmattan') as semester
+		SELECT s.id, COALESCE(sem.name, 'first') as semester
 		FROM sessions s
 		LEFT JOIN semesters sem ON sem.session_id = s.id AND sem.is_active = true
 		WHERE s.is_active = true
@@ -236,7 +236,7 @@ func (server *Server) listLecturerAssignments(ctx *gin.Context) {
 		rows, errFB := queries.GetDB().Query(ctx, `
 			SELECT c.id, c.code, c.title, c.unit, c.level,
 			       COALESCE(s.id, '00000000-0000-0000-0000-000000000000'::uuid) as session_id,
-			       COALESCE(sem.name, 'harmattan') as semester
+			       COALESCE(sem.name, 'first') as semester
 			FROM courses c
 			LEFT JOIN sessions s ON s.is_active = true
 			LEFT JOIN semesters sem ON sem.session_id = s.id AND sem.is_active = true
