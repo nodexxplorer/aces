@@ -2,22 +2,27 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"time"
 
 	db "github.com/aces/backend/internal/db/sql"
+	"github.com/aces/backend/internal/email"
 	"github.com/aces/backend/internal/ws"
 	"github.com/google/uuid"
 )
 
 type NotificationServiceFull struct {
-	queries *db.Queries
-	wsHub   *ws.Hub
+	queries     *db.Queries
+	wsHub       *ws.Hub
+	emailSender email.EmailSender
 }
 
-func NewNotificationServiceFull(queries *db.Queries, wsHub *ws.Hub) *NotificationServiceFull {
+func NewNotificationServiceFull(queries *db.Queries, wsHub *ws.Hub, emailSender email.EmailSender) *NotificationServiceFull {
 	return &NotificationServiceFull{
-		queries: queries,
-		wsHub:   wsHub,
+		queries:     queries,
+		wsHub:       wsHub,
+		emailSender: emailSender,
 	}
 }
 
@@ -54,6 +59,41 @@ func (s *NotificationServiceFull) CreateAndPush(
 
 	if s.wsHub != nil {
 		s.wsHub.SendToUser(userID, ws.TypeNotification, notif)
+	}
+
+	if s.emailSender != nil {
+		go func(uID uuid.UUID, notifTitle, notifMsg string) {
+			bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			user, err := s.queries.GetUser(bgCtx, uID)
+			if err != nil || user.Email == "" {
+				return
+			}
+
+			// Check preferences if set
+			prefs, err := s.queries.GetNotificationPreferences(bgCtx, uID)
+			if err == nil && !prefs.EmailEnabled {
+				return
+			}
+
+			body := fmt.Sprintf(
+				"<div style=\"font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #ffffff;\">"+
+					"<div style=\"border-bottom: 2px solid #6366f1; padding-bottom: 12px; margin-bottom: 20px;\">"+
+					"<h2 style=\"color: #4f46e5; margin: 0; font-size: 20px;\">ACES Zone Notification</h2>"+
+					"</div>"+
+					"<h3 style=\"color: #111827; margin-top: 0; font-size: 16px;\">%s</h3>"+
+					"<p style=\"color: #374151; font-size: 14px; line-height: 1.6;\">%s</p>"+
+					"<hr style=\"border: none; border-top: 1px solid #f3f4f6; margin: 24px 0 16px 0;\" />"+
+					"<p style=\"font-size: 12px; color: #9ca3af; text-align: center; margin: 0;\">This is an automated notification from ACES Zone. Please do not reply.</p>"+
+					"</div>",
+				notifTitle, notifMsg,
+			)
+
+			if err := s.emailSender.SendEmail([]string{user.Email}, notifTitle, body, true); err != nil {
+				log.Printf("[email-notif] failed to send email to %s: %v", user.Email, err)
+			}
+		}(userID, title, message)
 	}
 
 	return notif, nil

@@ -72,49 +72,36 @@ func (server *Server) getUser(ctx *gin.Context) {
 
 	resp := toUserResponse(user, false)
 
-	// If user is a student, fetch student-specific data
-	if string(user.Role) == "student" {
-		queries, ok := server.store.(*db.Queries)
-		if ok {
-			student, studentErr := queries.GetStudentByUserIDFull(ctx, id)
-			if studentErr == nil {
-				resp.MatricNumber = &student.MatricNumber
-				level := int(student.Level)
-				resp.Level = &level
-				resp.EntryYear = &student.EntryYear
-				resp.AdmissionMode = student.AdmissionMode
-				resp.YearAdmitted = student.YearAdmitted
-				if student.Cgpa.Valid {
-					if f, err := student.Cgpa.Float64Value(); err == nil {
-						cgpaVal := f.Float64
-						resp.CGPA = &cgpaVal
-					}
+	// Fetch student-specific and extra profile data if available
+	queries, ok := server.store.(*db.Queries)
+	if ok {
+		student, studentErr := queries.GetStudentByUserIDFull(ctx, id)
+		if studentErr == nil {
+			resp.MatricNumber = &student.MatricNumber
+			level := int(student.Level)
+			resp.Level = &level
+			resp.EntryYear = &student.EntryYear
+			resp.AdmissionMode = student.AdmissionMode
+			resp.YearAdmitted = student.YearAdmitted
+			if student.Cgpa.Valid {
+				if f, err := student.Cgpa.Float64Value(); err == nil {
+					cgpaVal := f.Float64
+					resp.CGPA = &cgpaVal
 				}
+			}
+			if student.AcademicStanding != nil {
 				standing := string(*student.AcademicStanding)
 				resp.AcademicStanding = &standing
-				resp.OnboardingCompleted = student.OnboardingCompleted
 			}
-
-			// Fetch extra profile fields
-			extra, extraErr := queries.GetUserExtraFields(ctx, id)
-			if extraErr == nil {
-				resp.DateOfBirth = extra.DateOfBirth
-				resp.EmergencyContactName = extra.EmergencyContactName
-				resp.EmergencyContactPhone = extra.EmergencyContactPhone
-				resp.HomeAddress = extra.HomeAddress
-			}
+			resp.OnboardingCompleted = student.OnboardingCompleted
 		}
-	} else {
-		// Non-students can also have extra fields
-		queries, ok := server.store.(*db.Queries)
-		if ok {
-			extra, extraErr := queries.GetUserExtraFields(ctx, id)
-			if extraErr == nil {
-				resp.DateOfBirth = extra.DateOfBirth
-				resp.EmergencyContactName = extra.EmergencyContactName
-				resp.EmergencyContactPhone = extra.EmergencyContactPhone
-				resp.HomeAddress = extra.HomeAddress
-			}
+
+		extra, extraErr := queries.GetUserExtraFields(ctx, id)
+		if extraErr == nil {
+			resp.DateOfBirth = extra.DateOfBirth
+			resp.EmergencyContactName = extra.EmergencyContactName
+			resp.EmergencyContactPhone = extra.EmergencyContactPhone
+			resp.HomeAddress = extra.HomeAddress
 		}
 	}
 

@@ -10,7 +10,7 @@ import (
 
 type createSemesterRequest struct {
 	SessionID            string `json:"session_id" binding:"required,uuid"`
-	Name                 string `json:"name" binding:"required,oneof=harmattan rain"`
+	Name                 string `json:"name" binding:"required,oneof=first second harmattan rain"`
 	StartDate            string `json:"start_date" binding:"required"`
 	EndDate              string `json:"end_date" binding:"required"`
 	RegistrationDeadline string `json:"registration_deadline" binding:"omitempty"`
@@ -72,7 +72,7 @@ func (server *Server) listSessionSemesters(ctx *gin.Context) {
 
 type updateSemesterRequest struct {
 	SessionID            string `json:"session_id" binding:"required,uuid"`
-	Name                 string `json:"name" binding:"required,oneof=harmattan rain"`
+	Name                 string `json:"name" binding:"required,oneof=first second harmattan rain"`
 	StartDate            string `json:"start_date" binding:"required"`
 	EndDate              string `json:"end_date" binding:"required"`
 	RegistrationDeadline string `json:"registration_deadline" binding:"omitempty"`

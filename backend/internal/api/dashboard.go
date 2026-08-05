@@ -354,6 +354,7 @@ func (server *Server) getClassRepClassList(ctx *gin.Context) {
 
 	type classRepStudent struct {
 		ID           string `json:"id"`
+		UserID       string `json:"user_id"`
 		FullName     string `json:"full_name"`
 		MatricNumber string `json:"matric_number"`
 		Email        string `json:"email"`
@@ -382,6 +383,7 @@ func (server *Server) getClassRepClassList(ctx *gin.Context) {
 		}
 		result = append(result, classRepStudent{
 			ID:           s.ID.String(),
+			UserID:       s.UserID.String(),
 			FullName:     user.FullName,
 			MatricNumber: s.MatricNumber,
 			Email:        user.Email,

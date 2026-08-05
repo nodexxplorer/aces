@@ -44,7 +44,7 @@ const CourseRegistrationPage = () => {
         return;
       }
 
-      const semName = semResult.semester.name || semResult.semester.season || 'harmattan';
+      const semName = semResult.semester.name || semResult.semester.season || 'first';
       const [courseList, regIds] = await Promise.all([
         getCoursesByLevelAndSemester(studentLevel, semName),
         getMyRegisteredCourseIDs().catch(() => []),
@@ -138,7 +138,7 @@ const CourseRegistrationPage = () => {
           <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Course Registration</h1>
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
             {semesterInfo.semester
-              ? `${semesterInfo.semester.name || semesterInfo.semester.season || 'Current'} Semester — Level ${studentLevel}`
+              ? `${semesterInfo.semester.name === 'harmattan' || semesterInfo.semester.name === 'first' ? 'First' : semesterInfo.semester.name === 'rain' || semesterInfo.semester.name === 'second' ? 'Second' : semesterInfo.semester.name || semesterInfo.semester.season || 'Current'} Semester — Level ${studentLevel}`
               : 'Select and register your academic courses for the current semester.'}
           </p>
         </div>

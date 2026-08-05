@@ -60,7 +60,11 @@ const NotifyStudentsPage = () => {
     setSending(true);
     setResults(null);
     try {
-      const res = await sendClassNotification(Array.from(selected), title.trim(), message.trim());
+      const targetUserIds = Array.from(selected).map((studentId) => {
+        const student = students.find((s) => s.id === studentId);
+        return student?.user_id || studentId;
+      });
+      const res = await sendClassNotification(targetUserIds, title.trim(), message.trim());
       setResults(res);
       const sent = res.filter((r) => r.status === 'sent').length;
       const failed = res.filter((r) => r.status === 'failed').length;
@@ -206,7 +210,7 @@ const NotifyStudentsPage = () => {
               </CardHeader>
               <div className="p-4 pt-0 space-y-1">
                 {results.map((r) => {
-                  const student = students.find((s) => s.id === r.student_id);
+                  const student = students.find((s) => s.id === r.student_id || s.user_id === r.student_id);
                   return (
                     <div key={r.student_id} className="flex items-center gap-2 text-xs">
                       {r.status === 'sent' ? (

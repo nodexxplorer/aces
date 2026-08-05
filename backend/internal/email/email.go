@@ -57,7 +57,10 @@ func (s *SMTPSender) SendEmail(to []string, subject, body string, isHTML bool) e
 	}
 	message += "\r\n" + body
 
-	auth := smtp.PlainAuth("", s.username, s.password, s.host)
+	var auth smtp.Auth
+	if s.username != "" {
+		auth = smtp.PlainAuth("", s.username, s.password, s.host)
+	}
 	addr := fmt.Sprintf("%s:%d", s.host, s.port)
 
 	// Since ports like 465 require implicit TLS:

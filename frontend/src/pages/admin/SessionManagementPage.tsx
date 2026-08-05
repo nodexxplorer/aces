@@ -17,7 +17,7 @@ const SessionManagementPage = () => {
   const [formError, setFormError] = useState('');
 
   const [semesterSessionId, setSemesterSessionId] = useState('');
-  const [semesterName, setSemesterName] = useState<'harmattan' | 'rain'>('harmattan');
+  const [semesterName, setSemesterName] = useState<string>('first');
   const [semesterStart, setSemesterStart] = useState('');
   const [semesterEnd, setSemesterEnd] = useState('');
   const [semesters, setSemesters] = useState<Record<string, SemesterEntry[]>>({});
@@ -215,9 +215,9 @@ const SessionManagementPage = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Semester</label>
-              <select className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600" value={semesterName} onChange={(e) => setSemesterName(e.target.value as 'harmattan' | 'rain')}>
-                <option value="harmattan">Harmattan (First Semester)</option>
-                <option value="rain">Rain (Second Semester)</option>
+              <select className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600" value={semesterName} onChange={(e) => setSemesterName(e.target.value)}>
+                <option value="first">First Semester</option>
+                <option value="second">Second Semester</option>
               </select>
             </div>
             <div>
@@ -284,7 +284,7 @@ const SessionManagementPage = () => {
                     )}
                     {semesters[s.id]?.map((sem) => (
                       <div key={sem.id} className="flex items-center justify-between text-xs py-1 px-2 rounded bg-surface-50 dark:bg-surface-800">
-                        <span className="capitalize font-medium">{sem.name} Semester</span>
+                        <span className="capitalize font-medium">{sem.name === 'harmattan' || sem.name === 'first' ? 'First' : sem.name === 'rain' || sem.name === 'second' ? 'Second' : sem.name} Semester</span>
                         <div className="flex items-center gap-2 text-surface-400">
                           {sem.start_date && <span>{new Date(sem.start_date).toLocaleDateString()}</span>}
                           {sem.is_active && <span className="text-success-500 font-medium">Active</span>}
