@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Megaphone, Pin, MessageSquare, Send, Plus, Clock } from 'lucide-react';
-import { listClassNotices, createNoticeComment, listNoticeComments, type ClassNotice } from '../../api/additional-features';
+import { Megaphone, Pin, MessageSquare, Send, Clock } from 'lucide-react';
+import {
+  listClassNotices,
+  createNoticeComment,
+  listNoticeComments,
+  type ClassNotice,
+} from '../../api/additional-features';
 import { useAuthStore } from '../../stores/authStore';
 
 export default function ClassNoticeBoardPage() {
@@ -9,7 +14,9 @@ export default function ClassNoticeBoardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedNoticeId, setExpandedNoticeId] = useState<string | null>(null);
-  const [commentsMap, setCommentsMap] = useState<Record<string, { id: string; content: string; author_name: string; created_at: string }[]>>({});
+  const [commentsMap, setCommentsMap] = useState<
+    Record<string, { id: string; content: string; author_name: string; created_at: string }[]>
+  >({});
   const [commentText, setCommentText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
@@ -47,6 +54,8 @@ export default function ClassNoticeBoardPage() {
       }));
       setCommentText('');
     } catch {
+      // Comment submission failed silently by design — the input retains the
+      // user's text so they can retry without losing what they typed.
     } finally {
       setSubmitting(false);
     }
@@ -66,16 +75,11 @@ export default function ClassNoticeBoardPage() {
           notice.is_pinned ? 'border-l-4 border-yellow-400 bg-yellow-50 dark:bg-yellow-950/20' : ''
         }`}
       >
-        <button
-          onClick={() => handleToggle(notice.id)}
-          className="w-full text-left p-5 focus:outline-none"
-        >
+        <button onClick={() => handleToggle(notice.id)} className="w-full text-left p-5 focus:outline-none">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-base font-semibold text-surface-900 dark:text-white truncate">
-                  {notice.title}
-                </h3>
+                <h3 className="text-base font-semibold text-surface-900 dark:text-white truncate">{notice.title}</h3>
                 {notice.is_pinned && (
                   <span className="inline-flex items-center gap-1 text-xs font-medium text-yellow-700 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30 px-2 py-0.5 rounded-full">
                     <Pin className="w-3 h-3" />
@@ -83,9 +87,7 @@ export default function ClassNoticeBoardPage() {
                   </span>
                 )}
               </div>
-              <p className="mt-1 text-sm text-surface-600 dark:text-surface-400 line-clamp-2">
-                {notice.content}
-              </p>
+              <p className="mt-1 text-sm text-surface-600 dark:text-surface-400 line-clamp-2">{notice.content}</p>
             </div>
             <MessageSquare className="w-4 h-4 text-surface-400 shrink-0 mt-1" />
           </div>
@@ -106,9 +108,7 @@ export default function ClassNoticeBoardPage() {
         {isExpanded && (
           <div className="border-t border-surface-100 dark:border-surface-800 px-5 pb-5">
             <div className="pt-4">
-              <p className="text-sm text-surface-700 dark:text-surface-300 whitespace-pre-wrap">
-                {notice.content}
-              </p>
+              <p className="text-sm text-surface-700 dark:text-surface-300 whitespace-pre-wrap">{notice.content}</p>
             </div>
 
             <div className="mt-5 space-y-3">
@@ -127,7 +127,9 @@ export default function ClassNoticeBoardPage() {
                     <div key={i} className="bg-surface-50 dark:bg-surface-800 rounded-xl px-4 py-3">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-semibold text-surface-900 dark:text-white">{c.author_name}</span>
-                        <span className="text-[10px] text-surface-400">{new Date(c.created_at).toLocaleDateString()}</span>
+                        <span className="text-[10px] text-surface-400">
+                          {new Date(c.created_at).toLocaleDateString()}
+                        </span>
                       </div>
                       <p className="text-sm text-surface-600 dark:text-surface-400 mt-1">{c.content}</p>
                     </div>
@@ -202,9 +204,7 @@ export default function ClassNoticeBoardPage() {
                     Pinned
                   </h2>
                 </div>
-                <div className="space-y-4">
-                  {pinnedNotices.map(renderNotice)}
-                </div>
+                <div className="space-y-4">{pinnedNotices.map(renderNotice)}</div>
               </section>
             )}
 
@@ -218,9 +218,7 @@ export default function ClassNoticeBoardPage() {
                     </h2>
                   </div>
                 )}
-                <div className="space-y-4">
-                  {regularNotices.map(renderNotice)}
-                </div>
+                <div className="space-y-4">{regularNotices.map(renderNotice)}</div>
               </section>
             )}
           </div>

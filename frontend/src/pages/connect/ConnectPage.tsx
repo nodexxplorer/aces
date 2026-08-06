@@ -1,20 +1,115 @@
 import { useState, useEffect, useRef } from 'react';
-import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
+import { useSearchParams } from 'react-router-dom';
+import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
-import Modal from '../../components/ui/Modal';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
+import { getErrorMessage } from '../../utils/errors';
+import { Users, UserPlus, Check, X, MessageCircle, Send, ArrowLeft, Search, Loader2, ScanLine } from 'lucide-react';
 import {
-  Users, UserPlus, Check, X, MessageCircle, Send, ArrowLeft, Search, Loader2
-} from 'lucide-react';
-import {
-  getDirectory, getMyConnections, getPendingRequests,
-  sendConnectionRequest, respondToConnection,
-  getConversation, sendMessage, markMessageRead, getUnreadCounts, getConnectionUserIds,
-  type DirectoryUser, type Connection, type Message
+  getDirectory,
+  getMyConnections,
+  getPendingRequests,
+  sendConnectionRequest,
+  respondToConnection,
+  getConversation,
+  sendMessage,
+  markMessageRead,
+  getUnreadCounts,
+  getConnectionUserIds,
+  type DirectoryUser,
+  type Connection,
+  type Message,
 } from '../../api/connect';
 import { getInitials } from '../../utils/formatters';
+import { PROFILE_SCAN_PARAM } from '../../utils/qr-scanner';
+import { useWebSocket } from '../../hooks/useWebSocket';
+
+function getChatSocketUrl(): string | undefined {
+  const base = import.meta.env.VITE_API_BASE_URL;
+  if (!base) return undefined;
+  return `${base.replace(/^http/, 'ws')}/api/v1/ws`;
+}
+
+function QuickConnectBanner({ userId, myId, onDismiss }: { userId: string; myId: string; onDismiss: () => void }) {
+  const { success, error: notifyError } = useNotification();
+  const [target, setTarget] = useState<DirectoryUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [alreadyConnected, setAlreadyConnected] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  useEffect(() => {
+    Promise.all([getDirectory(), getConnectionUserIds()])
+      .then(([directory, connectedIds]) => {
+        setTarget(directory.find((u) => u.id === userId) || null);
+        setAlreadyConnected(connectedIds.includes(userId));
+      })
+      .catch(() => notifyError('Error', 'Could not look up this student'))
+      .finally(() => setLoading(false));
+  }, [userId]);
+
+  const handleConnect = async () => {
+    try {
+      await sendConnectionRequest(userId);
+      setSent(true);
+      success('Request Sent', `Connection request sent to ${target?.full_name}.`);
+    } catch (err: unknown) {
+      notifyError('Failed', getErrorMessage(err, 'Could not send request'));
+    }
+  };
+
+  if (userId === myId) return null;
+
+  return (
+    <Card className="p-4 border-2 border-primary-200 dark:border-primary-800 bg-primary-50/50 dark:bg-primary-950/20">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full bg-primary-500/10 flex items-center justify-center shrink-0">
+          <ScanLine className="w-5 h-5 text-primary-500" />
+        </div>
+        {loading ? (
+          <p className="text-sm text-surface-500">Looking up scanned student...</p>
+        ) : !target ? (
+          <p className="text-sm text-surface-500">Couldn't find that student. They may not be in the directory.</p>
+        ) : (
+          <div className="flex-1 flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
+              {target.avatar_url ? (
+                <img src={target.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+              ) : (
+                getInitials(target.full_name.split(' ')[0] || 'U', target.full_name.split(' ')[1] || '')
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-surface-900 dark:text-surface-100 truncate">
+                {target.full_name}
+              </p>
+              <p className="text-xs text-surface-500 truncate">
+                {target.matric_number} &middot; Level {target.level}
+              </p>
+            </div>
+            {alreadyConnected ? (
+              <Badge variant="success">Already Connected</Badge>
+            ) : sent ? (
+              <Badge variant="info">Requested</Badge>
+            ) : (
+              <Button size="xs" onClick={handleConnect} leftIcon={<UserPlus className="w-3.5 h-3.5" />}>
+                Connect
+              </Button>
+            )}
+          </div>
+        )}
+        <button
+          onClick={onDismiss}
+          className="p-1 rounded-lg text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 shrink-0"
+          aria-label="Dismiss"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </Card>
+  );
+}
 
 type Tab = 'discover' | 'requests' | 'connections';
 
@@ -49,15 +144,17 @@ function DiscoverTab({ myId }: { myId: string }) {
       await sendConnectionRequest(user.id);
       setSentIds((prev) => new Set([...prev, user.id]));
       success('Request Sent', `Connection request sent to ${user.full_name}.`);
-    } catch (err: any) {
-      notifyError('Failed', err?.response?.data?.error || 'Could not send request');
+    } catch (err: unknown) {
+      notifyError('Failed', getErrorMessage(err, 'Could not send request'));
     }
   };
 
-  const filtered = users.filter((u) =>
-    !search || u.full_name.toLowerCase().includes(search.toLowerCase()) ||
-    u.matric_number.toLowerCase().includes(search.toLowerCase()) ||
-    u.email.toLowerCase().includes(search.toLowerCase())
+  const filtered = users.filter(
+    (u) =>
+      !search ||
+      u.full_name.toLowerCase().includes(search.toLowerCase()) ||
+      u.matric_number.toLowerCase().includes(search.toLowerCase()) ||
+      u.email.toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
@@ -82,7 +179,10 @@ function DiscoverTab({ myId }: { myId: string }) {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {filtered.map((user) => (
-            <div key={user.id} className="flex items-center gap-3 p-4 bg-white dark:bg-surface-900 rounded-xl border border-surface-200 dark:border-surface-800">
+            <div
+              key={user.id}
+              className="flex items-center gap-3 p-4 bg-white dark:bg-surface-900 rounded-xl border border-surface-200 dark:border-surface-800"
+            >
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
                 {user.avatar_url ? (
                   <img src={user.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
@@ -91,8 +191,12 @@ function DiscoverTab({ myId }: { myId: string }) {
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-surface-900 dark:text-surface-100 truncate">{user.full_name}</p>
-                <p className="text-xs text-surface-500 truncate">{user.matric_number} &middot; Level {user.level}</p>
+                <p className="text-sm font-semibold text-surface-900 dark:text-surface-100 truncate">
+                  {user.full_name}
+                </p>
+                <p className="text-xs text-surface-500 truncate">
+                  {user.matric_number} &middot; Level {user.level}
+                </p>
               </div>
               {sentIds.has(user.id) ? (
                 <Badge variant="info">Requested</Badge>
@@ -109,7 +213,7 @@ function DiscoverTab({ myId }: { myId: string }) {
   );
 }
 
-function RequestsTab({ myId, onAccepted }: { myId: string; onAccepted: () => void }) {
+function RequestsTab({ onAccepted }: { myId: string; onAccepted: () => void }) {
   const { success, error: notifyError } = useNotification();
   const [requests, setRequests] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,8 +233,8 @@ function RequestsTab({ myId, onAccepted }: { myId: string; onAccepted: () => voi
       setRequests((prev) => prev.filter((r) => r.id !== id));
       success(status === 'accepted' ? 'Accepted' : 'Rejected', `Request ${status}.`);
       if (status === 'accepted') onAccepted();
-    } catch (err: any) {
-      notifyError('Failed', err?.response?.data?.error || 'Could not respond');
+    } catch (err: unknown) {
+      notifyError('Failed', getErrorMessage(err, 'Could not respond'));
     } finally {
       setRespondingId(null);
     }
@@ -146,7 +250,10 @@ function RequestsTab({ myId, onAccepted }: { myId: string; onAccepted: () => voi
         <div className="text-center py-12 text-surface-500 text-sm">No pending requests.</div>
       ) : (
         requests.map((req) => (
-          <div key={req.id} className="flex items-center gap-3 p-4 bg-white dark:bg-surface-900 rounded-xl border border-surface-200 dark:border-surface-800">
+          <div
+            key={req.id}
+            className="flex items-center gap-3 p-4 bg-white dark:bg-surface-900 rounded-xl border border-surface-200 dark:border-surface-800"
+          >
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
               {req.avatar_url ? (
                 <img src={req.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
@@ -233,7 +340,9 @@ function ConnectionsTab({ myId, onChat }: { myId: string; onChat: (userId: strin
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-12 text-surface-500 text-sm">
-          {accepted.length === 0 ? 'No connections yet. Send a request from the Discover tab.' : 'No matching connections.'}
+          {accepted.length === 0
+            ? 'No connections yet. Send a request from the Discover tab.'
+            : 'No matching connections.'}
         </div>
       ) : (
         <div className="space-y-2">
@@ -241,7 +350,10 @@ function ConnectionsTab({ myId, onChat }: { myId: string; onChat: (userId: strin
             const otherId = getOtherUser(conn, myId);
             const count = unreadMap[otherId] || 0;
             return (
-              <div key={conn.id} className="flex items-center gap-3 p-4 bg-white dark:bg-surface-900 rounded-xl border border-surface-200 dark:border-surface-800">
+              <div
+                key={conn.id}
+                className="flex items-center gap-3 p-4 bg-white dark:bg-surface-900 rounded-xl border border-surface-200 dark:border-surface-800"
+              >
                 <div className="relative">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
                     {conn.avatar_url ? (
@@ -257,8 +369,12 @@ function ConnectionsTab({ myId, onChat }: { myId: string; onChat: (userId: strin
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-surface-900 dark:text-surface-100 truncate">{conn.full_name}</p>
-                  <Badge variant="success" className="mt-1">Connected</Badge>
+                  <p className="text-sm font-semibold text-surface-900 dark:text-surface-100 truncate">
+                    {conn.full_name}
+                  </p>
+                  <Badge variant="success" className="mt-1">
+                    Connected
+                  </Badge>
                 </div>
                 <Button
                   size="xs"
@@ -276,7 +392,19 @@ function ConnectionsTab({ myId, onChat }: { myId: string; onChat: (userId: strin
   );
 }
 
-function ChatView({ myId, otherUserId, otherName, onBack }: { myId: string; otherUserId: string; otherName: string; onBack: () => void }) {
+function ChatView({
+  myId,
+  otherUserId,
+  otherName,
+  onBack,
+  incomingMessage,
+}: {
+  myId: string;
+  otherUserId: string;
+  otherName: string;
+  onBack: () => void;
+  incomingMessage: Message | null;
+}) {
   const { error: notifyError } = useNotification();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -301,7 +429,18 @@ function ChatView({ myId, otherUserId, otherName, onBack }: { myId: string; othe
     }
   };
 
-  useEffect(() => { loadMessages(); }, [otherUserId]);
+  useEffect(() => {
+    loadMessages();
+  }, [otherUserId]);
+
+  // Live-append a message pushed over the socket while this conversation is
+  // open, instead of requiring the user to leave and re-open the chat to see it.
+  useEffect(() => {
+    if (!incomingMessage) return;
+    if (incomingMessage.sender_id !== otherUserId) return;
+    setMessages((prev) => (prev.some((m) => m.id === incomingMessage.id) ? prev : [...prev, incomingMessage]));
+    markMessageRead(incomingMessage.id).catch(() => {});
+  }, [incomingMessage, otherUserId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -315,8 +454,8 @@ function ChatView({ myId, otherUserId, otherName, onBack }: { myId: string; othe
       const msg = await sendMessage(otherUserId, text.trim());
       setMessages((prev) => [...prev, msg]);
       setText('');
-    } catch (err: any) {
-      notifyError('Failed', err?.response?.data?.error || 'Could not send message');
+    } catch (err: unknown) {
+      notifyError('Failed', getErrorMessage(err, 'Could not send message'));
     } finally {
       setSending(false);
     }
@@ -348,14 +487,18 @@ function ChatView({ myId, otherUserId, otherName, onBack }: { myId: string; othe
             const isMine = msg.sender_id === myId;
             return (
               <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm ${
-                  isMine
-                    ? 'bg-primary-500 text-white rounded-br-md'
-                    : 'bg-surface-100 dark:bg-surface-800 text-surface-900 dark:text-surface-100 rounded-bl-md'
-                }`}>
+                <div
+                  className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm ${
+                    isMine
+                      ? 'bg-primary-500 text-white rounded-br-md'
+                      : 'bg-surface-100 dark:bg-surface-800 text-surface-900 dark:text-surface-100 rounded-bl-md'
+                  }`}
+                >
                   <p className="whitespace-pre-wrap">{msg.content}</p>
                   <p className={`text-[10px] mt-1 ${isMine ? 'text-primary-200' : 'text-surface-400'}`}>
-                    {msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                    {msg.created_at
+                      ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      : ''}
                   </p>
                 </div>
               </div>
@@ -366,7 +509,10 @@ function ChatView({ myId, otherUserId, otherName, onBack }: { myId: string; othe
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSend} className="flex items-center gap-2 px-4 py-3 border-t border-surface-200 dark:border-surface-800">
+      <form
+        onSubmit={handleSend}
+        className="flex items-center gap-2 px-4 py-3 border-t border-surface-200 dark:border-surface-800"
+      >
         <input
           type="text"
           value={text}
@@ -388,6 +534,33 @@ export default function ConnectPage() {
   const [activeTab, setActiveTab] = useState<Tab>('discover');
   const [chatTarget, setChatTarget] = useState<{ userId: string; name: string } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const scannedUserId = searchParams.get(PROFILE_SCAN_PARAM);
+  const [incomingMessage, setIncomingMessage] = useState<Message | null>(null);
+
+  const { lastMessage } = useWebSocket(myId ? getChatSocketUrl() : undefined);
+
+  useEffect(() => {
+    if (!lastMessage) return;
+    try {
+      const frame = JSON.parse(lastMessage) as { type: string; payload: Message };
+      if (frame.type === 'chat') {
+        setIncomingMessage(frame.payload);
+        // Not looking at that conversation right now — refresh unread badges instead.
+        if (!chatTarget || chatTarget.userId !== frame.payload.sender_id) {
+          setRefreshKey((k) => k + 1);
+        }
+      }
+    } catch {
+      // ignore malformed frames
+    }
+  }, [lastMessage]);
+
+  const dismissScan = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete(PROFILE_SCAN_PARAM);
+    setSearchParams(next, { replace: true });
+  };
 
   if (chatTarget) {
     return (
@@ -395,7 +568,11 @@ export default function ConnectPage() {
         myId={myId}
         otherUserId={chatTarget.userId}
         otherName={chatTarget.name}
-        onBack={() => { setChatTarget(null); setRefreshKey((k) => k + 1); }}
+        onBack={() => {
+          setChatTarget(null);
+          setRefreshKey((k) => k + 1);
+        }}
+        incomingMessage={incomingMessage}
       />
     );
   }
@@ -409,12 +586,16 @@ export default function ConnectPage() {
         </p>
       </div>
 
+      {scannedUserId && <QuickConnectBanner userId={scannedUserId} myId={myId} onDismiss={dismissScan} />}
+
       <div className="flex gap-2">
-        {([
-          { key: 'discover', label: 'Discover', icon: Users },
-          { key: 'requests', label: 'Requests', icon: UserPlus },
-          { key: 'connections', label: 'Connections', icon: MessageCircle },
-        ] as const).map(({ key, label, icon: Icon }) => (
+        {(
+          [
+            { key: 'discover', label: 'Discover', icon: Users },
+            { key: 'requests', label: 'Requests', icon: UserPlus },
+            { key: 'connections', label: 'Connections', icon: MessageCircle },
+          ] as const
+        ).map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             onClick={() => setActiveTab(key)}
@@ -432,7 +613,9 @@ export default function ConnectPage() {
       <div key={refreshKey}>
         {activeTab === 'discover' && <DiscoverTab myId={myId} />}
         {activeTab === 'requests' && <RequestsTab myId={myId} onAccepted={() => setRefreshKey((k) => k + 1)} />}
-        {activeTab === 'connections' && <ConnectionsTab myId={myId} onChat={(uid, name) => setChatTarget({ userId: uid, name: name })} />}
+        {activeTab === 'connections' && (
+          <ConnectionsTab myId={myId} onChat={(uid, name) => setChatTarget({ userId: uid, name: name })} />
+        )}
       </div>
     </div>
   );

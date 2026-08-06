@@ -4,7 +4,7 @@ import Card, { CardHeader, CardTitle } from '../../components/ui/Card';
 import KpiCard from '../../components/data-display/KpiCard';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
-import { Briefcase, Users, DollarSign, Calendar, GraduationCap, ArrowRight, TrendingUp } from 'lucide-react';
+import { Briefcase, Users, DollarSign, Calendar, GraduationCap, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getMyAlumniStatus, getAlumniMyStats } from '../../api/alumni';
 import type { AlumniFullProfile, AlumniMyStats } from '../../types';
@@ -17,10 +17,7 @@ const AlumniDashboard = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [profileData, statsData] = await Promise.allSettled([
-          getMyAlumniStatus(),
-          getAlumniMyStats(),
-        ]);
+        const [profileData, statsData] = await Promise.allSettled([getMyAlumniStatus(), getAlumniMyStats()]);
         if (profileData.status === 'fulfilled') setProfile(profileData.value);
         if (statsData.status === 'fulfilled') setStats(statsData.value);
       } catch {
@@ -44,7 +41,9 @@ const AlumniDashboard = () => {
         </div>
         <div className="flex gap-2">
           <Link to="/alumni/profile">
-            <Button variant="outline" size="sm">Edit Profile</Button>
+            <Button variant="outline" size="sm">
+              Edit Profile
+            </Button>
           </Link>
           {/* <Link to="/alumni/network">
             <Button size="sm" rightIcon={<ArrowRight className="w-4 h-4" />}>Browse Network</Button>
@@ -70,26 +69,14 @@ const AlumniDashboard = () => {
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <KpiCard
-          title="Connections"
-          value={stats?.connection_count ?? 0}
-          icon={<Users className="w-5 h-5" />}
-        />
+        <KpiCard title="Connections" value={stats?.connection_count ?? 0} icon={<Users className="w-5 h-5" />} />
         <KpiCard
           title="Active Mentees"
           value={stats?.active_mentees ?? 0}
           icon={<GraduationCap className="w-5 h-5" />}
         />
-        <KpiCard
-          title="Jobs Posted"
-          value={stats?.jobs_posted ?? 0}
-          icon={<Briefcase className="w-5 h-5" />}
-        />
-        <KpiCard
-          title="Events Attended"
-          value={stats?.events_attended ?? 0}
-          icon={<Calendar className="w-5 h-5" />}
-        />
+        <KpiCard title="Jobs Posted" value={stats?.jobs_posted ?? 0} icon={<Briefcase className="w-5 h-5" />} />
+        <KpiCard title="Events Attended" value={stats?.events_attended ?? 0} icon={<Calendar className="w-5 h-5" />} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -105,7 +92,11 @@ const AlumniDashboard = () => {
                 </Button>
               </Link>
               <Link to="/alumni/give-back">
-                <Button variant="outline" className="w-full justify-start" leftIcon={<DollarSign className="w-4 h-4" />}>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  leftIcon={<DollarSign className="w-4 h-4" />}
+                >
                   Donate
                 </Button>
               </Link>
@@ -121,7 +112,9 @@ const AlumniDashboard = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Mentorship Status</CardTitle>
-                <Badge variant="success" dot>Available</Badge>
+                <Badge variant="success" dot>
+                  Available
+                </Badge>
               </CardHeader>
               <div className="p-4 pt-0">
                 <p className="text-sm text-surface-500 mb-2">
@@ -178,7 +171,9 @@ const AlumniDashboard = () => {
               <h4 className="font-semibold text-surface-900 dark:text-white mb-1">Give Back</h4>
               <p className="text-xs text-surface-500 mb-3">Support the department through donations</p>
               <Link to="/alumni/give-back">
-                <Button size="sm" className="w-full">Donate Now</Button>
+                <Button size="sm" className="w-full">
+                  Donate Now
+                </Button>
               </Link>
             </div>
           </Card>

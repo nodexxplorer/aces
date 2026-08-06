@@ -69,7 +69,7 @@ const ResultDetailPage = () => {
             <GradeBadge grade={result.grade} />
           </CardHeader>
 
-          <div className="grid grid-cols-2 gap-6 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
             <div className="space-y-4">
               <div className="flex items-center gap-2.5 text-sm text-surface-600 dark:text-surface-400">
                 <BookOpen className="w-4 h-4 text-primary-500" />
@@ -87,27 +87,28 @@ const ResultDetailPage = () => {
               </div>
               <div className="flex items-center gap-2.5 text-sm text-surface-600 dark:text-surface-400">
                 <Calendar className="w-4 h-4 text-primary-500" />
-                <span>Semester: {result.semester === 'first' || result.semester === 'harmattan' ? 'First Semester' : result.semester === 'second' || result.semester === 'rain' ? 'Second Semester' : result.semester}</span>
+                <span>
+                  Semester:{' '}
+                  {result.semester === 'first' || result.semester === 'harmattan'
+                    ? 'First Semester'
+                    : result.semester === 'second' || result.semester === 'rain'
+                      ? 'Second Semester'
+                      : result.semester}
+                </span>
               </div>
             </div>
           </div>
 
           <div className="border-t border-surface-100 dark:border-surface-800/80 pt-6">
-            <h4 className="text-sm font-semibold text-surface-900 dark:text-surface-100 mb-2">
-              Performance Breakdown
-            </h4>
-            <div className="grid grid-cols-2 gap-4 mb-4">
+            <h4 className="text-sm font-semibold text-surface-900 dark:text-surface-100 mb-2">Performance Breakdown</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
               <div className="p-4 bg-surface-50 dark:bg-surface-800/40 rounded-xl border border-surface-200/50">
                 <p className="text-xs text-surface-400 font-medium">CA Score (30)</p>
-                <p className="text-xl font-bold text-surface-900 dark:text-surface-100 mt-1">
-                  {result.caScore}
-                </p>
+                <p className="text-xl font-bold text-surface-900 dark:text-surface-100 mt-1">{result.caScore}</p>
               </div>
               <div className="p-4 bg-surface-50 dark:bg-surface-800/40 rounded-xl border border-surface-200/50">
                 <p className="text-xs text-surface-400 font-medium">Exam Score (70)</p>
-                <p className="text-xl font-bold text-surface-900 dark:text-surface-100 mt-1">
-                  {result.examScore}
-                </p>
+                <p className="text-xl font-bold text-surface-900 dark:text-surface-100 mt-1">{result.examScore}</p>
               </div>
             </div>
           </div>

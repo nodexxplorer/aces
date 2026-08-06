@@ -1,5 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Megaphone, Clock, ChevronRight, CheckCircle, AlertTriangle, Search, Filter, Loader2, Eye, MessageSquare } from 'lucide-react';
+import {
+  Megaphone,
+  Clock,
+  ChevronRight,
+  CheckCircle,
+  AlertTriangle,
+  Search,
+  Filter,
+  Loader2,
+  Eye,
+  MessageSquare,
+} from 'lucide-react';
 import {
   listStudentAnnouncements,
   getAnnouncementV2,
@@ -7,10 +18,10 @@ import {
   acknowledgeAnnouncement,
   getAnnouncementReadStatus,
   createAnnouncementComment,
-  listAnnouncementComments
+  listAnnouncementComments,
 } from '../../api/verification-announcements';
-import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
+import { getErrorMessage } from '../../utils/errors';
 import Button from '../../components/ui/Button';
 
 interface Announcement {
@@ -58,33 +69,44 @@ function getRelativeTime(dateStr: string): string {
 
 function getPriorityColor(priority: string): string {
   switch (priority?.toLowerCase()) {
-    case 'urgent': return 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300';
-    case 'important': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300';
-    case 'reminder': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300';
-    default: return 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300';
+    case 'urgent':
+      return 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300';
+    case 'important':
+      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300';
+    case 'reminder':
+      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300';
+    default:
+      return 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300';
   }
 }
 
 function getPriorityDot(priority: string): string {
   switch (priority?.toLowerCase()) {
-    case 'urgent': return 'bg-red-500';
-    case 'important': return 'bg-yellow-500';
-    case 'reminder': return 'bg-blue-500';
-    default: return 'bg-green-500';
+    case 'urgent':
+      return 'bg-red-500';
+    case 'important':
+      return 'bg-yellow-500';
+    case 'reminder':
+      return 'bg-blue-500';
+    default:
+      return 'bg-green-500';
   }
 }
 
 function getCategoryColor(category: string): string {
   switch (category?.toLowerCase()) {
-    case 'academic': return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300';
-    case 'events': return 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300';
-    case 'fees': return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300';
-    default: return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
+    case 'academic':
+      return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300';
+    case 'events':
+      return 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300';
+    case 'fees':
+      return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300';
+    default:
+      return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
   }
 }
 
 export default function StudentAnnouncementsPage() {
-  const { user } = useAuth();
   const { success, error: notifyError } = useNotification();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,13 +125,15 @@ export default function StudentAnnouncementsPage() {
     setLoading(true);
     try {
       const data = await listStudentAnnouncements();
-      setAnnouncements((data || []).map((a: any) => ({
-        ...a,
-        attachment_count: a.attachments?.length || 0,
-        author_role: a.author_role || '',
-      })));
-    } catch (err: any) {
-      notifyError('Failed to load announcements', err?.message || '');
+      setAnnouncements(
+        (data || []).map((a) => ({
+          ...a,
+          attachment_count: a.attachments?.length || 0,
+          author_role: (a as unknown as { author_role?: string }).author_role || '',
+        })) as unknown as Announcement[],
+      );
+    } catch (err: unknown) {
+      notifyError('Failed to load announcements', getErrorMessage(err, ''));
     } finally {
       setLoading(false);
     }
@@ -126,10 +150,12 @@ export default function StudentAnnouncementsPage() {
           announcements.map(async (a) => {
             const res = await getAnnouncementReadStatus(a.id);
             return { id: a.id, read: res?.read || false };
-          })
+          }),
         );
         const map: Record<string, boolean> = {};
-        statuses.forEach((s) => { map[s.id] = s.read; });
+        statuses.forEach((s) => {
+          map[s.id] = s.read;
+        });
         setReadStatus(map);
       } catch {
         // ignore
@@ -141,17 +167,27 @@ export default function StudentAnnouncementsPage() {
   const filteredAnnouncements = announcements.filter((a) => {
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      if (!a.title?.toLowerCase().includes(q) && !a.content?.toLowerCase().includes(q) && !a.summary?.toLowerCase().includes(q)) {
+      if (
+        !a.title?.toLowerCase().includes(q) &&
+        !a.content?.toLowerCase().includes(q) &&
+        !a.summary?.toLowerCase().includes(q)
+      ) {
         return false;
       }
     }
     switch (activeFilter) {
-      case 'unread': return !readStatus[a.id];
-      case 'urgent': return a.priority?.toLowerCase() === 'urgent';
-      case 'academic': return a.category?.toLowerCase() === 'academic';
-      case 'events': return a.category?.toLowerCase() === 'events';
-      case 'fees': return a.category?.toLowerCase() === 'fees';
-      default: return true;
+      case 'unread':
+        return !readStatus[a.id];
+      case 'urgent':
+        return a.priority?.toLowerCase() === 'urgent';
+      case 'academic':
+        return a.category?.toLowerCase() === 'academic';
+      case 'events':
+        return a.category?.toLowerCase() === 'events';
+      case 'fees':
+        return a.category?.toLowerCase() === 'fees';
+      default:
+        return true;
     }
   });
 
@@ -171,13 +207,13 @@ export default function StudentAnnouncementsPage() {
       const full = await getAnnouncementV2(announcement.id);
       setSelectedAnnouncement({
         ...full,
-        attachment_count: (full as any).attachments?.length || 0,
-        author_role: (full as any).author_role || '',
+        attachment_count: full.attachments?.length || 0,
+        author_role: (full as unknown as { author_role?: string }).author_role || '',
         is_read: readStatus[announcement.id] || false,
-      } as any);
+      } as unknown as Announcement);
       setAcknowledged(full.status === 'acknowledged' || false);
       try {
-        const readRes = await markAnnouncementRead(announcement.id);
+        await markAnnouncementRead(announcement.id);
         setReadStatus((prev) => ({ ...prev, [announcement.id]: true }));
       } catch {
         // ignore
@@ -188,8 +224,8 @@ export default function StudentAnnouncementsPage() {
       } catch {
         // ignore
       }
-    } catch (err: any) {
-      notifyError('Failed to load announcement', err?.message || '');
+    } catch (err: unknown) {
+      notifyError('Failed to load announcement', getErrorMessage(err, ''));
     } finally {
       setDetailLoading(false);
     }
@@ -200,10 +236,10 @@ export default function StudentAnnouncementsPage() {
     try {
       await acknowledgeAnnouncement(announcementId);
       setAcknowledged(true);
-      setSelectedAnnouncement((prev) => prev ? { ...prev, is_acknowledged: true } : null);
+      setSelectedAnnouncement((prev) => (prev ? { ...prev, is_acknowledged: true } : null));
       success('Announcement acknowledged');
-    } catch (err: any) {
-      notifyError('Failed to acknowledge', err?.message || '');
+    } catch (err: unknown) {
+      notifyError('Failed to acknowledge', getErrorMessage(err, ''));
     } finally {
       setAcknowledging(false);
     }
@@ -217,8 +253,8 @@ export default function StudentAnnouncementsPage() {
       setComments((prev) => [...prev, res]);
       setNewComment('');
       success('Comment added');
-    } catch (err: any) {
-      notifyError('Failed to add comment', err?.message || '');
+    } catch (err: unknown) {
+      notifyError('Failed to add comment', getErrorMessage(err, ''));
     } finally {
       setSubmittingComment(false);
     }
@@ -258,10 +294,14 @@ export default function StudentAnnouncementsPage() {
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
               <div className="p-6 md:p-8">
                 <div className="flex flex-wrap items-center gap-2 mb-4">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(selectedAnnouncement.priority)}`}>
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(selectedAnnouncement.priority)}`}
+                  >
                     {selectedAnnouncement.priority?.charAt(0).toUpperCase() + selectedAnnouncement.priority?.slice(1)}
                   </span>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(selectedAnnouncement.category)}`}>
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(selectedAnnouncement.category)}`}
+                  >
                     {selectedAnnouncement.category?.charAt(0).toUpperCase() + selectedAnnouncement.category?.slice(1)}
                   </span>
                   {selectedAnnouncement.is_pinned && (
@@ -271,9 +311,7 @@ export default function StudentAnnouncementsPage() {
                   )}
                 </div>
 
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                  {selectedAnnouncement.title}
-                </h1>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">{selectedAnnouncement.title}</h1>
 
                 <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400 mb-6">
                   <span className="font-medium text-gray-700 dark:text-gray-300">
@@ -339,9 +377,7 @@ export default function StudentAnnouncementsPage() {
                           Your acknowledgment will be recorded
                         </p>
                       </div>
-                      {acknowledging && (
-                        <Loader2 className="w-4 h-4 animate-spin text-blue-500 mt-0.5 flex-shrink-0" />
-                      )}
+                      {acknowledging && <Loader2 className="w-4 h-4 animate-spin text-blue-500 mt-0.5 flex-shrink-0" />}
                     </label>
                   </div>
                 )}
@@ -393,11 +429,7 @@ export default function StudentAnnouncementsPage() {
                       disabled={!newComment.trim() || submittingComment}
                       className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg flex items-center gap-1.5"
                     >
-                      {submittingComment ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        'Send'
-                      )}
+                      {submittingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Send'}
                     </Button>
                   </div>
                 </div>
@@ -476,14 +508,20 @@ export default function StudentAnnouncementsPage() {
                 className="w-full text-left bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-600 transition-all group"
               >
                 <div className="flex items-start gap-3">
-                  <div className={`w-2 h-2 rounded-full mt-2.5 flex-shrink-0 ${getPriorityDot(announcement.priority)}`} />
+                  <div
+                    className={`w-2 h-2 rounded-full mt-2.5 flex-shrink-0 ${getPriorityDot(announcement.priority)}`}
+                  />
 
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(announcement.priority)}`}>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(announcement.priority)}`}
+                      >
                         {announcement.priority?.charAt(0).toUpperCase() + announcement.priority?.slice(1)}
                       </span>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(announcement.category)}`}>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(announcement.category)}`}
+                      >
                         {announcement.category?.charAt(0).toUpperCase() + announcement.category?.slice(1)}
                       </span>
                       {announcement.is_pinned && (
@@ -499,11 +537,13 @@ export default function StudentAnnouncementsPage() {
                       )}
                     </div>
 
-                    <h3 className={`text-base font-semibold mb-1 ${
-                      readStatus[announcement.id]
-                        ? 'text-gray-600 dark:text-gray-400'
-                        : 'text-gray-900 dark:text-white'
-                    }`}>
+                    <h3
+                      className={`text-base font-semibold mb-1 ${
+                        readStatus[announcement.id]
+                          ? 'text-gray-600 dark:text-gray-400'
+                          : 'text-gray-900 dark:text-white'
+                      }`}
+                    >
                       {announcement.title}
                     </h3>
 
@@ -518,14 +558,15 @@ export default function StudentAnnouncementsPage() {
                           {getRelativeTime(announcement.created_at)}
                         </span>
                         {announcement.attachment_count > 0 && (
-                          <span>📎 {announcement.attachment_count} attachment{announcement.attachment_count !== 1 ? 's' : ''}</span>
+                          <span>
+                            📎 {announcement.attachment_count} attachment
+                            {announcement.attachment_count !== 1 ? 's' : ''}
+                          </span>
                         )}
                       </div>
 
                       <div className="flex items-center gap-2">
-                        {readStatus[announcement.id] && (
-                          <CheckCircle className="w-4 h-4 text-green-500" />
-                        )}
+                        {readStatus[announcement.id] && <CheckCircle className="w-4 h-4 text-green-500" />}
                         <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-blue-500 transition-colors" />
                       </div>
                     </div>

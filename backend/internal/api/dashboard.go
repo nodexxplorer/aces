@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aces/backend/internal/auth"
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -731,7 +732,7 @@ func (server *Server) closeAttendanceSession(ctx *gin.Context) {
 func (server *Server) checkInStudent(ctx *gin.Context) {
 	var req struct {
 		SessionID string `json:"session_id" binding:"required,uuid"`
-		StudentID string `json:"student_id" binding:"required,uuid"`
+		StudentID string `json:"student_id"`
 		Method    string `json:"method"`
 		Present   *bool  `json:"present"`
 		Remark    string `json:"remark"`
@@ -747,10 +748,31 @@ func (server *Server) checkInStudent(ctx *gin.Context) {
 		return
 	}
 
-	studentID, err := uuid.Parse(req.StudentID)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid student_id"})
-		return
+	// A student caller (as opposed to a class rep/staff marking a roster) may
+	// only ever check themselves in — their student_id is always derived from
+	// their own session, never trusted from the request body, since the
+	// frontend has no reliable way to know its own students.id anyway.
+	var studentID uuid.UUID
+	isSelfCheckIn := false
+	if claimsVal, exists := ctx.Get("claims"); exists {
+		if claims, ok := claimsVal.(*auth.Claims); ok &&
+			claims.HasRole("student") &&
+			!claims.HasAnyRole([]string{"class_rep", "hod", "admin", "delegated_admin"}) {
+			isSelfCheckIn = true
+			ownStudentID, err := server.getStudentIDFromUser(ctx)
+			if err != nil {
+				ctx.JSON(http.StatusForbidden, gin.H{"error": "student profile not found"})
+				return
+			}
+			studentID = ownStudentID
+		}
+	}
+	if !isSelfCheckIn {
+		studentID, err = uuid.Parse(req.StudentID)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid student_id"})
+			return
+		}
 	}
 
 	method := req.Method

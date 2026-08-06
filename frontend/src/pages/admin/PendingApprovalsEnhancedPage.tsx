@@ -17,6 +17,10 @@ import {
 
 const PAGE_SIZE = 20;
 
+// Some backend responses include a raw snake_case created_at alongside (or
+// instead of) the normalized createdAt field on User.
+type UserWithRawDates = User & { created_at?: string };
+
 const getDisplayName = (u: Partial<User>) => {
   if (u.fullName) return u.fullName;
   if (u.full_name) return u.full_name;
@@ -63,8 +67,8 @@ const PendingApprovalsEnhancedPage = () => {
     return (
       name.toLowerCase().includes(q) ||
       u.email.toLowerCase().includes(q) ||
-      ((u as any).matricNumber && (u as any).matricNumber.toLowerCase().includes(q)) ||
-      ((u as any).matric_number && (u as any).matric_number.toLowerCase().includes(q))
+      (u.matricNumber && u.matricNumber.toLowerCase().includes(q)) ||
+      (u.matric_number && u.matric_number.toLowerCase().includes(q))
     );
   });
 
@@ -228,14 +232,18 @@ const PendingApprovalsEnhancedPage = () => {
 
         {hasSelection && (
           <div className="mt-4 flex items-center gap-3 pt-4 border-t border-surface-200 dark:border-surface-700">
-            <span className="text-sm text-surface-500 dark:text-surface-400">
-              {selectedIds.size} selected
-            </span>
+            <span className="text-sm text-surface-500 dark:text-surface-400">{selectedIds.size} selected</span>
             <Button
               size="sm"
               variant="success"
               isLoading={actionLoading === 'bulk-approve'}
-              leftIcon={actionLoading === 'bulk-approve' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckSquare className="w-4 h-4" />}
+              leftIcon={
+                actionLoading === 'bulk-approve' ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CheckSquare className="w-4 h-4" />
+                )
+              }
               onClick={handleBulkApprove}
             >
               Approve Selected
@@ -244,7 +252,13 @@ const PendingApprovalsEnhancedPage = () => {
               size="sm"
               variant="danger"
               isLoading={actionLoading === 'bulk-reject'}
-              leftIcon={actionLoading === 'bulk-reject' ? <Loader2 className="w-4 h-4 animate-spin" /> : <XSquare className="w-4 h-4" />}
+              leftIcon={
+                actionLoading === 'bulk-reject' ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <XSquare className="w-4 h-4" />
+                )
+              }
               onClick={() => setRejectModalId('bulk')}
             >
               Reject Selected
@@ -275,7 +289,10 @@ const PendingApprovalsEnhancedPage = () => {
                 <thead>
                   <tr className="border-b border-surface-200 dark:border-surface-700">
                     <th className="px-4 py-3 text-left">
-                      <button onClick={toggleSelectAll} className="text-surface-400 hover:text-surface-600 dark:hover:text-surface-300">
+                      <button
+                        onClick={toggleSelectAll}
+                        className="text-surface-400 hover:text-surface-600 dark:hover:text-surface-300"
+                      >
                         {selectedIds.size === paginatedUsers.length && paginatedUsers.length > 0 ? (
                           <CheckSquare className="w-4 h-4 text-primary-500" />
                         ) : (
@@ -286,8 +303,12 @@ const PendingApprovalsEnhancedPage = () => {
                     <th className="px-4 py-3 text-left font-medium text-surface-600 dark:text-surface-400">Name</th>
                     <th className="px-4 py-3 text-left font-medium text-surface-600 dark:text-surface-400">Email</th>
                     <th className="px-4 py-3 text-left font-medium text-surface-600 dark:text-surface-400">Role</th>
-                    <th className="px-4 py-3 text-left font-medium text-surface-600 dark:text-surface-400">Matric No.</th>
-                    <th className="px-4 py-3 text-left font-medium text-surface-600 dark:text-surface-400">Registered</th>
+                    <th className="px-4 py-3 text-left font-medium text-surface-600 dark:text-surface-400">
+                      Matric No.
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-surface-600 dark:text-surface-400">
+                      Registered
+                    </th>
                     <th className="px-4 py-3 text-right font-medium text-surface-600 dark:text-surface-400">Actions</th>
                   </tr>
                 </thead>
@@ -295,7 +316,10 @@ const PendingApprovalsEnhancedPage = () => {
                   {paginatedUsers.map((user) => (
                     <tr key={user.id} className="hover:bg-surface-50 dark:hover:bg-surface-750 transition-colors">
                       <td className="px-4 py-3">
-                        <button onClick={() => toggleSelect(user.id)} className="text-surface-400 hover:text-surface-600 dark:hover:text-surface-300">
+                        <button
+                          onClick={() => toggleSelect(user.id)}
+                          className="text-surface-400 hover:text-surface-600 dark:hover:text-surface-300"
+                        >
                           {selectedIds.has(user.id) ? (
                             <CheckSquare className="w-4 h-4 text-primary-500" />
                           ) : (
@@ -303,22 +327,18 @@ const PendingApprovalsEnhancedPage = () => {
                           )}
                         </button>
                       </td>
-                      <td className="px-4 py-3 font-medium text-surface-900 dark:text-white">
-                        {getDisplayName(user)}
-                      </td>
-                      <td className="px-4 py-3 text-surface-500 dark:text-surface-400">
-                        {user.email}
-                      </td>
+                      <td className="px-4 py-3 font-medium text-surface-900 dark:text-white">{getDisplayName(user)}</td>
+                      <td className="px-4 py-3 text-surface-500 dark:text-surface-400">{user.email}</td>
                       <td className="px-4 py-3 text-surface-700 dark:text-surface-300">
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-100 dark:bg-surface-700 text-surface-700 dark:text-surface-300 capitalize">
                           {user.role || user.activeRole || '—'}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-surface-700 dark:text-surface-300">
-                        {(user as any).matricNumber || (user as any).matric_number || '—'}
+                        {user.matricNumber || user.matric_number || '—'}
                       </td>
                       <td className="px-4 py-3 text-surface-500 dark:text-surface-400">
-                        {formatDate(user.createdAt || (user as any).created_at)}
+                        {formatDate(user.createdAt || (user as UserWithRawDates).created_at)}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -326,7 +346,13 @@ const PendingApprovalsEnhancedPage = () => {
                             size="xs"
                             variant="success"
                             isLoading={actionLoading === user.id}
-                            leftIcon={actionLoading === user.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                            leftIcon={
+                              actionLoading === user.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <CheckCircle className="w-3.5 h-3.5" />
+                              )
+                            }
                             onClick={() => handleApprove(user.id)}
                           >
                             Approve
@@ -353,7 +379,8 @@ const PendingApprovalsEnhancedPage = () => {
 
             <div className="flex items-center justify-between px-4 py-3 border-t border-surface-200 dark:border-surface-700">
               <span className="text-sm text-surface-500 dark:text-surface-400">
-                Showing {offset + 1}–{Math.min(offset + PAGE_SIZE, offset + paginatedUsers.length)} of {filteredUsers.length}
+                Showing {offset + 1}–{Math.min(offset + PAGE_SIZE, offset + paginatedUsers.length)} of{' '}
+                {filteredUsers.length}
               </span>
               <div className="flex gap-2">
                 <Button
@@ -409,13 +436,17 @@ const PendingApprovalsEnhancedPage = () => {
                 size="sm"
                 variant="danger"
                 isLoading={actionLoading === rejectModalId}
-                onClick={rejectModalId === 'bulk' ? handleBulkReject : async () => {
-                  if (!rejectReason || rejectReason.length < 3) {
-                    notifyError('Error', 'Rejection reason must be at least 3 characters');
-                    return;
-                  }
-                  await handleReject();
-                }}
+                onClick={
+                  rejectModalId === 'bulk'
+                    ? handleBulkReject
+                    : async () => {
+                        if (!rejectReason || rejectReason.length < 3) {
+                          notifyError('Error', 'Rejection reason must be at least 3 characters');
+                          return;
+                        }
+                        await handleReject();
+                      }
+                }
               >
                 Reject
               </Button>

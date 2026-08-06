@@ -4,10 +4,43 @@ import Card, { CardHeader, CardTitle, CardDescription } from '../../components/u
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
-import { updateBasicInfo, uploadProfilePhoto, uploadStudentDocument, listStudentDocuments } from '../../api/profile-edit';
+import {
+  updateBasicInfo,
+  uploadProfilePhoto,
+  uploadStudentDocument,
+  listStudentDocuments,
+} from '../../api/profile-edit';
+import type { StudentDocument } from '../../api/profile-edit';
 import { useNotification } from '../../hooks/useNotification';
-import { User, Phone, MapPin, Mail, BookOpen, Lock, Save, Upload, Camera, FileText, CheckCircle, XCircle, Clock, Link as LinkIcon } from 'lucide-react';
+import {
+  User,
+  Phone,
+  MapPin,
+  Mail,
+  Lock,
+  Save,
+  Upload,
+  Camera,
+  FileText,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Link as LinkIcon,
+} from 'lucide-react';
 import QRCode from 'qrcode';
+import { PROFILE_SCAN_PARAM } from '../../utils/qr-scanner';
+import type { User as UserType } from '../../types';
+import { getErrorMessage } from '../../utils/errors';
+
+// The backend's student record includes a couple of fields (e.g. entryYear)
+// that aren't part of the shared User type — extend it locally for this page.
+type ProfileUser = UserType & { entryYear?: number };
+
+const extractDocuments = (raw: unknown): StudentDocument[] => {
+  if (Array.isArray(raw)) return raw as StudentDocument[];
+  const data = (raw as { data?: StudentDocument[] } | null | undefined)?.data;
+  return Array.isArray(data) ? data : [];
+};
 
 const ProfilePage = () => {
   const { user, updateUser } = useAuth();
@@ -16,14 +49,14 @@ const ProfilePage = () => {
   const fileRef = useRef<HTMLInputElement>(null);
   const docRef = useRef<HTMLInputElement>(null);
 
-  const u = user as any;
+  const u = user as ProfileUser | null;
 
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoUrl, setPhotoUrl] = useState('');
   const [savingUrl, setSavingUrl] = useState(false);
-  const [documents, setDocuments] = useState<any[]>([]);
+  const [documents, setDocuments] = useState<StudentDocument[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
 
   const [form, setForm] = useState({
@@ -37,13 +70,13 @@ const ProfilePage = () => {
   });
 
   useEffect(() => {
-    if (canvasRef.current) {
-      QRCode.toCanvas(canvasRef.current, JSON.stringify({
-        userId: u?.id,
-        firstName: u?.firstName,
-        lastName: u?.lastName,
-        matricNumber: u?.matricNumber,
-      }), {
+    if (canvasRef.current && u?.id) {
+      // Encode a plain URL (not JSON) so any stock phone camera app can open it
+      // directly — it lands on the Connect page, which looks up this student and
+      // offers to send a connection request. The same value is parsed in-app to
+      // check the student into an active attendance session.
+      const scanUrl = `${window.location.origin}/connect?${PROFILE_SCAN_PARAM}=${u.id}`;
+      QRCode.toCanvas(canvasRef.current, scanUrl, {
         width: 176,
         margin: 2,
         color: { dark: '#2563eb', light: '#ffffff' },
@@ -55,8 +88,7 @@ const ProfilePage = () => {
     setLoadingDocs(true);
     listStudentDocuments()
       .then((res) => {
-        const docs = Array.isArray(res) ? res : (res as any)?.data ?? [];
-        setDocuments(docs);
+        setDocuments(extractDocuments(res));
       })
       .catch(() => {})
       .finally(() => setLoadingDocs(false));
@@ -65,12 +97,12 @@ const ProfilePage = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { data } = await updateBasicInfo(form);
+      const data = await updateBasicInfo(form);
       updateUser(data);
       setEditing(false);
       success('Profile Updated', 'Your profile has been updated successfully.');
-    } catch (err: any) {
-      notifyError('Update Failed', err?.response?.data?.error || 'Failed to update profile.');
+    } catch (err) {
+      notifyError('Update Failed', getErrorMessage(err, 'Failed to update profile.'));
     } finally {
       setSaving(false);
     }
@@ -88,8 +120,8 @@ const ProfilePage = () => {
       const result = await uploadProfilePhoto(file);
       updateUser({ avatar: result.avatar_url });
       success('Photo Updated', 'Profile photo updated successfully.');
-    } catch (err: any) {
-      notifyError('Upload Failed', err?.response?.data?.error || 'Failed to upload photo.');
+    } catch (err) {
+      notifyError('Upload Failed', getErrorMessage(err, 'Failed to upload photo.'));
     } finally {
       setUploadingPhoto(false);
     }
@@ -100,12 +132,12 @@ const ProfilePage = () => {
     if (!url) return;
     try {
       setSavingUrl(true);
-      const { data } = await updateBasicInfo({ avatarUrl: url });
+      const data = await updateBasicInfo({ avatarUrl: url });
       updateUser(data);
       setPhotoUrl('');
       success('Photo Updated', 'Profile photo URL saved.');
-    } catch (err: any) {
-      notifyError('Save Failed', err?.response?.data?.error || 'Failed to save photo URL.');
+    } catch (err) {
+      notifyError('Save Failed', getErrorMessage(err, 'Failed to save photo URL.'));
     } finally {
       setSavingUrl(false);
     }
@@ -118,18 +150,11 @@ const ProfilePage = () => {
       await uploadStudentDocument(file, docType);
       success('Document Uploaded', 'Document submitted for verification.');
       const res = await listStudentDocuments();
-      setDocuments(Array.isArray(res) ? res : (res as any)?.data ?? []);
-    } catch (err: any) {
-      notifyError('Upload Failed', err?.response?.data?.error || 'Failed to upload document.');
+      setDocuments(extractDocuments(res));
+    } catch (err) {
+      notifyError('Upload Failed', getErrorMessage(err, 'Failed to upload document.'));
     }
   };
-
-  const qrDataStr = JSON.stringify({
-    userId: u?.id || '',
-    firstName: u?.firstName || '',
-    lastName: u?.lastName || '',
-    matricNumber: u?.matricNumber || '',
-  });
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -145,7 +170,7 @@ const ProfilePage = () => {
           {/* Basic Information — EDITABLE */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                   <CardTitle>Personal Information</CardTitle>
                   <CardDescription>Edit your basic profile details</CardDescription>
@@ -219,11 +244,7 @@ const ProfilePage = () => {
             </div>
             {editing && (
               <div className="px-4 pb-4">
-                <Button
-                  onClick={handleSave}
-                  isLoading={saving}
-                  leftIcon={<Save className="w-4 h-4" />}
-                >
+                <Button onClick={handleSave} isLoading={saving} leftIcon={<Save className="w-4 h-4" />}>
                   Save Changes
                 </Button>
               </div>
@@ -302,7 +323,10 @@ const ProfilePage = () => {
                 <p className="text-xs text-surface-400">No documents uploaded yet.</p>
               )}
               {documents.map((doc) => (
-                <div key={doc.id} className="flex items-center justify-between py-2 border-b border-surface-100 dark:border-surface-800 last:border-0">
+                <div
+                  key={doc.id}
+                  className="flex items-center justify-between py-2 border-b border-surface-100 dark:border-surface-800 last:border-0"
+                >
                   <div className="flex items-center gap-2">
                     <FileText className="w-4 h-4 text-surface-400" />
                     <div>
@@ -310,10 +334,9 @@ const ProfilePage = () => {
                       <p className="text-[10px] text-surface-400 capitalize">{doc.doc_type?.replace('_', ' ')}</p>
                     </div>
                   </div>
-                  <Badge variant={
-                    doc.status === 'verified' ? 'success' :
-                    doc.status === 'rejected' ? 'danger' : 'warning'
-                  }>
+                  <Badge
+                    variant={doc.status === 'verified' ? 'success' : doc.status === 'rejected' ? 'danger' : 'warning'}
+                  >
                     {doc.status === 'verified' && <CheckCircle className="w-3 h-3 mr-1" />}
                     {doc.status === 'rejected' && <XCircle className="w-3 h-3 mr-1" />}
                     {doc.status === 'pending' && <Clock className="w-3 h-3 mr-1" />}
@@ -336,7 +359,9 @@ const ProfilePage = () => {
                 src={u?.avatar || u?.avatarUrl || ''}
                 alt="Profile"
                 className="w-32 h-32 rounded-full object-cover border-4 border-surface-200 dark:border-surface-700"
-                onError={(e) => { (e.target as HTMLImageElement).src = ''; }}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '';
+                }}
               />
               <button
                 onClick={() => fileRef.current?.click()}
@@ -345,13 +370,7 @@ const ProfilePage = () => {
                 <Camera className="w-6 h-6 text-white" />
               </button>
             </div>
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".jpg,.jpeg,.png"
-              className="hidden"
-              onChange={handlePhotoUpload}
-            />
+            <input ref={fileRef} type="file" accept=".jpg,.jpeg,.png" className="hidden" onChange={handlePhotoUpload} />
             <p className="text-[10px] text-surface-400 mt-2">JPG/PNG, max 2MB</p>
             {uploadingPhoto && <p className="text-xs text-primary-500 mt-1">Uploading...</p>}
             <div className="w-full mt-4 pt-4 border-t border-surface-200 dark:border-surface-700">
@@ -364,8 +383,13 @@ const ProfilePage = () => {
                   placeholder="https://example.com/photo.jpg"
                   className="flex-1 px-3 py-1.5 text-xs bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                 />
-                <Button size="xs" variant="outline" leftIcon={savingUrl ? undefined : <LinkIcon className="w-3 h-3" />}
-                  onClick={handlePhotoUrlSave} disabled={savingUrl || !photoUrl.trim()}>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  leftIcon={savingUrl ? undefined : <LinkIcon className="w-3 h-3" />}
+                  onClick={handlePhotoUrlSave}
+                  disabled={savingUrl || !photoUrl.trim()}
+                >
                   {savingUrl ? 'Saving...' : 'Set'}
                 </Button>
               </div>
@@ -379,7 +403,8 @@ const ProfilePage = () => {
             </h4>
             <canvas ref={canvasRef} className="rounded-2xl" />
             <p className="text-[10px] text-surface-400 mt-4 leading-relaxed max-w-xs">
-              Present this QR to class representatives or course manual sellers for instant verification.
+              Show this to your class rep to check into attendance, or let any phone camera scan it to send you a
+              Connect request.
             </p>
           </Card>
 

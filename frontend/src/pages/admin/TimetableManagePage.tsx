@@ -6,19 +6,36 @@ import Tabs from '../../components/ui/Tabs';
 import Modal from '../../components/ui/Modal';
 import { useNotification } from '../../hooks/useNotification';
 import {
-  Plus, Loader2, CalendarDays, AlertTriangle, Trash2, Eye, EyeOff, ChevronDown,
-  MapPin, Clock, User, BookOpen, GraduationCap, Filter,
+  Plus,
+  Loader2,
+  CalendarDays,
+  AlertTriangle,
+  Trash2,
+  Eye,
+  EyeOff,
+  MapPin,
+  Clock,
+  User,
+  BookOpen,
+  GraduationCap,
+  Filter,
 } from 'lucide-react';
 import {
-  getTimetable, createTimetableEntry, updateTimetableEntry, deleteTimetableEntry,
-  checkTimetableConflicts, publishTimetable, bulkDeleteTimetable,
+  getTimetable,
+  createTimetableEntry,
+  updateTimetableEntry,
+  deleteTimetableEntry,
+  checkTimetableConflicts,
+  publishTimetable,
+  bulkDeleteTimetable,
 } from '../../api/timetable';
+import type { ListTimetableParams } from '../../api/timetable';
 import { getCourses } from '../../api/courses';
-import type { TimetableEntry, TimetableConflict, EntryType, ClassType } from '../../types';
+import type { TimetableEntry, TimetableConflict, EntryType, Course } from '../../types';
+import { getErrorMessage } from '../../utils/errors';
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const numToDay: Record<number, string> = { 1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday', 5: 'Friday' };
-const dayToNum: Record<string, number> = { Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5 };
 const hours = Array.from({ length: 14 }, (_, i) => i + 7);
 const levels = [100, 200, 300, 400, 500];
 const classTypes: { value: string; label: string }[] = [
@@ -35,7 +52,8 @@ const examTypes = [
 const colorMap: Record<string, string> = {
   lecture: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300',
   lab: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300',
-  tutorial: 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300',
+  tutorial:
+    'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300',
   seminar: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300',
 };
 
@@ -60,7 +78,7 @@ const TimetableManagePage = () => {
   const { success, error: notifyError } = useNotification();
   const [tab, setTab] = useState<EntryType>('class');
   const [entries, setEntries] = useState<TimetableEntry[]>([]);
-  const [courses, setCourses] = useState<any[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [conflicts, setConflicts] = useState<TimetableConflict[]>([]);
   const [conflictCount, setConflictCount] = useState(0);
@@ -87,19 +105,18 @@ const TimetableManagePage = () => {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const params: Record<string, any> = { entryType: tab };
+      const params: ListTimetableParams = { entryType: tab };
       if (levelFilter) params.level = levelFilter;
       const [entriesRes, coursesRes] = await Promise.allSettled([
-        getTimetable(params as any),
+        getTimetable(params),
         getCourses({ page: 1, perPage: 200 }),
       ]);
       if (entriesRes.status === 'fulfilled') {
         setEntries(Array.isArray(entriesRes.value) ? entriesRes.value : []);
       }
       if (coursesRes.status === 'fulfilled') {
-        const r = coursesRes.value as any;
-        const courseList = Array.isArray(r) ? r : (r?.items || r?.data || []);
-        setCourses(courseList.filter((c: any) => c && c.id && c.code && c.title));
+        const courseList = Array.isArray(coursesRes.value) ? coursesRes.value : [];
+        setCourses(courseList.filter((c) => c && c.id && c.code && c.title));
       }
     } catch {
       // silent
@@ -108,7 +125,9 @@ const TimetableManagePage = () => {
     }
   }, [tab, levelFilter]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const resetForm = () => {
     setCourseId('');
@@ -154,8 +173,8 @@ const TimetableManagePage = () => {
       resetForm();
       success('Entry Created', `${tab === 'class' ? 'Class' : 'Exam'} entry added successfully`);
       fetchData();
-    } catch (err: any) {
-      notifyError('Create Failed', err?.response?.data?.error || err?.message || 'Could not create entry');
+    } catch (err) {
+      notifyError('Create Failed', getErrorMessage(err, 'Could not create entry'));
     } finally {
       setSubmitting(false);
     }
@@ -189,8 +208,8 @@ const TimetableManagePage = () => {
       resetForm();
       success('Entry Updated', 'Timetable entry updated');
       fetchData();
-    } catch (err: any) {
-      notifyError('Update Failed', err?.response?.data?.error || err?.message);
+    } catch (err) {
+      notifyError('Update Failed', getErrorMessage(err, 'Could not update entry'));
     } finally {
       setSubmitting(false);
     }
@@ -202,8 +221,8 @@ const TimetableManagePage = () => {
       await deleteTimetableEntry(entry.id);
       success('Deleted', 'Entry removed');
       fetchData();
-    } catch (err: any) {
-      notifyError('Delete Failed', err?.response?.data?.error || err?.message);
+    } catch (err) {
+      notifyError('Delete Failed', getErrorMessage(err, 'Could not delete entry'));
     }
   };
 
@@ -211,8 +230,12 @@ const TimetableManagePage = () => {
     setEditingEntry(entry);
     setCourseId(entry.course_id);
     setDayOfWeek(entry.day_of_week || 1);
-    const st = entry.start_time?.includes(' ') ? entry.start_time.split(' ')[1]?.substring(0, 5) : entry.start_time?.substring(0, 5);
-    const et = entry.end_time?.includes(' ') ? entry.end_time.split(' ')[1]?.substring(0, 5) : entry.end_time?.substring(0, 5);
+    const st = entry.start_time?.includes(' ')
+      ? entry.start_time.split(' ')[1]?.substring(0, 5)
+      : entry.start_time?.substring(0, 5);
+    const et = entry.end_time?.includes(' ')
+      ? entry.end_time.split(' ')[1]?.substring(0, 5)
+      : entry.end_time?.substring(0, 5);
     setStartTime(st || '08:00');
     setEndTime(et || '10:00');
     setVenue(entry.venue);
@@ -227,24 +250,25 @@ const TimetableManagePage = () => {
 
   const handleCheckConflicts = async () => {
     try {
-      const params: Record<string, any> = { entryType: tab };
-      if (levelFilter) params.level = levelFilter;
       const res = await checkTimetableConflicts(tab, levelFilter || undefined);
       setConflicts(res.conflicts || []);
       setConflictCount(res.conflict_count || 0);
       setShowConflicts(true);
-    } catch (err: any) {
-      notifyError('Error', err?.response?.data?.error || 'Failed to check conflicts');
+    } catch (err) {
+      notifyError('Error', getErrorMessage(err, 'Failed to check conflicts'));
     }
   };
 
   const handlePublish = async (publish: boolean) => {
     try {
       await publishTimetable(tab, publish);
-      success(publish ? 'Published' : 'Unpublished', `${tab === 'class' ? 'Class' : 'Exam'} timetable ${publish ? 'published' : 'unpublished'}`);
+      success(
+        publish ? 'Published' : 'Unpublished',
+        `${tab === 'class' ? 'Class' : 'Exam'} timetable ${publish ? 'published' : 'unpublished'}`,
+      );
       fetchData();
-    } catch (err: any) {
-      notifyError('Error', err?.response?.data?.error || 'Operation failed');
+    } catch (err) {
+      notifyError('Error', getErrorMessage(err, 'Operation failed'));
     }
   };
 
@@ -254,8 +278,8 @@ const TimetableManagePage = () => {
       const res = await bulkDeleteTimetable(tab, levelFilter || undefined);
       success('Deleted', `${res.deleted || 0} entries removed`);
       fetchData();
-    } catch (err: any) {
-      notifyError('Error', err?.response?.data?.error || 'Failed to delete');
+    } catch (err) {
+      notifyError('Error', getErrorMessage(err, 'Failed to delete'));
     }
   };
 
@@ -283,9 +307,13 @@ const TimetableManagePage = () => {
           required
         >
           <option value="">Select course... {courses.length === 0 && '(Loading...)'}</option>
-          {courses && courses.length > 0 && courses.map((c: any) => (
-            <option key={c?.id || 'null'} value={c?.id || ''}>{c?.code} — {c?.title}</option>
-          ))}
+          {courses &&
+            courses.length > 0 &&
+            courses.map((c) => (
+              <option key={c?.id || 'null'} value={c?.id || ''}>
+                {c?.code} — {c?.title}
+              </option>
+            ))}
           {courses && courses.length === 0 && <option disabled>No courses available</option>}
         </select>
       </div>
@@ -298,7 +326,11 @@ const TimetableManagePage = () => {
             value={dayOfWeek}
             onChange={(e) => setDayOfWeek(Number(e.target.value))}
           >
-            {days.map((d, i) => <option key={d} value={i + 1}>{d}</option>)}
+            {days.map((d, i) => (
+              <option key={d} value={i + 1}>
+                {d}
+              </option>
+            ))}
           </select>
         </div>
       )}
@@ -358,7 +390,11 @@ const TimetableManagePage = () => {
             value={level}
             onChange={(e) => setLevel(Number(e.target.value))}
           >
-            {levels.map((l) => <option key={l} value={l}>{l} Level</option>)}
+            {levels.map((l) => (
+              <option key={l} value={l}>
+                {l} Level
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -371,7 +407,11 @@ const TimetableManagePage = () => {
             value={classType}
             onChange={(e) => setClassType(e.target.value)}
           >
-            {classTypes.map((ct) => <option key={ct.value} value={ct.value}>{ct.label}</option>)}
+            {classTypes.map((ct) => (
+              <option key={ct.value} value={ct.value}>
+                {ct.label}
+              </option>
+            ))}
           </select>
         </div>
       )}
@@ -384,12 +424,14 @@ const TimetableManagePage = () => {
             value={examType}
             onChange={(e) => setExamType(e.target.value)}
           >
-            {examTypes.map((et) => <option key={et.value} value={et.value}>{et.label}</option>)}
+            {examTypes.map((et) => (
+              <option key={et.value} value={et.value}>
+                {et.label}
+              </option>
+            ))}
           </select>
         </div>
       )}
-
-
 
       <div>
         <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Lecturer ID (optional)</label>
@@ -438,7 +480,13 @@ const TimetableManagePage = () => {
           >
             {isPublished ? 'Published' : 'Publish'}
           </Button>
-          <Button leftIcon={<Plus className="w-4 h-4" />} onClick={() => { resetForm(); setCreateOpen(true); }}>
+          <Button
+            leftIcon={<Plus className="w-4 h-4" />}
+            onClick={() => {
+              resetForm();
+              setCreateOpen(true);
+            }}
+          >
             Add Entry
           </Button>
         </div>
@@ -454,10 +502,19 @@ const TimetableManagePage = () => {
             onChange={(e) => setLevelFilter(e.target.value ? Number(e.target.value) : '')}
           >
             <option value="">All Levels</option>
-            {levels.map((l) => <option key={l} value={l}>{l}</option>)}
+            {levels.map((l) => (
+              <option key={l} value={l}>
+                {l}
+              </option>
+            ))}
           </select>
         </div>
-        <Button variant="outline" size="sm" leftIcon={<AlertTriangle className="w-3.5 h-3.5" />} onClick={handleCheckConflicts}>
+        <Button
+          variant="outline"
+          size="sm"
+          leftIcon={<AlertTriangle className="w-3.5 h-3.5" />}
+          onClick={handleCheckConflicts}
+        >
           Check Conflicts
         </Button>
         <Button variant="danger" size="sm" leftIcon={<Trash2 className="w-3.5 h-3.5" />} onClick={handleBulkDelete}>
@@ -491,7 +548,11 @@ const TimetableManagePage = () => {
             <CardDescription>
               {entries.length} class entries
               {levelFilter ? ` for Level ${levelFilter}` : ''}
-              {isPublished && <Badge variant="success" className="ml-2">Published</Badge>}
+              {isPublished && (
+                <Badge variant="success" className="ml-2">
+                  Published
+                </Badge>
+              )}
             </CardDescription>
           </CardHeader>
           <div className="p-4 pt-0 overflow-x-auto">
@@ -500,7 +561,9 @@ const TimetableManagePage = () => {
                 <tr>
                   <th className="text-[10px] font-medium text-surface-500 text-left w-16">Time</th>
                   {days.map((d) => (
-                    <th key={d} className="text-[10px] font-medium text-surface-500 text-center px-2">{d}</th>
+                    <th key={d} className="text-[10px] font-medium text-surface-500 text-center px-2">
+                      {d}
+                    </th>
                   ))}
                 </tr>
               </thead>
@@ -511,7 +574,10 @@ const TimetableManagePage = () => {
                     {days.map((d) => {
                       const slot = getSlotAt(d, h);
                       return (
-                        <td key={d} className="border border-surface-100 dark:border-surface-800 p-1 text-center min-h-[40px]">
+                        <td
+                          key={d}
+                          className="border border-surface-100 dark:border-surface-800 p-1 text-center min-h-[40px]"
+                        >
                           {slot && (
                             <div
                               className={`text-[10px] rounded p-1.5 border cursor-pointer hover:shadow-sm transition-shadow ${colorMap[slot.class_type || 'lecture']}`}
@@ -521,7 +587,9 @@ const TimetableManagePage = () => {
                               <p className="font-bold">{slot.courseCode}</p>
                               <p className="truncate text-[9px] opacity-75">{slot.venue}</p>
                               {slot.level && <p className="text-[9px] opacity-60">{slot.level}L</p>}
-                              {slot.lecturer_name && <p className="text-[9px] truncate opacity-60">{slot.lecturer_name}</p>}
+                              {slot.lecturer_name && (
+                                <p className="text-[9px] truncate opacity-60">{slot.lecturer_name}</p>
+                              )}
                             </div>
                           )}
                         </td>
@@ -543,7 +611,11 @@ const TimetableManagePage = () => {
             <CardDescription>
               {entries.length} exam entries
               {levelFilter ? ` for Level ${levelFilter}` : ''}
-              {isPublished && <Badge variant="success" className="ml-2">Published</Badge>}
+              {isPublished && (
+                <Badge variant="success" className="ml-2">
+                  Published
+                </Badge>
+              )}
             </CardDescription>
           </CardHeader>
           <div className="p-4 pt-0 space-y-3">
@@ -562,28 +634,65 @@ const TimetableManagePage = () => {
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <Badge variant={entry.exam_type === 'carryover' ? 'warning' : 'primary'}>{entry.courseCode}</Badge>
-                        <span className="text-xs text-surface-500">{entry.exam_type === 'carryover' ? 'Carryover' : 'Main'}</span>
+                        <Badge variant={entry.exam_type === 'carryover' ? 'warning' : 'primary'}>
+                          {entry.courseCode}
+                        </Badge>
+                        <span className="text-xs text-surface-500">
+                          {entry.exam_type === 'carryover' ? 'Carryover' : 'Main'}
+                        </span>
                       </div>
-                      <p className="text-xs font-medium text-surface-700 dark:text-surface-300 mt-0.5">{entry.courseTitle}</p>
+                      <p className="text-xs font-medium text-surface-700 dark:text-surface-300 mt-0.5">
+                        {entry.courseTitle}
+                      </p>
                       <div className="flex items-center gap-3 mt-1 text-[10px] text-surface-400">
                         {entry.exam_date ? (
-                          <span className="flex items-center gap-1 font-semibold text-surface-600 dark:text-surface-300"><CalendarDays className="w-3 h-3" />{new Date(entry.exam_date).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                          <span className="flex items-center gap-1 font-semibold text-surface-600 dark:text-surface-300">
+                            <CalendarDays className="w-3 h-3" />
+                            {new Date(entry.exam_date).toLocaleDateString('en-US', {
+                              weekday: 'short',
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                            })}
+                          </span>
                         ) : (
-                          <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3" />{entry.day_of_week ? numToDay[entry.day_of_week] : 'No date set'}</span>
+                          <span className="flex items-center gap-1">
+                            <CalendarDays className="w-3 h-3" />
+                            {entry.day_of_week ? numToDay[entry.day_of_week] : 'No date set'}
+                          </span>
                         )}
-                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatTime(entry.start_time)} – {formatTime(entry.end_time)}</span>
-                        <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{entry.venue}</span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {formatTime(entry.start_time)} – {formatTime(entry.end_time)}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <MapPin className="w-3 h-3" />
+                          {entry.venue}
+                        </span>
                         {entry.level && <span>{entry.level}L</span>}
-                        {entry.lecturer_name && <span className="flex items-center gap-1"><User className="w-3 h-3" />{entry.lecturer_name}</span>}
+                        {entry.lecturer_name && (
+                          <span className="flex items-center gap-1">
+                            <User className="w-3 h-3" />
+                            {entry.lecturer_name}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {entry.invigilators && (
-                      <span className="text-[10px] text-surface-400 max-w-[120px] truncate">Invig: {entry.invigilators}</span>
+                      <span className="text-[10px] text-surface-400 max-w-[120px] truncate">
+                        Invig: {entry.invigilators}
+                      </span>
                     )}
-                    <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleDelete(entry); }}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(entry);
+                      }}
+                    >
                       <Trash2 className="w-3.5 h-3.5 text-red-500" />
                     </Button>
                   </div>
@@ -602,7 +711,9 @@ const TimetableManagePage = () => {
                 <AlertTriangle className="w-5 h-5 text-amber-500" />
                 Conflict Detection ({conflictCount})
               </span>
-              <Button variant="ghost" size="sm" onClick={() => setShowConflicts(false)}>Close</Button>
+              <Button variant="ghost" size="sm" onClick={() => setShowConflicts(false)}>
+                Close
+              </Button>
             </CardTitle>
           </CardHeader>
           <div className="p-4 pt-0 space-y-2">
@@ -610,7 +721,10 @@ const TimetableManagePage = () => {
               <p className="text-sm text-green-600 dark:text-green-400">No conflicts detected</p>
             ) : (
               conflicts.map((c, i) => (
-                <div key={i} className="p-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg">
+                <div
+                  key={i}
+                  className="p-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg"
+                >
                   <div className="flex items-center gap-2">
                     <Badge variant="danger">{c.type.replace('_', ' ')}</Badge>
                     <span className="text-xs text-red-700 dark:text-red-300">{c.message}</span>
@@ -622,11 +736,22 @@ const TimetableManagePage = () => {
         </Card>
       )}
 
-      <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title={`Add ${tab === 'class' ? 'Class' : 'Exam'} Entry`}>
+      <Modal
+        isOpen={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title={`Add ${tab === 'class' ? 'Class' : 'Exam'} Entry`}
+      >
         <CourseForm isEdit={false} />
       </Modal>
 
-      <Modal isOpen={editOpen} onClose={() => { setEditOpen(false); setEditingEntry(null); }} title={`Edit ${tab === 'class' ? 'Class' : 'Exam'} Entry`}>
+      <Modal
+        isOpen={editOpen}
+        onClose={() => {
+          setEditOpen(false);
+          setEditingEntry(null);
+        }}
+        title={`Edit ${tab === 'class' ? 'Class' : 'Exam'} Entry`}
+      >
         <CourseForm isEdit={true} />
       </Modal>
     </div>

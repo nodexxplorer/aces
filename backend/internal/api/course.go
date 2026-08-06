@@ -11,17 +11,18 @@ import (
 )
 
 type createCourseRequest struct {
-	Code           string  `json:"code" binding:"required"`
-	Title          string  `json:"title" binding:"required"`
-	Description    *string `json:"description" binding:"omitempty"`
-	Unit           int32   `json:"unit" binding:"required,min=1"`
-	Level          int32   `json:"level" binding:"required,min=100"`
-	Semester       string  `json:"semester" binding:"required,oneof=first second harmattan rain"`
-	LecturerID     *string `json:"lecturer_id" binding:"omitempty,uuid"`
-	PrerequisiteID *string `json:"prerequisite_id" binding:"omitempty,uuid"`
-	MaxCreditHours *int32  `json:"max_credit_hours" binding:"omitempty,min=1"`
-	IsActive       bool    `json:"is_active"`
-	CourseType     string  `json:"course_type" binding:"omitempty,oneof=departmental non_departmental"`
+	Code            string  `json:"code" binding:"required"`
+	Title           string  `json:"title" binding:"required"`
+	Description     *string `json:"description" binding:"omitempty"`
+	Unit            int32   `json:"unit" binding:"required,min=1"`
+	Level           int32   `json:"level" binding:"required,min=100"`
+	Semester        string  `json:"semester" binding:"required,oneof=first second harmattan rain"`
+	LecturerID      *string `json:"lecturer_id" binding:"omitempty,uuid"`
+	PrerequisiteID  *string `json:"prerequisite_id" binding:"omitempty,uuid"`
+	MaxCreditHours  *int32  `json:"max_credit_hours" binding:"omitempty,min=1"`
+	IsActive        bool    `json:"is_active"`
+	CourseType      string  `json:"course_type" binding:"omitempty,oneof=departmental non_departmental"`
+	RequirementType string  `json:"requirement_type" binding:"omitempty,oneof=core elective"`
 }
 
 func (server *Server) createCourse(ctx *gin.Context) {
@@ -32,17 +33,18 @@ func (server *Server) createCourse(ctx *gin.Context) {
 	}
 
 	course, err := server.courses.Create(ctx, service.CreateCourseInput{
-		Code:           req.Code,
-		Title:          req.Title,
-		Description:    req.Description,
-		Unit:           req.Unit,
-		Level:          req.Level,
-		Semester:       req.Semester,
-		LecturerID:     req.LecturerID,
-		PrerequisiteID: req.PrerequisiteID,
-		MaxCreditHours: req.MaxCreditHours,
-		IsActive:       req.IsActive,
-		CourseType:     req.CourseType,
+		Code:            req.Code,
+		Title:           req.Title,
+		Description:     req.Description,
+		Unit:            req.Unit,
+		Level:           req.Level,
+		Semester:        req.Semester,
+		LecturerID:      req.LecturerID,
+		PrerequisiteID:  req.PrerequisiteID,
+		MaxCreditHours:  req.MaxCreditHours,
+		IsActive:        req.IsActive,
+		CourseType:      req.CourseType,
+		RequirementType: req.RequirementType,
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -137,6 +139,7 @@ type updateCourseRequest struct {
 	IsActive        *bool   `json:"is_active"`
 	IsActiveCamel   *bool   `json:"isActive"`
 	CourseType      *string `json:"course_type"`
+	RequirementType *string `json:"requirement_type"`
 }
 
 func (server *Server) updateCourse(ctx *gin.Context) {
@@ -212,15 +215,21 @@ func (server *Server) updateCourse(ctx *gin.Context) {
 		courseType = *req.CourseType
 	}
 
+	requirementType := existing.RequirementType
+	if req.RequirementType != nil {
+		requirementType = *req.RequirementType
+	}
+
 	course, err := server.courses.Update(ctx, id, service.UpdateCourseInput{
-		Title:       title,
-		Description: description,
-		Unit:        unit,
-		Level:       level,
-		Semester:    semester,
-		LecturerID:  lecturerID,
-		IsActive:    isActive,
-		CourseType:  courseType,
+		Title:           title,
+		Description:     description,
+		Unit:            unit,
+		Level:           level,
+		Semester:        semester,
+		LecturerID:      lecturerID,
+		IsActive:        isActive,
+		CourseType:      courseType,
+		RequirementType: requirementType,
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})

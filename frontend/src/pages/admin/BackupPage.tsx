@@ -4,10 +4,26 @@ import Button from '../../components/ui/Button';
 import StatusBadge from '../../components/data-display/StatusBadge';
 import { useNotification } from '../../hooks/useNotification';
 import {
-  Database, Download, Upload, RefreshCw, Loader2, AlertTriangle,
-  CheckCircle, XCircle, HardDrive, Clock,
+  Database,
+  Download,
+  Upload,
+  RefreshCw,
+  Loader2,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  HardDrive,
+  Clock,
 } from 'lucide-react';
-import { getBackups, createBackup, restoreBackup, getBackupSummary, type BackupRecord, type BackupSummary } from '../../api/backups';
+import {
+  getBackups,
+  createBackup,
+  restoreBackup,
+  getBackupSummary,
+  type BackupRecord,
+  type BackupSummary,
+} from '../../api/backups';
+import { getErrorMessage } from '../../utils/errors';
 
 const BackupPage = () => {
   const { success, warning, error: notifyError } = useNotification();
@@ -28,7 +44,9 @@ const BackupPage = () => {
       setLoading(true);
       const [b, s] = await Promise.allSettled([getBackups(), getBackupSummary()]);
       if (b.status === 'fulfilled') {
-        const items = Array.isArray(b.value) ? b.value : (b.value as any)?.items || [];
+        const items = Array.isArray(b.value)
+          ? b.value
+          : (b.value as unknown as { items?: BackupRecord[] })?.items || [];
         setBackups(items);
       }
       if (s.status === 'fulfilled') setSummary(s.value);
@@ -45,8 +63,8 @@ const BackupPage = () => {
       const result = await createBackup();
       success('Backup Complete', `Backup "${result?.file_name || 'system backup'}" has been created`);
       fetchData();
-    } catch (err: any) {
-      notifyError('Backup Failed', err?.response?.data?.error || 'Could not create backup');
+    } catch (err: unknown) {
+      notifyError('Backup Failed', getErrorMessage(err, 'Could not create backup'));
     } finally {
       setBacking(false);
     }
@@ -68,8 +86,8 @@ const BackupPage = () => {
       setRestoreConfirm(false);
       setSelectedBackup('');
       fetchData();
-    } catch (err: any) {
-      notifyError('Restore Failed', err?.response?.data?.error || 'Could not restore from backup');
+    } catch (err: unknown) {
+      notifyError('Restore Failed', getErrorMessage(err, 'Could not restore from backup'));
     } finally {
       setRestoring(false);
     }
@@ -197,7 +215,11 @@ const BackupPage = () => {
                   onClick={handleRestore}
                   disabled={!selectedBackup}
                 >
-                  {restoreConfirm ? 'Confirm Restore (Irreversible)' : selectedBackup ? 'Restore from Selected Backup' : 'Select a backup to restore'}
+                  {restoreConfirm
+                    ? 'Confirm Restore (Irreversible)'
+                    : selectedBackup
+                      ? 'Restore from Selected Backup'
+                      : 'Select a backup to restore'}
                 </Button>
                 {restoreConfirm && (
                   <Button variant="ghost" className="w-full" onClick={() => setRestoreConfirm(false)}>

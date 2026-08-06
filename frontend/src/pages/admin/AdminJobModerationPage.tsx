@@ -5,21 +5,57 @@ import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
 import { useNotification } from '../../hooks/useNotification';
 import { getJobPosts, archiveJobPost, listJobApplications } from '../../api/alumni';
-import { Briefcase, MapPin, Clock, Users, Trash2, Eye, Search } from 'lucide-react';
+import { Briefcase, Clock, Users, Trash2, Search } from 'lucide-react';
+import { getErrorMessage } from '../../utils/errors';
 
-const typeLabels: Record<string, string> = { full_time: 'Full Time', part_time: 'Part Time', internship: 'Internship', contract: 'Contract' };
-const typeColors: Record<string, string> = { full_time: 'primary', part_time: 'info', internship: 'success', contract: 'warning' };
+type JobBadgeVariant = 'primary' | 'info' | 'success' | 'warning' | 'danger' | 'default' | 'outline' | 'secondary';
+
+// Job/application shapes as actually consumed on this page — the backend
+// returns a mix of snake_case and camelCase fields for these resources.
+interface ModeratedJob {
+  id: string;
+  title: string;
+  company: string;
+  description: string;
+  location?: string;
+  job_type?: string;
+  type?: string;
+  salary_range?: string;
+  application_url?: string;
+  application_deadline?: string;
+  poster_name?: string;
+}
+
+interface JobApplicationEntry {
+  id: string;
+  status?: string;
+  applicant_name?: string;
+  cover_letter?: string;
+}
+
+const typeLabels: Record<string, string> = {
+  full_time: 'Full Time',
+  part_time: 'Part Time',
+  internship: 'Internship',
+  contract: 'Contract',
+};
+const typeColors: Record<string, JobBadgeVariant> = {
+  full_time: 'primary',
+  part_time: 'info',
+  internship: 'success',
+  contract: 'warning',
+};
 
 const AdminJobModerationPage = () => {
   const { success, error: notifyError } = useNotification();
-  const [jobs, setJobs] = useState<any[]>([]);
+  const [jobs, setJobs] = useState<ModeratedJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [selectedJob, setSelectedJob] = useState<any>(null);
-  const [apps, setApps] = useState<any[]>([]);
+  const [selectedJob, setSelectedJob] = useState<ModeratedJob | null>(null);
+  const [apps, setApps] = useState<JobApplicationEntry[]>([]);
   const [appsLoading, setAppsLoading] = useState(false);
-  const [confirmArchive, setConfirmArchive] = useState<any>(null);
+  const [confirmArchive, setConfirmArchive] = useState<ModeratedJob | null>(null);
   const [archiving, setArchiving] = useState(false);
 
   useEffect(() => {
@@ -32,11 +68,14 @@ const AdminJobModerationPage = () => {
 
   const filtered = jobs.filter((j) => {
     const matchType = typeFilter === 'all' || (j.job_type || j.type) === typeFilter;
-    const matchSearch = !search || j.title?.toLowerCase().includes(search.toLowerCase()) || j.company?.toLowerCase().includes(search.toLowerCase());
+    const matchSearch =
+      !search ||
+      j.title?.toLowerCase().includes(search.toLowerCase()) ||
+      j.company?.toLowerCase().includes(search.toLowerCase());
     return matchType && matchSearch;
   });
 
-  const handleViewApps = async (job: any) => {
+  const handleViewApps = async (job: ModeratedJob) => {
     setSelectedJob(job);
     setAppsLoading(true);
     try {
@@ -57,8 +96,8 @@ const AdminJobModerationPage = () => {
       success('Deactivated', `"${confirmArchive.title}" has been removed from listings`);
       setJobs((prev) => prev.filter((j) => j.id !== confirmArchive.id));
       setConfirmArchive(null);
-    } catch (err: any) {
-      notifyError('Failed', err?.response?.data?.error || err?.message);
+    } catch (err: unknown) {
+      notifyError('Failed', getErrorMessage(err));
     } finally {
       setArchiving(false);
     }
@@ -68,15 +107,27 @@ const AdminJobModerationPage = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Job Board Moderation</h1>
-        <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Review and manage job listings posted by alumni</p>
+        <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
+          Review and manage job listings posted by alumni
+        </p>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
-          <input type="text" placeholder="Search by title or company..." className="w-full pl-10 pr-4 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input
+            type="text"
+            placeholder="Search by title or company..."
+            className="w-full pl-10 pr-4 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
-        <select className="px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+        <select
+          className="px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg"
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+        >
           <option value="all">All Types</option>
           <option value="full_time">Full Time</option>
           <option value="part_time">Part Time</option>
@@ -86,9 +137,13 @@ const AdminJobModerationPage = () => {
       </div>
 
       {loading ? (
-        <Card><div className="p-12 text-center text-sm text-surface-500">Loading...</div></Card>
+        <Card>
+          <div className="p-12 text-center text-sm text-surface-500">Loading...</div>
+        </Card>
       ) : filtered.length === 0 ? (
-        <Card><div className="p-12 text-center text-sm text-surface-400">No job listings found</div></Card>
+        <Card>
+          <div className="p-12 text-center text-sm text-surface-400">No job listings found</div>
+        </Card>
       ) : (
         <div className="space-y-4">
           {filtered.map((job) => {
@@ -101,21 +156,57 @@ const AdminJobModerationPage = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-semibold text-surface-900 dark:text-white">{job.title}</h3>
-                      <Badge variant={(typeColors[type] || 'primary') as any}>{typeLabels[type] || type}</Badge>
+                      <Badge variant={typeColors[type] || 'primary'}>{typeLabels[type] || type}</Badge>
                       {isExpired && <Badge variant="warning">Expired</Badge>}
                     </div>
-                    <p className="text-sm text-surface-500 mt-1">{job.company}{job.location ? ` — ${job.location}` : ''}</p>
+                    <p className="text-sm text-surface-500 mt-1">
+                      {job.company}
+                      {job.location ? ` — ${job.location}` : ''}
+                    </p>
                     {job.poster_name && <p className="text-xs text-surface-400 mt-1">Posted by {job.poster_name}</p>}
-                    <p className="text-sm text-surface-600 dark:text-surface-400 mt-2 line-clamp-2">{job.description}</p>
+                    <p className="text-sm text-surface-600 dark:text-surface-400 mt-2 line-clamp-2">
+                      {job.description}
+                    </p>
                     <div className="flex items-center gap-4 mt-3 text-xs text-surface-500">
-                      {job.salary_range && <span className="flex items-center gap-1"><Briefcase className="w-3.5 h-3.5" /> {job.salary_range}</span>}
-                      {deadline && <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> Deadline: {new Date(deadline).toLocaleDateString()}</span>}
-                      {job.application_url && <a href={job.application_url} target="_blank" rel="noopener noreferrer" className="text-primary-500 hover:underline flex items-center gap-1"><span className="w-3.5 h-3.5 inline-block">↗</span> Application Link</a>}
+                      {job.salary_range && (
+                        <span className="flex items-center gap-1">
+                          <Briefcase className="w-3.5 h-3.5" /> {job.salary_range}
+                        </span>
+                      )}
+                      {deadline && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5" /> Deadline: {new Date(deadline).toLocaleDateString()}
+                        </span>
+                      )}
+                      {job.application_url && (
+                        <a
+                          href={job.application_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary-500 hover:underline flex items-center gap-1"
+                        >
+                          <span className="w-3.5 h-3.5 inline-block">↗</span> Application Link
+                        </a>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <Button size="sm" variant="outline" leftIcon={<Users className="w-3.5 h-3.5" />} onClick={() => handleViewApps(job)}>Applications</Button>
-                    <Button size="sm" variant="danger" leftIcon={<Trash2 className="w-3.5 h-3.5" />} onClick={() => setConfirmArchive(job)}>Remove</Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      leftIcon={<Users className="w-3.5 h-3.5" />}
+                      onClick={() => handleViewApps(job)}
+                    >
+                      Applications
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      leftIcon={<Trash2 className="w-3.5 h-3.5" />}
+                      onClick={() => setConfirmArchive(job)}
+                    >
+                      Remove
+                    </Button>
                   </div>
                 </div>
               </Card>
@@ -124,18 +215,31 @@ const AdminJobModerationPage = () => {
         </div>
       )}
 
-      <Modal isOpen={!!selectedJob} onClose={() => { setSelectedJob(null); setApps([]); }} title={`Applications — ${selectedJob?.title || ''}`}>
+      <Modal
+        isOpen={!!selectedJob}
+        onClose={() => {
+          setSelectedJob(null);
+          setApps([]);
+        }}
+        title={`Applications — ${selectedJob?.title || ''}`}
+      >
         {appsLoading ? (
           <div className="p-8 text-center text-sm text-surface-500">Loading applications...</div>
         ) : apps.length === 0 ? (
           <div className="p-8 text-center text-sm text-surface-400">No applications yet</div>
         ) : (
           <div className="space-y-3 max-h-96 overflow-y-auto">
-            {apps.map((app: any) => (
+            {apps.map((app) => (
               <div key={app.id} className="p-3 bg-surface-50 dark:bg-surface-800 rounded-lg">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-surface-900 dark:text-white">{app.applicant_name || 'Student'}</span>
-                  <Badge variant={app.status === 'pending' ? 'warning' : app.status === 'accepted' ? 'success' : 'danger'}>{app.status}</Badge>
+                  <span className="text-sm font-medium text-surface-900 dark:text-white">
+                    {app.applicant_name || 'Student'}
+                  </span>
+                  <Badge
+                    variant={app.status === 'pending' ? 'warning' : app.status === 'accepted' ? 'success' : 'danger'}
+                  >
+                    {app.status}
+                  </Badge>
                 </div>
                 {app.cover_letter && <p className="text-xs text-surface-500 mt-1 line-clamp-2">{app.cover_letter}</p>}
               </div>
@@ -146,11 +250,16 @@ const AdminJobModerationPage = () => {
 
       <Modal isOpen={!!confirmArchive} onClose={() => setConfirmArchive(null)} title="Remove Job Post">
         <p className="text-sm text-surface-600 dark:text-surface-400 mb-4">
-          Are you sure you want to deactivate <strong>{confirmArchive?.title}</strong>? This will remove it from student view.
+          Are you sure you want to deactivate <strong>{confirmArchive?.title}</strong>? This will remove it from student
+          view.
         </p>
         <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={() => setConfirmArchive(null)}>Cancel</Button>
-          <Button variant="danger" isLoading={archiving} onClick={handleArchive}>Deactivate</Button>
+          <Button variant="outline" onClick={() => setConfirmArchive(null)}>
+            Cancel
+          </Button>
+          <Button variant="danger" isLoading={archiving} onClick={handleArchive}>
+            Deactivate
+          </Button>
         </div>
       </Modal>
     </div>

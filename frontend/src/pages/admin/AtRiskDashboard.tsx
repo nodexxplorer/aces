@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
+import Card from '../../components/ui/Card';
 import KpiCard from '../../components/data-display/KpiCard';
 import { getAtRiskStudents } from '../../api/predictions';
 import type { AtRiskStudent } from '../../api/predictions';
@@ -31,7 +31,12 @@ const AtRiskDashboard = () => {
 
   const filtered = filter === 'all' ? students : students.filter((s) => s.risk_level === filter);
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" /></div>;
+  if (loading)
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
 
   return (
     <div className="space-y-6">
@@ -55,13 +60,15 @@ const AtRiskDashboard = () => {
             key={level}
             onClick={() => setFilter(level)}
             className={cn(
-              "px-3 py-1.5 text-xs font-medium rounded-full border transition-colors",
+              'px-3 py-1.5 text-xs font-medium rounded-full border transition-colors',
               filter === level
-                ? "bg-primary-500 text-white border-primary-500"
-                : "bg-white dark:bg-surface-800 text-surface-600 dark:text-surface-400 border-surface-300 dark:border-surface-600 hover:bg-surface-100 dark:hover:bg-surface-700"
+                ? 'bg-primary-500 text-white border-primary-500'
+                : 'bg-white dark:bg-surface-800 text-surface-600 dark:text-surface-400 border-surface-300 dark:border-surface-600 hover:bg-surface-100 dark:hover:bg-surface-700',
             )}
           >
-            {level === 'all' ? `All (${students.length})` : `${level.charAt(0).toUpperCase() + level.slice(1)} (${stats[level] || 0})`}
+            {level === 'all'
+              ? `All (${students.length})`
+              : `${level.charAt(0).toUpperCase() + level.slice(1)} (${stats[level] || 0})`}
           </button>
         ))}
       </div>
@@ -89,7 +96,10 @@ const AtRiskDashboard = () => {
                 </thead>
                 <tbody>
                   {filtered.map((s) => (
-                    <tr key={s.student_id} className="border-b border-surface-100 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-800/50">
+                    <tr
+                      key={s.student_id}
+                      className="border-b border-surface-100 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-800/50"
+                    >
                       <td className="py-2">
                         <div className="font-medium">{s.full_name}</div>
                         <div className="text-xs text-surface-400">{s.matric_number}</div>
@@ -97,18 +107,40 @@ const AtRiskDashboard = () => {
                       <td className="text-center py-2">{s.level}00L</td>
                       <td className="text-center py-2 font-mono">{s.cgpa.toFixed(2)}</td>
                       <td className="text-center py-2">
-                        <span className={cn("font-mono", s.attendance_rate < 50 ? "text-danger-500" : s.attendance_rate < 70 ? "text-yellow-500" : "text-success-500")}>
+                        <span
+                          className={cn(
+                            'font-mono',
+                            s.attendance_rate < 50
+                              ? 'text-danger-500'
+                              : s.attendance_rate < 70
+                                ? 'text-yellow-500'
+                                : 'text-success-500',
+                          )}
+                        >
                           {s.attendance_rate.toFixed(0)}%
                         </span>
                       </td>
                       <td className="text-center py-2">
-                        {s.failing_count > 0 ? <span className="text-danger-500 font-bold">{s.failing_count}</span> : <span className="text-surface-400">0</span>}
+                        {s.failing_count > 0 ? (
+                          <span className="text-danger-500 font-bold">{s.failing_count}</span>
+                        ) : (
+                          <span className="text-surface-400">0</span>
+                        )}
                       </td>
                       <td className="text-center py-2 font-mono">
-                        {s.outstanding_dues > 0 ? <span className="text-yellow-600">₦{s.outstanding_dues.toLocaleString()}</span> : <span className="text-surface-400">—</span>}
+                        {s.outstanding_dues > 0 ? (
+                          <span className="text-yellow-600">₦{s.outstanding_dues.toLocaleString()}</span>
+                        ) : (
+                          <span className="text-surface-400">—</span>
+                        )}
                       </td>
                       <td className="text-center py-2">
-                        <span className={cn("inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold capitalize", riskColors[s.risk_level])}>
+                        <span
+                          className={cn(
+                            'inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold capitalize',
+                            riskColors[s.risk_level],
+                          )}
+                        >
                           {s.risk_level}
                         </span>
                       </td>

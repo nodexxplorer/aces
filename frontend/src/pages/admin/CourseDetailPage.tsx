@@ -7,11 +7,12 @@ import { getCourse } from '../../api/courses';
 import { getUser } from '../../api/users';
 import { useNotification } from '../../hooks/useNotification';
 import { ArrowLeft, BookOpen, User as UserIcon, Layers, Clock, Loader2 } from 'lucide-react';
+import type { Course } from '../../types';
 
 const CourseDetailPage = () => {
   const { id } = useParams();
   const { error: notifyError } = useNotification();
-  const [course, setCourse] = useState<any>(null);
+  const [course, setCourse] = useState<Course | null>(null);
   const [lecturerName, setLecturerName] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -21,7 +22,7 @@ const CourseDetailPage = () => {
     getCourse(id)
       .then((c) => {
         setCourse(c);
-        const lid = c.lecturerId || c.lecturerId;
+        const lid = c.lecturerId;
         if (lid) {
           getUser(lid)
             .then((u) => setLecturerName(u.fullName || `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email))
@@ -114,8 +115,10 @@ const CourseDetailPage = () => {
               <UserIcon className="w-5 h-5 text-primary-500" />
               <div>
                 <p className="text-xs text-surface-400 font-medium">Assigned Lecturer</p>
-                <p className={`font-medium ${(course.lecturer_id || course.lecturerId) ? 'text-surface-900 dark:text-white' : 'text-surface-400 italic'}`}>
-                  {(course.lecturer_id || course.lecturerId) ? lecturerName || 'Loading...' : 'No lecturer assigned'}
+                <p
+                  className={`font-medium ${course.lecturerId ? 'text-surface-900 dark:text-white' : 'text-surface-400 italic'}`}
+                >
+                  {course.lecturerId ? lecturerName || 'Loading...' : 'No lecturer assigned'}
                 </p>
               </div>
             </div>

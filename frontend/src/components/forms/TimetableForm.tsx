@@ -4,7 +4,14 @@ import Input from '../ui/Input';
 import Select from '../ui/Select';
 
 interface TimetableFormProps {
-  onSubmit: (data: { courseId: string; dayOfWeek: string; startTime: string; endTime: string; venue: string; type: 'lecture' | 'practical' | 'exam' }) => void;
+  onSubmit: (data: {
+    courseId: string;
+    dayOfWeek: string;
+    startTime: string;
+    endTime: string;
+    venue: string;
+    type: 'lecture' | 'practical' | 'exam';
+  }) => void;
   isLoading?: boolean;
 }
 
@@ -51,7 +58,7 @@ const TimetableForm = ({ onSubmit, isLoading }: TimetableFormProps) => {
             { value: 'exam', label: 'Examination Schedule' },
           ]}
           value={type}
-          onChange={(e) => setType(e.target.value as any)}
+          onChange={(e) => setType(e.target.value as 'lecture' | 'practical' | 'exam')}
         />
       </div>
       <div className="grid grid-cols-2 gap-4">
@@ -62,13 +69,7 @@ const TimetableForm = ({ onSubmit, isLoading }: TimetableFormProps) => {
           onChange={(e) => setStartTime(e.target.value)}
           required
         />
-        <Input
-          label="End Time"
-          type="time"
-          value={endTime}
-          onChange={(e) => setEndTime(e.target.value)}
-          required
-        />
+        <Input label="End Time" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
       </div>
       <Input
         label="Venue / Classroom"

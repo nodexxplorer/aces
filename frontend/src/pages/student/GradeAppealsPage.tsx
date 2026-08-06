@@ -3,7 +3,6 @@ import { AlertCircle, CheckCircle, Clock, XCircle, Send, Filter } from 'lucide-r
 import { createGradeAppeal, listMyAppeals, type GradeAppeal } from '../../api/additional-features';
 import { getSessions, listSessionSemesters } from '../../api/sessions';
 import { getCourses } from '../../api/courses';
-import { useAuth } from '../../hooks/useAuth';
 import type { Session, SemesterEntry, Course } from '../../types';
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string; icon: React.ReactNode }> = {
@@ -63,7 +62,6 @@ function truncate(text: string, max: number): string {
 }
 
 export default function GradeAppealsPage() {
-  const { user } = useAuth();
   const [appeals, setAppeals] = useState<GradeAppeal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -102,13 +100,22 @@ export default function GradeAppealsPage() {
 
   useEffect(() => {
     if (!showForm) return;
-    getSessions().then((s) => setSessions(Array.isArray(s) ? s : [])).catch(() => {});
-    getCourses().then((c) => setCourses(Array.isArray(c) ? c : [])).catch(() => {});
+    getSessions()
+      .then((s) => setSessions(Array.isArray(s) ? s : []))
+      .catch(() => {});
+    getCourses()
+      .then((c) => setCourses(Array.isArray(c) ? c : []))
+      .catch(() => {});
   }, [showForm]);
 
   useEffect(() => {
-    if (!formSessionId) { setSemesters([]); return; }
-    listSessionSemesters(formSessionId).then((s) => setSemesters(Array.isArray(s) ? s : [])).catch(() => {});
+    if (!formSessionId) {
+      setSemesters([]);
+      return;
+    }
+    listSessionSemesters(formSessionId)
+      .then((s) => setSemesters(Array.isArray(s) ? s : []))
+      .catch(() => {});
   }, [formSessionId]);
 
   const filteredAppeals = appeals.filter((a) => matchesFilter(a, activeTab));
@@ -149,7 +156,7 @@ export default function GradeAppealsPage() {
     <div className="min-h-screen bg-surface-50 dark:bg-surface-950 p-6">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Grade Appeals</h1>
             <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
@@ -158,7 +165,7 @@ export default function GradeAppealsPage() {
           </div>
           <button
             onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 transition-colors"
+            className="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 transition-colors shrink-0"
           >
             <Send className="w-4 h-4" />
             New Appeal
@@ -177,8 +184,8 @@ export default function GradeAppealsPage() {
         )}
 
         {/* Filter Tabs */}
-        <div className="flex items-center gap-1 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 p-1 shadow-sm w-fit">
-          <Filter className="w-4 h-4 text-surface-400 mx-2" />
+        <div className="flex items-center gap-1 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 p-1 shadow-sm w-full sm:w-fit max-w-full overflow-x-auto">
+          <Filter className="w-4 h-4 text-surface-400 mx-2 shrink-0" />
           {FILTER_TABS.map((tab) => (
             <button
               key={tab}
@@ -241,13 +248,9 @@ export default function GradeAppealsPage() {
                       {statusCfg.label}
                     </span>
                   </div>
-                  <p className="text-sm text-surface-600 dark:text-surface-400 mb-3">
-                    {truncate(appeal.reason, 120)}
-                  </p>
+                  <p className="text-sm text-surface-600 dark:text-surface-400 mb-3">{truncate(appeal.reason, 120)}</p>
                   <div className="flex items-center gap-4 text-xs text-surface-400 dark:text-surface-500">
-                    {appeal.created_at && (
-                      <span>Submitted {new Date(appeal.created_at).toLocaleDateString()}</span>
-                    )}
+                    {appeal.created_at && <span>Submitted {new Date(appeal.created_at).toLocaleDateString()}</span>}
                     {appeal.updated_at && appeal.updated_at !== appeal.created_at && (
                       <span>Updated {new Date(appeal.updated_at).toLocaleDateString()}</span>
                     )}
@@ -282,13 +285,18 @@ export default function GradeAppealsPage() {
                 </label>
                 <select
                   value={formSessionId}
-                  onChange={(e) => { setFormSessionId(e.target.value); setFormSemesterId(''); }}
+                  onChange={(e) => {
+                    setFormSessionId(e.target.value);
+                    setFormSemesterId('');
+                  }}
                   required
                   className="w-full rounded-xl border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-950 px-3.5 py-2.5 text-sm text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
                 >
                   <option value="">Select session</option>
                   {sessions.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -305,7 +313,9 @@ export default function GradeAppealsPage() {
                 >
                   <option value="">Select semester</option>
                   {semesters.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -321,7 +331,9 @@ export default function GradeAppealsPage() {
                 >
                   <option value="">Select course</option>
                   {courses.map((c) => (
-                    <option key={c.id} value={c.id}>{c.code} - {c.title}</option>
+                    <option key={c.id} value={c.id}>
+                      {c.code} - {c.title}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -416,18 +428,24 @@ export default function GradeAppealsPage() {
                     </div>
 
                     {/* IDs */}
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                         <p className="text-xs font-medium text-surface-400 dark:text-surface-500 mb-1">Course ID</p>
-                        <p className="text-sm font-medium text-surface-900 dark:text-white">{selectedAppeal.course_id ?? selectedAppeal.course_code ?? 'N/A'}</p>
+                        <p className="text-sm font-medium text-surface-900 dark:text-white">
+                          {selectedAppeal.course_id ?? selectedAppeal.course_code ?? 'N/A'}
+                        </p>
                       </div>
                       <div>
                         <p className="text-xs font-medium text-surface-400 dark:text-surface-500 mb-1">Semester</p>
-                        <p className="text-sm font-medium text-surface-900 dark:text-white">{selectedAppeal.semester_id ?? 'N/A'}</p>
+                        <p className="text-sm font-medium text-surface-900 dark:text-white">
+                          {selectedAppeal.semester_id ?? 'N/A'}
+                        </p>
                       </div>
                       <div>
                         <p className="text-xs font-medium text-surface-400 dark:text-surface-500 mb-1">Session</p>
-                        <p className="text-sm font-medium text-surface-900 dark:text-white">{selectedAppeal.session_id ?? 'N/A'}</p>
+                        <p className="text-sm font-medium text-surface-900 dark:text-white">
+                          {selectedAppeal.session_id ?? 'N/A'}
+                        </p>
                       </div>
                     </div>
 

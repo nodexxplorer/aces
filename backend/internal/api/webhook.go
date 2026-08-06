@@ -15,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/shopspring/decimal"
 )
 
 type PaystackWebhookEvent struct {
@@ -94,34 +95,69 @@ func (server *Server) handlePaystackWebhook(ctx *gin.Context) {
 			return
 		}
 
-		// Update payment to completed
-		_, err = server.store.UpdatePaymentStatus(ctx, db.UpdatePaymentStatusParams{
-			ID:     payment.ID,
-			Status: db.PaymentStatus("completed"),
-			PaidAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
-		})
-		if err != nil {
-			log.Printf("[paystack-webhook] Failed to update payment %s: %v", reference, err)
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update payment"})
+		// A cart checkout stamps the SAME Paystack reference onto every payment in
+		// the batch, since one charge covers the whole cart — so completing "the"
+		// payment for this reference actually means completing every payment that
+		// shares it. Collect those siblings before touching anything.
+		paymentsToComplete := []db.Payment{{
+			ID: payment.ID, StudentID: payment.StudentID, BatchID: payment.BatchID, DueID: payment.DueID,
+			Type: payment.Type, ItemName: payment.ItemName, Amount: payment.Amount,
+			PaystackReference: payment.PaystackReference, Status: payment.Status,
+		}}
+		expectedAmount := payment.Amount
+		if payment.BatchID.Valid {
+			if batch, err := server.store.GetPaymentBatch(ctx, payment.BatchID.Bytes); err == nil {
+				expectedAmount = batch.TotalAmount
+			}
+			if batchPayments, err := server.store.ListBatchPayments(ctx, payment.BatchID); err == nil {
+				paymentsToComplete = paymentsToComplete[:0]
+				for _, bp := range batchPayments {
+					if bp.PaystackReference != nil && *bp.PaystackReference == reference {
+						paymentsToComplete = append(paymentsToComplete, bp)
+					}
+				}
+			}
+		}
+
+		// Cross-check the amount Paystack says it actually collected against what
+		// was owed, before crediting anything — never trust status=="success" alone.
+		expectedKobo := expectedAmount.Mul(decimal.NewFromInt(100)).IntPart()
+		if eventJSON.Data.Amount < expectedKobo {
+			log.Printf("[paystack-webhook] Amount mismatch for reference %s: paid %d kobo, expected %d kobo — refusing to mark completed", reference, eventJSON.Data.Amount, expectedKobo)
+			ctx.JSON(http.StatusOK, gin.H{"status": "amount mismatch"})
 			return
 		}
 
-		if student, err := server.store.GetStudent(ctx, payment.StudentID); err == nil {
-			eType := "payment"
-			eID := payment.ID
-			server.notifyUser(
-				ctx,
-				student.UserID,
-				"payment",
-				"dues",
-				"high",
-				"Payment Completed",
-				fmt.Sprintf("Your payment of ₦%s for %s has been completed successfully.", payment.Amount.String(), payment.ItemName),
-				"/payments",
-				"View Dues",
-				&eType,
-				&eID,
-			)
+		for _, p := range paymentsToComplete {
+			if string(p.Status) == "completed" {
+				continue
+			}
+			if _, err := server.store.UpdatePaymentStatus(ctx, db.UpdatePaymentStatusParams{
+				ID:     p.ID,
+				Status: db.PaymentStatus("completed"),
+				PaidAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+			}); err != nil {
+				log.Printf("[paystack-webhook] Failed to update payment %s: %v", p.ID, err)
+				continue
+			}
+
+			if student, err := server.store.GetStudent(ctx, p.StudentID); err == nil {
+				eType := "payment"
+				eID := p.ID
+				server.notifyUser(
+					ctx,
+					student.UserID,
+					"payment",
+					"dues",
+					"high",
+					"Payment Completed",
+					fmt.Sprintf("Your payment of ₦%s for %s has been completed successfully.", p.Amount.String(), p.ItemName),
+					"/payments",
+					"View Dues",
+					&eType,
+					&eID,
+				)
+			}
 		}
 
 		// If payment is part of a batch, check if all batch payments are now completed
@@ -150,7 +186,7 @@ func (server *Server) handlePaystackWebhook(ctx *gin.Context) {
 			}
 		}
 
-		log.Printf("[paystack-webhook] Payment %s marked as completed", reference)
+		log.Printf("[paystack-webhook] Payment(s) for reference %s marked as completed", reference)
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"status": "event processed successfully"})

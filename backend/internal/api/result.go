@@ -361,21 +361,7 @@ func (server *Server) listAllResults(ctx *gin.Context) {
 }
 
 func gradeFromScore(total decimal.Decimal) (string, float64) {
-	t := total.InexactFloat64()
-	switch {
-	case t >= 70:
-		return "A", 5.0
-	case t >= 60:
-		return "B", 4.0
-	case t >= 50:
-		return "C", 3.0
-	case t >= 45:
-		return "D", 2.0
-	case t >= 40:
-		return "E", 1.0
-	default:
-		return "F", 0.0
-	}
+	return service.ScoreToGrade(total)
 }
 
 type createResultAuditLogRequest struct {
@@ -535,6 +521,31 @@ func (server *Server) listStudentCarryoverCourses(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, carryovers)
+}
+
+// listStudentCarryoverCoursesDetailed GET /carryovers/student/:student_id/detailed
+func (server *Server) listStudentCarryoverCoursesDetailed(ctx *gin.Context) {
+	studentID, err := uuid.Parse(ctx.Param("student_id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid student id"})
+		return
+	}
+
+	if !isStaffCaller(ctx) {
+		callerStudentID, ok := requireOwnershipOrStaffByStudentIDParam(ctx, server.store)
+		if !ok {
+			return
+		}
+		studentID = callerStudentID
+	}
+
+	carryovers, err := server.results.ListCarryoversDetailed(ctx, studentID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"data": carryovers})
 }
 
 func (server *Server) deleteCarryoverCourse(ctx *gin.Context) {

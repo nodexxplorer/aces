@@ -6,19 +6,65 @@ import StatusBadge from '../../components/data-display/StatusBadge';
 import RoleBadge from '../../components/data-display/RoleBadge';
 import { getDashboardAnalytics as getDashboardStats, getRecentUsers, getRecentActivity } from '../../api/analytics';
 import { Users, BookOpen, MessageSquare, FileText, TrendingUp, Loader2 } from 'lucide-react';
-import type { User, UserRole } from '../../types';
+import type { UserRole } from '../../types';
 
-const getDisplayName = (u: any) => {
+// getRecentUsers() returns a lightweight summary, not a full User record —
+// only these fields (plus optional legacy status fields some backend
+// revisions included) actually exist on the response.
+interface RecentUserRow {
+  id: string;
+  fullName?: string;
+  full_name?: string;
+  firstName?: string;
+  lastName?: string;
+  email: string;
+  role: string;
+  createdAt?: string;
+  is_active?: boolean;
+  is_approved?: boolean;
+  isActive?: boolean;
+  isApproved?: boolean;
+}
+
+const getDisplayName = (u: RecentUserRow) => {
   if (u.fullName) return u.fullName;
   if (u.full_name) return u.full_name;
   if (u.firstName || u.lastName) return `${u.firstName || ''} ${u.lastName || ''}`.trim();
   return u.email;
 };
 
+// The dashboard summary endpoint has historically returned slightly
+// different field names across backend revisions; these optional fallbacks
+// keep the stat cards resilient without asserting `any`.
+interface DashboardStats {
+  totalUsers?: number;
+  students?: number;
+  totalCourses?: number;
+  courses?: number;
+  activeComplaints?: number;
+  complaints?: number;
+  pendingResults?: number;
+  results?: number;
+  performanceTrend?: string;
+}
+
+// Same tolerance for the "recent activity" feed: the row shape can carry
+// either a `message`/`createdAt` pair or a legacy `description`/`action`/
+// `timestamp` set depending on the source event.
+interface ActivityItem {
+  id?: string;
+  type?: string;
+  message?: string;
+  description?: string;
+  action?: string;
+  timestamp?: string;
+  createdAt?: string;
+}
+
 const AdminDashboard = () => {
-  const [stats, setStats] = useState<any>(null);
-  const [recentUsers, setRecentUsers] = useState<User[]>([]);
-  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentUsers, setRecentUsers] = useState<RecentUserRow[]>([]);
+  const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,19 +74,15 @@ const AdminDashboard = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [s, u, a] = await Promise.allSettled([
-        getDashboardStats(),
-        getRecentUsers(),
-        getRecentActivity(),
-      ]);
+      const [s, u, a] = await Promise.allSettled([getDashboardStats(), getRecentUsers(), getRecentActivity()]);
       if (s.status === 'fulfilled') setStats(s.value);
       if (u.status === 'fulfilled') {
         const items = u.value;
-        setRecentUsers(Array.isArray(items) ? items : (items as any).items || []);
+        setRecentUsers(Array.isArray(items) ? items : (items as unknown as { items?: RecentUserRow[] }).items || []);
       }
       if (a.status === 'fulfilled') {
         const items = a.value;
-        setRecentActivity(Array.isArray(items) ? items : (items as any).items || []);
+        setRecentActivity(Array.isArray(items) ? items : (items as unknown as { items?: ActivityItem[] }).items || []);
       }
     } catch {
       // silent
@@ -50,43 +92,75 @@ const AdminDashboard = () => {
   };
 
   const statCards = [
-    { label: 'Total Users', value: stats?.totalUsers ?? stats?.students ?? '—', icon: Users, color: 'text-primary-600', bg: 'bg-primary-50' },
-    { label: 'Total Courses', value: stats?.totalCourses ?? stats?.courses ?? '—', icon: BookOpen, color: 'text-success-600', bg: 'bg-success-50' },
-    { label: 'Active Complaints', value: stats?.activeComplaints ?? stats?.complaints ?? '—', icon: MessageSquare, color: 'text-warning-600', bg: 'bg-warning-50' },
-    { label: 'Pending Results', value: stats?.pendingResults ?? stats?.results ?? '—', icon: FileText, color: 'text-danger-600', bg: 'bg-danger-50' },
+    {
+      label: 'Total Users',
+      value: stats?.totalUsers ?? stats?.students ?? '—',
+      icon: Users,
+      color: 'text-primary-600',
+      bg: 'bg-primary-50',
+    },
+    {
+      label: 'Total Courses',
+      value: stats?.totalCourses ?? stats?.courses ?? '—',
+      icon: BookOpen,
+      color: 'text-success-600',
+      bg: 'bg-success-50',
+    },
+    {
+      label: 'Active Complaints',
+      value: stats?.activeComplaints ?? stats?.complaints ?? '—',
+      icon: MessageSquare,
+      color: 'text-warning-600',
+      bg: 'bg-warning-50',
+    },
+    {
+      label: 'Pending Results',
+      value: stats?.pendingResults ?? stats?.results ?? '—',
+      icon: FileText,
+      color: 'text-danger-600',
+      bg: 'bg-danger-50',
+    },
   ];
 
   const userColumns = [
     {
       key: 'name',
       label: 'User',
-      render: (_: unknown, row: User) => (
+      render: (_: unknown, row: RecentUserRow) => (
         <div>
           <p className="font-semibold">{getDisplayName(row)}</p>
           <p className="text-[10px] text-surface-500">{row.email}</p>
         </div>
       ),
     },
-    { key: 'role', label: 'Role', render: (val: unknown, row: any) => <RoleBadge role={(val || row.role) as UserRole} /> },
-    { key: 'status', label: 'Status', render: (_: unknown, row: any) => {
-      const active = row.isActive ?? row.is_active;
-      const approved = row.isApproved ?? row.is_approved;
-      return <StatusBadge status={active ? (approved ? 'active' : 'pending') : 'suspended'} />;
-    }},
+    {
+      key: 'role',
+      label: 'Role',
+      render: (val: unknown, row: RecentUserRow) => <RoleBadge role={(val || row.role) as UserRole} />,
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (_: unknown, row: RecentUserRow) => {
+        const active = row.isActive ?? row.is_active;
+        const approved = row.isApproved ?? row.is_approved;
+        return <StatusBadge status={active ? (approved ? 'active' : 'pending') : 'suspended'} />;
+      },
+    },
   ];
 
   const activityColumns = [
     {
       key: 'description',
       label: 'Activity',
-      render: (_: unknown, row: any) => (
+      render: (_: unknown, row: ActivityItem) => (
         <div>
           <p className="text-sm">{row.description || row.action}</p>
           {row.timestamp && <p className="text-[10px] text-surface-500">{new Date(row.timestamp).toLocaleString()}</p>}
         </div>
       ),
     },
-    { key: 'type', label: 'Type', render: (val: unknown) => <StatusBadge status={val as string || 'info'} /> },
+    { key: 'type', label: 'Type', render: (val: unknown) => <StatusBadge status={(val as string) || 'info'} /> },
   ];
 
   return (
@@ -124,20 +198,20 @@ const AdminDashboard = () => {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Recent Users</CardTitle>
-                  <Button size="xs" variant="ghost" onClick={() => window.location.href = '/admin/users'}>
+                  <Button size="xs" variant="ghost" onClick={() => (window.location.href = '/admin/users')}>
                     View All
                   </Button>
                 </div>
                 <CardDescription>Newly registered accounts</CardDescription>
               </CardHeader>
-              <DataTable columns={userColumns} data={recentUsers.slice(0, 5) as unknown as Record<string, unknown>[]} />
+              <DataTable columns={userColumns} data={recentUsers.slice(0, 5)} />
             </Card>
 
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Recent Activity</CardTitle>
-                  <Button size="xs" variant="ghost" onClick={() => window.location.href = '/admin/analytics'}>
+                  <Button size="xs" variant="ghost" onClick={() => (window.location.href = '/admin/analytics')}>
                     Full Analytics
                   </Button>
                 </div>

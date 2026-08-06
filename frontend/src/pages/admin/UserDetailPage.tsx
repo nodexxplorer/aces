@@ -7,9 +7,24 @@ import { getUser, updateUser, deleteUser } from '../../api/users';
 import { getCourses } from '../../api/courses';
 import { useNotification } from '../../hooks/useNotification';
 import {
-  ArrowLeft, Mail, Phone, Calendar, Shield, CheckCircle, XCircle,
-  BookOpen, Loader2, User as UserIcon, Edit3, Save, X, Trash2,
-  MapPin, AlertTriangle,GraduationCap, Clock
+  ArrowLeft,
+  Mail,
+  Phone,
+  Calendar,
+  Shield,
+  CheckCircle,
+  XCircle,
+  BookOpen,
+  Loader2,
+  User as UserIcon,
+  Edit3,
+  Save,
+  X,
+  Trash2,
+  MapPin,
+  AlertTriangle,
+  GraduationCap,
+  Clock,
 } from 'lucide-react';
 import type { User as UserType, Course, UserRole } from '../../types';
 
@@ -88,10 +103,7 @@ const UserDetailPage = () => {
         if (userData.role === 'lecturer' || userData.activeRole === 'lecturer') {
           getCourses({ page: 1, perPage: 100 })
             .then((res) => {
-              const allCourses = (res.items || (res as unknown)) as Course[];
-              const mine = allCourses.filter(
-                (c) => String(c.lecturerId || c.lecturerId || '') === String(id)
-              );
+              const mine = res.filter((c) => String(c.lecturerId || '') === String(id));
               setAssignedCourses(mine);
             })
             .catch(() => {});
@@ -174,8 +186,9 @@ const UserDetailPage = () => {
   const userRole = user.role || user.activeRole || 'user';
   const isStudent = userRole === 'student';
 
-  const inputCls = "w-full px-3 py-2 text-sm bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20";
-  const labelCls = "block text-xs font-medium text-surface-500 dark:text-surface-400 mb-1";
+  const inputCls =
+    'w-full px-3 py-2 text-sm bg-white dark:bg-surface-800 border border-surface-300 dark:border-surface-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20';
+  const labelCls = 'block text-xs font-medium text-surface-500 dark:text-surface-400 mb-1';
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -203,10 +216,20 @@ const UserDetailPage = () => {
             </>
           ) : (
             <>
-              <Button variant="outline" size="sm" leftIcon={<X className="w-4 h-4" />} onClick={() => setEditing(false)}>
+              <Button
+                variant="outline"
+                size="sm"
+                leftIcon={<X className="w-4 h-4" />}
+                onClick={() => setEditing(false)}
+              >
                 Cancel
               </Button>
-              <Button size="sm" leftIcon={saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} onClick={handleSave} disabled={saving}>
+              <Button
+                size="sm"
+                leftIcon={saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                onClick={handleSave}
+                disabled={saving}
+              >
                 Save Changes
               </Button>
             </>
@@ -228,10 +251,13 @@ const UserDetailPage = () => {
               </div>
             </div>
             <p className="text-sm text-surface-600 dark:text-surface-400">
-              Are you sure you want to permanently delete <strong>{fullName}</strong> ({user.email})? All associated data will be removed.
+              Are you sure you want to permanently delete <strong>{fullName}</strong> ({user.email})? All associated
+              data will be removed.
             </p>
             <div className="flex gap-3 justify-end pt-2">
-              <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+                Cancel
+              </Button>
               <Button
                 variant="danger"
                 leftIcon={deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
@@ -254,12 +280,8 @@ const UserDetailPage = () => {
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <Badge variant={user.isActive ? 'success' : 'danger'}>
-                  {user.isActive ? 'Active' : 'Inactive'}
-                </Badge>
-                {!user.isApproved && (
-                  <Badge variant="warning">Pending Approval</Badge>
-                )}
+                <Badge variant={user.isActive ? 'success' : 'danger'}>{user.isActive ? 'Active' : 'Inactive'}</Badge>
+                {!user.isApproved && <Badge variant="warning">Pending Approval</Badge>}
                 <span className="text-xs text-surface-400 capitalize">{userRole.replace('_', ' ')} Profile</span>
               </div>
               {editing ? (
@@ -285,8 +307,12 @@ const UserDetailPage = () => {
               <div className="flex-1">
                 <p className="text-xs text-surface-400 font-medium">Email Address</p>
                 {editing ? (
-                  <input type="email" className={inputCls} value={editForm.email}
-                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
+                  <input
+                    type="email"
+                    className={inputCls}
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  />
                 ) : (
                   <p>{user.email}</p>
                 )}
@@ -298,9 +324,13 @@ const UserDetailPage = () => {
               <div className="flex-1">
                 <p className="text-xs text-surface-400 font-medium">Phone Number</p>
                 {editing ? (
-                  <input type="tel" className={inputCls} value={editForm.phone}
+                  <input
+                    type="tel"
+                    className={inputCls}
+                    value={editForm.phone}
                     onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                    placeholder="Not provided" />
+                    placeholder="Not provided"
+                  />
                 ) : (
                   <p>{user.phone || 'Not provided'}</p>
                 )}
@@ -312,8 +342,11 @@ const UserDetailPage = () => {
               <div className="flex-1">
                 <p className="text-xs text-surface-400 font-medium">Role</p>
                 {editing ? (
-                  <select className={inputCls} value={editForm.role}
-                    onChange={(e) => setEditForm({ ...editForm, role: e.target.value as UserRole })}>
+                  <select
+                    className={inputCls}
+                    value={editForm.role}
+                    onChange={(e) => setEditForm({ ...editForm, role: e.target.value as UserRole })}
+                  >
                     <option value="student">Student</option>
                     <option value="lecturer">Lecturer</option>
                     <option value="class_rep">Class Rep</option>
@@ -333,8 +366,12 @@ const UserDetailPage = () => {
               <div className="flex-1">
                 <p className="text-xs text-surface-400 font-medium">Date of Birth</p>
                 {editing ? (
-                  <input type="date" className={inputCls} value={editForm.dateOfBirth}
-                    onChange={(e) => setEditForm({ ...editForm, dateOfBirth: e.target.value })} />
+                  <input
+                    type="date"
+                    className={inputCls}
+                    value={editForm.dateOfBirth}
+                    onChange={(e) => setEditForm({ ...editForm, dateOfBirth: e.target.value })}
+                  />
                 ) : (
                   <p>{editForm.dateOfBirth || 'Not provided'}</p>
                 )}
@@ -367,7 +404,11 @@ const UserDetailPage = () => {
               <Calendar className="w-5 h-5 text-primary-500" />
               <div>
                 <p className="text-xs text-surface-400 font-medium">Member Since</p>
-                <p>{user.createdAt ? new Date(user.createdAt).toLocaleDateString(undefined, { dateStyle: 'long' }) : 'N/A'}</p>
+                <p>
+                  {user.createdAt
+                    ? new Date(user.createdAt).toLocaleDateString(undefined, { dateStyle: 'long' })
+                    : 'N/A'}
+                </p>
               </div>
             </div>
 
@@ -386,9 +427,13 @@ const UserDetailPage = () => {
               <div className="flex-1">
                 <p className="text-xs text-surface-400 font-medium">Home Address</p>
                 {editing ? (
-                  <textarea className={inputCls} rows={2} value={editForm.homeAddress}
+                  <textarea
+                    className={inputCls}
+                    rows={2}
+                    value={editForm.homeAddress}
                     onChange={(e) => setEditForm({ ...editForm, homeAddress: e.target.value })}
-                    placeholder="Not provided" />
+                    placeholder="Not provided"
+                  />
                 ) : (
                   <p>{editForm.homeAddress || 'Not provided'}</p>
                 )}
@@ -421,12 +466,18 @@ const UserDetailPage = () => {
               <div>
                 <label className={labelCls}>Matric Number</label>
                 {editing ? (
-                  <input type="text" className={inputCls} value={editForm.matricNumber}
+                  <input
+                    type="text"
+                    className={inputCls}
+                    value={editForm.matricNumber}
                     onChange={(e) => setEditForm({ ...editForm, matricNumber: e.target.value })}
-                    placeholder="e.g. 19/ENG/COE/001" />
+                    placeholder="e.g. 19/ENG/COE/001"
+                  />
                 ) : (
                   <div className="bg-surface-50 dark:bg-surface-800/50 rounded-lg p-3">
-                    <p className="text-sm font-semibold text-surface-900 dark:text-white">{editForm.matricNumber || 'N/A'}</p>
+                    <p className="text-sm font-semibold text-surface-900 dark:text-white">
+                      {editForm.matricNumber || 'N/A'}
+                    </p>
                   </div>
                 )}
               </div>
@@ -434,8 +485,11 @@ const UserDetailPage = () => {
               <div>
                 <label className={labelCls}>Level</label>
                 {editing ? (
-                  <select className={inputCls} value={editForm.level}
-                    onChange={(e) => setEditForm({ ...editForm, level: e.target.value })}>
+                  <select
+                    className={inputCls}
+                    value={editForm.level}
+                    onChange={(e) => setEditForm({ ...editForm, level: e.target.value })}
+                  >
                     <option value="">Select Level</option>
                     <option value="100">100 Level</option>
                     <option value="200">200 Level</option>
@@ -445,7 +499,9 @@ const UserDetailPage = () => {
                   </select>
                 ) : (
                   <div className="bg-surface-50 dark:bg-surface-800/50 rounded-lg p-3">
-                    <p className="text-sm font-semibold text-surface-900 dark:text-white">{editForm.level ? `${editForm.level} Level` : 'N/A'}</p>
+                    <p className="text-sm font-semibold text-surface-900 dark:text-white">
+                      {editForm.level ? `${editForm.level} Level` : 'N/A'}
+                    </p>
                   </div>
                 )}
               </div>
@@ -453,22 +509,29 @@ const UserDetailPage = () => {
               <div>
                 <label className={labelCls}>CGPA</label>
                 <div className="bg-surface-50 dark:bg-surface-800/50 rounded-lg p-3">
-                  <p className="text-sm font-semibold text-surface-900 dark:text-white">{((user as UserType & { cgpa?: number | string }).cgpa) ?? 'N/A'}</p>
+                  <p className="text-sm font-semibold text-surface-900 dark:text-white">
+                    {(user as UserType & { cgpa?: number | string }).cgpa ?? 'N/A'}
+                  </p>
                 </div>
               </div>
 
               <div>
                 <label className={labelCls}>Admission Mode</label>
                 {editing ? (
-                  <select className={inputCls} value={editForm.admissionMode}
-                    onChange={(e) => setEditForm({ ...editForm, admissionMode: e.target.value })}>
+                  <select
+                    className={inputCls}
+                    value={editForm.admissionMode}
+                    onChange={(e) => setEditForm({ ...editForm, admissionMode: e.target.value })}
+                  >
                     <option value="">Select Mode</option>
                     <option value="UTME">UTME</option>
                     <option value="Direct Entry">Direct Entry</option>
                   </select>
                 ) : (
                   <div className="bg-surface-50 dark:bg-surface-800/50 rounded-lg p-3">
-                    <p className="text-sm font-semibold text-surface-900 dark:text-white">{editForm.admissionMode || 'N/A'}</p>
+                    <p className="text-sm font-semibold text-surface-900 dark:text-white">
+                      {editForm.admissionMode || 'N/A'}
+                    </p>
                   </div>
                 )}
               </div>
@@ -476,12 +539,20 @@ const UserDetailPage = () => {
               <div>
                 <label className={labelCls}>Year Admitted</label>
                 {editing ? (
-                  <input type="number" className={inputCls} value={editForm.yearAdmitted}
+                  <input
+                    type="number"
+                    className={inputCls}
+                    value={editForm.yearAdmitted}
                     onChange={(e) => setEditForm({ ...editForm, yearAdmitted: e.target.value })}
-                    placeholder="e.g. 2023" min="1900" max={new Date().getFullYear()} />
+                    placeholder="e.g. 2023"
+                    min="1900"
+                    max={new Date().getFullYear()}
+                  />
                 ) : (
                   <div className="bg-surface-50 dark:bg-surface-800/50 rounded-lg p-3">
-                    <p className="text-sm font-semibold text-surface-900 dark:text-white">{editForm.yearAdmitted || 'N/A'}</p>
+                    <p className="text-sm font-semibold text-surface-900 dark:text-white">
+                      {editForm.yearAdmitted || 'N/A'}
+                    </p>
                   </div>
                 )}
               </div>
@@ -490,7 +561,13 @@ const UserDetailPage = () => {
                 <label className={labelCls}>Academic Standing</label>
                 <div className="bg-surface-50 dark:bg-surface-800/50 rounded-lg p-3">
                   <p className="text-sm font-semibold text-surface-900 dark:text-white capitalize">
-                    {user ? (user as UserType & { academicStanding?: string; academic_standing?: string }).academicStanding || (user as UserType & { academicStanding?: string; academic_standing?: string }).academic_standing || 'N/A' : 'N/A'}
+                    {user
+                      ? (user as UserType & { academicStanding?: string; academic_standing?: string })
+                          .academicStanding ||
+                        (user as UserType & { academicStanding?: string; academic_standing?: string })
+                          .academic_standing ||
+                        'N/A'
+                      : 'N/A'}
                   </p>
                 </div>
               </div>
@@ -513,24 +590,36 @@ const UserDetailPage = () => {
             <div>
               <label className={labelCls}>Contact Name</label>
               {editing ? (
-                <input type="text" className={inputCls} value={editForm.emergencyContactName}
+                <input
+                  type="text"
+                  className={inputCls}
+                  value={editForm.emergencyContactName}
                   onChange={(e) => setEditForm({ ...editForm, emergencyContactName: e.target.value })}
-                  placeholder="Full name" />
+                  placeholder="Full name"
+                />
               ) : (
                 <div className="bg-surface-50 dark:bg-surface-800/50 rounded-lg p-3">
-                  <p className="text-sm font-semibold text-surface-900 dark:text-white">{editForm.emergencyContactName || 'N/A'}</p>
+                  <p className="text-sm font-semibold text-surface-900 dark:text-white">
+                    {editForm.emergencyContactName || 'N/A'}
+                  </p>
                 </div>
               )}
             </div>
             <div>
               <label className={labelCls}>Contact Phone</label>
               {editing ? (
-                <input type="tel" className={inputCls} value={editForm.emergencyContactPhone}
+                <input
+                  type="tel"
+                  className={inputCls}
+                  value={editForm.emergencyContactPhone}
                   onChange={(e) => setEditForm({ ...editForm, emergencyContactPhone: e.target.value })}
-                  placeholder="Phone number" />
+                  placeholder="Phone number"
+                />
               ) : (
                 <div className="bg-surface-50 dark:bg-surface-800/50 rounded-lg p-3">
-                  <p className="text-sm font-semibold text-surface-900 dark:text-white">{editForm.emergencyContactPhone || 'N/A'}</p>
+                  <p className="text-sm font-semibold text-surface-900 dark:text-white">
+                    {editForm.emergencyContactPhone || 'N/A'}
+                  </p>
                 </div>
               )}
             </div>
@@ -566,7 +655,9 @@ const UserDetailPage = () => {
                   <tbody className="divide-y divide-surface-100 dark:divide-surface-700/50">
                     {assignedCourses.map((course: Course) => (
                       <tr key={course.id}>
-                        <td className="px-3 py-2 font-semibold text-primary-600 dark:text-primary-400">{course.code}</td>
+                        <td className="px-3 py-2 font-semibold text-primary-600 dark:text-primary-400">
+                          {course.code}
+                        </td>
                         <td className="px-3 py-2">{course.title}</td>
                         <td className="px-3 py-2">{course.unit || course.creditUnits}</td>
                         <td className="px-3 py-2">{course.level}</td>

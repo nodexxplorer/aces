@@ -10,6 +10,7 @@ interface BackendCourse {
   level: number;
   semester: string;
   course_type: string;
+  requirement_type?: string;
   lecturer_id?: string;
   is_active: boolean;
   max_credit_hours?: number;
@@ -29,7 +30,9 @@ function mapCourse(c: BackendCourse): Course {
     level: c.level,
     semester: c.semester as Course['semester'],
     courseType: c.course_type,
-    subcategory: (c.course_type || 'core') as Course['subcategory'],
+    // Core/elective — independent of course_type (departmental vs
+    // non-departmental, which governs cross-department registration).
+    subcategory: (c.requirement_type || 'core') as Course['subcategory'],
     lecturerId: c.lecturer_id,
     department: '',
     isActive: c.is_active,
@@ -47,14 +50,14 @@ export const getCourses = async (params?: { page?: number; perPage?: number; lev
   };
   const res = await apiClient.get('/courses', { params: queryParams });
   const raw = unwrap<BackendCourse[] | { data: BackendCourse[] }>(res);
-  const list = Array.isArray(raw) ? raw : (raw as any)?.data ?? [];
+  const list = Array.isArray(raw) ? raw : (raw?.data ?? []);
   return list.map(mapCourse);
 };
 
 export const getCoursesByLevelAndSemester = async (level: number, semester: string) => {
   const res = await apiClient.get('/courses/filter', { params: { level, semester } });
   const raw = unwrap<{ data: BackendCourse[] } | BackendCourse[]>(res);
-  const list = Array.isArray(raw) ? raw : (raw as any)?.data ?? [];
+  const list = Array.isArray(raw) ? raw : (raw?.data ?? []);
   return list.map(mapCourse);
 };
 
@@ -63,7 +66,18 @@ export const getCourse = async (courseId: string) => {
   return mapCourse(unwrap<BackendCourse>(res));
 };
 
-export const createCourse = async (payload: { code: string; title: string; unit: number; level: number; semester: string; is_active?: boolean; course_type?: string; lecturer_id?: string; max_credit_hours?: number }) => {
+export const createCourse = async (payload: {
+  code: string;
+  title: string;
+  unit: number;
+  level: number;
+  semester: string;
+  is_active?: boolean;
+  course_type?: string;
+  requirement_type?: string;
+  lecturer_id?: string;
+  max_credit_hours?: number;
+}) => {
   const res = await apiClient.post('/courses', payload);
   return mapCourse(unwrap<BackendCourse>(res));
 };
@@ -79,6 +93,9 @@ export const deleteCourse = async (courseId: string) => {
 
 export const getCourseClassList = async (courseId: string) => {
   const res = await apiClient.get(`/courses/${courseId}/class-list`);
-  const raw = unwrap<{ data: Array<{ student_id?: string; matric_number: string; name: string; course_code: string; status: string }> } | Array<{ student_id?: string; matric_number: string; name: string; course_code: string; status: string }>>(res);
-  return Array.isArray(raw) ? raw : (raw as any)?.data ?? [];
+  const raw = unwrap<
+    | { data: Array<{ student_id?: string; matric_number: string; name: string; course_code: string; status: string }> }
+    | Array<{ student_id?: string; matric_number: string; name: string; course_code: string; status: string }>
+  >(res);
+  return Array.isArray(raw) ? raw : (raw?.data ?? []);
 };

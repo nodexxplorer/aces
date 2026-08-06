@@ -1,8 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+
+interface QueuedAction {
+  action: string;
+  data: unknown;
+}
 
 export const useOfflineSync = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pendingSync, setPendingSync] = useState(0);
+  const queueRef = useRef<QueuedAction[]>([]);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -15,7 +21,8 @@ export const useOfflineSync = () => {
     };
   }, []);
 
-  const queueAction = (_action: string, _data: unknown) => {
+  const queueAction = (action: string, data: unknown) => {
+    queueRef.current.push({ action, data });
     setPendingSync((prev) => prev + 1);
   };
 

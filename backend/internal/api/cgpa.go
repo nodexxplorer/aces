@@ -81,6 +81,10 @@ func (server *Server) calculateCgpa(ctx *gin.Context) {
 		return
 	}
 
+	if !requireOwnershipOrStaff(ctx, server.store, studentID) {
+		return
+	}
+
 	result, err := server.students.CalculateCGPA(ctx, studentID)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
@@ -88,4 +92,66 @@ func (server *Server) calculateCgpa(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, result)
+}
+
+type cgpaSimulateOverride struct {
+	CourseID string  `json:"course_id" binding:"required,uuid"`
+	Score    float64 `json:"score"      binding:"required,min=0,max=100"`
+}
+
+type cgpaSimulateRequest struct {
+	Overrides []cgpaSimulateOverride `json:"overrides" binding:"required,min=1,dive"`
+}
+
+// simulateCgpa POST /cgpa/simulate — "what if I score X in course Y" for the
+// authenticated student, computed against their real approved results.
+func (server *Server) simulateCgpa(ctx *gin.Context) {
+	studentID, err := server.getStudentIDFromUser(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "internal server error"})
+		return
+	}
+
+	var req cgpaSimulateRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	overrides := make([]service.ScoreOverride, 0, len(req.Overrides))
+	for _, o := range req.Overrides {
+		courseID, err := uuid.Parse(o.CourseID)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid course_id"})
+			return
+		}
+		overrides = append(overrides, service.ScoreOverride{CourseID: courseID, Score: o.Score})
+	}
+
+	simulation, err := server.students.SimulateCGPA(ctx, studentID, overrides)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"data": simulation})
+}
+
+// getMyApprovedResults GET /cgpa/my-results — the authenticated student's
+// real approved results with course details, used to seed the what-if
+// simulator with actual data instead of free-text entry.
+func (server *Server) getMyApprovedResults(ctx *gin.Context) {
+	studentID, err := server.getStudentIDFromUser(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "internal server error"})
+		return
+	}
+
+	results, err := server.students.GetApprovedResultsDetailed(ctx, studentID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"data": results})
 }

@@ -57,23 +57,20 @@ func (s *NotificationServiceFull) CreateAndPush(
 		notif.ActionLabel = &actionLabel
 	}
 
-	if s.wsHub != nil {
+	prefs, prefsErr := s.queries.GetNotificationPreferences(ctx, userID)
+	hasPrefs := prefsErr == nil
+
+	if s.wsHub != nil && (!hasPrefs || prefs.InAppEnabled) {
 		s.wsHub.SendToUser(userID, ws.TypeNotification, notif)
 	}
 
-	if s.emailSender != nil {
+	if s.emailSender != nil && (!hasPrefs || (prefs.EmailEnabled && categoryEmailAllowed(prefs, category))) {
 		go func(uID uuid.UUID, notifTitle, notifMsg string) {
 			bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
 			user, err := s.queries.GetUser(bgCtx, uID)
 			if err != nil || user.Email == "" {
-				return
-			}
-
-			// Check preferences if set
-			prefs, err := s.queries.GetNotificationPreferences(bgCtx, uID)
-			if err == nil && !prefs.EmailEnabled {
 				return
 			}
 
@@ -97,6 +94,31 @@ func (s *NotificationServiceFull) CreateAndPush(
 	}
 
 	return notif, nil
+}
+
+// categoryEmailAllowed checks the per-category email toggle for a notification
+// category, defaulting to allowed for categories with no dedicated preference.
+func categoryEmailAllowed(prefs db.NotificationPreference, category string) bool {
+	switch category {
+	case "auth":
+		return prefs.EmailAuth
+	case "results":
+		return prefs.EmailResults
+	case "dues":
+		return prefs.EmailDues
+	case "messages":
+		return prefs.EmailMessages
+	case "connect":
+		return prefs.EmailConnect
+	case "skills":
+		return prefs.EmailSkills
+	case "alumni":
+		return prefs.EmailAlumni
+	case "system":
+		return prefs.EmailSystem
+	default:
+		return true
+	}
 }
 
 func (s *NotificationServiceFull) List(ctx context.Context, userID uuid.UUID, category, status string, limit, offset int32) ([]db.NotificationFull, error) {

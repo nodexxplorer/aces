@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	db "github.com/aces/backend/internal/db/sql"
+	"github.com/aces/backend/internal/ws"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -149,6 +150,10 @@ func (server *Server) sendMessage(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
+	}
+
+	if server.wsHub != nil {
+		server.wsHub.SendToUser(req.ReceiverID, ws.TypeChat, message)
 	}
 
 	ctx.JSON(http.StatusOK, message)

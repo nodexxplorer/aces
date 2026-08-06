@@ -106,10 +106,6 @@ type updatePaymentStatusRequest struct {
 	PaidAt *string `json:"paid_at"` // RFC3339
 }
 
-type verifyPaymentRequest struct {
-	VerifiedBy string `json:"verified_by" binding:"required,uuid"`
-}
-
 type checkDuePaidQuery struct {
 	StudentID string `form:"student_id" binding:"omitempty,uuid"`
 	DueID     string `form:"due_id"     binding:"required,uuid"`
@@ -124,7 +120,7 @@ func (server *Server) resolveStudentIDForPaymentRead(ctx *gin.Context, pathParam
 	claimsVal, exists := ctx.Get("claims")
 	if exists {
 		if claims, ok := claimsVal.(*auth.Claims); ok && claims.HasRole("student") &&
-			!claims.HasAnyRole([]string{"hod", "admin", "delegated_admin", "dept_bursar", "class_bursar"}) {
+			!claims.HasAnyRole([]string{"hod", "admin", "delegated_admin", "bursar_dept", "bursar_class"}) {
 			return server.getStudentIDFromUser(ctx)
 		}
 	}
@@ -141,7 +137,7 @@ func isStaffRole(ctx *gin.Context) bool {
 	if !ok {
 		return false
 	}
-	return claims.HasAnyRole([]string{"hod", "admin", "delegated_admin", "dept_bursar", "class_bursar"})
+	return claims.HasAnyRole([]string{"hod", "admin", "delegated_admin", "bursar_dept", "bursar_class"})
 }
 
 // ─── Dues Handlers ────────────────────────────────────────────────────────────
@@ -372,6 +368,19 @@ func (server *Server) addToCart(ctx *gin.Context) {
 	if !due.IsActive {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "this due is no longer active"})
 		return
+	}
+
+	// AddToCart is a plain INSERT with no uniqueness constraint on
+	// (student_id, due_id), so without this check a student could add the
+	// same due twice and be double-charged at checkout.
+	existingItems, err := server.store.ListStudentCart(ctx, studentID)
+	if err == nil {
+		for _, existing := range existingItems {
+			if existing.DueID == dueID {
+				ctx.JSON(http.StatusConflict, gin.H{"error": "this due is already in your cart"})
+				return
+			}
+		}
 	}
 
 	item, err := server.store.AddToCart(ctx, db.AddToCartParams{
@@ -824,15 +833,11 @@ func (server *Server) verifyPayment(ctx *gin.Context) {
 		return
 	}
 
-	var req verifyPaymentRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
-		return
-	}
-
-	verifiedBy, err := uuid.Parse(req.VerifiedBy)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid verified_by"})
+	// Who verified this payment is an audit-trail fact, not something a caller
+	// gets to assert — always derive it from the authenticated session.
+	verifiedBy := getUserID(ctx)
+	if verifiedBy == uuid.Nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 
@@ -856,6 +861,13 @@ func (server *Server) verifyPayment(ctx *gin.Context) {
 		}
 		if psResp.Data.Status != "success" {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": "payment not successful on Paystack (status: " + psResp.Data.Status + ")"})
+			return
+		}
+		// Never trust status=="success" alone — confirm Paystack actually
+		// collected at least what this payment is for before crediting it.
+		expectedKobo := paymentRecord.Amount.Mul(decimal.NewFromInt(100)).IntPart()
+		if psResp.Data.Amount < expectedKobo {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("amount mismatch: Paystack shows %d kobo paid, expected at least %d kobo", psResp.Data.Amount, expectedKobo)})
 			return
 		}
 	}
@@ -1094,13 +1106,18 @@ func (server *Server) checkoutCart(ctx *gin.Context) {
 			itemName = due.Name
 			dueType = due.Type
 		}
+		// Stamp the batch's Paystack reference onto each individual payment too —
+		// both the webhook and the staff by-reference lookup query the payments
+		// table directly, so without this a successful cart checkout can never be
+		// reconciled back to the dues it paid for.
 		_, err = server.store.CreatePayment(ctx, db.CreatePaymentParams{
-			StudentID: studentID,
-			BatchID:   pgtype.UUID{Bytes: batchID, Valid: true},
-			DueID:     item.DueID,
-			Type:      dueType,
-			ItemName:  itemName,
-			Amount:    item.Amount,
+			StudentID:         studentID,
+			BatchID:           pgtype.UUID{Bytes: batchID, Valid: true},
+			DueID:             item.DueID,
+			Type:              dueType,
+			ItemName:          itemName,
+			Amount:            item.Amount,
+			PaystackReference: &reference,
 		})
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})

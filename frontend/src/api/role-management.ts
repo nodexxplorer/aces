@@ -1,34 +1,58 @@
 import apiClient, { unwrap } from './client';
 import type { UserRole, RoleAssignmentLog, StudentForRoleManagement, User } from '../types';
 
+export interface AdminPermission {
+  userId?: string;
+  user_id?: string;
+  canApproveResults?: boolean;
+  canManageComplaints?: boolean;
+  canViewAnalytics?: boolean;
+  canManageUsers?: boolean;
+}
+
+export interface Role {
+  id?: string;
+  name: string;
+  description?: string;
+  permissions?: string[];
+  userCount?: number;
+  isActive?: boolean;
+}
+
 // ==================== ADMIN PERMISSIONS ====================
 
 export const getAdminPermissions = async () => {
   const res = await apiClient.get('/admin-permissions');
-  return unwrap<any[]>(res);
+  return unwrap<AdminPermission[]>(res);
 };
 
 export const getAdminPermission = async (userId: string) => {
   const res = await apiClient.get(`/admin-permissions/${userId}`);
-  return unwrap<any>(res);
+  return unwrap<AdminPermission>(res);
 };
 
-export const grantAdminPermission = async (userId: string, permissions: {
-  canApproveResults?: boolean;
-  canManageComplaints?: boolean;
-  canViewAnalytics?: boolean;
-  canManageUsers?: boolean;
-}) => {
+export const grantAdminPermission = async (
+  userId: string,
+  permissions: {
+    canApproveResults?: boolean;
+    canManageComplaints?: boolean;
+    canViewAnalytics?: boolean;
+    canManageUsers?: boolean;
+  },
+) => {
   const res = await apiClient.post('/admin-permissions', { userId, ...permissions });
   return unwrap<User>(res);
 };
 
-export const updateAdminPermission = async (userId: string, permissions: {
-  canApproveResults?: boolean;
-  canManageComplaints?: boolean;
-  canViewAnalytics?: boolean;
-  canManageUsers?: boolean;
-}) => {
+export const updateAdminPermission = async (
+  userId: string,
+  permissions: {
+    canApproveResults?: boolean;
+    canManageComplaints?: boolean;
+    canViewAnalytics?: boolean;
+    canManageUsers?: boolean;
+  },
+) => {
   const res = await apiClient.put(`/admin-permissions/${userId}`, permissions);
   return unwrap<User>(res);
 };
@@ -44,21 +68,17 @@ export const delegateAdmin = async (userId: string) => {
 
 export const getAllRoles = async () => {
   const res = await apiClient.get('/roles');
-  return unwrap<any[]>(res);
+  return unwrap<Role[] | { items: Role[] }>(res);
 };
 
 export const createRole = async (payload: { name: string; description?: string; permissions?: string[] }) => {
   const res = await apiClient.post('/roles', payload);
-  return unwrap<any>(res);
+  return unwrap<Role>(res);
 };
 
 // ==================== STUDENT ROLE MANAGEMENT ====================
 
-export const searchStudentsForRoles = async (params: {
-  search?: string;
-  page?: number;
-  per_page?: number;
-}) => {
+export const searchStudentsForRoles = async (params: { search?: string; page?: number; per_page?: number }) => {
   const res = await apiClient.get('/roles/students', { params });
   const data = res.data;
   return {
@@ -94,18 +114,18 @@ export const getUserRoleNames = async (userId: string) => {
 
 // ==================== ROLE ASSIGNMENT LOGS ====================
 
-export const getRoleAssignmentLogs = async (params?: {
-  limit?: number;
-  offset?: number;
-}) => {
+export const getRoleAssignmentLogs = async (params?: { limit?: number; offset?: number }) => {
   const res = await apiClient.get('/roles/logs', { params });
   return unwrap<RoleAssignmentLog[]>(res);
 };
 
-export const getRoleLogsByUser = async (userId: string, params?: {
-  limit?: number;
-  offset?: number;
-}) => {
+export const getRoleLogsByUser = async (
+  userId: string,
+  params?: {
+    limit?: number;
+    offset?: number;
+  },
+) => {
   const res = await apiClient.get(`/roles/logs/user/${userId}`, { params });
   return unwrap<RoleAssignmentLog[]>(res);
 };

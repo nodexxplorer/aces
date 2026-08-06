@@ -6,33 +6,39 @@ import Modal from '../../components/ui/Modal';
 import { useNotification } from '../../hooks/useNotification';
 import { Search, MapPin, Briefcase, ExternalLink, Send } from 'lucide-react';
 import { getJobPosts, applyToJob } from '../../api/alumni';
+import { getErrorMessage } from '../../utils/errors';
 import type { JobPost } from '../../types';
 
-const typeLabels: Record<string, string> = { full_time: 'Full Time', part_time: 'Part Time', internship: 'Internship', contract: 'Contract' };
-const typeColors: Record<string, string> = { full_time: 'primary', part_time: 'info', internship: 'success', contract: 'warning' };
+type JobTypeVariant = 'primary' | 'info' | 'success' | 'warning';
 
-const extractTimestamptz = (v: any): string => {
-  if (!v) return '';
-  if (typeof v === 'string') return v;
-  if (v.Time) return v.Time;
-  return '';
+const typeLabels: Record<string, string> = {
+  full_time: 'Full Time',
+  part_time: 'Part Time',
+  internship: 'Internship',
+  contract: 'Contract',
+};
+const typeColors: Record<string, JobTypeVariant> = {
+  full_time: 'primary',
+  part_time: 'info',
+  internship: 'success',
+  contract: 'warning',
 };
 
-const extractId = (v: any): string => {
+const extractId = (v: unknown): string => {
   if (!v) return '';
   if (typeof v === 'string') return v;
-  if (v.String) return v.String;
+  if (typeof v === 'object' && 'String' in v) return String((v as { String: unknown }).String);
   return String(v);
 };
 
 const StudentJobBoardPage = () => {
   const { success, error: notifyError } = useNotification();
-  const [jobs, setJobs] = useState<any[]>([]);
+  const [jobs, setJobs] = useState<JobPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [applyOpen, setApplyOpen] = useState(false);
-  const [selectedJob, setSelectedJob] = useState<any>(null);
+  const [selectedJob, setSelectedJob] = useState<JobPost | null>(null);
   const [coverLetter, setCoverLetter] = useState('');
   const [resumeUrl, setResumeUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -52,7 +58,7 @@ const StudentJobBoardPage = () => {
     return matchSearch && matchType;
   });
 
-  const openApply = (job: any) => {
+  const openApply = (job: JobPost) => {
     setSelectedJob(job);
     setCoverLetter('');
     setResumeUrl('');
@@ -70,8 +76,8 @@ const StudentJobBoardPage = () => {
       });
       setApplyOpen(false);
       success('Application Sent', `Your application for ${selectedJob.title} has been submitted`);
-    } catch (err: any) {
-      notifyError('Application Failed', err?.response?.data?.error || err?.message || 'Could not submit application');
+    } catch (err) {
+      notifyError('Application Failed', getErrorMessage(err, 'Could not submit application'));
     } finally {
       setSubmitting(false);
     }
@@ -109,9 +115,13 @@ const StudentJobBoardPage = () => {
       </div>
 
       {loading ? (
-        <Card><div className="p-12 text-center text-sm text-surface-500">Loading jobs...</div></Card>
+        <Card>
+          <div className="p-12 text-center text-sm text-surface-500">Loading jobs...</div>
+        </Card>
       ) : filtered.length === 0 ? (
-        <Card><div className="p-12 text-center text-sm text-surface-400">No job listings available</div></Card>
+        <Card>
+          <div className="p-12 text-center text-sm text-surface-400">No job listings available</div>
+        </Card>
       ) : (
         <div className="space-y-4">
           {filtered.map((job) => {
@@ -122,23 +132,44 @@ const StudentJobBoardPage = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="text-lg font-semibold text-surface-900 dark:text-white">{job.title}</h3>
-                      <Badge variant={(typeColors[type] || 'primary') as any}>{typeLabels[type] || type}</Badge>
+                      <Badge variant={typeColors[type] || 'primary'}>{typeLabels[type] || type}</Badge>
                     </div>
                     <p className="text-sm font-medium text-surface-600 dark:text-surface-400">{job.company}</p>
                     <div className="flex items-center gap-3 text-xs text-surface-500 mt-1 flex-wrap">
-                      {job.location && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {job.location}</span>}
-                      {(job.salary_range || job.salaryRange) && <span className="flex items-center gap-1"><Briefcase className="w-3.5 h-3.5" /> {job.salary_range || job.salaryRange}</span>}
+                      {job.location && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5" /> {job.location}
+                        </span>
+                      )}
+                      {(job.salary_range || job.salaryRange) && (
+                        <span className="flex items-center gap-1">
+                          <Briefcase className="w-3.5 h-3.5" /> {job.salary_range || job.salaryRange}
+                        </span>
+                      )}
                     </div>
-                    <p className="text-sm text-surface-600 dark:text-surface-400 mt-3 line-clamp-3">{job.description}</p>
+                    <p className="text-sm text-surface-600 dark:text-surface-400 mt-3 line-clamp-3">
+                      {job.description}
+                    </p>
                     {job.requirements && (
-                      <p className="text-xs text-surface-500 mt-2"><span className="font-medium">Requirements:</span> {job.requirements}</p>
+                      <p className="text-xs text-surface-500 mt-2">
+                        <span className="font-medium">Requirements:</span> {job.requirements}
+                      </p>
                     )}
-                    {job.poster_name && <p className="text-[10px] text-surface-400 mt-2">Posted by {job.poster_name}</p>}
+                    {job.poster_name && (
+                      <p className="text-[10px] text-surface-400 mt-2">Posted by {job.poster_name}</p>
+                    )}
                   </div>
                   <div className="flex flex-col gap-2 shrink-0">
-                    <Button size="sm" leftIcon={<Send className="w-3.5 h-3.5" />} onClick={() => openApply(job)}>Apply</Button>
+                    <Button size="sm" leftIcon={<Send className="w-3.5 h-3.5" />} onClick={() => openApply(job)}>
+                      Apply
+                    </Button>
                     {job.application_url && (
-                      <Button size="sm" variant="outline" leftIcon={<ExternalLink className="w-3.5 h-3.5" />} onClick={() => window.open(job.application_url, '_blank')}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        leftIcon={<ExternalLink className="w-3.5 h-3.5" />}
+                        onClick={() => window.open(job.application_url, '_blank')}
+                      >
                         External Link
                       </Button>
                     )}
@@ -162,7 +193,9 @@ const StudentJobBoardPage = () => {
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Resume/CV URL (optional)</label>
+            <label className="text-sm font-medium text-surface-700 dark:text-surface-300">
+              Resume/CV URL (optional)
+            </label>
             <input
               type="url"
               className="w-full mt-1 px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg"

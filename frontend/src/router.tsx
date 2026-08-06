@@ -82,18 +82,22 @@ const CourseDetailPage = lazy(() => import('./pages/admin/CourseDetailPage'));
 // const LecturerManagementPage = lazy(() => import('./pages/admin/LecturerManagementPage'));
 
 // AI Predictions
-const GPAPredictionPage = lazy(() => import('./pages/student/GPAPredictionPage'));
 const GPAHubPage = lazy(() => import('./pages/student/GPAHubPage'));
 const AtRiskDashboard = lazy(() => import('./pages/admin/AtRiskDashboard'));
 const GradeDistributionPage = lazy(() => import('./pages/admin/GradeDistributionPage'));
 
 // Additional Features
 const StudyPlannerPage = lazy(() => import('./pages/student/StudyPlannerPage'));
-const GPACalculatorPage = lazy(() => import('./pages/student/GPACalculatorPage'));
 const GradeAppealsPage = lazy(() => import('./pages/student/GradeAppealsPage'));
 const ClassNoticeBoardPage = lazy(() => import('./pages/shared/ClassNoticeBoardPage'));
-// const CalendarPage = lazy(() => import('./pages/admin/CalendarPage'));
+const CalendarPage = lazy(() => import('./pages/admin/CalendarPage'));
 const ExpensesPage = lazy(() => import('./pages/admin/ExpensesPage'));
+
+// New high-impact features
+const CarryoverPage = lazy(() => import('./pages/student/CarryoverPage'));
+const AttendanceCheckinPage = lazy(() => import('./pages/student/AttendanceCheckinPage'));
+const StudentCourseMaterialsPage = lazy(() => import('./pages/student/CourseMaterialsPage'));
+const LecturerCourseMaterialsPage = lazy(() => import('./pages/lecturer/CourseMaterialsPage'));
 
 const SupportPage = lazy(() => import('./pages/shared/SupportPage'));
 const QRScanPage = lazy(() => import('./pages/student/QRScanPage'));
@@ -104,13 +108,10 @@ const PasswordResetOTPPage = lazy(() => import('./pages/auth/PasswordResetOTPPag
 
 // Onboarding & Verification
 const WaitingDashboardPage = lazy(() => import('./pages/shared/WaitingDashboardPage'));
-const StudentAnnouncementsPage = lazy(() => import('./pages/shared/StudentAnnouncementsPage'));
 const StudentCommunicationPage = lazy(() => import('./pages/student/StudentCommunicationPage'));
 
 // Campus Connect (new)
 const ConnectPage = lazy(() => import('./pages/connect/ConnectPage'));
-
-
 
 // Alumni
 const AlumniDashboard = lazy(() => import('./pages/alumni/AlumniDashboard'));
@@ -173,13 +174,17 @@ const ProtectedRoute = () => {
     user.onboardingCompleted !== false &&
     user.isApproved === false &&
     user.isActive !== false &&
-    pendingRoles.includes(user.role || user.activeRole || '') &&
+    pendingRoles.includes(user.activeRole || user.role || '') &&
     !waitingRoutes.includes(location.pathname)
   ) {
     return <Navigate to="/waiting" replace />;
   }
 
-  return <SuspenseWrapper><Outlet /></SuspenseWrapper>;
+  return (
+    <SuspenseWrapper>
+      <Outlet />
+    </SuspenseWrapper>
+  );
 };
 
 const PublicOnlyRoute = () => {
@@ -199,7 +204,11 @@ const PublicOnlyRoute = () => {
     }
     return <Navigate to="/dashboard" replace />;
   }
-  return <SuspenseWrapper><Outlet /></SuspenseWrapper>;
+  return (
+    <SuspenseWrapper>
+      <Outlet />
+    </SuspenseWrapper>
+  );
 };
 
 const RoleRoute = ({ roles }: { roles: UserRole[] }) => {
@@ -228,8 +237,22 @@ export const router = createBrowserRouter([
   {
     element: <ProtectedRoute />,
     children: [
-      { path: '/login/celebration', element: <SuspenseWrapper><LoginCelebrationPage /></SuspenseWrapper> },
-      { path: '/onboarding', element: <SuspenseWrapper><StudentOnboardingPage /></SuspenseWrapper> },
+      {
+        path: '/login/celebration',
+        element: (
+          <SuspenseWrapper>
+            <LoginCelebrationPage />
+          </SuspenseWrapper>
+        ),
+      },
+      {
+        path: '/onboarding',
+        element: (
+          <SuspenseWrapper>
+            <StudentOnboardingPage />
+          </SuspenseWrapper>
+        ),
+      },
       {
         element: <AppShell />,
         children: [
@@ -237,7 +260,7 @@ export const router = createBrowserRouter([
 
           // Student-only routes (lecturers cannot access)
           {
-            element: <RoleRoute roles={['student', 'class_rep','dept_bursar', 'class_bursar', 'alumni']} />,
+            element: <RoleRoute roles={['student', 'class_rep', 'dept_bursar', 'class_bursar', 'alumni']} />,
             children: [
               { path: '/results', element: <ResultsPage /> },
               { path: '/results/:id', element: <ResultDetailPage /> },
@@ -258,6 +281,9 @@ export const router = createBrowserRouter([
               { path: '/grade-appeals', element: <GradeAppealsPage /> },
               { path: '/support', element: <SupportPage /> },
               { path: '/help-center', element: <SupportPage /> },
+              { path: '/carryovers', element: <CarryoverPage /> },
+              { path: '/materials', element: <StudentCourseMaterialsPage /> },
+              { path: '/attendance/checkin', element: <AttendanceCheckinPage /> },
             ],
           },
           // Shared routes (all roles)
@@ -265,7 +291,9 @@ export const router = createBrowserRouter([
           { path: '/profile', element: <ProfilePage /> },
           { path: '/notices', element: <Navigate to="/communication" replace /> },
           { path: '/scan', element: <QRScanPage /> },
-          
+          { path: '/calendar', element: <CalendarPage /> },
+          { path: '/notice-board', element: <ClassNoticeBoardPage /> },
+
           { path: '/waiting', element: <WaitingDashboardPage /> },
           { path: '/announcements', element: <Navigate to="/communication" replace /> },
           { path: '/communication', element: <StudentCommunicationPage /> },
@@ -284,6 +312,7 @@ export const router = createBrowserRouter([
               { path: '/lecturer/class-list', element: <LecturerClassListPage /> },
               { path: '/lecturer/reports', element: <LecturerReportsPage /> },
               { path: '/lecturer/attendance-review', element: <LecturerAttendanceReviewPage /> },
+              { path: '/lecturer/materials', element: <LecturerCourseMaterialsPage /> },
             ],
           },
 
@@ -351,8 +380,6 @@ export const router = createBrowserRouter([
           // Campus Connect (new)
           { path: '/connect', element: <ConnectPage /> },
 
-
-
           // Alumni
           {
             element: <RoleRoute roles={['alumni', 'hod', 'delegated_admin']} />,
@@ -372,15 +399,50 @@ export const router = createBrowserRouter([
           { path: '/notifications', element: <NotificationsPage /> },
           { path: '/notifications/settings', element: <NotificationSettingsPage /> },
           { path: '/search', element: <SearchResultsPage /> },
-          { path: '/forbidden', element: <SuspenseWrapper><ForbiddenPage /></SuspenseWrapper> },
-          { path: '/error', element: <SuspenseWrapper><ServerErrorPage /></SuspenseWrapper> },
+          {
+            path: '/forbidden',
+            element: (
+              <SuspenseWrapper>
+                <ForbiddenPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: '/error',
+            element: (
+              <SuspenseWrapper>
+                <ServerErrorPage />
+              </SuspenseWrapper>
+            ),
+          },
         ],
       },
-      { path: '/approval-rejected', element: <SuspenseWrapper><ApprovalRejectedPage /></SuspenseWrapper> },
+      {
+        path: '/approval-rejected',
+        element: (
+          <SuspenseWrapper>
+            <ApprovalRejectedPage />
+          </SuspenseWrapper>
+        ),
+      },
     ],
   },
-  { path: '/privacy-policy', element: <SuspenseWrapper><PrivacyPolicyPage /></SuspenseWrapper> },
+  {
+    path: '/privacy-policy',
+    element: (
+      <SuspenseWrapper>
+        <PrivacyPolicyPage />
+      </SuspenseWrapper>
+    ),
+  },
   // { path: '/ai-blueprint', element: <SuspenseWrapper><AIBlueprintPage /></SuspenseWrapper> },
   { path: '/', element: <Navigate to="/dashboard" replace /> },
-  { path: '*', element: <SuspenseWrapper><NotFoundPage /></SuspenseWrapper> },
+  {
+    path: '*',
+    element: (
+      <SuspenseWrapper>
+        <NotFoundPage />
+      </SuspenseWrapper>
+    ),
+  },
 ]);

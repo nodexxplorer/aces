@@ -18,9 +18,9 @@ type GPAPredictionItem struct {
 }
 
 func (server *Server) getStudentGPAPrediction(ctx *gin.Context) {
-	userID := getUserID(ctx)
-	if userID == uuid.Nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+	studentID, err := server.getStudentIDFromUser(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
 		return
 	}
 
@@ -30,7 +30,7 @@ func (server *Server) getStudentGPAPrediction(ctx *gin.Context) {
 		return
 	}
 
-	grades, err := queries.GetStudentGPAPrediction(ctx, userID)
+	grades, err := queries.GetStudentGPAPrediction(ctx, studentID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
@@ -59,11 +59,11 @@ func (server *Server) getStudentGPAPrediction(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"student_id":      userID,
-		"grades":          items,
-		"total_credits":   totalCredits,
-		"predicted_gpa":   predictedGPA,
-		"total_courses":   len(grades),
+		"student_id":    studentID,
+		"grades":        items,
+		"total_credits": totalCredits,
+		"predicted_gpa": predictedGPA,
+		"total_courses": len(grades),
 	})
 }
 

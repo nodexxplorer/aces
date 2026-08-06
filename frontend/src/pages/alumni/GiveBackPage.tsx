@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import type { BadgeVariant } from '../../components/ui/Badge';
 import Input from '../../components/ui/Input';
 import Modal from '../../components/ui/Modal';
 import { useNotification } from '../../hooks/useNotification';
-import { Heart, DollarSign, Users, Award, Loader2 } from 'lucide-react';
+import { Heart, DollarSign, Users, Loader2 } from 'lucide-react';
 import { createDonation, listMyDonations, listDonations, getDonationStats } from '../../api/alumni';
 import { formatCurrency } from '../../utils/formatters';
 import type { AlumniDonation, DonationStats, DonationChannel } from '../../types';
+import { getErrorMessage } from '../../utils/errors';
 
 const channels: { value: DonationChannel; label: string; desc: string }[] = [
   { value: 'general', label: 'General Fund', desc: 'Support department operations and growth' },
@@ -18,7 +20,7 @@ const channels: { value: DonationChannel; label: string; desc: string }[] = [
   { value: 'emergency', label: 'Emergency Relief', desc: 'Help alumni or students in urgent need' },
 ];
 
-const tierColors: Record<string, string> = {
+const tierColors: Record<string, BadgeVariant> = {
   platinum: 'primary',
   gold: 'warning',
   silver: 'info',
@@ -79,13 +81,17 @@ const GiveBackPage = () => {
         setAmount('50000');
         setMessage('');
         setAnonymous(false);
-        const [myData, allData, statsData] = await Promise.allSettled([listMyDonations(), listDonations(), getDonationStats()]);
+        const [myData, allData, statsData] = await Promise.allSettled([
+          listMyDonations(),
+          listDonations(),
+          getDonationStats(),
+        ]);
         if (myData.status === 'fulfilled') setMyDonations(Array.isArray(myData.value) ? myData.value : []);
         if (allData.status === 'fulfilled') setAllDonations(Array.isArray(allData.value) ? allData.value : []);
         if (statsData.status === 'fulfilled') setStats(statsData.value);
       }
-    } catch (err: any) {
-      notifyError('Failed', err?.response?.data?.error || 'Could not process donation');
+    } catch (err) {
+      notifyError('Failed', getErrorMessage(err, 'Could not process donation'));
     } finally {
       setSubmitting(false);
     }
@@ -113,7 +119,9 @@ const GiveBackPage = () => {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <Card className="p-4">
                 <p className="text-xs text-surface-500">Total Raised</p>
-                <p className="text-2xl font-bold text-surface-900 dark:text-white">{formatCurrency(stats.total_donations)}</p>
+                <p className="text-2xl font-bold text-surface-900 dark:text-white">
+                  {formatCurrency(stats.total_donations)}
+                </p>
               </Card>
               <Card className="p-4">
                 <p className="text-xs text-surface-500">Total Donations</p>
@@ -132,7 +140,15 @@ const GiveBackPage = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {channels.map((ch) => (
-              <Card key={ch.value} hover className="p-5 cursor-pointer" onClick={() => { setSelectedChannel(ch.value); setDonateOpen(true); }}>
+              <Card
+                key={ch.value}
+                hover
+                className="p-5 cursor-pointer"
+                onClick={() => {
+                  setSelectedChannel(ch.value);
+                  setDonateOpen(true);
+                }}
+              >
                 <h3 className="font-semibold text-base text-surface-900 dark:text-white mb-1">{ch.label}</h3>
                 <p className="text-xs text-surface-500 mb-4">{ch.desc}</p>
                 <Button size="sm" className="w-full" leftIcon={<Heart className="w-4 h-4" />}>
@@ -149,12 +165,16 @@ const GiveBackPage = () => {
                 {myDonations.map((d) => (
                   <Card key={d.id} className="p-4 flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-surface-900 dark:text-white">{channels.find((c) => c.value === d.channel)?.label || d.channel}</p>
+                      <p className="text-sm font-medium text-surface-900 dark:text-white">
+                        {channels.find((c) => c.value === d.channel)?.label || d.channel}
+                      </p>
                       <p className="text-xs text-surface-500">{new Date(d.created_at).toLocaleDateString()}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant={(tierColors[d.recognized_tier] || 'secondary') as any}>{d.recognized_tier}</Badge>
-                      <span className="text-sm font-semibold text-surface-900 dark:text-white">{formatCurrency(d.amount)}</span>
+                      <Badge variant={tierColors[d.recognized_tier] || 'secondary'}>{d.recognized_tier}</Badge>
+                      <span className="text-sm font-semibold text-surface-900 dark:text-white">
+                        {formatCurrency(d.amount)}
+                      </span>
                     </div>
                   </Card>
                 ))}
@@ -176,12 +196,16 @@ const GiveBackPage = () => {
                         <p className="text-sm font-medium text-surface-900 dark:text-white">
                           {d.is_anonymous ? 'Anonymous Donor' : d.donor_name || 'Alumni'}
                         </p>
-                        <p className="text-xs text-surface-500">{channels.find((c) => c.value === d.channel)?.label || d.channel}</p>
+                        <p className="text-xs text-surface-500">
+                          {channels.find((c) => c.value === d.channel)?.label || d.channel}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant={(tierColors[d.recognized_tier] || 'secondary') as any}>{d.recognized_tier}</Badge>
-                      <span className="text-sm font-semibold text-surface-900 dark:text-white">{formatCurrency(d.amount)}</span>
+                      <Badge variant={tierColors[d.recognized_tier] || 'secondary'}>{d.recognized_tier}</Badge>
+                      <span className="text-sm font-semibold text-surface-900 dark:text-white">
+                        {formatCurrency(d.amount)}
+                      </span>
                     </div>
                   </Card>
                 ))}
@@ -232,9 +256,16 @@ const GiveBackPage = () => {
               onChange={(e) => setAnonymous(e.target.checked)}
               className="w-4 h-4 text-primary-600 bg-white border-surface-300 rounded"
             />
-            <label htmlFor="anonymous" className="text-sm text-surface-700 dark:text-surface-300">Make this donation anonymous</label>
+            <label htmlFor="anonymous" className="text-sm text-surface-700 dark:text-surface-300">
+              Make this donation anonymous
+            </label>
           </div>
-          <Button className="w-full" leftIcon={<DollarSign className="w-4 h-4" />} isLoading={submitting} onClick={handleDonate}>
+          <Button
+            className="w-full"
+            leftIcon={<DollarSign className="w-4 h-4" />}
+            isLoading={submitting}
+            onClick={handleDonate}
+          >
             Donate {formatCurrency(parseInt(amount) || 0)}
           </Button>
         </div>

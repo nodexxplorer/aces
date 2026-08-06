@@ -2,10 +2,12 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
 	db "github.com/aces/backend/internal/db/sql"
+	"github.com/aces/backend/internal/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -438,6 +440,49 @@ func (server *Server) getDepartmentalEvent(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"data": event})
+}
+
+// downloadDepartmentalEventICS GET /calendar/:id/ics — a standard .ics file
+// any phone/desktop calendar app can import via "Add to Calendar".
+func (server *Server) downloadDepartmentalEventICS(ctx *gin.Context) {
+	id, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid event id"})
+		return
+	}
+
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "invalid store"})
+		return
+	}
+
+	event, err := queries.GetDepartmentalEvent(ctx, id)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "event not found"})
+		return
+	}
+
+	description := ""
+	if event.Description != nil {
+		description = *event.Description
+	}
+	venue := ""
+	if event.Venue != nil {
+		venue = *event.Venue
+	}
+
+	icsBytes := utils.GenerateICS(utils.ICSEvent{
+		UID:         event.ID.String(),
+		Title:       event.Title,
+		Description: description,
+		Location:    venue,
+		Start:       event.StartTime.Time,
+		End:         event.EndTime.Time,
+	})
+
+	ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.ics\"", event.ID.String()))
+	ctx.Data(http.StatusOK, "text/calendar; charset=utf-8", icsBytes)
 }
 
 func (server *Server) deleteDepartmentalEvent(ctx *gin.Context) {

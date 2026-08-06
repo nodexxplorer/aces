@@ -1,4 +1,5 @@
 import apiClient, { unwrap } from './client';
+import { getErrorMessage } from '../utils/errors';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -48,8 +49,6 @@ export interface AttendanceCheckin {
   student_name: string;
   matric_number: string;
 }
-
-
 
 export interface ClassRepReport {
   id: string;
@@ -131,7 +130,11 @@ export async function deactivateClassRep(assignmentId: string): Promise<void> {
 
 // ─── Attendance Sessions ─────────────────────────────────────────────────────
 
-export async function createAttendanceSession(courseId: string, method: string, venue?: string): Promise<AttendanceSession> {
+export async function createAttendanceSession(
+  courseId: string,
+  method: string,
+  venue?: string,
+): Promise<AttendanceSession> {
   const res = await apiClient.post('/class-rep/attendance-sessions', {
     course_id: courseId,
     method,
@@ -165,7 +168,7 @@ export async function checkInStudent(
   studentId: string,
   method?: string,
   present?: boolean,
-  remark?: string
+  remark?: string,
 ): Promise<AttendanceCheckin> {
   const res = await apiClient.post('/class-rep/checkin', {
     session_id: sessionId,
@@ -177,6 +180,18 @@ export async function checkInStudent(
   return unwrap<AttendanceCheckin>(res);
 }
 
+// A student checking themselves in via the QR a class rep displays — the
+// backend derives the student's own ID from their session, so no student_id
+// is sent (the frontend has no reliable way to know its own students.id).
+export async function selfCheckIn(sessionId: string): Promise<AttendanceCheckin> {
+  const res = await apiClient.post('/class-rep/checkin', {
+    session_id: sessionId,
+    method: 'qr_self',
+    present: true,
+  });
+  return unwrap<AttendanceCheckin>(res);
+}
+
 // ─── Reports ─────────────────────────────────────────────────────────────────
 
 export async function submitClassRepReport(
@@ -184,7 +199,7 @@ export async function submitClassRepReport(
   title: string,
   content: string,
   level?: number,
-  academicYear?: string
+  academicYear?: string,
 ): Promise<ClassRepReport> {
   const res = await apiClient.post('/class-rep/reports', {
     report_type: reportType,
@@ -225,7 +240,7 @@ export async function createPerformanceReview(
   reportsSubmitted: number,
   responsivenessScore?: number,
   comments?: string,
-  rating?: string
+  rating?: string,
 ): Promise<void> {
   await apiClient.post('/class-rep/performance', {
     class_rep_id: classRepId,
@@ -255,7 +270,7 @@ export interface SendNotificationResult {
 export async function sendClassNotification(
   studentIds: string[],
   title: string,
-  message: string
+  message: string,
 ): Promise<SendNotificationResult[]> {
   const results: SendNotificationResult[] = [];
   const batches = studentIds.map(async (userId) => {
@@ -267,8 +282,8 @@ export async function sendClassNotification(
         message,
       });
       results.push({ student_id: userId, status: 'sent' });
-    } catch (e: any) {
-      results.push({ student_id: userId, status: 'failed', error: e.message });
+    } catch (e: unknown) {
+      results.push({ student_id: userId, status: 'failed', error: getErrorMessage(e) });
     }
   });
   await Promise.all(batches);

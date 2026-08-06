@@ -1,6 +1,4 @@
 import { useState } from 'react';
-import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
-import Button from '../../components/ui/Button';
 import { BookOpen, Settings, Users } from 'lucide-react';
 import CourseManagementPage from './CourseManagementPage';
 import AdminCourseRegistrationsPage from './AdminCourseRegistrationsPage';
@@ -18,15 +16,17 @@ export default function CourseHubPage() {
         </div>
         <div>
           <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Course Management</h1>
-          <p className="text-sm text-surface-500 dark:text-surface-400">Manage courses, lecturers, and student registrations.</p>
+          <p className="text-sm text-surface-500 dark:text-surface-400">
+            Manage courses, lecturers, and student registrations.
+          </p>
         </div>
       </div>
 
       <div className="flex gap-1 border-b border-surface-200 dark:border-surface-800 pb-px">
-        {([
+        {[
           { key: 'courses' as Tab, label: 'Courses', icon: Settings },
           { key: 'registrations' as Tab, label: 'Course Enrollment', icon: Users },
-        ]).map(({ key, label, icon: Icon }) => (
+        ].map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             onClick={() => setActiveTab(key)}

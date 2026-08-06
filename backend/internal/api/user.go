@@ -288,7 +288,11 @@ func (server *Server) updateUser(ctx *gin.Context) {
 		input.Email = req.Email
 	}
 	if req.Role != nil {
-		input.Role = req.Role
+		// req.Role is a display-facing name (e.g. "delegated_admin",
+		// "dept_bursar") when it round-trips from GET /users/:id — must be
+		// mapped back to the raw DB enum value before writing it.
+		dbRole := service.ParseRoleNameReverse(*req.Role)
+		input.Role = &dbRole
 	}
 
 	user, err := server.users.UpdatePartial(ctx, id, input)

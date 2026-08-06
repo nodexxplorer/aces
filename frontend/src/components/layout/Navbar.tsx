@@ -69,7 +69,10 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
         <RoleSwitcher />
         {isStudent && (
           <Link to="/scan">
-            <button className="p-2 rounded-lg text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors" aria-label="Scan QR Code">
+            <button
+              className="p-2 rounded-lg text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+              aria-label="Scan QR Code"
+            >
               <ScanLine className="w-5 h-5" />
             </button>
           </Link>
@@ -83,14 +86,6 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
         </button>
         {isStudent && (
           <div className="flex items-center gap-1 md:hidden">
-            <Link to="/scan">
-              <button
-                className="relative p-2 rounded-lg text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-                aria-label="Scan QR Code"
-              >
-                <ScanLine className="w-5 h-5" />
-              </button>
-            </Link>
             <Link to="/manuals">
               <button
                 className="relative p-2 rounded-lg text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"

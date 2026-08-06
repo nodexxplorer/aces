@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, Megaphone, Pin, Settings } from 'lucide-react';
+import { Bell, Megaphone, Pin } from 'lucide-react';
 import Tabs from '../../components/ui/Tabs';
 import NotificationsTab from '../shared/NotificationsPage';
 import AnnouncementsTab from '../shared/StudentAnnouncementsPage';
@@ -26,11 +26,7 @@ export default function StudentCommunicationPage() {
 
         <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm overflow-hidden">
           <div className="px-4">
-            <Tabs
-              tabs={communicationTabs}
-              activeTab={activeTab}
-              onChange={setActiveTab}
-            />
+            <Tabs tabs={communicationTabs} activeTab={activeTab} onChange={setActiveTab} />
           </div>
 
           <div className="p-4">

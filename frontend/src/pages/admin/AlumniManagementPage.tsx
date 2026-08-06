@@ -8,13 +8,28 @@ import StatusBadge from '../../components/data-display/StatusBadge';
 import Modal from '../../components/ui/Modal';
 import { useNotification } from '../../hooks/useNotification';
 import { Plus, Search, Loader2, Eye, Users, Briefcase, Calendar, DollarSign, BarChart3, FileText } from 'lucide-react';
-import { getAlumniProfiles, createAlumniProfile, getAlumniDashboardStats, listDonations, getMentors, getAlumniEvents } from '../../api/alumni';
+import {
+  getAlumniProfiles,
+  createAlumniProfile,
+  getAlumniDashboardStats,
+  listDonations,
+  getMentors,
+  getAlumniEvents,
+} from '../../api/alumni';
 import { formatCurrency } from '../../utils/formatters';
-import type { AlumniProfile, AlumniDashboardStats, AlumniDonation, MentorItem, AlumniEventItem } from '../../types';
+import { getErrorMessage } from '../../utils/errors';
+import type {
+  AlumniProfile,
+  AlumniFullProfile,
+  AlumniDashboardStats,
+  AlumniDonation,
+  MentorItem,
+  AlumniEventItem,
+} from '../../types';
 
 const AlumniManagementPage = () => {
   const { success, error: notifyError } = useNotification();
-  const [alumni, setAlumni] = useState<AlumniProfile[]>([]);
+  const [alumni, setAlumni] = useState<AlumniFullProfile[]>([]);
   const [dashboardStats, setDashboardStats] = useState<AlumniDashboardStats | null>(null);
   const [recentDonations, setRecentDonations] = useState<AlumniDonation[]>([]);
   const [mentors, setMentors] = useState<MentorItem[]>([]);
@@ -24,7 +39,7 @@ const AlumniManagementPage = () => {
   const [createOpen, setCreateOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
-  const [selected, setSelected] = useState<AlumniProfile | null>(null);
+  const [selected, setSelected] = useState<AlumniFullProfile | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'directory' | 'donations' | 'reports'>('overview');
 
   const [formGradYear, setFormGradYear] = useState('2024');
@@ -49,11 +64,13 @@ const AlumniManagementPage = () => {
         getAlumniEvents(),
       ]);
       if (alumniData.status === 'fulfilled') {
-        const items = Array.isArray(alumniData.value) ? alumniData.value : (alumniData.value as any).items || [];
+        const raw = alumniData.value as unknown as AlumniFullProfile[] | { items?: AlumniFullProfile[] };
+        const items = Array.isArray(raw) ? raw : raw.items || [];
         setAlumni(items);
       }
       if (statsData.status === 'fulfilled') setDashboardStats(statsData.value);
-      if (donationsData.status === 'fulfilled') setRecentDonations(Array.isArray(donationsData.value) ? donationsData.value : []);
+      if (donationsData.status === 'fulfilled')
+        setRecentDonations(Array.isArray(donationsData.value) ? donationsData.value : []);
       if (mentorsData.status === 'fulfilled') setMentors(Array.isArray(mentorsData.value) ? mentorsData.value : []);
       if (eventsData.status === 'fulfilled') setEvents(Array.isArray(eventsData.value) ? eventsData.value : []);
     } catch {
@@ -74,7 +91,7 @@ const AlumniManagementPage = () => {
         current_company: formCompany || undefined,
         current_position: formPosition || undefined,
         bio: formBio || undefined,
-      } as any);
+      } as unknown as Partial<AlumniProfile>);
       setCreateOpen(false);
       setFormGradYear('2024');
       setFormGradClass('');
@@ -84,14 +101,14 @@ const AlumniManagementPage = () => {
       setFormBio('');
       success('Alumni Added', 'Alumni status has been created');
       fetchData();
-    } catch (err: any) {
-      notifyError('Failed', err?.response?.data?.error || 'Could not create alumni record');
+    } catch (err: unknown) {
+      notifyError('Failed', getErrorMessage(err, 'Could not create alumni record'));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const filtered = alumni.filter((a: any) => {
+  const filtered = alumni.filter((a: AlumniFullProfile) => {
     return (
       (a.current_company || '').toLowerCase().includes(search.toLowerCase()) ||
       (a.current_position || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -103,8 +120,8 @@ const AlumniManagementPage = () => {
     {
       key: 'user_id',
       label: 'User ID',
-      render: (_: unknown, row: any) => (
-        <span className="font-mono text-xs">{(row.user_id || row.userId || 'N/A').slice(0, 8)}...</span>
+      render: (_: unknown, row: Record<string, unknown>) => (
+        <span className="font-mono text-xs">{String(row.user_id || row.userId || 'N/A').slice(0, 8)}...</span>
       ),
     },
     { key: 'graduation_year', label: 'Grad. Year' },
@@ -119,8 +136,16 @@ const AlumniManagementPage = () => {
     {
       key: 'action',
       label: 'Action',
-      render: (_: unknown, row: any) => (
-        <Button size="xs" variant="ghost" leftIcon={<Eye className="w-3.5 h-3.5" />} onClick={() => { setSelected(row); setViewOpen(true); }}>
+      render: (_: unknown, row: Record<string, unknown>) => (
+        <Button
+          size="xs"
+          variant="ghost"
+          leftIcon={<Eye className="w-3.5 h-3.5" />}
+          onClick={() => {
+            setSelected(row as unknown as AlumniFullProfile);
+            setViewOpen(true);
+          }}
+        >
           View
         </Button>
       ),
@@ -154,7 +179,7 @@ const AlumniManagementPage = () => {
             key={tab.key}
             variant={activeTab === tab.key ? 'primary' : 'ghost'}
             size="sm"
-            onClick={() => setActiveTab(tab.key as any)}
+            onClick={() => setActiveTab(tab.key as 'overview' | 'directory' | 'donations' | 'reports')}
           >
             <tab.icon className="w-4 h-4 mr-1" /> {tab.label}
           </Button>
@@ -168,13 +193,17 @@ const AlumniManagementPage = () => {
               <div className="flex items-center gap-2 text-xs text-surface-500 mb-1">
                 <Users className="w-4 h-4" /> Total Alumni
               </div>
-              <p className="text-2xl font-bold text-surface-900 dark:text-white">{dashboardStats?.total_alumni || alumni.length}</p>
+              <p className="text-2xl font-bold text-surface-900 dark:text-white">
+                {dashboardStats?.total_alumni || alumni.length}
+              </p>
             </Card>
             <Card className="p-4">
               <div className="flex items-center gap-2 text-xs text-surface-500 mb-1">
                 <Briefcase className="w-4 h-4" /> Active Mentors
               </div>
-              <p className="text-2xl font-bold text-surface-900 dark:text-white">{dashboardStats?.active_mentors || mentors.length}</p>
+              <p className="text-2xl font-bold text-surface-900 dark:text-white">
+                {dashboardStats?.active_mentors || mentors.length}
+              </p>
             </Card>
             <Card className="p-4">
               <div className="flex items-center gap-2 text-xs text-surface-500 mb-1">
@@ -186,7 +215,9 @@ const AlumniManagementPage = () => {
               <div className="flex items-center gap-2 text-xs text-surface-500 mb-1">
                 <DollarSign className="w-4 h-4" /> Donations
               </div>
-              <p className="text-2xl font-bold text-surface-900 dark:text-white">{dashboardStats?.total_donations || recentDonations.length}</p>
+              <p className="text-2xl font-bold text-surface-900 dark:text-white">
+                {dashboardStats?.total_donations || recentDonations.length}
+              </p>
             </Card>
           </div>
 
@@ -200,14 +231,19 @@ const AlumniManagementPage = () => {
                   <p className="text-xs text-surface-400 text-center py-4">No donations yet</p>
                 ) : (
                   recentDonations.slice(0, 5).map((d) => (
-                    <div key={d.id} className="flex items-center justify-between py-2 border-b border-surface-100 dark:border-surface-800 last:border-0">
+                    <div
+                      key={d.id}
+                      className="flex items-center justify-between py-2 border-b border-surface-100 dark:border-surface-800 last:border-0"
+                    >
                       <div>
                         <p className="text-sm font-medium">{d.is_anonymous ? 'Anonymous' : d.donor_name || 'Alumni'}</p>
                         <p className="text-xs text-surface-500">{d.channel}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-semibold">{formatCurrency(d.amount)}</p>
-                        <Badge variant="outline" className="text-[10px]">{d.recognized_tier}</Badge>
+                        <Badge variant="outline" className="text-[10px]">
+                          {d.recognized_tier}
+                        </Badge>
                       </div>
                     </div>
                   ))
@@ -224,7 +260,10 @@ const AlumniManagementPage = () => {
                   <p className="text-xs text-surface-400 text-center py-4">No upcoming events</p>
                 ) : (
                   upcomingEvents.slice(0, 5).map((e) => (
-                    <div key={e.id} className="flex items-center justify-between py-2 border-b border-surface-100 dark:border-surface-800 last:border-0">
+                    <div
+                      key={e.id}
+                      className="flex items-center justify-between py-2 border-b border-surface-100 dark:border-surface-800 last:border-0"
+                    >
                       <div>
                         <p className="text-sm font-medium">{e.title}</p>
                         <p className="text-xs text-surface-500">{new Date(e.start_date).toLocaleDateString()}</p>
@@ -257,7 +296,9 @@ const AlumniManagementPage = () => {
           <Card>
             <CardHeader>
               <CardTitle>Alumni Directory</CardTitle>
-              <CardDescription>{filtered.length} alumni record{filtered.length !== 1 && 's'}</CardDescription>
+              <CardDescription>
+                {filtered.length} alumni record{filtered.length !== 1 && 's'}
+              </CardDescription>
             </CardHeader>
             {loading ? (
               <div className="flex items-center justify-center p-12">
@@ -282,18 +323,33 @@ const AlumniManagementPage = () => {
               <p className="text-xs text-surface-400 text-center py-8">No donations recorded</p>
             ) : (
               recentDonations.map((d) => (
-                <div key={d.id} className="flex items-center justify-between py-3 border-b border-surface-100 dark:border-surface-800 last:border-0">
+                <div
+                  key={d.id}
+                  className="flex items-center justify-between py-3 border-b border-surface-100 dark:border-surface-800 last:border-0"
+                >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center">
                       <DollarSign className="w-4 h-4 text-primary-600" />
                     </div>
                     <div>
                       <p className="text-sm font-medium">{d.is_anonymous ? 'Anonymous' : d.donor_name || 'Alumni'}</p>
-                      <p className="text-xs text-surface-500">{d.channel} &bull; {new Date(d.created_at).toLocaleDateString()}</p>
+                      <p className="text-xs text-surface-500">
+                        {d.channel} &bull; {new Date(d.created_at).toLocaleDateString()}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant={(d.recognized_tier === 'platinum' ? 'primary' : d.recognized_tier === 'gold' ? 'warning' : 'secondary') as any}>{d.recognized_tier}</Badge>
+                    <Badge
+                      variant={
+                        d.recognized_tier === 'platinum'
+                          ? 'primary'
+                          : d.recognized_tier === 'gold'
+                            ? 'warning'
+                            : 'secondary'
+                      }
+                    >
+                      {d.recognized_tier}
+                    </Badge>
                     <span className="text-sm font-semibold">{formatCurrency(d.amount)}</span>
                   </div>
                 </div>
@@ -308,10 +364,22 @@ const AlumniManagementPage = () => {
           <Card className="p-6">
             <h3 className="font-semibold text-surface-900 dark:text-white mb-3">Alumni Summary</h3>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-surface-500">Total alumni records</span><span className="font-semibold">{alumni.length}</span></div>
-              <div className="flex justify-between"><span className="text-surface-500">Active mentors</span><span className="font-semibold">{mentors.length}</span></div>
-              <div className="flex justify-between"><span className="text-surface-500">Upcoming events</span><span className="font-semibold">{upcomingEvents.length}</span></div>
-              <div className="flex justify-between"><span className="text-surface-500">Total donations</span><span className="font-semibold">{recentDonations.length}</span></div>
+              <div className="flex justify-between">
+                <span className="text-surface-500">Total alumni records</span>
+                <span className="font-semibold">{alumni.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-surface-500">Active mentors</span>
+                <span className="font-semibold">{mentors.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-surface-500">Upcoming events</span>
+                <span className="font-semibold">{upcomingEvents.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-surface-500">Total donations</span>
+                <span className="font-semibold">{recentDonations.length}</span>
+              </div>
             </div>
           </Card>
           <Card className="p-6">
@@ -319,8 +387,14 @@ const AlumniManagementPage = () => {
             <div className="space-y-2 text-sm">
               {dashboardStats && (
                 <>
-                  <div className="flex justify-between"><span className="text-surface-500">Total raised</span><span className="font-semibold">{formatCurrency(dashboardStats.total_donations || 0)}</span></div>
-                  <div className="flex justify-between"><span className="text-surface-500">Mentorship requests</span><span className="font-semibold">{dashboardStats.pending_mentorship_requests || 0}</span></div>
+                  <div className="flex justify-between">
+                    <span className="text-surface-500">Total raised</span>
+                    <span className="font-semibold">{formatCurrency(dashboardStats.total_donations || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-surface-500">Mentorship requests</span>
+                    <span className="font-semibold">{dashboardStats.pending_mentorship_requests || 0}</span>
+                  </div>
                 </>
               )}
               {!dashboardStats && <p className="text-surface-400">Stats not available</p>}
@@ -331,8 +405,19 @@ const AlumniManagementPage = () => {
 
       <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title="Add Alumni Record">
         <form onSubmit={handleCreate} className="space-y-4">
-          <Input label="Graduation Year" type="number" value={formGradYear} onChange={(e) => setFormGradYear(e.target.value)} required />
-          <Input label="Graduation Class (e.g. First Class)" placeholder="Optional" value={formGradClass} onChange={(e) => setFormGradClass(e.target.value)} />
+          <Input
+            label="Graduation Year"
+            type="number"
+            value={formGradYear}
+            onChange={(e) => setFormGradYear(e.target.value)}
+            required
+          />
+          <Input
+            label="Graduation Class (e.g. First Class)"
+            placeholder="Optional"
+            value={formGradClass}
+            onChange={(e) => setFormGradClass(e.target.value)}
+          />
           <div className="flex items-center gap-3">
             <input
               type="checkbox"
@@ -341,10 +426,22 @@ const AlumniManagementPage = () => {
               onChange={(e) => setFormIsMentor(e.target.checked)}
               className="w-4 h-4 text-primary-600 bg-white border-surface-300 rounded"
             />
-            <label htmlFor="isMentor" className="text-sm font-medium text-surface-700 dark:text-surface-300">Available as Mentor</label>
+            <label htmlFor="isMentor" className="text-sm font-medium text-surface-700 dark:text-surface-300">
+              Available as Mentor
+            </label>
           </div>
-          <Input label="Current Company" placeholder="e.g. Google" value={formCompany} onChange={(e) => setFormCompany(e.target.value)} />
-          <Input label="Current Position" placeholder="e.g. Software Engineer" value={formPosition} onChange={(e) => setFormPosition(e.target.value)} />
+          <Input
+            label="Current Company"
+            placeholder="e.g. Google"
+            value={formCompany}
+            onChange={(e) => setFormCompany(e.target.value)}
+          />
+          <Input
+            label="Current Position"
+            placeholder="e.g. Software Engineer"
+            value={formPosition}
+            onChange={(e) => setFormPosition(e.target.value)}
+          />
           <div>
             <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Bio</label>
             <textarea
@@ -354,7 +451,9 @@ const AlumniManagementPage = () => {
               onChange={(e) => setFormBio(e.target.value)}
             />
           </div>
-          <Button type="submit" className="w-full" isLoading={submitting}>Add Alumni</Button>
+          <Button type="submit" className="w-full" isLoading={submitting}>
+            Add Alumni
+          </Button>
         </form>
       </Modal>
 
@@ -362,15 +461,36 @@ const AlumniManagementPage = () => {
         {selected && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div><p className="text-xs text-surface-500">Graduation Year</p><p className="font-semibold">{(selected as any).graduation_year}</p></div>
-              <div><p className="text-xs text-surface-500">Class</p><p className="font-semibold">{(selected as any).graduation_class || 'N/A'}</p></div>
-              <div><p className="text-xs text-surface-500">Company</p><p className="font-semibold">{(selected as any).current_company || 'N/A'}</p></div>
-              <div><p className="text-xs text-surface-500">Position</p><p className="font-semibold">{(selected as any).current_position || 'N/A'}</p></div>
-              <div><p className="text-xs text-surface-500">Mentor Available</p><p className="font-semibold">{(selected as any).is_mentor_available ? 'Yes' : 'No'}</p></div>
-              <div><p className="text-xs text-surface-500">LinkedIn</p><p className="font-semibold">{(selected as any).linkedin_url || 'N/A'}</p></div>
+              <div>
+                <p className="text-xs text-surface-500">Graduation Year</p>
+                <p className="font-semibold">{selected.graduation_year}</p>
+              </div>
+              <div>
+                <p className="text-xs text-surface-500">Class</p>
+                <p className="font-semibold">{selected.graduation_class || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-surface-500">Company</p>
+                <p className="font-semibold">{selected.current_company || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-surface-500">Position</p>
+                <p className="font-semibold">{selected.current_position || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-surface-500">Mentor Available</p>
+                <p className="font-semibold">{selected.is_mentor_available ? 'Yes' : 'No'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-surface-500">LinkedIn</p>
+                <p className="font-semibold">{selected.linkedin_url || 'N/A'}</p>
+              </div>
             </div>
-            {(selected as any).bio && (
-              <div><p className="text-xs text-surface-500">Bio</p><p className="text-sm">{(selected as any).bio}</p></div>
+            {selected.bio && (
+              <div>
+                <p className="text-xs text-surface-500">Bio</p>
+                <p className="text-sm">{selected.bio}</p>
+              </div>
             )}
           </div>
         )}

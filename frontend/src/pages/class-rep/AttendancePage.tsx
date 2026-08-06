@@ -1,11 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Select from '../../components/ui/Select';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import QRScanner from '../../components/ui/QRScanner';
 import { useNotification } from '../../hooks/useNotification';
-import { Scan, Lock, Play, Square, Send, Download, Search, CheckCircle2, XCircle, Clock, AlertCircle } from 'lucide-react';
+import {
+  Scan,
+  Lock,
+  Play,
+  Square,
+  Send,
+  Download,
+  Search,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  AlertCircle,
+  QrCode,
+} from 'lucide-react';
+import QRCode from 'qrcode';
 import {
   getClassRepClassList,
   createAttendanceSession,
@@ -14,7 +28,6 @@ import {
   listMyAttendanceSessions,
   listAttendanceCheckins,
   checkInStudent,
-  type ClassRepStudent,
   type AttendanceSession,
   type AttendanceCheckin,
 } from '../../api/class-rep';
@@ -27,16 +40,9 @@ import {
   type RegisteredStudentAttendance,
 } from '../../api/attendance';
 import { getCourses } from '../../api/courses';
-
-const getErrorMessage = (error: unknown) => {
-  if (typeof error === 'object' && error !== null) {
-    const err = error as any;
-    if (err.response?.data?.error) return err.response.data.error;
-    if (err.response?.data?.message) return err.response.data.message;
-    if (err.message) return err.message;
-  }
-  return 'An unexpected error occurred';
-};
+import type { Course } from '../../types';
+import { parseProfileScanUserId } from '../../utils/qr-scanner';
+import { getErrorMessage } from '../../utils/errors';
 
 type StatusType = 'present' | 'absent' | 'late' | 'excused';
 
@@ -46,9 +52,11 @@ const AttendancePage = () => {
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   const [students, setStudents] = useState<RegisteredStudentAttendance[]>([]);
   const [checkins, setCheckins] = useState<AttendanceCheckin[]>([]);
-  const [sessions, setSessions] = useState<AttendanceSession[]>([]);
+  const [, setSessions] = useState<AttendanceSession[]>([]);
   const [activeSession, setActiveSession] = useState<AttendanceSession | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [displayQrOpen, setDisplayQrOpen] = useState(false);
+  const qrCanvasRef = useRef<HTMLCanvasElement>(null);
   const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -78,10 +86,10 @@ const AttendancePage = () => {
         }
 
         if (entries.length === 0 && coursesRes.status === 'fulfilled' && coursesRes.value.length > 0) {
-          const levelCourses = coursesRes.value.filter((c: any) => c.level === level);
+          const levelCourses = coursesRes.value.filter((c: Course) => c.level === level);
           const sourceCourses = levelCourses.length > 0 ? levelCourses : coursesRes.value;
 
-          entries = sourceCourses.map((c: any) => ({
+          entries = sourceCourses.map((c: Course) => ({
             timetable_entry_id: c.id,
             course_id: c.id,
             course_code: c.code,
@@ -146,7 +154,7 @@ const AttendancePage = () => {
             level: s.level,
             registration_status: 'verified',
             registered_at: new Date().toISOString(),
-          }))
+          })),
         );
       } catch (e) {
         console.error('Failed to load class list fallback', e);
@@ -154,6 +162,32 @@ const AttendancePage = () => {
     };
     fetchRegistered();
   }, [selectedCourseId]);
+
+  // Render the self-check-in QR whenever the display modal opens. It encodes
+  // a plain URL (not JSON) so a student's stock phone camera can open it
+  // directly, landing on the in-app scan-to-check-in page.
+  useEffect(() => {
+    if (displayQrOpen && activeSession && qrCanvasRef.current) {
+      const checkinUrl = `${window.location.origin}/attendance/checkin?session=${activeSession.id}`;
+      QRCode.toCanvas(qrCanvasRef.current, checkinUrl, {
+        width: 220,
+        margin: 2,
+        color: { dark: '#2563eb', light: '#ffffff' },
+      });
+    }
+  }, [displayQrOpen, activeSession]);
+
+  // Poll for new self-check-ins while the QR is on display, since students
+  // scanning it check in from their own device, not this one.
+  useEffect(() => {
+    if (!displayQrOpen || !activeSession) return;
+    const interval = setInterval(() => {
+      listAttendanceCheckins(activeSession.id)
+        .then(setCheckins)
+        .catch(() => {});
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [displayQrOpen, activeSession]);
 
   const getStudentStatus = (studentId: string): StatusType => {
     const checkin = checkins.find((c) => c.student_id === studentId);
@@ -192,6 +226,22 @@ const AttendancePage = () => {
     } catch (e) {
       notifyError('Status Update Failed', getErrorMessage(e));
     }
+  };
+
+  const handleQRScan = async (data: string) => {
+    if (!activeSession) return;
+    const scannedUserId = parseProfileScanUserId(data);
+    if (!scannedUserId) {
+      notifyError('Invalid QR Code', 'This does not look like a student ID QR code.');
+      return;
+    }
+    const match = students.find((s) => s.user_id === scannedUserId);
+    if (!match) {
+      notifyError('Not Found', 'This student is not on the registered roster for this course.');
+      return;
+    }
+    await handleUpdateStatus(match.student_id, 'present');
+    success('Checked In', `${match.full_name} marked present.`);
   };
 
   const handleMarkAll = async (targetStatus: StatusType) => {
@@ -301,7 +351,19 @@ const AttendancePage = () => {
               <Button variant="outline" leftIcon={<Scan className="w-4 h-4" />} onClick={() => setScannerOpen(true)}>
                 QR Scan
               </Button>
-              <Button variant="danger" isLoading={saving} onClick={handleCloseSession} leftIcon={<Square className="w-4 h-4" />}>
+              <Button
+                variant="outline"
+                leftIcon={<QrCode className="w-4 h-4" />}
+                onClick={() => setDisplayQrOpen(true)}
+              >
+                Display QR
+              </Button>
+              <Button
+                variant="danger"
+                isLoading={saving}
+                onClick={handleCloseSession}
+                leftIcon={<Square className="w-4 h-4" />}
+              >
                 Finalize Session
               </Button>
             </>
@@ -318,7 +380,9 @@ const AttendancePage = () => {
         <Card className="p-6">
           <CardHeader className="p-0 mb-4">
             <CardTitle>Semester Course Schedule</CardTitle>
-            <CardDescription>Only students with verified course registrations will be loaded into attendance.</CardDescription>
+            <CardDescription>
+              Only students with verified course registrations will be loaded into attendance.
+            </CardDescription>
           </CardHeader>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
@@ -361,7 +425,7 @@ const AttendancePage = () => {
       {/* Stats Cards & Real-Time Progress */}
       {activeSession && (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
             <div className="bg-white dark:bg-surface-900 p-4 rounded-xl border border-surface-200 dark:border-surface-800">
               <p className="text-xs text-surface-500">Registered</p>
               <p className="text-2xl font-bold text-surface-900 dark:text-white">{students.length}</p>
@@ -386,9 +450,18 @@ const AttendancePage = () => {
 
           {/* Progress bar */}
           <div className="w-full bg-surface-200 dark:bg-surface-800 h-2.5 rounded-full overflow-hidden flex">
-            <div style={{ width: `${(presentCount / (students.length || 1)) * 100}%` }} className="bg-success-500 h-full transition-all" />
-            <div style={{ width: `${(lateCount / (students.length || 1)) * 100}%` }} className="bg-yellow-500 h-full transition-all" />
-            <div style={{ width: `${(excusedCount / (students.length || 1)) * 100}%` }} className="bg-blue-500 h-full transition-all" />
+            <div
+              style={{ width: `${(presentCount / (students.length || 1)) * 100}%` }}
+              className="bg-success-500 h-full transition-all"
+            />
+            <div
+              style={{ width: `${(lateCount / (students.length || 1)) * 100}%` }}
+              className="bg-yellow-500 h-full transition-all"
+            />
+            <div
+              style={{ width: `${(excusedCount / (students.length || 1)) * 100}%` }}
+              className="bg-blue-500 h-full transition-all"
+            />
           </div>
         </div>
       )}
@@ -450,7 +523,9 @@ const AttendancePage = () => {
                 <th className="text-left px-6 py-3 text-xs font-semibold text-surface-500 uppercase">Matric Number</th>
                 <th className="text-left px-6 py-3 text-xs font-semibold text-surface-500 uppercase">Student Name</th>
                 <th className="text-left px-6 py-3 text-xs font-semibold text-surface-500 uppercase">Level</th>
-                <th className="text-center px-6 py-3 text-xs font-semibold text-surface-500 uppercase">Attendance Status</th>
+                <th className="text-center px-6 py-3 text-xs font-semibold text-surface-500 uppercase">
+                  Attendance Status
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-150 dark:divide-surface-800/80">
@@ -466,7 +541,9 @@ const AttendancePage = () => {
                   return (
                     <tr key={s.student_id} className="hover:bg-surface-50/50 dark:hover:bg-surface-800/30">
                       <td className="px-6 py-4 text-surface-400 text-xs">{idx + 1}</td>
-                      <td className="px-6 py-4 font-mono font-semibold text-surface-900 dark:text-white">{s.matric_number}</td>
+                      <td className="px-6 py-4 font-mono font-semibold text-surface-900 dark:text-white">
+                        {s.matric_number}
+                      </td>
                       <td className="px-6 py-4 font-medium text-surface-800 dark:text-surface-200">{s.full_name}</td>
                       <td className="px-6 py-4 text-surface-500">{s.level}L</td>
                       <td className="px-6 py-2 text-center">
@@ -475,34 +552,42 @@ const AttendancePage = () => {
                             <button
                               onClick={() => handleUpdateStatus(s.student_id, 'present')}
                               className={`px-2.5 py-1 text-xs font-medium rounded-md flex items-center gap-1 transition-all ${
-                                currentSt === 'present' ? 'bg-success-500 text-white shadow-sm' : 'text-surface-500 hover:text-surface-900'
+                                currentSt === 'present'
+                                  ? 'bg-success-500 text-white shadow-sm'
+                                  : 'text-surface-500 hover:text-surface-900'
                               }`}
                             >
-                              <CheckCircle2 className="w-3 h-3" /> Present
+                              <CheckCircle2 className="w-3 h-3" /> <span className="hidden sm:inline">Present</span>
                             </button>
                             <button
                               onClick={() => handleUpdateStatus(s.student_id, 'absent')}
                               className={`px-2.5 py-1 text-xs font-medium rounded-md flex items-center gap-1 transition-all ${
-                                currentSt === 'absent' ? 'bg-danger-500 text-white shadow-sm' : 'text-surface-500 hover:text-surface-900'
+                                currentSt === 'absent'
+                                  ? 'bg-danger-500 text-white shadow-sm'
+                                  : 'text-surface-500 hover:text-surface-900'
                               }`}
                             >
-                              <XCircle className="w-3 h-3" /> Absent
+                              <XCircle className="w-3 h-3" /> <span className="hidden sm:inline">Absent</span>
                             </button>
                             <button
                               onClick={() => handleUpdateStatus(s.student_id, 'late')}
                               className={`px-2.5 py-1 text-xs font-medium rounded-md flex items-center gap-1 transition-all ${
-                                currentSt === 'late' ? 'bg-yellow-500 text-white shadow-sm' : 'text-surface-500 hover:text-surface-900'
+                                currentSt === 'late'
+                                  ? 'bg-yellow-500 text-white shadow-sm'
+                                  : 'text-surface-500 hover:text-surface-900'
                               }`}
                             >
-                              <Clock className="w-3 h-3" /> Late
+                              <Clock className="w-3 h-3" /> <span className="hidden sm:inline">Late</span>
                             </button>
                             <button
                               onClick={() => handleUpdateStatus(s.student_id, 'excused')}
                               className={`px-2.5 py-1 text-xs font-medium rounded-md flex items-center gap-1 transition-all ${
-                                currentSt === 'excused' ? 'bg-blue-500 text-white shadow-sm' : 'text-surface-500 hover:text-surface-900'
+                                currentSt === 'excused'
+                                  ? 'bg-blue-500 text-white shadow-sm'
+                                  : 'text-surface-500 hover:text-surface-900'
                               }`}
                             >
-                              <AlertCircle className="w-3 h-3" /> Excused
+                              <AlertCircle className="w-3 h-3" /> <span className="hidden sm:inline">Excused</span>
                             </button>
                           </div>
                         ) : (
@@ -527,9 +612,30 @@ const AttendancePage = () => {
             <CardHeader className="mb-4">
               <CardTitle>Scan Student QR Code</CardTitle>
             </CardHeader>
-            <QRScanner onScan={(code) => console.log('QR Code:', code)} />
+            <QRScanner onScan={handleQRScan} />
             <Button variant="outline" className="w-full mt-4" onClick={() => setScannerOpen(false)}>
               Close Scanner
+            </Button>
+          </Card>
+        </div>
+      )}
+
+      {/* Display QR Modal — students scan this with their own phone to self-check-in */}
+      {displayQrOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <Card className="max-w-sm w-full p-6 flex flex-col items-center text-center">
+            <CardHeader className="mb-4 p-0">
+              <CardTitle>Scan to Check In</CardTitle>
+              <CardDescription>
+                Students scan this with their own phone camera to mark themselves present.
+              </CardDescription>
+            </CardHeader>
+            <canvas ref={qrCanvasRef} className="rounded-2xl" />
+            <p className="text-sm text-surface-500 mt-4">
+              {presentCount} of {students.length} students checked in
+            </p>
+            <Button variant="outline" className="w-full mt-4" onClick={() => setDisplayQrOpen(false)}>
+              Close
             </Button>
           </Card>
         </div>
@@ -566,7 +672,8 @@ const AttendancePage = () => {
                 <div>
                   <h4 className="font-semibold text-surface-900 dark:text-white">Print Branded PDF</h4>
                   <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">
-                    Generates an official ACES Zone departmental attendance sheet PDF ready for printing and physical signing.
+                    Generates an official ACES Zone departmental attendance sheet PDF ready for printing and physical
+                    signing.
                   </p>
                 </div>
               </button>

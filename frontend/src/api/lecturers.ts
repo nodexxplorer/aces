@@ -16,10 +16,10 @@ export interface LecturerProfile {
   specialization: string | null;
   employment_type: string | null;
   employment_status: string | null;
-  qualifications: any[];
+  qualifications: string[];
   bio: string | null;
   office_location: string | null;
-  office_hours: any;
+  office_hours: string | null;
   date_joined: string | null;
   created_at: string | null;
 }
@@ -48,7 +48,7 @@ export interface LecturerLeave {
   start_date: string;
   end_date: string;
   reason: string;
-  course_handover: any;
+  course_handover: string | null;
   status: string;
   approved_by: string | null;
   approved_at: string | null;
@@ -116,21 +116,34 @@ export async function listLecturers(): Promise<LecturerProfile[]> {
   return unwrap<LecturerProfile[]>(res);
 }
 
-export async function getLecturerProfile(id: string): Promise<{ profile: LecturerProfile; assignments: LecturerAssignment[]; leaves: LecturerLeave[] }> {
+export async function getLecturerProfile(
+  id: string,
+): Promise<{ profile: LecturerProfile; assignments: LecturerAssignment[]; leaves: LecturerLeave[] }> {
   const res = await apiClient.get(`/lecturers/${id}`);
   return unwrap(res);
 }
 
-export async function updateLecturerProfile(id: string, data: {
-  title?: string; first_name?: string; last_name?: string; rank?: string;
-  specialization?: string; bio?: string; office_location?: string; office_hours?: string;
-}): Promise<void> {
+export async function updateLecturerProfile(
+  id: string,
+  data: {
+    title?: string;
+    first_name?: string;
+    last_name?: string;
+    rank?: string;
+    specialization?: string;
+    bio?: string;
+    office_location?: string;
+    office_hours?: string;
+  },
+): Promise<void> {
   await apiClient.put(`/lecturers/${id}`, data);
 }
 
 export async function assignCourseToLecturer(lecturerId: string, courseId: string, isPrimary?: boolean): Promise<void> {
   await apiClient.post('/lecturers/assign-course', {
-    lecturer_id: lecturerId, course_id: courseId, is_primary: isPrimary !== false,
+    lecturer_id: lecturerId,
+    course_id: courseId,
+    is_primary: isPrimary !== false,
   });
 }
 
@@ -146,8 +159,11 @@ export async function removeCourseAssignment(assignmentId: string): Promise<void
 // ─── Leave ──────────────────────────────────────────────────────────────────
 
 export async function createLeaveRequest(data: {
-  leave_type: string; start_date: string; end_date: string;
-  reason: string; course_handover?: string;
+  leave_type: string;
+  start_date: string;
+  end_date: string;
+  reason: string;
+  course_handover?: string;
 }): Promise<LecturerLeave> {
   const res = await apiClient.post('/lecturers/leave', data);
   return unwrap<LecturerLeave>(res);
@@ -182,8 +198,12 @@ export async function getBursarDashboard(): Promise<BursarDashboardResponse> {
 }
 
 export async function recordManualPayment(data: {
-  student_id: string; due_id: string; amount: string;
-  bank_reference?: string; bank_name?: string; notes?: string;
+  student_id: string;
+  due_id: string;
+  amount: string;
+  bank_reference?: string;
+  bank_name?: string;
+  notes?: string;
 }): Promise<{ id: string; message: string }> {
   const res = await apiClient.post('/bursar/record-payment', data);
   return unwrap<{ id: string; message: string }>(res);

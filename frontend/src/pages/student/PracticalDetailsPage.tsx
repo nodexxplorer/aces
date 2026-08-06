@@ -3,12 +3,10 @@ import Card, { CardHeader, CardTitle, CardDescription } from '../../components/u
 import DataTable from '../../components/data-display/DataTable';
 import StatusBadge from '../../components/data-display/StatusBadge';
 import { getMyPracticalEnrollments } from '../../api/manuals';
-import { useNotification } from '../../hooks/useNotification';
 import { Loader2, ClipboardList } from 'lucide-react';
 import type { PracticalEnrollment } from '../../api/manuals';
 
 const PracticalDetailsPage = () => {
-  const { error: notifyError } = useNotification();
   const [enrollments, setEnrollments] = useState<PracticalEnrollment[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -47,7 +45,7 @@ const PracticalDetailsPage = () => {
     {
       key: 'enrolled_at',
       label: 'Enrolled At',
-      render: (val: unknown) => val ? new Date(val as string).toLocaleDateString() : 'N/A',
+      render: (val: unknown) => (val ? new Date(val as string).toLocaleDateString() : 'N/A'),
     },
   ];
 
@@ -80,7 +78,7 @@ const PracticalDetailsPage = () => {
             <p className="text-xs text-surface-400 mt-1">Purchase a manual and scan the QR code to enroll.</p>
           </div>
         ) : (
-          <DataTable columns={columns as any} data={enrollments as unknown as Record<string, unknown>[]} />
+          <DataTable columns={columns} data={enrollments} />
         )}
       </Card>
     </div>

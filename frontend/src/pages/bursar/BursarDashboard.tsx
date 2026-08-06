@@ -77,7 +77,7 @@ const BursarDashboard = () => {
     if (!user?.id) return;
     setVerifyingId(payment.id);
     try {
-      await verifyPayment(payment.id, user.id);
+      await verifyPayment(payment.id);
       success('Verified', `Payment from ${payment.student_name} verified`);
       await fetchDashboard();
     } catch {
@@ -132,11 +132,23 @@ const BursarDashboard = () => {
   const statusBadge = (status: string) => {
     switch (status) {
       case 'completed':
-        return <Badge variant="success" dot>{status}</Badge>;
+        return (
+          <Badge variant="success" dot>
+            {status}
+          </Badge>
+        );
       case 'pending':
-        return <Badge variant="warning" dot>{status}</Badge>;
+        return (
+          <Badge variant="warning" dot>
+            {status}
+          </Badge>
+        );
       case 'failed':
-        return <Badge variant="danger" dot>{status}</Badge>;
+        return (
+          <Badge variant="danger" dot>
+            {status}
+          </Badge>
+        );
       default:
         return <Badge>{status}</Badge>;
     }
@@ -167,14 +179,14 @@ const BursarDashboard = () => {
         (stats?.total_outstanding ?? 0) > 500000
           ? 'text-danger-500'
           : (stats?.total_outstanding ?? 0) > 100000
-          ? 'text-warning-500'
-          : 'text-success-500',
+            ? 'text-warning-500'
+            : 'text-success-500',
       bg:
         (stats?.total_outstanding ?? 0) > 500000
           ? 'bg-danger-500/10 dark:bg-danger-500/20'
           : (stats?.total_outstanding ?? 0) > 100000
-          ? 'bg-warning-500/10 dark:bg-warning-500/20'
-          : 'bg-success-500/10 dark:bg-success-500/20',
+            ? 'bg-warning-500/10 dark:bg-warning-500/20'
+            : 'bg-success-500/10 dark:bg-success-500/20',
     },
     {
       label: "Today's Collection",
@@ -188,15 +200,23 @@ const BursarDashboard = () => {
 
   const tabs = [
     { key: 'all' as const, label: 'All', count: data?.pending_payments?.length ?? 0 },
-    { key: 'paystack' as const, label: 'Paystack', count: (data?.pending_payments ?? []).filter((p) => p.payment_method === 'paystack').length },
-    { key: 'manual' as const, label: 'Manual', count: (data?.pending_payments ?? []).filter((p) => p.payment_method === 'manual').length },
+    {
+      key: 'paystack' as const,
+      label: 'Paystack',
+      count: (data?.pending_payments ?? []).filter((p) => p.payment_method === 'paystack').length,
+    },
+    {
+      key: 'manual' as const,
+      label: 'Manual',
+      count: (data?.pending_payments ?? []).filter((p) => p.payment_method === 'manual').length,
+    },
   ];
 
   const selectedDue = dues.find((d) => d.id === formDueId);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Bursar Dashboard</h1>
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
@@ -221,9 +241,7 @@ const BursarDashboard = () => {
               <div className="space-y-1">
                 <p className="text-sm font-medium text-surface-500 dark:text-surface-400">{kpi.label}</p>
                 <p className="text-2xl font-bold text-surface-900 dark:text-white">{loading ? '--' : kpi.value}</p>
-                {kpi.subtitle && (
-                  <p className="text-xs text-surface-400 dark:text-surface-500">{kpi.subtitle}</p>
-                )}
+                {kpi.subtitle && <p className="text-xs text-surface-400 dark:text-surface-500">{kpi.subtitle}</p>}
               </div>
               <div className={`p-2.5 rounded-lg ${kpi.bg} ${kpi.color}`}>{kpi.icon}</div>
             </div>
@@ -273,22 +291,38 @@ const BursarDashboard = () => {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-surface-200 dark:border-surface-700">
-                      <th className="text-left py-3 px-4 font-medium text-surface-500 dark:text-surface-400">Student</th>
-                      <th className="text-left py-3 px-4 font-medium text-surface-500 dark:text-surface-400">Matric No.</th>
+                      <th className="text-left py-3 px-4 font-medium text-surface-500 dark:text-surface-400">
+                        Student
+                      </th>
+                      <th className="text-left py-3 px-4 font-medium text-surface-500 dark:text-surface-400">
+                        Matric No.
+                      </th>
                       <th className="text-left py-3 px-4 font-medium text-surface-500 dark:text-surface-400">Due</th>
-                      <th className="text-right py-3 px-4 font-medium text-surface-500 dark:text-surface-400">Amount</th>
-                      <th className="text-center py-3 px-4 font-medium text-surface-500 dark:text-surface-400">Method</th>
+                      <th className="text-right py-3 px-4 font-medium text-surface-500 dark:text-surface-400">
+                        Amount
+                      </th>
+                      <th className="text-center py-3 px-4 font-medium text-surface-500 dark:text-surface-400">
+                        Method
+                      </th>
                       <th className="text-left py-3 px-4 font-medium text-surface-500 dark:text-surface-400">Date</th>
-                      <th className="text-center py-3 px-4 font-medium text-surface-500 dark:text-surface-400">Action</th>
+                      <th className="text-center py-3 px-4 font-medium text-surface-500 dark:text-surface-400">
+                        Action
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-surface-100 dark:divide-surface-700/50">
                     {filteredPending.map((p) => (
                       <tr key={p.id} className="hover:bg-surface-50 dark:hover:bg-surface-700/30 transition-colors">
-                        <td className="py-3 px-4 text-surface-900 dark:text-surface-100 font-medium">{p.student_name}</td>
-                        <td className="py-3 px-4 text-surface-500 dark:text-surface-400 font-mono text-xs">{p.matric_number}</td>
+                        <td className="py-3 px-4 text-surface-900 dark:text-surface-100 font-medium">
+                          {p.student_name}
+                        </td>
+                        <td className="py-3 px-4 text-surface-500 dark:text-surface-400 font-mono text-xs">
+                          {p.matric_number}
+                        </td>
                         <td className="py-3 px-4 text-surface-700 dark:text-surface-300">{p.due_name}</td>
-                        <td className="py-3 px-4 text-right text-surface-900 dark:text-surface-100 font-medium">{formatCurrency(p.amount)}</td>
+                        <td className="py-3 px-4 text-right text-surface-900 dark:text-surface-100 font-medium">
+                          {formatCurrency(p.amount)}
+                        </td>
                         <td className="py-3 px-4 text-center">{methodBadge(p.payment_method)}</td>
                         <td className="py-3 px-4 text-surface-500 dark:text-surface-400 text-xs">
                           {p.created_at ? formatDateTime(p.created_at) : '--'}
@@ -299,7 +333,13 @@ const BursarDashboard = () => {
                             variant="success"
                             disabled={verifyingId === p.id}
                             onClick={() => handleVerify(p)}
-                            leftIcon={verifyingId === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
+                            leftIcon={
+                              verifyingId === p.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <CheckCircle className="w-3 h-3" />
+                              )
+                            }
                           >
                             {verifyingId === p.id ? 'Verifying...' : 'Verify'}
                           </Button>
@@ -332,20 +372,32 @@ const BursarDashboard = () => {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-surface-200 dark:border-surface-700">
-                      <th className="text-left py-3 px-4 font-medium text-surface-500 dark:text-surface-400">Student</th>
+                      <th className="text-left py-3 px-4 font-medium text-surface-500 dark:text-surface-400">
+                        Student
+                      </th>
                       <th className="text-left py-3 px-4 font-medium text-surface-500 dark:text-surface-400">Due</th>
-                      <th className="text-right py-3 px-4 font-medium text-surface-500 dark:text-surface-400">Amount</th>
-                      <th className="text-center py-3 px-4 font-medium text-surface-500 dark:text-surface-400">Method</th>
-                      <th className="text-center py-3 px-4 font-medium text-surface-500 dark:text-surface-400">Status</th>
+                      <th className="text-right py-3 px-4 font-medium text-surface-500 dark:text-surface-400">
+                        Amount
+                      </th>
+                      <th className="text-center py-3 px-4 font-medium text-surface-500 dark:text-surface-400">
+                        Method
+                      </th>
+                      <th className="text-center py-3 px-4 font-medium text-surface-500 dark:text-surface-400">
+                        Status
+                      </th>
                       <th className="text-left py-3 px-4 font-medium text-surface-500 dark:text-surface-400">Date</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-surface-100 dark:divide-surface-700/50">
                     {data?.recent_payments?.map((p) => (
                       <tr key={p.id} className="hover:bg-surface-50 dark:hover:bg-surface-700/30 transition-colors">
-                        <td className="py-3 px-4 text-surface-900 dark:text-surface-100 font-medium">{p.student_name}</td>
+                        <td className="py-3 px-4 text-surface-900 dark:text-surface-100 font-medium">
+                          {p.student_name}
+                        </td>
                         <td className="py-3 px-4 text-surface-700 dark:text-surface-300">{p.due_name}</td>
-                        <td className="py-3 px-4 text-right text-surface-900 dark:text-surface-100 font-medium">{formatCurrency(p.amount)}</td>
+                        <td className="py-3 px-4 text-right text-surface-900 dark:text-surface-100 font-medium">
+                          {formatCurrency(p.amount)}
+                        </td>
                         <td className="py-3 px-4 text-center">{methodBadge(p.payment_method)}</td>
                         <td className="py-3 px-4 text-center">{statusBadge(p.status)}</td>
                         <td className="py-3 px-4 text-surface-500 dark:text-surface-400 text-xs">
@@ -387,7 +439,9 @@ const BursarDashboard = () => {
                   <div className="p-2 rounded-lg bg-success-500/10 dark:bg-success-500/20 text-success-500">
                     <PenLine className="w-4 h-4" />
                   </div>
-                  <span className="text-sm font-medium text-surface-700 dark:text-surface-300">Record Manual Payment</span>
+                  <span className="text-sm font-medium text-surface-700 dark:text-surface-300">
+                    Record Manual Payment
+                  </span>
                 </div>
                 <ArrowUpRight className="w-4 h-4 text-surface-400 group-hover:text-success-500 transition-colors" />
               </button>
@@ -401,7 +455,9 @@ const BursarDashboard = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-surface-500 dark:text-surface-400">Active Dues</span>
-                <span className="text-sm font-semibold text-surface-900 dark:text-surface-100">{data?.active_dues ?? 0}</span>
+                <span className="text-sm font-semibold text-surface-900 dark:text-surface-100">
+                  {data?.active_dues ?? 0}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-surface-500 dark:text-surface-400">Pending Verifications</span>
@@ -409,7 +465,9 @@ const BursarDashboard = () => {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-surface-500 dark:text-surface-400">Total Students</span>
-                <span className="text-sm font-semibold text-surface-900 dark:text-surface-100">{stats?.total_students ?? 0}</span>
+                <span className="text-sm font-semibold text-surface-900 dark:text-surface-100">
+                  {stats?.total_students ?? 0}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-surface-500 dark:text-surface-400">Fully Paid</span>
@@ -426,15 +484,16 @@ const BursarDashboard = () => {
 
       <Modal
         isOpen={recordModalOpen}
-        onClose={() => { setRecordModalOpen(false); resetForm(); }}
+        onClose={() => {
+          setRecordModalOpen(false);
+          resetForm();
+        }}
         title="Record Manual Payment"
         size="lg"
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-              Student ID
-            </label>
+            <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Student ID</label>
             <input
               type="text"
               value={formStudentId}
@@ -445,9 +504,7 @@ const BursarDashboard = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-              Due
-            </label>
+            <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Due</label>
             <select
               value={formDueId}
               onChange={(e) => {
@@ -467,9 +524,7 @@ const BursarDashboard = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-              Amount
-            </label>
+            <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Amount</label>
             <input
               type="number"
               value={formAmount}
@@ -480,11 +535,9 @@ const BursarDashboard = () => {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-                Bank Name
-              </label>
+              <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Bank Name</label>
               <input
                 type="text"
                 value={formBankName}
@@ -508,9 +561,7 @@ const BursarDashboard = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-              Notes
-            </label>
+            <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Notes</label>
             <textarea
               value={formNotes}
               onChange={(e) => setFormNotes(e.target.value)}
@@ -523,7 +574,10 @@ const BursarDashboard = () => {
           <div className="flex justify-end gap-3 pt-2">
             <Button
               variant="ghost"
-              onClick={() => { setRecordModalOpen(false); resetForm(); }}
+              onClick={() => {
+                setRecordModalOpen(false);
+                resetForm();
+              }}
             >
               Cancel
             </Button>

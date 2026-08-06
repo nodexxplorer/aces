@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
+import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { useNotification } from '../../hooks/useNotification';
@@ -42,8 +42,8 @@ const LecturerAttendanceReviewPage = () => {
         action === 'approve'
           ? 'Attendance sheet approved successfully'
           : action === 'request_changes'
-          ? 'Change request sent to Class Rep'
-          : 'Attendance sheet rejected'
+            ? 'Change request sent to Class Rep'
+            : 'Attendance sheet rejected',
       );
       await fetchReviews();
     } catch {
@@ -90,10 +90,13 @@ const LecturerAttendanceReviewPage = () => {
                   </div>
                   <h2 className="text-base font-semibold text-surface-900 dark:text-white mt-1">{r.course_title}</h2>
                   <p className="text-xs text-surface-500 mt-1">
-                    Submitted by <strong className="text-surface-700 dark:text-surface-300">{r.class_rep_name}</strong> on {r.scheduled_date}
+                    Submitted by <strong className="text-surface-700 dark:text-surface-300">{r.class_rep_name}</strong>{' '}
+                    on {r.scheduled_date}
                   </p>
                   <div className="flex gap-4 mt-3 text-xs">
-                    <span className="text-success-600 dark:text-success-400 font-medium">Present: {r.total_present}</span>
+                    <span className="text-success-600 dark:text-success-400 font-medium">
+                      Present: {r.total_present}
+                    </span>
                     <span className="text-danger-600 dark:text-danger-400 font-medium">Absent: {r.total_absent}</span>
                     <span className="text-surface-500">Total: {r.total_present + r.total_absent}</span>
                   </div>

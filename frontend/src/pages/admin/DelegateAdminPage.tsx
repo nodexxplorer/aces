@@ -9,6 +9,7 @@ import { UserCog, Loader2, Search, ShieldCheck } from 'lucide-react';
 import { getUsers } from '../../api/users';
 import { delegateAdmin } from '../../api/role-management';
 import type { User } from '../../types';
+import { getErrorMessage } from '../../utils/errors';
 
 const getDisplayName = (u: User) => {
   if (u.fullName) return u.fullName;
@@ -34,8 +35,8 @@ const DelegateAdminPage = () => {
       const result = await getUsers({ page: 1, perPage: 100 });
       const items = Array.isArray(result) ? result : [];
       setUsers(items.filter((u) => u.role === 'lecturer' || u.role === 'hod'));
-    } catch (err: any) {
-      error('Load Failed', err?.message || 'Could not load users');
+    } catch (err) {
+      error('Load Failed', getErrorMessage(err, 'Could not load users'));
     } finally {
       setLoading(false);
     }
@@ -45,8 +46,7 @@ const DelegateAdminPage = () => {
     const matchesRole = roleFilter === 'all' || u.role === roleFilter;
     const name = getDisplayName(u);
     const matchesSearch =
-      name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase());
+      name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase());
     return matchesRole && matchesSearch;
   });
 
@@ -55,8 +55,8 @@ const DelegateAdminPage = () => {
       setAssigning(userId);
       await delegateAdmin(userId);
       success('Admin Delegated', 'User has been granted temporary admin privileges');
-    } catch (err: any) {
-      error('Delegation Failed', err?.message || 'Could not delegate admin privileges');
+    } catch (err) {
+      error('Delegation Failed', getErrorMessage(err, 'Could not delegate admin privileges'));
     } finally {
       setAssigning(null);
     }
@@ -86,7 +86,13 @@ const DelegateAdminPage = () => {
         <Button
           size="xs"
           variant="outline"
-          leftIcon={assigning === row.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+          leftIcon={
+            assigning === row.id ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <ShieldCheck className="w-3.5 h-3.5" />
+            )
+          }
           onClick={() => handleDelegate(row.id)}
           disabled={assigning === row.id}
         >
@@ -140,7 +146,7 @@ const DelegateAdminPage = () => {
             <span className="ml-2 text-sm text-surface-500">Loading users...</span>
           </div>
         ) : (
-          <DataTable columns={columns} data={filtered as unknown as Record<string, unknown>[]} />
+          <DataTable columns={columns} data={filtered} />
         )}
       </Card>
     </div>

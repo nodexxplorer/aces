@@ -4,7 +4,12 @@ import Input from '../ui/Input';
 import Select from '../ui/Select';
 
 interface ComplaintFormProps {
-  onSubmit: (data: { subject: string; description: string; category: string; priority: 'low' | 'medium' | 'high' }) => void;
+  onSubmit: (data: {
+    subject: string;
+    description: string;
+    category: string;
+    priority: 'low' | 'medium' | 'high';
+  }) => void;
   isLoading?: boolean;
 }
 
@@ -48,7 +53,7 @@ const ComplaintForm = ({ onSubmit, isLoading }: ComplaintFormProps) => {
             { value: 'high', label: 'High Priority' },
           ]}
           value={priority}
-          onChange={(e) => setPriority(e.target.value as any)}
+          onChange={(e) => setPriority(e.target.value as 'low' | 'medium' | 'high')}
         />
       </div>
       <div>

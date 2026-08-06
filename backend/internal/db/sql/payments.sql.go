@@ -993,9 +993,10 @@ func (q *Queries) VerifyPayment(ctx context.Context, arg VerifyPaymentParams) (P
 }
 
 const listRecentVerifiedPayments = `-- name: ListRecentVerifiedPayments :many
-SELECT p.id, p.student_id, p.batch_id, p.due_id, p.type, p.item_name, p.amount, p.paystack_reference, p.status, p.verified_by, p.verified_at, p.paid_at, p.created_at, p.payment_method, p.bank_reference, p.bank_name, p.receipt_url, p.recorded_by, p.notes, u.matric_number, u.full_name AS student_name, d.name AS due_name
+SELECT p.id, p.student_id, p.batch_id, p.due_id, p.type, p.item_name, p.amount, p.paystack_reference, p.status, p.verified_by, p.verified_at, p.paid_at, p.created_at, p.payment_method, p.bank_reference, p.bank_name, p.receipt_url, p.recorded_by, p.notes, s.matric_number, u.full_name AS student_name, d.name AS due_name
 FROM payments p
-JOIN users u ON u.id = p.student_id
+JOIN students s ON s.id = p.student_id
+JOIN users u ON u.id = s.user_id
 LEFT JOIN dues d ON d.id = p.due_id
 WHERE p.status = 'completed'
 ORDER BY p.verified_at DESC NULLS LAST

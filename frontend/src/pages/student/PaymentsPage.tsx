@@ -3,14 +3,26 @@ import Card, { CardHeader, CardTitle, CardDescription } from '../../components/u
 import Button from '../../components/ui/Button';
 import StatusBadge from '../../components/data-display/StatusBadge';
 import { formatCurrency, formatDate } from '../../utils/formatters';
-import { getStudentPayments, getStudentPaymentSummary, initializeCheckout, checkoutCart, getMyDues, addToCart, listStudentCart, removeFromCart, clearStudentCart, checkDuePaid } from '../../api/payments';
-import { purchaseManual, getMyPurchases } from '../../api/manuals';
+import {
+  getStudentPayments,
+  getStudentPaymentSummary,
+  initializeCheckout,
+  checkoutCart,
+  getMyDues,
+  addToCart,
+  listStudentCart,
+  removeFromCart,
+  clearStudentCart,
+  checkDuePaid,
+} from '../../api/payments';
+import { purchaseManual } from '../../api/manuals';
 import { useCartStore } from '../../stores/cartStore';
 import type { CartItem } from '../../api/payments';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
 import { CreditCard, Download, ShoppingCart, Trash2, Plus, Loader2, Receipt } from 'lucide-react';
 import type { Payment, DuePayment } from '../../types';
+import { getErrorMessage } from '../../utils/errors';
 
 const PaymentsPage = () => {
   const { user } = useAuth();
@@ -18,7 +30,12 @@ const PaymentsPage = () => {
 
   const [tab, setTab] = useState<'transactions' | 'cart'>('transactions');
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [summary, setSummary] = useState<{ total_paid: number; total_pending: number; amount_paid: number; amount_pending: number } | null>(null);
+  const [summary, setSummary] = useState<{
+    total_paid: number;
+    total_pending: number;
+    amount_paid: number;
+    amount_pending: number;
+  } | null>(null);
   const [dues, setDues] = useState<DuePayment[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +51,11 @@ const PaymentsPage = () => {
   const manualCartCount = useCartStore((s) => s.getItemCount);
 
   const totalCartCount = cart.length + manualCartCount();
+  // Dues already in the cart must be excluded from "add to cart" — the
+  // backend's AddToCart is a plain INSERT with no uniqueness constraint on
+  // (student_id, due_id), so without this a student could add the same due
+  // twice and be double-charged at checkout.
+  const cartDueIds = new Set(cart.map((item) => item.due_id));
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -44,7 +66,7 @@ const PaymentsPage = () => {
     Promise.all([
       getStudentPayments(user.id),
       getStudentPaymentSummary(user.id).catch(() => null),
-      getMyDues((user as any)?.level).catch(() => []),
+      getMyDues(user?.level).catch(() => []),
     ])
       .then(([pays, summ, duesData]) => {
         setPayments(pays);
@@ -140,8 +162,8 @@ const PaymentsPage = () => {
       try {
         await purchaseManual(item.manual.id);
         purchased++;
-      } catch (err: any) {
-        const msg = err?.response?.data?.error || err?.message || 'Purchase failed';
+      } catch (err: unknown) {
+        const msg = getErrorMessage(err, 'Purchase failed');
         if (msg.includes('already purchased')) {
           purchased++;
         } else {
@@ -153,7 +175,10 @@ const PaymentsPage = () => {
     clearManualCart();
 
     if (failed === 0) {
-      success('Checkout Complete', `${purchased} manual(s) purchased successfully. Check "My Manuals" for your QR codes.`);
+      success(
+        'Checkout Complete',
+        `${purchased} manual(s) purchased successfully. Check "My Manuals" for your QR codes.`,
+      );
     } else {
       notifyError('Partial Checkout', `${purchased} purchased, ${failed} failed.`);
     }
@@ -183,11 +208,15 @@ const PaymentsPage = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="p-4">
           <p className="text-xs text-surface-500 font-medium">Total Paid</p>
-          <p className="text-xl font-bold text-success-600 dark:text-success-400 mt-1">{formatCurrency(summary?.amount_paid ?? 0)}</p>
+          <p className="text-xl font-bold text-success-600 dark:text-success-400 mt-1">
+            {formatCurrency(summary?.amount_paid ?? 0)}
+          </p>
         </Card>
         <Card className="p-4">
           <p className="text-xs text-surface-500 font-medium">Outstanding</p>
-          <p className="text-xl font-bold text-warning-600 dark:text-warning-400 mt-1">{formatCurrency(summary?.amount_pending ?? 0)}</p>
+          <p className="text-xl font-bold text-warning-600 dark:text-warning-400 mt-1">
+            {formatCurrency(summary?.amount_pending ?? 0)}
+          </p>
         </Card>
         <Card className="p-4">
           <p className="text-xs text-surface-500 font-medium">Cart Items</p>
@@ -195,7 +224,9 @@ const PaymentsPage = () => {
         </Card>
         <Card className="p-4">
           <p className="text-xs text-surface-500 font-medium">Cart Total</p>
-          <p className="text-xl font-bold text-primary-600 dark:text-primary-400 mt-1">{formatCurrency(combinedCartTotal)}</p>
+          <p className="text-xl font-bold text-primary-600 dark:text-primary-400 mt-1">
+            {formatCurrency(combinedCartTotal)}
+          </p>
         </Card>
       </div>
 
@@ -204,7 +235,10 @@ const PaymentsPage = () => {
         {tabs.map((t) => (
           <button
             key={t.key}
-            onClick={() => { setTab(t.key); if (t.key === 'cart') fetchCart(); }}
+            onClick={() => {
+              setTab(t.key);
+              if (t.key === 'cart') fetchCart();
+            }}
             className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
               tab === t.key
                 ? 'bg-white dark:bg-surface-900 text-primary-600 shadow-sm'
@@ -235,27 +269,46 @@ const PaymentsPage = () => {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-surface-200 dark:border-surface-700">
-                    <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">PURPOSE</th>
+                    <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">
+                      PURPOSE
+                    </th>
                     <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">AMOUNT</th>
-                    <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">REFERENCE</th>
+                    <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">
+                      REFERENCE
+                    </th>
                     <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">DATE</th>
                     <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">STATUS</th>
-                    <th className="text-right px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">ACTION</th>
+                    <th className="text-right px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">
+                      ACTION
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {payments.map((p) => (
-                    <tr key={p.id} className="border-b border-surface-100 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors">
+                    <tr
+                      key={p.id}
+                      className="border-b border-surface-100 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors"
+                    >
                       <td className="px-4 py-3 font-medium text-surface-900 dark:text-white">{p.item_name}</td>
                       <td className="px-4 py-3 text-surface-700 dark:text-surface-300">{formatCurrency(p.amount)}</td>
                       <td className="px-4 py-3 font-mono text-xs text-surface-500">{p.paystack_reference || 'N/A'}</td>
-                      <td className="px-4 py-3 text-xs text-surface-500">{formatDate((p as any).created_at || '')}</td>
-                      <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
+                      <td className="px-4 py-3 text-xs text-surface-500">
+                        {formatDate((p as unknown as { created_at?: string }).created_at || '')}
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={p.status} />
+                      </td>
                       <td className="px-4 py-3 text-right">
                         {p.status === 'completed' ? (
-                          <Button variant="outline" size="xs" leftIcon={<Download className="w-3.5 h-3.5" />}>Receipt</Button>
+                          <Button variant="outline" size="xs" leftIcon={<Download className="w-3.5 h-3.5" />}>
+                            Receipt
+                          </Button>
                         ) : (
-                          <Button size="xs" leftIcon={<CreditCard className="w-3.5 h-3.5" />} onClick={() => handleCheckout(p.id, p.item_name)}>
+                          <Button
+                            size="xs"
+                            leftIcon={<CreditCard className="w-3.5 h-3.5" />}
+                            onClick={() => handleCheckout(p.id, p.item_name)}
+                          >
                             Pay Now
                           </Button>
                         )}
@@ -271,35 +324,63 @@ const PaymentsPage = () => {
         /* Cart Tab */
         <div className="space-y-6">
           {/* Available Dues to Add */}
-          {dues.filter((d) => d.is_active && !paidDueIds.has(d.id)).length > 0 && (
+          {dues.filter((d) => d.is_active && !paidDueIds.has(d.id) && !cartDueIds.has(d.id)).length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Plus className="w-5 h-5" /> Add Dues to Cart</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Plus className="w-5 h-5" /> Add Dues to Cart
+                </CardTitle>
                 <CardDescription>Select dues to pay in bulk</CardDescription>
               </CardHeader>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-surface-200 dark:border-surface-700">
-                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">DUE NAME</th>
-                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">AMOUNT</th>
-                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">LEVEL</th>
-                      <th className="text-right px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">ACTION</th>
+                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">
+                        DUE NAME
+                      </th>
+                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">
+                        AMOUNT
+                      </th>
+                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">
+                        LEVEL
+                      </th>
+                      <th className="text-right px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">
+                        ACTION
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {dues.filter((d) => d.is_active && !paidDueIds.has(d.id)).map((due) => (
-                      <tr key={due.id} className="border-b border-surface-100 dark:border-surface-800">
-                        <td className="px-4 py-3 font-medium text-surface-900 dark:text-white">{due.name}</td>
-                        <td className="px-4 py-3 text-surface-700 dark:text-surface-300">{formatCurrency(due.amount)}</td>
-                        <td className="px-4 py-3 text-xs text-surface-500">{due.level ? `${due.level * 100} Level` : 'All'}</td>
-                        <td className="px-4 py-3 text-right">
-                          <Button size="xs" variant="outline" leftIcon={cartBusyId === due.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />} onClick={() => handleAddToCart(due)} disabled={cartBusyId === due.id}>
-                            Add
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
+                    {dues
+                      .filter((d) => d.is_active && !paidDueIds.has(d.id) && !cartDueIds.has(d.id))
+                      .map((due) => (
+                        <tr key={due.id} className="border-b border-surface-100 dark:border-surface-800">
+                          <td className="px-4 py-3 font-medium text-surface-900 dark:text-white">{due.name}</td>
+                          <td className="px-4 py-3 text-surface-700 dark:text-surface-300">
+                            {formatCurrency(due.amount)}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-surface-500">
+                            {due.level ? `${due.level * 100} Level` : 'All'}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Button
+                              size="xs"
+                              variant="outline"
+                              leftIcon={
+                                cartBusyId === due.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Plus className="w-3.5 h-3.5" />
+                                )
+                              }
+                              onClick={() => handleAddToCart(due)}
+                              disabled={cartBusyId === due.id}
+                            >
+                              Add
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
                   </tbody>
                 </table>
               </div>
@@ -310,7 +391,7 @@ const PaymentsPage = () => {
           {(cart.length > 0 || manualCartCount() > 0) && (
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div>
                     <CardTitle className="flex items-center gap-2">
                       <ShoppingCart className="w-5 h-5" /> Cart
@@ -320,7 +401,10 @@ const PaymentsPage = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => { handleClearCart(); clearManualCart(); }}
+                    onClick={() => {
+                      handleClearCart();
+                      clearManualCart();
+                    }}
                     leftIcon={<Trash2 className="w-4 h-4" />}
                   >
                     Clear All
@@ -333,8 +417,12 @@ const PaymentsPage = () => {
                     <tr className="border-b border-surface-200 dark:border-surface-700">
                       <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">ITEM</th>
                       <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">TYPE</th>
-                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">AMOUNT</th>
-                      <th className="text-right px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">ACTION</th>
+                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">
+                        AMOUNT
+                      </th>
+                      <th className="text-right px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">
+                        ACTION
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -342,11 +430,31 @@ const PaymentsPage = () => {
                       const due = dueLookup.get(item.due_id);
                       return (
                         <tr key={item.id} className="border-b border-surface-100 dark:border-surface-800">
-                          <td className="px-4 py-3 font-medium text-surface-900 dark:text-white">{due?.name || 'Unknown Due'}</td>
-                          <td className="px-4 py-3"><span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Due</span></td>
-                          <td className="px-4 py-3 text-surface-700 dark:text-surface-300">{formatCurrency(Number(item.amount))}</td>
+                          <td className="px-4 py-3 font-medium text-surface-900 dark:text-white">
+                            {due?.name || 'Unknown Due'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                              Due
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-surface-700 dark:text-surface-300">
+                            {formatCurrency(Number(item.amount))}
+                          </td>
                           <td className="px-4 py-3 text-right">
-                            <Button size="xs" variant="danger" leftIcon={cartBusyId === item.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} onClick={() => handleRemoveFromCart(item.id)} disabled={cartBusyId === item.id}>
+                            <Button
+                              size="xs"
+                              variant="danger"
+                              leftIcon={
+                                cartBusyId === item.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                )
+                              }
+                              onClick={() => handleRemoveFromCart(item.id)}
+                              disabled={cartBusyId === item.id}
+                            >
                               Remove
                             </Button>
                           </td>
@@ -356,10 +464,21 @@ const PaymentsPage = () => {
                     {manualCartItems.map((item) => (
                       <tr key={item.manual.id} className="border-b border-surface-100 dark:border-surface-800">
                         <td className="px-4 py-3 font-medium text-surface-900 dark:text-white">{item.manual.title}</td>
-                        <td className="px-4 py-3"><span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Manual</span></td>
-                        <td className="px-4 py-3 text-surface-700 dark:text-surface-300">{formatCurrency(item.manual.price)}</td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                            Manual
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-surface-700 dark:text-surface-300">
+                          {formatCurrency(item.manual.price)}
+                        </td>
                         <td className="px-4 py-3 text-right">
-                          <Button size="xs" variant="danger" leftIcon={<Trash2 className="w-3.5 h-3.5" />} onClick={() => removeManualItem(item.manual.id)}>
+                          <Button
+                            size="xs"
+                            variant="danger"
+                            leftIcon={<Trash2 className="w-3.5 h-3.5" />}
+                            onClick={() => removeManualItem(item.manual.id)}
+                          >
                             Remove
                           </Button>
                         </td>
@@ -381,7 +500,10 @@ const PaymentsPage = () => {
                       leftIcon={<CreditCard className="w-4 h-4" />}
                       onClick={async () => {
                         try {
-                          if (!user?.email) { notifyError('Checkout Error', 'User email is required.'); return; }
+                          if (!user?.email) {
+                            notifyError('Checkout Error', 'User email is required.');
+                            return;
+                          }
                           const res = await checkoutCart();
                           success('Redirecting', 'Forwarding to Paystack for dues payment...');
                           if (res && res.authorization_url) {
@@ -399,7 +521,13 @@ const PaymentsPage = () => {
                   )}
                   {manualCartCount() > 0 && (
                     <Button
-                      leftIcon={manualCheckoutBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+                      leftIcon={
+                        manualCheckoutBusy ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <CreditCard className="w-4 h-4" />
+                        )
+                      }
                       onClick={handleManualCheckout}
                       disabled={manualCheckoutBusy}
                     >
@@ -417,7 +545,9 @@ const PaymentsPage = () => {
               <div className="text-center py-12">
                 <ShoppingCart className="w-10 h-10 mx-auto mb-3 text-surface-300 dark:text-surface-600" />
                 <p className="text-sm text-surface-500">Your cart is empty.</p>
-                <p className="text-xs text-surface-400 mt-1">Add dues from the list above or browse manuals to add items.</p>
+                <p className="text-xs text-surface-400 mt-1">
+                  Add dues from the list above or browse manuals to add items.
+                </p>
                 <a href="/manuals" className="mt-3 inline-block text-sm text-primary-600 hover:underline">
                   Browse Manuals
                 </a>

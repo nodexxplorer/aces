@@ -4,18 +4,41 @@ import Button from '../../components/ui/Button';
 import DataTable from '../../components/data-display/DataTable';
 import Select from '../../components/ui/Select';
 import { useNotification } from '../../hooks/useNotification';
-import { Upload, Download, FileSpreadsheet, CheckCircle2, XCircle, AlertTriangle, Loader2, Trash2, Send } from 'lucide-react';
+import {
+  Upload,
+  Download,
+  FileSpreadsheet,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  Loader2,
+  Trash2,
+  Send,
+} from 'lucide-react';
 import { getCourses } from '../../api/courses';
 import { getSessions, listSessionSemesters } from '../../api/sessions';
 import { getStudents } from '../../api/users';
 import { enterScore, getAllResults } from '../../api/results';
-import type { Course, Session } from '../../types';
+import type { Course, Session, SemesterEntry, User } from '../../types';
+import { getErrorMessage } from '../../utils/errors';
 
 interface CsvRow {
   matric_number: string;
   course_code: string;
   ca_score: string;
   exam_score: string;
+}
+
+// The backend returns results keyed with snake_case fields (student_id,
+// course_id, session_id) that aren't part of the camelCase `Result` type
+// declared in src/types — capture just what this page reads from them.
+interface ExistingResultRow {
+  session_id?: string;
+  sessionId?: string;
+  student_id?: string;
+  studentId?: string;
+  course_id?: string;
+  courseId?: string;
 }
 
 interface ValidatedRow extends CsvRow {
@@ -32,14 +55,13 @@ const BulkResultsUploadPage = () => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedSession, setSelectedSession] = useState('');
-  const [semesters, setSemesters] = useState<any[]>([]);
+  const [semesters, setSemesters] = useState<SemesterEntry[]>([]);
   const [selectedSemester, setSelectedSemester] = useState('');
   const [courses, setCourses] = useState<Course[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
-  const [existingResults, setExistingResults] = useState<any[]>([]);
+  const [students, setStudents] = useState<User[]>([]);
+  const [existingResults, setExistingResults] = useState<ExistingResultRow[]>([]);
   const [rawRows, setRawRows] = useState<CsvRow[]>([]);
   const [validatedRows, setValidatedRows] = useState<ValidatedRow[]>([]);
-  const [uploading, setUploading] = useState(false);
   const [loadingMeta, setLoadingMeta] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitProgress, setSubmitProgress] = useState({ done: 0, total: 0 });
@@ -80,10 +102,12 @@ const BulkResultsUploadPage = () => {
 
   useEffect(() => {
     if (selectedSession && selectedSemester) {
-      getAllResults({ limit: 5000, offset: 0 }).then((res) => {
-        const items = Array.isArray(res) ? res : [];
-        setExistingResults(items.filter((r: any) => r.session_id === selectedSession || r.sessionId === selectedSession));
-      }).catch(() => {});
+      getAllResults({ limit: 5000, offset: 0 })
+        .then((res) => {
+          const items = (Array.isArray(res) ? res : []) as unknown as ExistingResultRow[];
+          setExistingResults(items.filter((r) => r.session_id === selectedSession || r.sessionId === selectedSession));
+        })
+        .catch(() => {});
     }
   }, [selectedSession, selectedSemester]);
 
@@ -100,9 +124,15 @@ const BulkResultsUploadPage = () => {
   };
 
   const parseCSV = (text: string): CsvRow[] => {
-    const lines = text.trim().split('\n').filter((l) => l.trim());
+    const lines = text
+      .trim()
+      .split('\n')
+      .filter((l) => l.trim());
     if (lines.length < 2) return [];
-    const header = lines[0].toLowerCase().split(',').map((h) => h.trim());
+    const header = lines[0]
+      .toLowerCase()
+      .split(',')
+      .map((h) => h.trim());
     const matricIdx = header.findIndex((h) => h.includes('matric'));
     const courseIdx = header.findIndex((h) => h.includes('course') && h.includes('code'));
     const caIdx = header.findIndex((h) => h.includes('ca'));
@@ -151,8 +181,8 @@ const BulkResultsUploadPage = () => {
       if (isNaN(ca) || ca < 0 || ca > 40) errors.push('CA score must be 0–40');
       if (isNaN(exam) || exam < 0 || exam <= 0 || exam > 60) errors.push('Exam score must be 1–60');
 
-      const student = students.find((s: any) =>
-        (s.matric_number || s.matricNumber || '').toLowerCase() === row.matric_number.toLowerCase()
+      const student = students.find(
+        (s) => (s.matric_number || s.matricNumber || '').toLowerCase() === row.matric_number.toLowerCase(),
       );
       if (!student) {
         errors.push('Student not found');
@@ -161,9 +191,7 @@ const BulkResultsUploadPage = () => {
         studentName = student.full_name || student.fullName || student.email;
       }
 
-      const course = courses.find((c: any) =>
-        (c.code || '').toLowerCase() === row.course_code.toLowerCase()
-      );
+      const course = courses.find((c) => (c.code || '').toLowerCase() === row.course_code.toLowerCase());
       if (!course) {
         errors.push('Course not found');
       } else {
@@ -173,11 +201,13 @@ const BulkResultsUploadPage = () => {
 
       const key = `${studentId || row.matric_number}_${courseId || row.course_code}`.toLowerCase();
       let isDuplicate = false;
-      if (existingResults.some((r: any) => {
-        const rSid = r.student_id || r.studentId;
-        const rCid = r.course_id || r.courseId;
-        return rSid === studentId && rCid === courseId;
-      })) {
+      if (
+        existingResults.some((r) => {
+          const rSid = r.student_id || r.studentId;
+          const rCid = r.course_id || r.courseId;
+          return rSid === studentId && rCid === courseId;
+        })
+      ) {
         errors.push('Result already exists for this student/course');
         isDuplicate = true;
       }
@@ -239,9 +269,9 @@ const BulkResultsUploadPage = () => {
             caScore: parseFloat(row.ca_score),
             examScore: parseFloat(row.exam_score),
           });
-        } catch (err: any) {
+        } catch (err: unknown) {
           failed++;
-          const detail = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Unknown error';
+          const detail = getErrorMessage(err, 'Unknown error');
           errors.push(`Row ${i + 1} (${row.matric_number}/${row.course_code}): ${detail}`);
           console.error(`Error uploading row ${i + 1}:`, err);
         }
@@ -257,10 +287,13 @@ const BulkResultsUploadPage = () => {
       } else {
         const errorSummary = errors.slice(0, 3).join(' | ');
         const moreInfo = errors.length > 3 ? ` ...and ${errors.length - 3} more errors` : '';
-        notifyError('Partial Upload', `${validRows.length - failed} succeeded, ${failed} failed. ${errorSummary}${moreInfo}`);
+        notifyError(
+          'Partial Upload',
+          `${validRows.length - failed} succeeded, ${failed} failed. ${errorSummary}${moreInfo}`,
+        );
       }
-    } catch (err: any) {
-      const detail = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Could not upload results';
+    } catch (err: unknown) {
+      const detail = getErrorMessage(err, 'Could not upload results');
       notifyError('Upload Failed', detail);
       console.error('Upload error:', err);
     } finally {
@@ -281,40 +314,58 @@ const BulkResultsUploadPage = () => {
     {
       key: 'matric_number',
       label: 'Matric Number',
-      render: (_: unknown, row: any) => <span className="font-mono text-xs">{row.matric_number}</span>,
+      render: (_: unknown, row: Record<string, unknown>) => (
+        <span className="font-mono text-xs">{(row as unknown as ValidatedRow).matric_number}</span>
+      ),
     },
     {
       key: 'course',
       label: 'Course',
-      render: (_: unknown, row: any) => (
-        <div>
-          <p className="font-semibold text-xs">{row.course_code}</p>
-          <p className="text-[10px] text-surface-500">{row.courseTitle || ''}</p>
-        </div>
-      ),
+      render: (_: unknown, row: Record<string, unknown>) => {
+        const r = row as unknown as ValidatedRow;
+        return (
+          <div>
+            <p className="font-semibold text-xs">{r.course_code}</p>
+            <p className="text-[10px] text-surface-500">{r.courseTitle || ''}</p>
+          </div>
+        );
+      },
     },
     {
       key: 'studentName',
       label: 'Student',
-      render: (_: unknown, row: any) => <span className="text-xs">{row.studentName || '—'}</span>,
+      render: (_: unknown, row: Record<string, unknown>) => (
+        <span className="text-xs">{(row as unknown as ValidatedRow).studentName || '—'}</span>
+      ),
     },
     {
       key: 'scores',
       label: 'CA / Exam',
-      render: (_: unknown, row: any) => (
-        <span className="text-xs font-mono">{row.ca_score} / {row.exam_score}</span>
-      ),
+      render: (_: unknown, row: Record<string, unknown>) => {
+        const r = row as unknown as ValidatedRow;
+        return (
+          <span className="text-xs font-mono">
+            {r.ca_score} / {r.exam_score}
+          </span>
+        );
+      },
     },
     {
       key: 'status',
       label: 'Status',
-      render: (_: unknown, row: any) => {
-        const color = row.status === 'valid' ? 'text-success-600 bg-success-50' : row.status === 'duplicate' ? 'text-warning-600 bg-warning-50' : 'text-danger-600 bg-danger-50';
-        const Icon = row.status === 'valid' ? CheckCircle2 : row.status === 'duplicate' ? AlertTriangle : XCircle;
+      render: (_: unknown, row: Record<string, unknown>) => {
+        const r = row as unknown as ValidatedRow;
+        const color =
+          r.status === 'valid'
+            ? 'text-success-600 bg-success-50'
+            : r.status === 'duplicate'
+              ? 'text-warning-600 bg-warning-50'
+              : 'text-danger-600 bg-danger-50';
+        const Icon = r.status === 'valid' ? CheckCircle2 : r.status === 'duplicate' ? AlertTriangle : XCircle;
         return (
           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${color}`}>
             <Icon className="w-3 h-3" />
-            {row.status}
+            {r.status}
           </span>
         );
       },
@@ -322,9 +373,11 @@ const BulkResultsUploadPage = () => {
     {
       key: 'errors',
       label: 'Issues',
-      render: (_: unknown, row: any) => (
+      render: (_: unknown, row: Record<string, unknown>) => (
         <div className="text-[10px] text-danger-500 space-y-0.5">
-          {row.errors.map((e: string, i: number) => <p key={i}>{e}</p>)}
+          {(row as unknown as ValidatedRow).errors.map((e: string, i: number) => (
+            <p key={i}>{e}</p>
+          ))}
         </div>
       ),
     },
@@ -358,7 +411,7 @@ const BulkResultsUploadPage = () => {
             />
             <Select
               label="Semester"
-              options={semesters.map((s: any) => ({ value: s.id, label: s.name }))}
+              options={semesters.map((s) => ({ value: s.id, label: s.name }))}
               value={selectedSemester}
               onChange={(e) => setSelectedSemester(e.target.value)}
               placeholder={!selectedSession ? 'Select session first' : 'Select semester'}
@@ -370,7 +423,11 @@ const BulkResultsUploadPage = () => {
             <Button variant="outline" leftIcon={<Download className="w-4 h-4" />} onClick={downloadTemplate}>
               Download CSV Template
             </Button>
-            <Button variant="outline" leftIcon={<Upload className="w-4 h-4" />} onClick={() => fileRef.current?.click()}>
+            <Button
+              variant="outline"
+              leftIcon={<Upload className="w-4 h-4" />}
+              onClick={() => fileRef.current?.click()}
+            >
               Upload CSV
             </Button>
             <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
@@ -413,9 +470,16 @@ const BulkResultsUploadPage = () => {
                 disabled={submitting || validCount === 0 || !selectedSession}
                 isLoading={submitting}
               >
-                {submitting ? `Uploading ${submitProgress.done}/${submitProgress.total}...` : `Submit ${validCount} Valid Results`}
+                {submitting
+                  ? `Uploading ${submitProgress.done}/${submitProgress.total}...`
+                  : `Submit ${validCount} Valid Results`}
               </Button>
-              <Button variant="outline" leftIcon={<Trash2 className="w-4 h-4" />} onClick={handleClear} disabled={submitting}>
+              <Button
+                variant="outline"
+                leftIcon={<Trash2 className="w-4 h-4" />}
+                onClick={handleClear}
+                disabled={submitting}
+              >
                 Clear All
               </Button>
             </div>
@@ -429,7 +493,8 @@ const BulkResultsUploadPage = () => {
             <FileSpreadsheet className="w-12 h-12 text-surface-300 dark:text-surface-600 mb-4" />
             <h3 className="text-lg font-semibold text-surface-700 dark:text-surface-300 mb-2">No Results Loaded</h3>
             <p className="text-sm text-surface-500 max-w-sm mb-4">
-              Download the CSV template, fill in student matric numbers, course codes, CA and exam scores, then upload the file.
+              Download the CSV template, fill in student matric numbers, course codes, CA and exam scores, then upload
+              the file.
             </p>
             <div className="bg-surface-50 dark:bg-surface-800 rounded-lg p-4 text-left text-xs font-mono text-surface-600 dark:text-surface-400">
               <p className="mb-1 text-[10px] text-surface-400 uppercase tracking-wider">CSV Format</p>

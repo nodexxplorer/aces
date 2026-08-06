@@ -87,14 +87,16 @@ export interface AnnouncementStatusCount {
 }
 
 // --- Verification ---
-export const bulkUploadVerificationRecords = async (records: {
-  matric_number: string;
-  full_name: string;
-  level: number;
-  entry_session: string;
-  department: string;
-  status?: string;
-}[]): Promise<{ records_created: number }> => {
+export const bulkUploadVerificationRecords = async (
+  records: {
+    matric_number: string;
+    full_name: string;
+    level: number;
+    entry_session: string;
+    department: string;
+    status?: string;
+  }[],
+): Promise<{ records_created: number }> => {
   const res = await apiClient.post('/verification/bulk-upload', { records });
   return res.data;
 };
@@ -110,55 +112,100 @@ export const listVerificationRecords = async (params?: {
   return unwrap<VerificationRecord[]>(res);
 };
 
-export const updateVerificationRecord = async (id: string, data: {
-  full_name?: string;
-  level?: number;
-  entry_session?: string;
-  status?: string;
-}): Promise<void> => {
+export const updateVerificationRecord = async (
+  id: string,
+  data: {
+    full_name?: string;
+    level?: number;
+    entry_session?: string;
+    status?: string;
+  },
+): Promise<void> => {
   await apiClient.put(`/verification/records/${id}`, data);
 };
 
 // --- Onboarding (student-facing) ---
+export interface StudentOnboardingResult {
+  message: string;
+  onboardingCompleted: boolean;
+}
+
+export interface OnboardingRecord {
+  id: string;
+  user_id: string;
+  matric_number: string;
+  verification_record_id: string | null;
+  match_confidence: number | null;
+  submitted_email: string | null;
+  submitted_phone: string | null;
+  status: string;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+  updated_at: string;
+  verified_name: string | null;
+  verified_level: number | null;
+  verified_department: string | null;
+}
+
+export interface StudentOnboardingStatusResponse {
+  onboarding: OnboardingRecord;
+}
+
 export const createStudentOnboarding = async (data: {
   matric_number: string;
   email?: string;
   phone?: string;
-}): Promise<any> => {
+}): Promise<StudentOnboardingResult> => {
   const res = await apiClient.post('/onboarding', data);
-  return unwrap<any>(res);
+  return unwrap<StudentOnboardingResult>(res);
 };
 
-export const getStudentOnboardingStatus = async (): Promise<any> => {
+export const getStudentOnboardingStatus = async (): Promise<StudentOnboardingStatusResponse> => {
   const res = await apiClient.get('/onboarding/status');
-  return unwrap<any>(res);
+  return unwrap<StudentOnboardingStatusResponse>(res);
 };
 
-const parseJSONField = (field: any): any[] => {
+const parseJSONField = <T>(field: unknown): T[] => {
   if (!field) return [];
-  if (Array.isArray(field)) return field;
+  if (Array.isArray(field)) return field as T[];
   if (typeof field === 'string') {
     try {
       const parsed = JSON.parse(field);
-      if (Array.isArray(parsed)) return parsed;
-    } catch {}
+      if (Array.isArray(parsed)) return parsed as T[];
+    } catch {
+      // Not valid JSON directly; fall through to try base64-decoding below.
+    }
     try {
       const decoded = atob(field);
       const parsed = JSON.parse(decoded);
-      if (Array.isArray(parsed)) return parsed;
-    } catch {}
+      if (Array.isArray(parsed)) return parsed as T[];
+    } catch {
+      // Not base64-encoded JSON either; give up and return an empty array.
+    }
   }
   return [];
 };
 
-export const normalizeAnnouncement = (ann: any): AnnouncementV2 => {
-  if (!ann) return ann;
+interface RawAnnouncement extends Omit<
+  AnnouncementV2,
+  'target_audience' | 'target_levels' | 'target_departments' | 'attachments'
+> {
+  target_audience?: unknown;
+  target_levels?: unknown;
+  target_departments?: unknown;
+  attachments?: unknown;
+}
+
+export const normalizeAnnouncement = (ann: RawAnnouncement): AnnouncementV2 => {
+  if (!ann) return ann as unknown as AnnouncementV2;
   return {
     ...ann,
-    target_audience: parseJSONField(ann.target_audience),
-    target_levels: parseJSONField(ann.target_levels),
-    target_departments: parseJSONField(ann.target_departments),
-    attachments: parseJSONField(ann.attachments),
+    target_audience: parseJSONField<string>(ann.target_audience),
+    target_levels: parseJSONField<number>(ann.target_levels),
+    target_departments: parseJSONField<string>(ann.target_departments),
+    attachments: parseJSONField<{ name: string; url: string; type: string }>(ann.attachments),
   };
 };
 
@@ -201,19 +248,22 @@ export const getAnnouncementV2 = async (id: string): Promise<AnnouncementV2> => 
   return normalizeAnnouncement(unwrap<AnnouncementV2>(res));
 };
 
-export const updateAnnouncementV2 = async (id: string, data: Partial<{
-  title: string;
-  content: string;
-  summary: string;
-  priority: string;
-  category: string;
-  is_pinned: boolean;
-  target_level: number;
-  target_audience: string[];
-  requires_acknowledgment: boolean;
-  status: string;
-  expires_at: string;
-}>): Promise<void> => {
+export const updateAnnouncementV2 = async (
+  id: string,
+  data: Partial<{
+    title: string;
+    content: string;
+    summary: string;
+    priority: string;
+    category: string;
+    is_pinned: boolean;
+    target_level: number;
+    target_audience: string[];
+    requires_acknowledgment: boolean;
+    status: string;
+    expires_at: string;
+  }>,
+): Promise<void> => {
   await apiClient.put(`/announcements/${id}`, data);
 };
 
@@ -279,8 +329,15 @@ export const getReceiptStats = async (id: string): Promise<ReceiptStats> => {
 };
 
 // --- Comments ---
-export const createAnnouncementComment = async (announcementId: string, content: string, parentCommentId?: string): Promise<AnnouncementComment> => {
-  const res = await apiClient.post(`/announcements/${announcementId}/comments`, { content, parent_comment_id: parentCommentId });
+export const createAnnouncementComment = async (
+  announcementId: string,
+  content: string,
+  parentCommentId?: string,
+): Promise<AnnouncementComment> => {
+  const res = await apiClient.post(`/announcements/${announcementId}/comments`, {
+    content,
+    parent_comment_id: parentCommentId,
+  });
   return unwrap<AnnouncementComment>(res);
 };
 

@@ -135,9 +135,10 @@ RETURNING *;
 -- name: ListRecentVerifiedPayments :many
 SELECT p.*,
     u.full_name AS student_name,
-    u.matric_number AS matric_number
+    s.matric_number AS matric_number
 FROM payments p
-JOIN users u ON u.id = p.student_id
+JOIN students s ON s.id = p.student_id
+JOIN users u ON u.id = s.user_id
 WHERE p.status = 'completed'
 ORDER BY p.verified_at DESC NULLS LAST
 LIMIT $1 OFFSET $2;

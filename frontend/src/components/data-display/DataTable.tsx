@@ -5,12 +5,12 @@ import Pagination from '../ui/Pagination';
 import { SkeletonTable } from '../ui/Skeleton';
 import EmptyState from '../ui/EmptyState';
 
-interface Column<T> {
+export interface Column<T> {
   key: string;
   label: string;
   sortable?: boolean;
   className?: string;
-  render?: (value: any, row: any) => React.ReactNode;
+  render?: (value: unknown, row: T) => React.ReactNode;
 }
 
 interface DataTableProps<T> {
@@ -24,23 +24,36 @@ interface DataTableProps<T> {
   onRowClick?: (row: T) => void;
 }
 
-function DataTable<T extends Record<string, unknown>>({
-  columns, data, isLoading, emptyTitle = 'No data found', emptyDescription, pageSize = 10, className, onRowClick,
+function DataTable<T extends object>({
+  columns,
+  data,
+  isLoading,
+  emptyTitle = 'No data found',
+  emptyDescription,
+  pageSize = 10,
+  className,
+  onRowClick,
 }: DataTableProps<T>) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [page, setPage] = useState(1);
 
   const handleSort = (key: string) => {
-    if (sortKey === key) { setSortDir(sortDir === 'asc' ? 'desc' : 'asc'); }
-    else { setSortKey(key); setSortDir('asc'); }
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
   };
 
   const sorted = useMemo(() => {
     if (!sortKey) return data;
     return [...data].sort((a, b) => {
-      const aVal = a[sortKey]; const bVal = b[sortKey];
-      if (aVal == null) return 1; if (bVal == null) return -1;
+      const aVal = (a as Record<string, unknown>)[sortKey];
+      const bVal = (b as Record<string, unknown>)[sortKey];
+      if (aVal == null) return 1;
+      if (bVal == null) return -1;
       const cmp = String(aVal).localeCompare(String(bVal), undefined, { numeric: true });
       return sortDir === 'asc' ? cmp : -cmp;
     });
@@ -59,13 +72,32 @@ function DataTable<T extends Record<string, unknown>>({
           <thead>
             <tr className="bg-surface-50 dark:bg-surface-800/50">
               {columns.map((col) => (
-                <th key={col.key} className={cn('text-left px-4 py-3 text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider', col.className)}>
+                <th
+                  key={col.key}
+                  className={cn(
+                    'text-left px-4 py-3 text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider',
+                    col.className,
+                  )}
+                >
                   {col.sortable ? (
-                    <button onClick={() => handleSort(col.key)} className="flex items-center gap-1 hover:text-surface-700 dark:hover:text-surface-200 transition-colors">
+                    <button
+                      onClick={() => handleSort(col.key)}
+                      className="flex items-center gap-1 hover:text-surface-700 dark:hover:text-surface-200 transition-colors"
+                    >
                       {col.label}
-                      {sortKey === col.key ? (sortDir === 'asc' ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />) : <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />}
+                      {sortKey === col.key ? (
+                        sortDir === 'asc' ? (
+                          <ArrowUp className="w-3.5 h-3.5" />
+                        ) : (
+                          <ArrowDown className="w-3.5 h-3.5" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
+                      )}
                     </button>
-                  ) : col.label}
+                  ) : (
+                    col.label
+                  )}
                 </th>
               ))}
             </tr>
@@ -75,13 +107,19 @@ function DataTable<T extends Record<string, unknown>>({
               <tr
                 key={i}
                 onClick={() => onRowClick?.(row)}
-                className={cn('transition-colors', onRowClick ? 'cursor-pointer hover:bg-surface-50 dark:hover:bg-surface-800/50' : '')}
+                className={cn(
+                  'transition-colors',
+                  onRowClick ? 'cursor-pointer hover:bg-surface-50 dark:hover:bg-surface-800/50' : '',
+                )}
               >
-                {columns.map((col) => (
-                  <td key={col.key} className={cn('px-4 py-3 text-surface-700 dark:text-surface-300', col.className)}>
-                    {col.render ? col.render(row[col.key], row) : String(row[col.key] ?? '-')}
-                  </td>
-                ))}
+                {columns.map((col) => {
+                  const cellValue = (row as Record<string, unknown>)[col.key];
+                  return (
+                    <td key={col.key} className={cn('px-4 py-3 text-surface-700 dark:text-surface-300', col.className)}>
+                      {col.render ? col.render(cellValue, row) : String(cellValue ?? '-')}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
@@ -89,7 +127,9 @@ function DataTable<T extends Record<string, unknown>>({
       </div>
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <p className="text-xs text-surface-500">Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, sorted.length)} of {sorted.length}</p>
+          <p className="text-xs text-surface-500">
+            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, sorted.length)} of {sorted.length}
+          </p>
           <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
         </div>
       )}

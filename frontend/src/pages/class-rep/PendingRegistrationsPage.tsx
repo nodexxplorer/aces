@@ -63,9 +63,7 @@ const PendingRegistrationsPage = () => {
     {
       key: 'type',
       label: 'Registration Type',
-      render: (val: unknown) => (
-        <Badge variant="warning">{(val as string) || 'User Registration'}</Badge>
-      ),
+      render: (val: unknown) => <Badge variant="warning">{(val as string) || 'User Registration'}</Badge>,
     },
     {
       key: 'action',
@@ -104,7 +102,7 @@ const PendingRegistrationsPage = () => {
             <span className="ml-2 text-sm text-surface-500">Loading pending list...</span>
           </div>
         ) : (
-          <DataTable columns={columns} data={list as unknown as Record<string, unknown>[]} />
+          <DataTable columns={columns} data={list} />
         )}
       </Card>
     </div>

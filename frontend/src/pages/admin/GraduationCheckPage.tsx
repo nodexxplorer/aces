@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
 import StatusBadge from '../../components/data-display/StatusBadge';
 import { useNotification } from '../../hooks/useNotification';
-import { GraduationCap, Search, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
+import { GraduationCap, Search, CheckCircle, AlertTriangle } from 'lucide-react';
 import { getStudents, getStudentCGPA } from '../../api/users';
+import type { User } from '../../types';
 
 interface GraduationStatus {
   studentId: string;
@@ -18,12 +18,22 @@ interface GraduationStatus {
   missingCredits: number;
 }
 
+// getStudentCGPA's real response only has cgpa/total_credits_earned, but this
+// page defensively also checks a couple of alternate field names in case the
+// backend shape ever changes.
+interface CGPAResult {
+  cgpa?: number;
+  average?: number;
+  total_credits_earned?: number;
+  totalCredits?: number;
+}
+
 const GraduationCheckPage = () => {
   const { success } = useNotification();
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(false);
-  const [students, setStudents] = useState<any[]>([]);
+  const [students, setStudents] = useState<User[]>([]);
   const [results, setResults] = useState<GraduationStatus[]>([]);
 
   useEffect(() => {
@@ -34,7 +44,7 @@ const GraduationCheckPage = () => {
     try {
       setLoading(true);
       const data = await getStudents({ page: 1, perPage: 100 });
-      const items = Array.isArray(data) ? data : (data as any).items || [];
+      const items = Array.isArray(data) ? data : (data as unknown as { items?: User[] }).items || [];
       setStudents(items);
     } catch {
       // silent
@@ -55,22 +65,25 @@ const GraduationCheckPage = () => {
               s.lastName?.toLowerCase().includes(search.toLowerCase()) ||
               s.matricNumber?.toLowerCase().includes(search.toLowerCase()) ||
               s.matric_number?.toLowerCase().includes(search.toLowerCase()) ||
-              s.regNo?.toLowerCase().includes(search.toLowerCase()) ||
-              s.email?.toLowerCase().includes(search.toLowerCase())
+              s.email?.toLowerCase().includes(search.toLowerCase()),
           )
         : students.slice(0, 50);
 
       const graduationResults: GraduationStatus[] = [];
       for (const student of filtered) {
         try {
-          const cgpaData = await getStudentCGPA(student.id) as any;
+          const cgpaData = (await getStudentCGPA(student.id)) as CGPAResult;
           const cgpa = cgpaData?.cgpa ?? cgpaData?.average ?? null;
-          const totalCredits = cgpaData?.totalCredits ?? 0;
+          const totalCredits = cgpaData?.total_credits_earned ?? cgpaData?.totalCredits ?? 0;
           const requiredCredits = 140;
           graduationResults.push({
             studentId: student.id,
-            name: student.fullName || student.full_name || `${student.firstName || ''} ${student.lastName || ''}`.trim() || student.email,
-            regNo: student.matricNumber || student.matric_number || student.regNo || student.idNumber || 'N/A',
+            name:
+              student.fullName ||
+              student.full_name ||
+              `${student.firstName || ''} ${student.lastName || ''}`.trim() ||
+              student.email,
+            regNo: student.matricNumber || student.matric_number || 'N/A',
             cgpa,
             totalCredits,
             requiredCredits,
@@ -80,8 +93,12 @@ const GraduationCheckPage = () => {
         } catch {
           graduationResults.push({
             studentId: student.id,
-            name: student.fullName || student.full_name || `${student.firstName || ''} ${student.lastName || ''}`.trim() || student.email,
-            regNo: student.matricNumber || student.matric_number || student.regNo || student.idNumber || 'N/A',
+            name:
+              student.fullName ||
+              student.full_name ||
+              `${student.firstName || ''} ${student.lastName || ''}`.trim() ||
+              student.email,
+            regNo: student.matricNumber || student.matric_number || 'N/A',
             cgpa: null,
             totalCredits: 0,
             requiredCredits: 140,
@@ -128,11 +145,7 @@ const GraduationCheckPage = () => {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <Button
-              onClick={handleCheck}
-              isLoading={checking}
-              leftIcon={<GraduationCap className="w-4 h-4" />}
-            >
+            <Button onClick={handleCheck} isLoading={checking} leftIcon={<GraduationCap className="w-4 h-4" />}>
               Run Check
             </Button>
           </div>
@@ -143,9 +156,7 @@ const GraduationCheckPage = () => {
         <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="p-4 text-center">
-              <p className="text-3xl font-bold text-success-600">
-                {results.filter((r) => r.qualifies).length}
-              </p>
+              <p className="text-3xl font-bold text-success-600">{results.filter((r) => r.qualifies).length}</p>
               <p className="text-xs text-surface-500 mt-1">Qualified for Graduation</p>
             </Card>
             <Card className="p-4 text-center">
@@ -155,9 +166,7 @@ const GraduationCheckPage = () => {
               <p className="text-xs text-surface-500 mt-1">Ineligible (CGPA/Credits)</p>
             </Card>
             <Card className="p-4 text-center">
-              <p className="text-3xl font-bold text-surface-400">
-                {results.filter((r) => r.cgpa === null).length}
-              </p>
+              <p className="text-3xl font-bold text-surface-400">{results.filter((r) => r.cgpa === null).length}</p>
               <p className="text-xs text-surface-500 mt-1">No CGPA Data</p>
             </Card>
           </div>
@@ -175,8 +184,8 @@ const GraduationCheckPage = () => {
                     r.qualifies
                       ? 'border-success-200 bg-success-50 dark:bg-success-900/10'
                       : r.cgpa === null
-                      ? 'border-surface-200 bg-surface-50 dark:bg-surface-800'
-                      : 'border-warning-200 bg-warning-50 dark:bg-warning-900/10'
+                        ? 'border-surface-200 bg-surface-50 dark:bg-surface-800'
+                        : 'border-warning-200 bg-warning-50 dark:bg-warning-900/10'
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -191,8 +200,12 @@ const GraduationCheckPage = () => {
                     </div>
                   </div>
                   <div className="text-right text-xs">
-                    <p>CGPA: <span className="font-semibold">{r.cgpa !== null ? r.cgpa.toFixed(2) : 'N/A'}</span></p>
-                    <p>Credits: {r.totalCredits}/{r.requiredCredits}</p>
+                    <p>
+                      CGPA: <span className="font-semibold">{r.cgpa !== null ? r.cgpa.toFixed(2) : 'N/A'}</span>
+                    </p>
+                    <p>
+                      Credits: {r.totalCredits}/{r.requiredCredits}
+                    </p>
                   </div>
                   <StatusBadge status={r.qualifies ? 'active' : r.cgpa === null ? 'pending' : 'suspended'} />
                 </div>

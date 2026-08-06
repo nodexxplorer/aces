@@ -6,10 +6,19 @@ import Modal from '../../components/ui/Modal';
 import Select from '../../components/ui/Select';
 import { useNotification } from '../../hooks/useNotification';
 import { Search, Loader2, Users, BookOpen, Calendar, ChevronRight, Trash2, Check, Ban } from 'lucide-react';
-import { listLecturers, getLecturerProfile, assignCourseToLecturer, listLecturerAssignments, removeCourseAssignment, listAllLeaveRequests, updateLeaveStatus } from '../../api/lecturers';
+import {
+  listLecturers,
+  getLecturerProfile,
+  assignCourseToLecturer,
+  listLecturerAssignments,
+  removeCourseAssignment,
+  listAllLeaveRequests,
+  updateLeaveStatus,
+} from '../../api/lecturers';
 import { getCourses } from '../../api/courses';
 import type { LecturerProfile, LecturerAssignment, LecturerLeave } from '../../api/lecturers';
 import type { Course } from '../../types';
+import { getErrorMessage } from '../../utils/errors';
 
 type Tab = 'list' | 'courses' | 'leave';
 
@@ -54,11 +63,7 @@ const LecturerManagementPage = () => {
   const fetchAll = async () => {
     try {
       setLoading(true);
-      const [l, c, lr] = await Promise.allSettled([
-        listLecturers(),
-        getCourses(),
-        listAllLeaveRequests(),
-      ]);
+      const [l, c, lr] = await Promise.allSettled([listLecturers(), getCourses(), listAllLeaveRequests()]);
       if (l.status === 'fulfilled') setLecturers(Array.isArray(l.value) ? l.value : []);
       if (c.status === 'fulfilled') setCourses(Array.isArray(c.value) ? c.value : []);
       if (lr.status === 'fulfilled') setLeaveRequests(Array.isArray(lr.value) ? lr.value : []);
@@ -111,8 +116,8 @@ const LecturerManagementPage = () => {
       const updated = await getLecturerProfile(selectedLecturer.id);
       setAssignments(updated.assignments || []);
       fetchAll();
-    } catch (err: any) {
-      notifyError('Assign Failed', err?.response?.data?.message || 'Could not assign course');
+    } catch (err: unknown) {
+      notifyError('Assign Failed', getErrorMessage(err, 'Could not assign course'));
     } finally {
       setAssigning(false);
     }
@@ -124,8 +129,8 @@ const LecturerManagementPage = () => {
       success('Removed', 'Course assignment has been removed');
       setAssignments((prev) => prev.filter((a) => a.id !== assignment.id));
       fetchAll();
-    } catch (err: any) {
-      notifyError('Remove Failed', err?.response?.data?.message || 'Could not remove assignment');
+    } catch (err: unknown) {
+      notifyError('Remove Failed', getErrorMessage(err, 'Could not remove assignment'));
     }
   };
 
@@ -133,9 +138,9 @@ const LecturerManagementPage = () => {
     try {
       await updateLeaveStatus(leave.id, status);
       success('Updated', `Leave request ${status}`);
-      setLeaveRequests((prev) => prev.map((l) => l.id === leave.id ? { ...l, status } : l));
-    } catch (err: any) {
-      notifyError('Update Failed', err?.response?.data?.message || 'Could not update leave status');
+      setLeaveRequests((prev) => prev.map((l) => (l.id === leave.id ? { ...l, status } : l)));
+    } catch (err: unknown) {
+      notifyError('Update Failed', getErrorMessage(err, 'Could not update leave status'));
     }
   };
 
@@ -178,7 +183,9 @@ const LecturerManagementPage = () => {
               <Users className="w-5 h-5 text-primary-500" />
               All Lecturers
             </CardTitle>
-            <CardDescription>{filteredLecturers.length} lecturer{filteredLecturers.length !== 1 && 's'}</CardDescription>
+            <CardDescription>
+              {filteredLecturers.length} lecturer{filteredLecturers.length !== 1 && 's'}
+            </CardDescription>
           </CardHeader>
           <div className="mb-4 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
@@ -204,9 +211,13 @@ const LecturerManagementPage = () => {
                   <tr className="bg-surface-50 dark:bg-surface-900/50">
                     <th className="text-left px-4 py-3 font-medium text-surface-600 dark:text-surface-400">Lecturer</th>
                     <th className="text-left px-4 py-3 font-medium text-surface-600 dark:text-surface-400">Staff ID</th>
-                    <th className="text-left px-4 py-3 font-medium text-surface-600 dark:text-surface-400">Department</th>
+                    <th className="text-left px-4 py-3 font-medium text-surface-600 dark:text-surface-400">
+                      Department
+                    </th>
                     <th className="text-left px-4 py-3 font-medium text-surface-600 dark:text-surface-400">Rank</th>
-                    <th className="text-left px-4 py-3 font-medium text-surface-600 dark:text-surface-400">Specialization</th>
+                    <th className="text-left px-4 py-3 font-medium text-surface-600 dark:text-surface-400">
+                      Specialization
+                    </th>
                     <th className="text-left px-4 py-3 font-medium text-surface-600 dark:text-surface-400">Type</th>
                     <th className="text-left px-4 py-3 font-medium text-surface-600 dark:text-surface-400">Status</th>
                   </tr>
@@ -224,7 +235,12 @@ const LecturerManagementPage = () => {
                             <img src={l.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
                           ) : (
                             <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-xs font-semibold text-primary-600 dark:text-primary-400">
-                              {(l.full_name || '?').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
+                              {(l.full_name || '?')
+                                .split(' ')
+                                .map((w) => w[0])
+                                .join('')
+                                .slice(0, 2)
+                                .toUpperCase()}
                             </div>
                           )}
                           <div>
@@ -237,7 +253,9 @@ const LecturerManagementPage = () => {
                       <td className="px-4 py-3 text-surface-600 dark:text-surface-400">{l.department || '—'}</td>
                       <td className="px-4 py-3 text-surface-600 dark:text-surface-400">{l.rank || '—'}</td>
                       <td className="px-4 py-3 text-surface-600 dark:text-surface-400">{l.specialization || '—'}</td>
-                      <td className="px-4 py-3 text-surface-600 dark:text-surface-400 capitalize">{l.employment_type || '—'}</td>
+                      <td className="px-4 py-3 text-surface-600 dark:text-surface-400 capitalize">
+                        {l.employment_type || '—'}
+                      </td>
                       <td className="px-4 py-3">
                         <Badge variant={statusVariant(l.employment_status || 'active')} dot>
                           {(l.employment_status || 'active').replace('_', ' ')}
@@ -283,10 +301,17 @@ const LecturerManagementPage = () => {
                       className="w-full flex items-center gap-3 p-3 rounded-lg text-left hover:bg-surface-50 dark:hover:bg-surface-900/50 transition-colors group"
                     >
                       <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-xs font-semibold text-primary-600 dark:text-primary-400 shrink-0">
-                        {(l.full_name || '?').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
+                        {(l.full_name || '?')
+                          .split(' ')
+                          .map((w) => w[0])
+                          .join('')
+                          .slice(0, 2)
+                          .toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-surface-900 dark:text-surface-100 truncate">{l.full_name}</p>
+                        <p className="text-sm font-medium text-surface-900 dark:text-surface-100 truncate">
+                          {l.full_name}
+                        </p>
                         <p className="text-xs text-surface-500 truncate">{l.department || 'No department'}</p>
                       </div>
                       <ChevronRight className="w-4 h-4 text-surface-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
@@ -305,7 +330,11 @@ const LecturerManagementPage = () => {
                   {selectedLecturer ? `${selectedLecturer.full_name} — Assignments` : 'Course Assignments'}
                 </CardTitle>
                 {selectedLecturer && (
-                  <Button size="sm" onClick={() => setAssignModalOpen(true)} leftIcon={<BookOpen className="w-3.5 h-3.5" />}>
+                  <Button
+                    size="sm"
+                    onClick={() => setAssignModalOpen(true)}
+                    leftIcon={<BookOpen className="w-3.5 h-3.5" />}
+                  >
                     Assign Course
                   </Button>
                 )}
@@ -320,9 +349,7 @@ const LecturerManagementPage = () => {
                   <span className="ml-2 text-sm text-surface-500">Loading assignments...</span>
                 </div>
               ) : assignments.length === 0 ? (
-                <p className="text-center text-sm text-surface-500 py-12">
-                  No courses assigned to this lecturer yet.
-                </p>
+                <p className="text-center text-sm text-surface-500 py-12">No courses assigned to this lecturer yet.</p>
               ) : (
                 <div className="space-y-2">
                   {assignments.map((a) => (
@@ -369,7 +396,9 @@ const LecturerManagementPage = () => {
               <Calendar className="w-5 h-5 text-primary-500" />
               Leave Requests
             </CardTitle>
-            <CardDescription>{leaveRequests.length} request{leaveRequests.length !== 1 && 's'}</CardDescription>
+            <CardDescription>
+              {leaveRequests.length} request{leaveRequests.length !== 1 && 's'}
+            </CardDescription>
           </CardHeader>
           {loading ? (
             <div className="flex items-center justify-center p-12">
@@ -395,13 +424,17 @@ const LecturerManagementPage = () => {
                   {leaveRequests.map((lr) => (
                     <tr key={lr.id} className="hover:bg-surface-50 dark:hover:bg-surface-900/30 transition-colors">
                       <td className="px-4 py-3">
-                        <p className="font-medium text-surface-900 dark:text-surface-100">{lr.lecturer_name || 'Unknown'}</p>
+                        <p className="font-medium text-surface-900 dark:text-surface-100">
+                          {lr.lecturer_name || 'Unknown'}
+                        </p>
                       </td>
                       <td className="px-4 py-3 text-surface-600 dark:text-surface-400 capitalize">{lr.leave_type}</td>
                       <td className="px-4 py-3 text-surface-600 dark:text-surface-400 text-xs">
                         {new Date(lr.start_date).toLocaleDateString()} — {new Date(lr.end_date).toLocaleDateString()}
                       </td>
-                      <td className="px-4 py-3 text-surface-600 dark:text-surface-400 max-w-[200px] truncate">{lr.reason}</td>
+                      <td className="px-4 py-3 text-surface-600 dark:text-surface-400 max-w-[200px] truncate">
+                        {lr.reason}
+                      </td>
                       <td className="px-4 py-3">
                         <Badge variant={leaveVariant(lr.status)} dot>
                           {lr.status}
@@ -444,13 +477,14 @@ const LecturerManagementPage = () => {
 
       <Modal
         isOpen={assignModalOpen}
-        onClose={() => { setAssignModalOpen(false); setAssignCourseId(''); }}
+        onClose={() => {
+          setAssignModalOpen(false);
+          setAssignCourseId('');
+        }}
         title={`Assign Course — ${selectedLecturer?.full_name || ''}`}
       >
         <div className="space-y-4">
-          <p className="text-sm text-surface-500">
-            Select an unassigned course to assign to this lecturer.
-          </p>
+          <p className="text-sm text-surface-500">Select an unassigned course to assign to this lecturer.</p>
           <Select
             label="Course"
             value={assignCourseId}
@@ -461,18 +495,18 @@ const LecturerManagementPage = () => {
               label: `${c.code} — ${c.title} (${c.unit} unit${c.unit !== 1 ? 's' : ''})`,
             }))}
           />
-          {availableCourses.length === 0 && (
-            <p className="text-xs text-surface-400">No active courses available.</p>
-          )}
+          {availableCourses.length === 0 && <p className="text-xs text-surface-400">No active courses available.</p>}
           <div className="flex gap-2 justify-end pt-2">
-            <Button variant="ghost" onClick={() => { setAssignModalOpen(false); setAssignCourseId(''); }}>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setAssignModalOpen(false);
+                setAssignCourseId('');
+              }}
+            >
               Cancel
             </Button>
-            <Button
-              onClick={handleAssignCourse}
-              isLoading={assigning}
-              disabled={!assignCourseId}
-            >
+            <Button onClick={handleAssignCourse} isLoading={assigning} disabled={!assignCourseId}>
               Assign
             </Button>
           </div>
@@ -481,7 +515,10 @@ const LecturerManagementPage = () => {
 
       <Modal
         isOpen={!!selectedLecturer && !assignModalOpen}
-        onClose={() => { setSelectedLecturer(null); setProfileModalOpen(false); }}
+        onClose={() => {
+          setSelectedLecturer(null);
+          setProfileModalOpen(false);
+        }}
         title={selectedLecturer?.full_name || 'Lecturer Profile'}
         size="lg"
       >
@@ -492,7 +529,12 @@ const LecturerManagementPage = () => {
                 <img src={selectedLecturer.avatar_url} alt="" className="w-16 h-16 rounded-full object-cover" />
               ) : (
                 <div className="w-16 h-16 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-xl font-bold text-primary-600 dark:text-primary-400">
-                  {(selectedLecturer.full_name || '?').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
+                  {(selectedLecturer.full_name || '?')
+                    .split(' ')
+                    .map((w) => w[0])
+                    .join('')
+                    .slice(0, 2)
+                    .toUpperCase()}
                 </div>
               )}
               <div>
@@ -511,12 +553,14 @@ const LecturerManagementPage = () => {
                 ['Employment Type', selectedLecturer.employment_type],
                 ['Office Location', selectedLecturer.office_location],
                 ['Phone', selectedLecturer.phone],
-              ].filter(([, v]) => v).map(([label, value]) => (
-                <div key={label}>
-                  <p className="text-xs text-surface-500 dark:text-surface-400">{label}</p>
-                  <p className="text-sm font-medium text-surface-900 dark:text-surface-100 capitalize">{value}</p>
-                </div>
-              ))}
+              ]
+                .filter(([, v]) => v)
+                .map(([label, value]) => (
+                  <div key={label}>
+                    <p className="text-xs text-surface-500 dark:text-surface-400">{label}</p>
+                    <p className="text-sm font-medium text-surface-900 dark:text-surface-100 capitalize">{value}</p>
+                  </div>
+                ))}
               <div>
                 <p className="text-xs text-surface-500 dark:text-surface-400">Status</p>
                 <Badge variant={statusVariant(selectedLecturer.employment_status || 'active')} dot>
@@ -533,7 +577,13 @@ const LecturerManagementPage = () => {
             )}
 
             <div className="flex justify-end pt-2">
-              <Button variant="ghost" onClick={() => { setSelectedLecturer(null); setProfileModalOpen(false); }}>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setSelectedLecturer(null);
+                  setProfileModalOpen(false);
+                }}
+              >
                 Close
               </Button>
             </div>

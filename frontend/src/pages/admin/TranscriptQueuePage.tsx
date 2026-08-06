@@ -5,7 +5,7 @@ import DataTable from '../../components/data-display/DataTable';
 import StatusBadge from '../../components/data-display/StatusBadge';
 import Modal from '../../components/ui/Modal';
 import { useNotification } from '../../hooks/useNotification';
-import { FileText, Printer, Download, Eye, Loader2, Send } from 'lucide-react';
+import { Printer, Eye, Loader2, Send } from 'lucide-react';
 import { getTranscriptRequests, approveTranscriptRequest, markTranscriptPrinted } from '../../api/transcripts';
 import type { TranscriptRequest, TranscriptStatus } from '../../types';
 
@@ -25,7 +25,8 @@ const TranscriptQueuePage = () => {
     try {
       setLoading(true);
       const data = await getTranscriptRequests();
-      const items = Array.isArray(data) ? data : (data as any).items || [];
+      const raw = data as unknown;
+      const items = Array.isArray(raw) ? raw : (raw as { items?: TranscriptRequest[] })?.items || [];
       setRequests(items);
     } catch {
       // silent
@@ -79,16 +80,16 @@ const TranscriptQueuePage = () => {
       ),
     },
     { key: 'purpose', label: 'Purpose' },
-    { key: 'copies', label: 'Copies', render: (val: unknown) => val || 1 },
+    { key: 'copies', label: 'Copies', render: (val: unknown) => String((val as number | undefined) || 1) },
     {
       key: 'requestedAt',
       label: 'Requested',
-      render: (val: unknown) => val ? new Date(val as string).toLocaleDateString() : 'N/A',
+      render: (val: unknown) => (val ? new Date(val as string).toLocaleDateString() : 'N/A'),
     },
     {
       key: 'estimatedCost',
       label: 'Cost',
-      render: (val: unknown) => val ? `₦${Number(val).toLocaleString()}` : 'N/A',
+      render: (val: unknown) => (val ? `₦${Number(val).toLocaleString()}` : 'N/A'),
     },
     { key: 'status', label: 'Status', render: (val: unknown) => <StatusBadge status={val as string} /> },
     {
@@ -113,9 +114,7 @@ const TranscriptQueuePage = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="p-4 text-center">
-          <p className="text-3xl font-bold text-primary-600">
-            {requests.filter((r) => r.status === 'pending').length}
-          </p>
+          <p className="text-3xl font-bold text-primary-600">{requests.filter((r) => r.status === 'pending').length}</p>
           <p className="text-xs text-surface-500 mt-1">Pending Review</p>
         </Card>
         <Card className="p-4 text-center">
@@ -143,7 +142,7 @@ const TranscriptQueuePage = () => {
             <span className="ml-2 text-sm text-surface-500">Loading requests...</span>
           </div>
         ) : (
-          <DataTable columns={columns as any} data={requests as any} />
+          <DataTable columns={columns} data={requests} />
         )}
       </Card>
 
@@ -174,7 +173,13 @@ const TranscriptQueuePage = () => {
                 <Button
                   variant="success"
                   className="flex-1"
-                  leftIcon={actionLoading === selected.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  leftIcon={
+                    actionLoading === selected.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )
+                  }
                   onClick={() => handleApprove(selected.id)}
                   disabled={actionLoading === selected.id}
                 >
@@ -185,7 +190,13 @@ const TranscriptQueuePage = () => {
                 <Button
                   variant="success"
                   className="flex-1"
-                  leftIcon={actionLoading === selected.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+                  leftIcon={
+                    actionLoading === selected.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Printer className="w-4 h-4" />
+                    )
+                  }
                   onClick={() => handleMarkPrinted(selected.id)}
                   disabled={actionLoading === selected.id}
                 >

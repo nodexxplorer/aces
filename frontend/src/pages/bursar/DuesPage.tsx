@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
 import { Plus, Trash2, DollarSign } from 'lucide-react';
 import type { DuePayment } from '../../types';
+import { getErrorMessage } from '../../utils/errors';
 
 type Tab = 'class_dues' | 'dept_dues';
 
@@ -38,7 +39,9 @@ export default function DuesPage() {
   const [level, setLevel] = useState('');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { fetchDues(); }, [activeTab]);
+  useEffect(() => {
+    fetchDues();
+  }, [activeTab]);
 
   const fetchDues = async () => {
     try {
@@ -66,11 +69,14 @@ export default function DuesPage() {
         level: level ? parseInt(level) : undefined,
       });
       success('Due Created', `${TAB_CONFIG[activeTab].title.replace(' Dues', ' due')} created successfully`);
-      setName(''); setAmount(''); setDescription(''); setLevel('');
+      setName('');
+      setAmount('');
+      setDescription('');
+      setLevel('');
       setShowForm(false);
       fetchDues();
-    } catch (err: any) {
-      notifyError('Failed', err?.response?.data?.error || 'Could not create due');
+    } catch (err: unknown) {
+      notifyError('Failed', getErrorMessage(err, 'Could not create due'));
     } finally {
       setSaving(false);
     }
@@ -92,7 +98,7 @@ export default function DuesPage() {
   const columns = [
     { key: 'name', label: 'Due Name', sortable: true },
     { key: 'amount', label: 'Amount', render: (val: unknown) => formatCurrency(val as number) },
-    { key: 'level', label: 'Level', render: (val: unknown) => val ? `${val} Level` : 'All Levels' },
+    { key: 'level', label: 'Level', render: (val: unknown) => (val ? `${val} Level` : 'All Levels') },
     { key: 'description', label: 'Description', render: (val: unknown) => (val as string) || '—' },
     {
       key: 'action',
@@ -113,18 +119,27 @@ export default function DuesPage() {
         </div>
         <div>
           <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Dues Management</h1>
-          <p className="text-sm text-surface-500 dark:text-surface-400">Manage class and department dues in one place.</p>
+          <p className="text-sm text-surface-500 dark:text-surface-400">
+            Manage class and department dues in one place.
+          </p>
         </div>
       </div>
 
       <div className="flex gap-1 border-b border-surface-200 dark:border-surface-800 pb-px">
-        {([
+        {[
           { key: 'class_dues' as Tab, label: 'Class Dues' },
           { key: 'dept_dues' as Tab, label: 'Department Dues' },
-        ]).map(({ key, label }) => (
+        ].map(({ key, label }) => (
           <button
             key={key}
-            onClick={() => { setActiveTab(key); setShowForm(false); setName(''); setAmount(''); setDescription(''); setLevel(''); }}
+            onClick={() => {
+              setActiveTab(key);
+              setShowForm(false);
+              setName('');
+              setAmount('');
+              setDescription('');
+              setLevel('');
+            }}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors border-b-2 -mb-px ${
               activeTab === key
                 ? 'border-primary-500 text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-950/20'
@@ -159,29 +174,71 @@ export default function DuesPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Name</label>
-                <input className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600" value={name} onChange={(e) => setName(e.target.value)} required placeholder={cfg.placeholder} />
+                <input
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  placeholder={cfg.placeholder}
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Amount (₦)</label>
-                <input className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} required min="0" step="0.01" />
+                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
+                  Amount (₦)
+                </label>
+                <input
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600"
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  required
+                  min="0"
+                  step="0.01"
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Level {activeTab === 'dept_dues' ? '(optional)' : ''}</label>
-                <select className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600" value={level} onChange={(e) => setLevel(e.target.value)} required={activeTab === 'class_dues'}>
+                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
+                  Level {activeTab === 'dept_dues' ? '(optional)' : ''}
+                </label>
+                <select
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600"
+                  value={level}
+                  onChange={(e) => setLevel(e.target.value)}
+                  required={activeTab === 'class_dues'}
+                >
                   <option value="">{activeTab === 'dept_dues' ? 'All Levels' : 'Select level'}</option>
-                  {[1,2,3,4,5].map((l) => <option key={l} value={l}>{l * 100} Level</option>)}
+                  {[1, 2, 3, 4, 5].map((l) => (
+                    <option key={l} value={l}>
+                      {l * 100} Level
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Description</label>
-                <input className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description" />
+                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
+                  Description
+                </label>
+                <input
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Optional description"
+                />
               </div>
             </div>
             <div className="flex gap-2">
-              <button type="submit" disabled={saving} className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 text-sm font-medium disabled:opacity-50">
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 text-sm font-medium disabled:opacity-50"
+              >
                 {saving ? 'Creating...' : 'Create Due'}
               </button>
-              <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-surface-50 dark:hover:bg-surface-800">
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-surface-50 dark:hover:bg-surface-800"
+              >
                 Cancel
               </button>
             </div>
@@ -194,7 +251,7 @@ export default function DuesPage() {
           <CardTitle>{cfg.title} Registry</CardTitle>
           <CardDescription>{loading ? 'Loading...' : `${dues.length} due(s) found`}</CardDescription>
         </CardHeader>
-        <DataTable columns={columns} data={dues as unknown as Record<string, unknown>[]} />
+        <DataTable columns={columns} data={dues} />
       </Card>
     </div>
   );

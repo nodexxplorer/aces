@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, Award, CreditCard, Users, Megaphone, Calendar, Clock, AlertTriangle, TrendingUp, Bell } from 'lucide-react';
+import { BookOpen, Award, CreditCard, Megaphone, Calendar, Clock, AlertTriangle, TrendingUp, Bell } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import KpiCard from '../../components/data-display/KpiCard';
 import Card, { CardHeader, CardTitle } from '../../components/ui/Card';
@@ -8,8 +8,6 @@ import Button from '../../components/ui/Button';
 import { useAuth } from '../../hooks/useAuth';
 import { formatGPA } from '../../utils/formatters';
 import { getStudentDashboard, type StudentDashboard as DashboardData } from '../../api/dashboard';
-
-const dayName = (d: number) => ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'][d] || '';
 
 const StudentDashboard = () => {
   const { user } = useAuth();
@@ -37,12 +35,24 @@ const StudentDashboard = () => {
       <div className="text-center py-12">
         <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
         <p className="text-surface-600 dark:text-surface-400">{error || 'Failed to load dashboard'}</p>
-        <Button className="mt-4" onClick={() => window.location.reload()}>Retry</Button>
+        <Button className="mt-4" onClick={() => window.location.reload()}>
+          Retry
+        </Button>
       </div>
     );
   }
 
-  const { student, attendance, payments, next_class, today_classes, announcements, recent_grades, notifications, carryovers } = data;
+  const {
+    student,
+    attendance,
+    payments,
+    next_class,
+    today_classes,
+    announcements,
+    recent_grades,
+    notifications,
+    carryovers,
+  } = data;
 
   return (
     <div className="space-y-6">
@@ -102,9 +112,7 @@ const StudentDashboard = () => {
                       {next_class.venue} · {next_class.start_time?.slice(0, 5)} – {next_class.end_time?.slice(0, 5)}
                     </p>
                   </div>
-                  {next_class.class_type && (
-                    <Badge variant="secondary">{next_class.class_type}</Badge>
-                  )}
+                  {next_class.class_type && <Badge variant="secondary">{next_class.class_type}</Badge>}
                 </div>
               </div>
             </Card>
@@ -122,7 +130,10 @@ const StudentDashboard = () => {
               </CardHeader>
               <div className="space-y-2 p-4 pt-0">
                 {today_classes.map((c, i) => (
-                  <div key={i} className="flex justify-between items-center p-3 rounded-lg border border-surface-100 dark:border-surface-800 bg-white dark:bg-surface-900">
+                  <div
+                    key={i}
+                    className="flex justify-between items-center p-3 rounded-lg border border-surface-100 dark:border-surface-800 bg-white dark:bg-surface-900"
+                  >
                     <div>
                       <h5 className="font-semibold text-sm text-surface-900 dark:text-surface-100">{c.course_code}</h5>
                       <p className="text-[10px] text-surface-500 truncate max-w-[180px]">{c.course_title}</p>
@@ -163,7 +174,10 @@ const StudentDashboard = () => {
                 <p className="text-xs text-surface-400 text-center py-4">No announcements.</p>
               ) : (
                 announcements.map((ann) => (
-                  <div key={ann.id} className="p-3 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-200/50 dark:border-surface-700/50">
+                  <div
+                    key={ann.id}
+                    className="p-3 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-200/50 dark:border-surface-700/50"
+                  >
                     <div className="flex items-center justify-between mb-1">
                       {ann.is_pinned && <Badge variant="primary">Pinned</Badge>}
                       <span className="text-xs text-surface-400">{ann.date}</span>
@@ -187,7 +201,9 @@ const StudentDashboard = () => {
             <div className="space-y-3 p-4 pt-0">
               <div className="flex justify-between text-sm">
                 <span className="text-surface-500">Attendance</span>
-                <span className="font-semibold">{attendance?.attended || 0}/{attendance?.total_classes || 0} classes</span>
+                <span className="font-semibold">
+                  {attendance?.attended || 0}/{attendance?.total_classes || 0} classes
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-surface-500">Amount Paid</span>
@@ -195,7 +211,9 @@ const StudentDashboard = () => {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-surface-500">Amount Pending</span>
-                <span className="font-semibold text-amber-500">₦{(payments?.amount_pending || 0).toLocaleString()}</span>
+                <span className="font-semibold text-amber-500">
+                  ₦{(payments?.amount_pending || 0).toLocaleString()}
+                </span>
               </div>
               {carryovers > 0 && (
                 <div className="flex justify-between text-sm">
@@ -244,7 +262,11 @@ const StudentDashboard = () => {
                 </Button>
               </Link>
               <Link to="/payments" className="block">
-                <Button variant="outline" className="w-full justify-start" leftIcon={<CreditCard className="w-4 h-4" />}>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  leftIcon={<CreditCard className="w-4 h-4" />}
+                >
                   Pay Dues
                 </Button>
               </Link>

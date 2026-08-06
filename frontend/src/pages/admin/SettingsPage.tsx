@@ -9,7 +9,22 @@ import { updateUser } from '../../api/users';
 import { getCGPAConfig, updateCGPAConfig } from '../../api/cgpa';
 import { getAISettings, updateAISettings } from '../../api/ai';
 import type { AISettings } from '../../api/ai';
-import { Settings, Moon, Sun, Save, Camera, User, Bot, Brain, Eye, Shield, Globe, BarChart3, Loader2 } from 'lucide-react';
+import { getErrorMessage } from '../../utils/errors';
+import {
+  Settings,
+  Moon,
+  Sun,
+  Save,
+  Camera,
+  User,
+  Bot,
+  Brain,
+  Eye,
+  Shield,
+  Globe,
+  BarChart3,
+  Loader2,
+} from 'lucide-react';
 
 type SettingsTab = 'profile' | 'cgpa' | 'ai';
 
@@ -48,12 +63,12 @@ const SettingsPage = () => {
         full_name: fullName,
         phone: phone || undefined,
         avatar_url: avatarUrl || undefined,
-      } as any);
-      updateAuthUser({ fullName, full_name: fullName, phone, avatar: avatarUrl, avatarUrl, avatar_url: avatarUrl } as any);
+      });
+      updateAuthUser({ fullName, full_name: fullName, phone, avatar: avatarUrl, avatarUrl, avatar_url: avatarUrl });
       setEditing(false);
       success('Profile Updated', 'Your profile has been updated successfully');
-    } catch (err: any) {
-      notifyError('Update Failed', err?.response?.data?.error || 'Could not update profile');
+    } catch (err: unknown) {
+      notifyError('Update Failed', getErrorMessage(err, 'Could not update profile'));
     } finally {
       setSaving(false);
     }
@@ -98,7 +113,11 @@ const SettingsPage = () => {
               <div className="flex items-center gap-4">
                 <div className="relative">
                   {avatarUrl ? (
-                    <img src={avatarUrl} alt="Profile" className="w-20 h-20 rounded-full object-cover border-2 border-surface-200 dark:border-surface-700" />
+                    <img
+                      src={avatarUrl}
+                      alt="Profile"
+                      className="w-20 h-20 rounded-full object-cover border-2 border-surface-200 dark:border-surface-700"
+                    />
                   ) : (
                     <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-2xl font-bold">
                       {fullName?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || '?'}
@@ -107,37 +126,69 @@ const SettingsPage = () => {
                   {editing && (
                     <label className="absolute -bottom-1 -right-1 w-7 h-7 bg-primary-500 rounded-full flex items-center justify-center cursor-pointer hover:bg-primary-600 transition-colors">
                       <Camera className="w-3.5 h-3.5 text-white" />
-                      <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) { const reader = new FileReader(); reader.onload = (ev) => setAvatarUrl(ev.target?.result as string); reader.readAsDataURL(file); }
-                      }} />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => setAvatarUrl(ev.target?.result as string);
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
                     </label>
                   )}
                 </div>
                 <div>
                   <p className="font-semibold text-surface-900 dark:text-white">{fullName || 'No Name'}</p>
                   <p className="text-sm text-surface-500">{user?.email}</p>
-                  <p className="text-[10px] text-surface-400 capitalize mt-0.5">Role: {user?.activeRole || user?.role}</p>
+                  <p className="text-[10px] text-surface-400 capitalize mt-0.5">
+                    Role: {user?.activeRole || user?.role}
+                  </p>
                 </div>
               </div>
 
               {editing ? (
                 <>
                   <Input label="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-                  <Input label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Enter phone number" />
-                  <Input label="Avatar URL" value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} placeholder="https://example.com/photo.jpg" />
+                  <Input
+                    label="Phone"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="Enter phone number"
+                  />
+                  <Input
+                    label="Avatar URL"
+                    value={avatarUrl}
+                    onChange={(e) => setAvatarUrl(e.target.value)}
+                    placeholder="https://example.com/photo.jpg"
+                  />
                   <div className="flex gap-3">
-                    <Button type="submit" className="flex-1" isLoading={saving} leftIcon={<Save className="w-4 h-4" />}>Save Changes</Button>
-                    <Button type="button" variant="outline" className="flex-1" onClick={() => {
-                      setEditing(false);
-                      setFullName(user?.fullName || user?.full_name || '');
-                      setPhone(user?.phone || '');
-                      setAvatarUrl(user?.avatar || user?.avatarUrl || user?.avatar_url || '');
-                    }}>Cancel</Button>
+                    <Button type="submit" className="flex-1" isLoading={saving} leftIcon={<Save className="w-4 h-4" />}>
+                      Save Changes
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => {
+                        setEditing(false);
+                        setFullName(user?.fullName || user?.full_name || '');
+                        setPhone(user?.phone || '');
+                        setAvatarUrl(user?.avatar || user?.avatarUrl || user?.avatar_url || '');
+                      }}
+                    >
+                      Cancel
+                    </Button>
                   </div>
                 </>
               ) : (
-                <Button type="button" variant="outline" onClick={() => setEditing(true)}>Edit Profile</Button>
+                <Button type="button" variant="outline" onClick={() => setEditing(true)}>
+                  Edit Profile
+                </Button>
               )}
             </form>
           </Card>
@@ -153,7 +204,11 @@ const SettingsPage = () => {
             <div className="p-4 pt-0">
               <div className="flex items-center justify-between p-3 rounded-lg border border-surface-200 dark:border-surface-700">
                 <div className="flex items-center gap-3">
-                  {theme === 'dark' ? <Moon className="w-5 h-5 text-primary-500" /> : <Sun className="w-5 h-5 text-warning-500" />}
+                  {theme === 'dark' ? (
+                    <Moon className="w-5 h-5 text-primary-500" />
+                  ) : (
+                    <Sun className="w-5 h-5 text-warning-500" />
+                  )}
                   <div>
                     <p className="font-medium text-sm">Theme</p>
                     <p className="text-[10px] text-surface-500">Currently using {theme} mode</p>
@@ -189,16 +244,19 @@ function CGPATab() {
   const [thirdClass, setThirdClass] = useState('1.5');
 
   useEffect(() => {
-    getCGPAConfig().then((config) => {
-      if (config) {
-        setScale(String(config.scale || config.maxScale || '5.0'));
-        setPassingCGPA(String(config.passingCGPA || config.minimumPassing || '1.0'));
-        setFirstClass(String(config.firstClass || config.gradeBoundaries?.firstClass || '4.5'));
-        setSecondClassUpper(String(config.secondClassUpper || config.gradeBoundaries?.secondClassUpper || '3.5'));
-        setSecondClassLower(String(config.secondClassLower || config.gradeBoundaries?.secondClassLower || '2.5'));
-        setThirdClass(String(config.thirdClass || config.gradeBoundaries?.thirdClass || '1.5'));
-      }
-    }).catch(() => {}).finally(() => setLoading(false));
+    getCGPAConfig()
+      .then((config) => {
+        if (config) {
+          setScale(String(config.scale || config.maxScale || '5.0'));
+          setPassingCGPA(String(config.passingCGPA || config.minimumPassing || '1.0'));
+          setFirstClass(String(config.firstClass || config.gradeBoundaries?.firstClass || '4.5'));
+          setSecondClassUpper(String(config.secondClassUpper || config.gradeBoundaries?.secondClassUpper || '3.5'));
+          setSecondClassLower(String(config.secondClassLower || config.gradeBoundaries?.secondClassLower || '2.5'));
+          setThirdClass(String(config.thirdClass || config.gradeBoundaries?.thirdClass || '1.5'));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -214,7 +272,7 @@ function CGPATab() {
           secondClassLower: parseFloat(secondClassLower),
           thirdClass: parseFloat(thirdClass),
         },
-      } as any);
+      });
       success('Settings Updated', 'CGPA classification thresholds saved');
     } catch {
       notifyError('Error', 'Failed to save CGPA settings');
@@ -224,7 +282,11 @@ function CGPATab() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary-500" /></div>;
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
+      </div>
+    );
   }
 
   return (
@@ -235,16 +297,60 @@ function CGPATab() {
       </CardHeader>
       <form onSubmit={handleSave} className="p-4 pt-0 space-y-4">
         <div className="grid grid-cols-2 gap-4">
-          <Input label="Maximum CGPA Scale" type="number" step="0.1" value={scale} onChange={(e) => setScale(e.target.value)} required />
-          <Input label="Minimum Passing CGPA" type="number" step="0.1" value={passingCGPA} onChange={(e) => setPassingCGPA(e.target.value)} required />
+          <Input
+            label="Maximum CGPA Scale"
+            type="number"
+            step="0.1"
+            value={scale}
+            onChange={(e) => setScale(e.target.value)}
+            required
+          />
+          <Input
+            label="Minimum Passing CGPA"
+            type="number"
+            step="0.1"
+            value={passingCGPA}
+            onChange={(e) => setPassingCGPA(e.target.value)}
+            required
+          />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <Input label="First Class (min CGPA)" type="number" step="0.1" value={firstClass} onChange={(e) => setFirstClass(e.target.value)} required />
-          <Input label="Second Class Upper (min CGPA)" type="number" step="0.1" value={secondClassUpper} onChange={(e) => setSecondClassUpper(e.target.value)} required />
-          <Input label="Second Class Lower (min CGPA)" type="number" step="0.1" value={secondClassLower} onChange={(e) => setSecondClassLower(e.target.value)} required />
-          <Input label="Third Class (min CGPA)" type="number" step="0.1" value={thirdClass} onChange={(e) => setThirdClass(e.target.value)} required />
+          <Input
+            label="First Class (min CGPA)"
+            type="number"
+            step="0.1"
+            value={firstClass}
+            onChange={(e) => setFirstClass(e.target.value)}
+            required
+          />
+          <Input
+            label="Second Class Upper (min CGPA)"
+            type="number"
+            step="0.1"
+            value={secondClassUpper}
+            onChange={(e) => setSecondClassUpper(e.target.value)}
+            required
+          />
+          <Input
+            label="Second Class Lower (min CGPA)"
+            type="number"
+            step="0.1"
+            value={secondClassLower}
+            onChange={(e) => setSecondClassLower(e.target.value)}
+            required
+          />
+          <Input
+            label="Third Class (min CGPA)"
+            type="number"
+            step="0.1"
+            value={thirdClass}
+            onChange={(e) => setThirdClass(e.target.value)}
+            required
+          />
         </div>
-        <Button type="submit" isLoading={saving} leftIcon={<Save className="w-4 h-4" />}>Save CGPA Configuration</Button>
+        <Button type="submit" isLoading={saving} leftIcon={<Save className="w-4 h-4" />}>
+          Save CGPA Configuration
+        </Button>
       </form>
     </Card>
   );
@@ -257,7 +363,10 @@ function AITab() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    getAISettings().then(setSettings).catch(() => notifyError('Error', 'Failed to load AI settings')).finally(() => setLoading(false));
+    getAISettings()
+      .then(setSettings)
+      .catch(() => notifyError('Error', 'Failed to load AI settings'))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleToggle = (key: keyof AISettings) => {
@@ -284,16 +393,40 @@ function AITab() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary-500" /></div>;
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
+      </div>
+    );
   }
 
   if (!settings) return null;
 
   const toggles = [
-    { key: 'chatbot_enabled' as const, icon: <Bot className="w-5 h-5" />, title: 'AI Chatbot', description: 'Enable the ACES Assistant chatbot for quick help and guidance.' },
-    { key: 'personalization_enabled' as const, icon: <Brain className="w-5 h-5" />, title: 'Personalization', description: 'Allow AI to personalize recommendations based on your academic profile.' },
-    { key: 'face_recognition_enabled' as const, icon: <Eye className="w-5 h-5" />, title: 'Face Recognition Attendance', description: 'Enable face detection for automatic class check-in (camera required).' },
-    { key: 'data_collection_consent' as const, icon: <Shield className="w-5 h-5" />, title: 'Data Collection Consent', description: 'Allow anonymized interaction data to improve AI accuracy. No PII is shared.' },
+    {
+      key: 'chatbot_enabled' as const,
+      icon: <Bot className="w-5 h-5" />,
+      title: 'AI Chatbot',
+      description: 'Enable the ACES Assistant chatbot for quick help and guidance.',
+    },
+    {
+      key: 'personalization_enabled' as const,
+      icon: <Brain className="w-5 h-5" />,
+      title: 'Personalization',
+      description: 'Allow AI to personalize recommendations based on your academic profile.',
+    },
+    {
+      key: 'face_recognition_enabled' as const,
+      icon: <Eye className="w-5 h-5" />,
+      title: 'Face Recognition Attendance',
+      description: 'Enable face detection for automatic class check-in (camera required).',
+    },
+    {
+      key: 'data_collection_consent' as const,
+      icon: <Shield className="w-5 h-5" />,
+      title: 'Data Collection Consent',
+      description: 'Allow anonymized interaction data to improve AI accuracy. No PII is shared.',
+    },
   ];
 
   return (
@@ -305,21 +438,30 @@ function AITab() {
         </CardHeader>
         <div className="p-4 pt-0 space-y-3">
           {toggles.map((t) => (
-            <div key={t.key} className="flex items-center justify-between p-4 rounded-xl bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700">
+            <div
+              key={t.key}
+              className="flex items-center justify-between p-4 rounded-xl bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700"
+            >
               <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-primary-50 dark:bg-primary-950/30 text-primary-500 shrink-0">{t.icon}</div>
+                <div className="p-2 rounded-lg bg-primary-50 dark:bg-primary-950/30 text-primary-500 shrink-0">
+                  {t.icon}
+                </div>
                 <div>
                   <h4 className="text-sm font-semibold text-surface-900 dark:text-white">{t.title}</h4>
                   <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">{t.description}</p>
                 </div>
               </div>
-              <button onClick={() => handleToggle(t.key)}
+              <button
+                onClick={() => handleToggle(t.key)}
                 className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500/20 ${
                   settings[t.key] ? 'bg-primary-500' : 'bg-surface-300 dark:bg-surface-600'
-                }`}>
-                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                  settings[t.key] ? 'translate-x-5' : 'translate-x-0'
-                }`} />
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                    settings[t.key] ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
               </button>
             </div>
           ))}
@@ -335,8 +477,11 @@ function AITab() {
           <CardDescription>Language for AI-generated content and chatbot responses</CardDescription>
         </CardHeader>
         <div className="p-4 pt-0">
-          <select value={settings.preferred_language || 'en'} onChange={(e) => setSettings({ ...settings, preferred_language: e.target.value })}
-            className="px-3 py-2 text-sm rounded-lg border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-800 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+          <select
+            value={settings.preferred_language || 'en'}
+            onChange={(e) => setSettings({ ...settings, preferred_language: e.target.value })}
+            className="px-3 py-2 text-sm rounded-lg border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-800 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+          >
             <option value="en">English</option>
             <option value="yo">Yoruba</option>
             <option value="ig">Igbo</option>
@@ -346,7 +491,9 @@ function AITab() {
       </Card>
 
       <div className="flex justify-end">
-        <Button leftIcon={<Save className="w-4 h-4" />} isLoading={saving} onClick={handleSave}>Save AI Preferences</Button>
+        <Button leftIcon={<Save className="w-4 h-4" />} isLoading={saving} onClick={handleSave}>
+          Save AI Preferences
+        </Button>
       </div>
     </div>
   );

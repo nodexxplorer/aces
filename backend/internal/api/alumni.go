@@ -179,6 +179,14 @@ func (server *Server) updateAlumniStatus(ctx *gin.Context) {
 		return
 	}
 
+	// id is a users.id here (UpdateAlumniStatusParams.UserID), not a
+	// students.id, so this can't reuse requireOwnershipOrStaff — compare
+	// directly against the caller's own user ID instead.
+	if !isStaffCaller(ctx) && getUserID(ctx) != id {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "you can only update your own alumni profile"})
+		return
+	}
+
 	var req updateAlumniStatusReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})

@@ -58,11 +58,13 @@ export const getStudents = async (params?: PaginationParams) => {
   return getUsers({ ...params, role: 'student' });
 };
 
+// The app's grading scale is fixed at 5.0 everywhere and isn't part of the
+// backend's response — it's attached here alongside the real fetched CGPA.
+// Errors are left to propagate: this value feeds real graduation-eligibility
+// checks (GraduationCheckPage, AcademicsHubPage), so a fetch failure must not
+// be masked by fabricated data.
 export const getStudentCGPA = async (studentId: string) => {
-  try {
-    const res = await apiClient.get(`/results/cgpa/${studentId}`);
-    return unwrap<{ cgpa: number; scale: number }>(res);
-  } catch {
-    return { cgpa: 3.5, scale: 5.0 };
-  }
+  const res = await apiClient.get(`/cgpa/calculate/${studentId}`);
+  const data = unwrap<{ cgpa: number; total_credits_earned: number; academic_standing: string }>(res);
+  return { ...data, scale: 5.0 };
 };

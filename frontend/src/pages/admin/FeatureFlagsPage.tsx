@@ -8,6 +8,7 @@ import {
   type FeatureFlag,
 } from '../../api/additional-features';
 import { useNotification } from '../../hooks/useNotification';
+import { getErrorMessage } from '../../utils/errors';
 
 const FeatureFlagsPage = () => {
   const { success, error: notifyError } = useNotification();
@@ -56,8 +57,14 @@ const FeatureFlagsPage = () => {
     e.preventDefault();
     setCreating(true);
     try {
-      const targetRoles = formRoles.split(',').map((r) => r.trim()).filter(Boolean);
-      const targetLevels = formLevels.split(',').map((l) => parseInt(l.trim(), 10)).filter((n) => !isNaN(n));
+      const targetRoles = formRoles
+        .split(',')
+        .map((r) => r.trim())
+        .filter(Boolean);
+      const targetLevels = formLevels
+        .split(',')
+        .map((l) => parseInt(l.trim(), 10))
+        .filter((n) => !isNaN(n));
       await createFeatureFlag({
         name: formName,
         description: formDesc || undefined,
@@ -75,8 +82,8 @@ const FeatureFlagsPage = () => {
       setFormPercentage(100);
       setShowForm(false);
       fetchFlags();
-    } catch (err: any) {
-      notifyError('Error', err?.response?.data?.error || 'Failed to create feature flag');
+    } catch (err) {
+      notifyError('Error', getErrorMessage(err, 'Failed to create feature flag'));
     } finally {
       setCreating(false);
     }
@@ -94,7 +101,9 @@ const FeatureFlagsPage = () => {
   };
 
   const statusColor = (enabled: boolean) =>
-    enabled ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400';
+    enabled
+      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+      : 'bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400';
 
   return (
     <div className="min-h-screen bg-surface-50 dark:bg-surface-950 p-6">
@@ -106,7 +115,9 @@ const FeatureFlagsPage = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Feature Flags</h1>
-              <p className="text-sm text-surface-500 dark:text-surface-400">Toggle features on or off and control rollout percentage</p>
+              <p className="text-sm text-surface-500 dark:text-surface-400">
+                Toggle features on or off and control rollout percentage
+              </p>
             </div>
           </div>
           <button
@@ -142,7 +153,9 @@ const FeatureFlagsPage = () => {
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Target Roles (comma-separated)</label>
+                <label className="text-sm font-medium text-surface-700 dark:text-surface-300">
+                  Target Roles (comma-separated)
+                </label>
                 <input
                   value={formRoles}
                   onChange={(e) => setFormRoles(e.target.value)}
@@ -151,7 +164,9 @@ const FeatureFlagsPage = () => {
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Target Levels (comma-separated)</label>
+                <label className="text-sm font-medium text-surface-700 dark:text-surface-300">
+                  Target Levels (comma-separated)
+                </label>
                 <input
                   value={formLevels}
                   onChange={(e) => setFormLevels(e.target.value)}
@@ -216,53 +231,83 @@ const FeatureFlagsPage = () => {
             <div className="flex flex-col items-center justify-center p-12 text-center">
               <Shield className="w-10 h-10 text-surface-300 dark:text-surface-600 mb-3" />
               <p className="text-sm font-medium text-surface-500 dark:text-surface-400">No feature flags configured</p>
-              <p className="text-xs text-surface-400 dark:text-surface-500 mt-1">Create your first flag to start rolling out features gradually</p>
+              <p className="text-xs text-surface-400 dark:text-surface-500 mt-1">
+                Create your first flag to start rolling out features gradually
+              </p>
             </div>
           ) : (
             <table className="w-full">
               <thead>
                 <tr className="border-b border-surface-100 dark:border-surface-800">
-                  <th className="text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider px-6 py-3">Flag</th>
-                  <th className="text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider px-6 py-3">Description</th>
-                  <th className="text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider px-6 py-3">Status</th>
-                  <th className="text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider px-6 py-3">Target Roles</th>
-                  <th className="text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider px-6 py-3">Target Levels</th>
-                  <th className="text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider px-6 py-3">Rollout</th>
-                  <th className="text-right text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider px-6 py-3">Actions</th>
+                  <th className="text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider px-6 py-3">
+                    Flag
+                  </th>
+                  <th className="text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider px-6 py-3">
+                    Description
+                  </th>
+                  <th className="text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider px-6 py-3">
+                    Status
+                  </th>
+                  <th className="text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider px-6 py-3">
+                    Target Roles
+                  </th>
+                  <th className="text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider px-6 py-3">
+                    Target Levels
+                  </th>
+                  <th className="text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider px-6 py-3">
+                    Rollout
+                  </th>
+                  <th className="text-right text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider px-6 py-3">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-50 dark:divide-surface-800/50">
                 {flags.map((flag) => (
                   <tr key={flag.name} className="hover:bg-surface-50 dark:hover:bg-surface-800/30 transition-colors">
                     <td className="px-6 py-4">
-                      <span className="font-mono text-sm font-semibold text-surface-900 dark:text-white">{flag.name}</span>
+                      <span className="font-mono text-sm font-semibold text-surface-900 dark:text-white">
+                        {flag.name}
+                      </span>
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-sm text-surface-500 dark:text-surface-400">{flag.description || '—'}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center text-[10px] font-semibold px-2.5 py-1 rounded-full ${statusColor(flag.is_enabled)}`}>
+                      <span
+                        className={`inline-flex items-center text-[10px] font-semibold px-2.5 py-1 rounded-full ${statusColor(flag.is_enabled)}`}
+                      >
                         {flag.is_enabled ? 'Enabled' : 'Disabled'}
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-1">
-                        {flag.target_roles && flag.target_roles.length > 0 ? flag.target_roles.map((role) => (
-                          <span key={role} className="text-[10px] px-2 py-0.5 rounded-full bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400 font-medium">
-                            {role}
-                          </span>
-                        )) : (
+                        {flag.target_roles && flag.target_roles.length > 0 ? (
+                          flag.target_roles.map((role) => (
+                            <span
+                              key={role}
+                              className="text-[10px] px-2 py-0.5 rounded-full bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400 font-medium"
+                            >
+                              {role}
+                            </span>
+                          ))
+                        ) : (
                           <span className="text-xs text-surface-400">All</span>
                         )}
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-1">
-                        {flag.target_levels && flag.target_levels.length > 0 ? flag.target_levels.map((lvl) => (
-                          <span key={lvl} className="text-[10px] px-2 py-0.5 rounded-full bg-accent-50 text-accent-700 dark:bg-accent-900/30 dark:text-accent-400 font-medium">
-                            {lvl}
-                          </span>
-                        )) : (
+                        {flag.target_levels && flag.target_levels.length > 0 ? (
+                          flag.target_levels.map((lvl) => (
+                            <span
+                              key={lvl}
+                              className="text-[10px] px-2 py-0.5 rounded-full bg-accent-50 text-accent-700 dark:bg-accent-900/30 dark:text-accent-400 font-medium"
+                            >
+                              {lvl}
+                            </span>
+                          ))
+                        ) : (
                           <span className="text-xs text-surface-400">All</span>
                         )}
                       </div>
@@ -275,7 +320,9 @@ const FeatureFlagsPage = () => {
                             style={{ width: `${flag.percentage ?? 100}%` }}
                           />
                         </div>
-                        <span className="text-xs font-medium text-surface-600 dark:text-surface-400">{flag.percentage ?? 100}%</span>
+                        <span className="text-xs font-medium text-surface-600 dark:text-surface-400">
+                          {flag.percentage ?? 100}%
+                        </span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">

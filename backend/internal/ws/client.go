@@ -134,12 +134,22 @@ func (c *Client) handleChat(payload json.RawMessage) {
 		return
 	}
 
-	outPayload, _ := json.Marshal(map[string]interface{}{
-		"from":    c.UserID,
-		"content": chatMsg.Content,
-		"sent_at": time.Now(),
-	})
-	c.hub.SendToUser(chatMsg.To, TypeChat, json.RawMessage(outPayload))
+	var outPayload json.RawMessage
+	if c.hub.PersistChat != nil {
+		stored, err := c.hub.PersistChat(c.UserID, chatMsg.To, chatMsg.Content)
+		if err != nil {
+			log.Printf("[ws] failed to persist chat from %s: %v", c.UserID, err)
+			return
+		}
+		outPayload = stored
+	} else {
+		outPayload, _ = json.Marshal(map[string]interface{}{
+			"from":    c.UserID,
+			"content": chatMsg.Content,
+			"sent_at": time.Now(),
+		})
+	}
+	c.hub.SendToUser(chatMsg.To, TypeChat, outPayload)
 }
 
 func (c *Client) handleGroupChat(payload json.RawMessage) {
@@ -160,13 +170,23 @@ func (c *Client) handleGroupChat(payload json.RawMessage) {
 		return
 	}
 
-	outPayload, _ := json.Marshal(map[string]interface{}{
-		"from":     c.UserID,
-		"group_id": groupMsg.GroupID,
-		"content":  groupMsg.Content,
-		"sent_at":  time.Now(),
-	})
-	c.hub.SendToGroup(groupMsg.GroupID, TypeGroupChat, json.RawMessage(outPayload))
+	var outPayload json.RawMessage
+	if c.hub.PersistGroupChat != nil {
+		stored, err := c.hub.PersistGroupChat(c.UserID, groupMsg.GroupID, groupMsg.Content)
+		if err != nil {
+			log.Printf("[ws] failed to persist group chat from %s: %v", c.UserID, err)
+			return
+		}
+		outPayload = stored
+	} else {
+		outPayload, _ = json.Marshal(map[string]interface{}{
+			"from":     c.UserID,
+			"group_id": groupMsg.GroupID,
+			"content":  groupMsg.Content,
+			"sent_at":  time.Now(),
+		})
+	}
+	c.hub.SendToGroup(groupMsg.GroupID, TypeGroupChat, outPayload)
 }
 
 func (c *Client) handleTyping(payload json.RawMessage) {

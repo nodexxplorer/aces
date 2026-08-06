@@ -1719,9 +1719,13 @@ type PendingAttendanceReviewRow struct {
 }
 
 // GetPendingAttendanceReviews returns attendance sessions pending review for a lecturer.
+// Filters to courses the lecturer is tied to, either as the course's primary
+// lecturer_id or via the many-to-many lecturer_course_assignments table (same
+// dual-check as IsLecturerOrPrimaryForCourse) — without this, every lecturer
+// saw every course's pending reviews.
 func (q *Queries) GetPendingAttendanceReviews(ctx context.Context, lecturerUserID uuid.UUID) ([]PendingAttendanceReviewRow, error) {
 	rows, err := q.db.Query(ctx, `
-		SELECT 
+		SELECT
 			asess.id AS session_id,
 			asess.course_id,
 			c.code AS course_code,
@@ -1740,8 +1744,15 @@ func (q *Queries) GetPendingAttendanceReviews(ctx context.Context, lecturerUserI
 		LEFT JOIN users u ON u.id = asess.class_rep_id
 		LEFT JOIN students st ON st.user_id = u.id
 		WHERE asess.status IN ('pending_lecturer_review', 'pending', 'submitted')
+		  AND (
+			c.lecturer_id = $1
+			OR EXISTS (
+				SELECT 1 FROM lecturer_course_assignments lca
+				WHERE lca.course_id = c.id AND lca.lecturer_id = $1
+			)
+		  )
 		ORDER BY asess.created_at DESC
-	`)
+	`, lecturerUserID)
 	if err != nil {
 		return nil, err
 	}

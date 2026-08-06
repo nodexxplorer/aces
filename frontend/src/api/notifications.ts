@@ -68,7 +68,7 @@ export const getMyNotifications = async (params?: {
   const { data } = await apiClient.get('/notifications/me', { params: query });
   const body = data.data ?? data;
   return {
-    notifications: Array.isArray(body) ? body : body.data ?? body.notifications ?? [],
+    notifications: Array.isArray(body) ? body : (body.data ?? body.notifications ?? []),
     total: body.total ?? (Array.isArray(body) ? body.length : 0),
   };
 };
@@ -85,8 +85,8 @@ export const getUnreadByCategory = async (): Promise<CategoryCount[]> => {
 };
 
 export const markAsRead = async (id: string): Promise<NotificationFull> => {
-  const { data } = await apiClient.put(`/notifications/${id}/read`);
-  return unwrap<NotificationFull>(data);
+  const res = await apiClient.put(`/notifications/${id}/read`);
+  return unwrap<NotificationFull>(res);
 };
 
 export const markAllAsRead = async (): Promise<void> => {
@@ -98,15 +98,13 @@ export const deleteNotification = async (id: string): Promise<void> => {
 };
 
 export const getPreferences = async (): Promise<NotificationPreferences> => {
-  const { data } = await apiClient.get('/notifications/preferences');
-  return unwrap<NotificationPreferences>(data);
+  const res = await apiClient.get('/notifications/preferences');
+  return unwrap<NotificationPreferences>(res);
 };
 
-export const updatePreferences = async (
-  prefs: Partial<NotificationPreferences>
-): Promise<NotificationPreferences> => {
-  const { data } = await apiClient.put('/notifications/preferences', prefs);
-  return unwrap<NotificationPreferences>(data);
+export const updatePreferences = async (prefs: Partial<NotificationPreferences>): Promise<NotificationPreferences> => {
+  const res = await apiClient.put('/notifications/preferences', prefs);
+  return unwrap<NotificationPreferences>(res);
 };
 
 export const createNotification = async (payload: {
@@ -121,8 +119,8 @@ export const createNotification = async (payload: {
   entity_type?: string;
   entity_id?: string;
 }): Promise<NotificationFull> => {
-  const { data } = await apiClient.post('/notifications', payload);
-  return unwrap<NotificationFull>(data);
+  const res = await apiClient.post('/notifications', payload);
+  return unwrap<NotificationFull>(res);
 };
 
 export const broadcastNotification = async (payload: {

@@ -1,27 +1,57 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import Badge from '../../components/ui/Badge';
+import Badge, { type BadgeVariant } from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
 import { useNotification } from '../../hooks/useNotification';
-import {
-  Search, Shield, UserPlus, UserMinus, Loader2, ChevronLeft, ChevronRight,
-  Clock, Filter, X, Check, History, Users
-} from 'lucide-react';
-import {
-  searchStudentsForRoles, assignUserRole, revokeUserRole,
-  getRoleLogsByUser
-} from '../../api/role-management';
+import { Search, Shield, Loader2, ChevronLeft, ChevronRight, X, Check, History } from 'lucide-react';
+import { searchStudentsForRoles, assignUserRole, revokeUserRole, getRoleLogsByUser } from '../../api/role-management';
 import type { UserRole, RoleAssignmentLog, StudentForRoleManagement } from '../../types';
+import { getErrorMessage } from '../../utils/errors';
 
 const assignableRoles: { value: UserRole; label: string; description: string; color: string }[] = [
-  { value: 'class_rep', label: 'Class Representative', description: 'Can track attendance and submit class reports', color: 'primary' },
-  { value: 'class_bursar', label: 'Class Bursar', description: 'Can verify student payments and manage defaulters', color: 'success' },
-  { value: 'dept_bursar', label: 'Department Bursar', description: 'Can manage departmental finances', color: 'success' },
-  { value: 'project_coordinator', label: 'Project Coordinator', description: 'Manage project/thesis groups and milestones', color: 'info' },
-  { value: 'event_coordinator', label: 'Event Coordinator', description: 'Create/manage departmental events and announcements', color: 'warning' },
-  { value: 'alumni_rep', label: 'Alumni Representative', description: 'Moderate alumni groups and approve job posts', color: 'info' },
-  { value: 'delegated_admin', label: 'Delegated Admin', description: 'Can perform admin operations on behalf of HOD', color: 'accent' },
+  {
+    value: 'class_rep',
+    label: 'Class Representative',
+    description: 'Can track attendance and submit class reports',
+    color: 'primary',
+  },
+  {
+    value: 'class_bursar',
+    label: 'Class Bursar',
+    description: 'Can verify student payments and manage defaulters',
+    color: 'success',
+  },
+  {
+    value: 'dept_bursar',
+    label: 'Department Bursar',
+    description: 'Can manage departmental finances',
+    color: 'success',
+  },
+  {
+    value: 'project_coordinator',
+    label: 'Project Coordinator',
+    description: 'Manage project/thesis groups and milestones',
+    color: 'info',
+  },
+  {
+    value: 'event_coordinator',
+    label: 'Event Coordinator',
+    description: 'Create/manage departmental events and announcements',
+    color: 'warning',
+  },
+  {
+    value: 'alumni_rep',
+    label: 'Alumni Representative',
+    description: 'Moderate alumni groups and approve job posts',
+    color: 'info',
+  },
+  {
+    value: 'delegated_admin',
+    label: 'Delegated Admin',
+    description: 'Can perform admin operations on behalf of HOD',
+    color: 'accent',
+  },
 ];
 
 const roleBadgeColor = (role: UserRole): string => {
@@ -139,8 +169,8 @@ const DelegateStudentRolePage = () => {
       setModalOpen(false);
       setSelectedStudent(null);
       fetchStudents();
-    } catch (err: any) {
-      notifyError('Failed', err?.response?.data?.error || err?.message || 'Could not update roles');
+    } catch (err: unknown) {
+      notifyError('Failed', getErrorMessage(err, 'Could not update roles'));
     } finally {
       setSaving(false);
     }
@@ -150,7 +180,13 @@ const DelegateStudentRolePage = () => {
     if (!ts) return '';
     const d = new Date(ts);
     if (isNaN(d.getTime())) return ts;
-    return d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   return (
@@ -171,10 +207,19 @@ const DelegateStudentRolePage = () => {
             placeholder="Search by name, email or matric number..."
             className="w-full pl-10 pr-4 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
           />
           {search && (
-            <button onClick={() => { setSearch(''); setPage(1); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600">
+            <button
+              onClick={() => {
+                setSearch('');
+                setPage(1);
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600"
+            >
               <X className="w-4 h-4" />
             </button>
           )}
@@ -212,14 +257,22 @@ const DelegateStudentRolePage = () => {
                 </tr>
               ) : (
                 students.map((student) => (
-                  <tr key={student.id} className="border-b border-surface-100 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors">
+                  <tr
+                    key={student.id}
+                    className="border-b border-surface-100 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors"
+                  >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-xs font-semibold shrink-0">
                           {student.avatar_url ? (
                             <img src={student.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
                           ) : (
-                            student.full_name?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+                            student.full_name
+                              ?.split(' ')
+                              .map((n: string) => n[0])
+                              .join('')
+                              .slice(0, 2)
+                              .toUpperCase()
                           )}
                         </div>
                         <div className="min-w-0">
@@ -229,15 +282,22 @@ const DelegateStudentRolePage = () => {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="font-mono text-xs text-surface-600 dark:text-surface-400">{student.matric_number || 'N/A'}</span>
+                      <span className="font-mono text-xs text-surface-600 dark:text-surface-400">
+                        {student.matric_number || 'N/A'}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-xs font-medium text-surface-600 dark:text-surface-400">{student.level ? `${student.level}L` : 'N/A'}</span>
+                      <span className="text-xs font-medium text-surface-600 dark:text-surface-400">
+                        {student.level ? `${student.level}L` : 'N/A'}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
                         {(student.roles || ['student']).map((role) => (
-                          <Badge key={role} variant={role === 'student' ? 'secondary' : roleBadgeColor(role) as any}>
+                          <Badge
+                            key={role}
+                            variant={role === 'student' ? 'secondary' : (roleBadgeColor(role) as BadgeVariant)}
+                          >
                             {role.replace(/_/g, ' ')}
                           </Badge>
                         ))}
@@ -264,7 +324,7 @@ const DelegateStudentRolePage = () => {
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-surface-200 dark:border-surface-700">
             <span className="text-xs text-surface-500">
-              Showing {((page - 1) * perPage) + 1}-{Math.min(page * perPage, total)} of {total} students
+              Showing {(page - 1) * perPage + 1}-{Math.min(page * perPage, total)} of {total} students
             </span>
             <div className="flex items-center gap-2">
               <button
@@ -292,7 +352,10 @@ const DelegateStudentRolePage = () => {
       {/* Manage Roles Modal */}
       <Modal
         isOpen={modalOpen}
-        onClose={() => { setModalOpen(false); setSelectedStudent(null); }}
+        onClose={() => {
+          setModalOpen(false);
+          setSelectedStudent(null);
+        }}
         title={`Manage Roles: ${selectedStudent?.full_name || ''}`}
       >
         {selectedStudent && (
@@ -300,11 +363,19 @@ const DelegateStudentRolePage = () => {
             {/* Student Info */}
             <div className="flex items-center gap-3 p-3 bg-surface-50 dark:bg-surface-800 rounded-lg">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-sm font-semibold shrink-0">
-                {selectedStudent.full_name?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                {selectedStudent.full_name
+                  ?.split(' ')
+                  .map((n: string) => n[0])
+                  .join('')
+                  .slice(0, 2)
+                  .toUpperCase()}
               </div>
               <div>
                 <p className="font-medium text-surface-900 dark:text-white">{selectedStudent.full_name}</p>
-                <p className="text-xs text-surface-500">{selectedStudent.email} &middot; {selectedStudent.matric_number || 'N/A'} &middot; Level {selectedStudent.level ? `${selectedStudent.level}L` : 'N/A'}</p>
+                <p className="text-xs text-surface-500">
+                  {selectedStudent.email} &middot; {selectedStudent.matric_number || 'N/A'} &middot; Level{' '}
+                  {selectedStudent.level ? `${selectedStudent.level}L` : 'N/A'}
+                </p>
               </div>
             </div>
 
@@ -356,12 +427,22 @@ const DelegateStudentRolePage = () => {
               ) : (
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {logs.map((log) => (
-                    <div key={log.id} className="flex items-start gap-2 text-xs p-2 rounded-lg bg-surface-50 dark:bg-surface-800">
-                      <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${log.action === 'assigned' ? 'bg-success-500' : 'bg-danger-500'}`} />
+                    <div
+                      key={log.id}
+                      className="flex items-start gap-2 text-xs p-2 rounded-lg bg-surface-50 dark:bg-surface-800"
+                    >
+                      <div
+                        className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${log.action === 'assigned' ? 'bg-success-500' : 'bg-danger-500'}`}
+                      />
                       <div className="flex-1 min-w-0">
                         <p className="text-surface-700 dark:text-surface-300">
                           <span className="font-medium capitalize">{log.action}</span>{' '}
-                          <Badge variant={log.action === 'assigned' ? 'success' : 'danger'} className="text-[10px] px-1.5 py-0">{log.role.replace(/_/g, ' ')}</Badge>{' '}
+                          <Badge
+                            variant={log.action === 'assigned' ? 'success' : 'danger'}
+                            className="text-[10px] px-1.5 py-0"
+                          >
+                            {log.role.replace(/_/g, ' ')}
+                          </Badge>{' '}
                           by {log.performed_by_name || 'Admin'}
                         </p>
                         <p className="text-surface-400 mt-0.5">{formatTime(log.created_at)}</p>
@@ -374,7 +455,13 @@ const DelegateStudentRolePage = () => {
 
             {/* Actions */}
             <div className="flex justify-end gap-3 pt-2 border-t border-surface-200 dark:border-surface-700">
-              <Button variant="outline" onClick={() => { setModalOpen(false); setSelectedStudent(null); }}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setModalOpen(false);
+                  setSelectedStudent(null);
+                }}
+              >
                 Cancel
               </Button>
               <Button isLoading={saving} onClick={handleSave}>

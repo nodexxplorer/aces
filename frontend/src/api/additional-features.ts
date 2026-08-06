@@ -71,7 +71,13 @@ export interface GradeAppeal {
   student_name?: string;
 }
 
-export const createGradeAppeal = async (data: { course_id: string; semester_id: string; session_id: string; reason: string; evidence?: string[] }) => {
+export const createGradeAppeal = async (data: {
+  course_id: string;
+  semester_id: string;
+  session_id: string;
+  reason: string;
+  evidence?: string[];
+}) => {
   const res = await apiClient.post('/grade-appeals', data);
   return unwrap<GradeAppeal>(res);
 };
@@ -87,7 +93,10 @@ export const listPendingAppeals = async (status?: string) => {
   return unwrap<GradeAppeal[]>(res);
 };
 
-export const updateAppealStatus = async (id: string, data: { status: string; response?: string; revised_score?: number }) => {
+export const updateAppealStatus = async (
+  id: string,
+  data: { status: string; response?: string; revised_score?: number },
+) => {
   const res = await apiClient.put(`/grade-appeals/${id}/status`, data);
   return unwrap<{ message: string }>(res);
 };
@@ -110,7 +119,14 @@ export interface StudyTask {
   course_title?: string;
 }
 
-export const createStudyTask = async (data: { course_id?: string; title: string; description?: string; priority?: string; due_date?: string; reminder_at?: string }) => {
+export const createStudyTask = async (data: {
+  course_id?: string;
+  title: string;
+  description?: string;
+  priority?: string;
+  due_date?: string;
+  reminder_at?: string;
+}) => {
   const res = await apiClient.post('/study-tasks', data);
   return unwrap<StudyTask>(res);
 };
@@ -125,7 +141,10 @@ export const getStudyTask = async (id: string) => {
   return unwrap<StudyTask>(res);
 };
 
-export const updateStudyTask = async (id: string, data: Partial<Pick<StudyTask, 'title' | 'description' | 'priority' | 'status' | 'due_date' | 'reminder_at'>>) => {
+export const updateStudyTask = async (
+  id: string,
+  data: Partial<Pick<StudyTask, 'title' | 'description' | 'priority' | 'status' | 'due_date' | 'reminder_at'>>,
+) => {
   const res = await apiClient.put(`/study-tasks/${id}`, data);
   return unwrap<{ message: string }>(res);
 };
@@ -156,7 +175,14 @@ export interface ClassNotice {
   comment_count?: number;
 }
 
-export const createClassNotice = async (data: { title: string; content: string; is_pinned?: boolean; allow_comments?: boolean; attachment_url?: string; expires_at?: string }) => {
+export const createClassNotice = async (data: {
+  title: string;
+  content: string;
+  is_pinned?: boolean;
+  allow_comments?: boolean;
+  attachment_url?: string;
+  expires_at?: string;
+}) => {
   const res = await apiClient.post('/class-notices', data);
   return unwrap<ClassNotice>(res);
 };
@@ -181,8 +207,6 @@ export const listNoticeComments = async (noticeId: string) => {
   return unwrap<{ id: string; content: string; author_name: string; created_at: string }[]>(res);
 };
 
-
-
 // Calendar Events
 export interface CalendarEvent {
   id: string;
@@ -201,7 +225,18 @@ export interface CalendarEvent {
   creator_name?: string;
 }
 
-export const createDepartmentalEvent = async (data: { title: string; description?: string; event_type: string; start_time: string; end_time?: string; venue?: string; target_levels?: number[]; target_audience?: string[]; is_all_day?: boolean; color?: string }) => {
+export const createDepartmentalEvent = async (data: {
+  title: string;
+  description?: string;
+  event_type: string;
+  start_time: string;
+  end_time?: string;
+  venue?: string;
+  target_levels?: number[];
+  target_audience?: string[];
+  is_all_day?: boolean;
+  color?: string;
+}) => {
   const res = await apiClient.post('/calendar', data);
   return unwrap<CalendarEvent>(res);
 };
@@ -219,9 +254,30 @@ export const deleteDepartmentalEvent = async (id: string) => {
   return unwrap<{ message: string }>(res);
 };
 
-export const updateDepartmentalEvent = async (id: string, data: { title: string; description?: string; event_type: string; start_time: string; end_time?: string; venue?: string; target_levels?: number[]; target_audience?: string[]; is_all_day?: boolean; color?: string }) => {
+export const updateDepartmentalEvent = async (
+  id: string,
+  data: {
+    title: string;
+    description?: string;
+    event_type: string;
+    start_time: string;
+    end_time?: string;
+    venue?: string;
+    target_levels?: number[];
+    target_audience?: string[];
+    is_all_day?: boolean;
+    color?: string;
+  },
+) => {
   const res = await apiClient.put(`/calendar/${id}`, data);
   return unwrap<{ data: string }>(res);
+};
+
+// A direct .ics download link — any phone/desktop calendar app can import
+// this via "Add to Calendar".
+export const getEventICSDownloadUrl = (id: string) => {
+  const base = apiClient.defaults.baseURL || '';
+  return `${base}/calendar/${id}/ics`;
 };
 
 // Expenses
@@ -241,7 +297,13 @@ export interface Expense {
   submitted_by_name?: string;
 }
 
-export const createExpense = async (data: { description: string; amount: number; category: string; expense_date: string; receipt_url?: string }) => {
+export const createExpense = async (data: {
+  description: string;
+  amount: number;
+  category: string;
+  expense_date: string;
+  receipt_url?: string;
+}) => {
   const res = await apiClient.post('/expenses', data);
   return unwrap<Expense>(res);
 };
@@ -254,7 +316,14 @@ export const listExpenses = async (status?: string) => {
 
 export const getExpenseSummary = async () => {
   const res = await apiClient.get('/expenses/summary');
-  return unwrap<{ total_expenses: number; total_count: number; pending_count: number; approved_count: number; rejected_count: number; approved_amount: number }>(res);
+  return unwrap<{
+    total_expenses: number;
+    total_count: number;
+    pending_count: number;
+    approved_count: number;
+    rejected_count: number;
+    approved_amount: number;
+  }>(res);
 };
 
 export const updateExpenseStatus = async (id: string, data: { status: string; rejection_reason?: string }) => {
@@ -276,7 +345,12 @@ export interface Feedback {
   user_name?: string;
 }
 
-export const createFeedback = async (data: { feedback_type: string; title: string; description: string; rating?: number }) => {
+export const createFeedback = async (data: {
+  feedback_type: string;
+  title: string;
+  description: string;
+  rating?: number;
+}) => {
   const res = await apiClient.post('/feedback', data);
   return unwrap<Feedback>(res);
 };
@@ -333,16 +407,24 @@ export const searchHelpArticles = async (q: string) => {
 };
 
 // GPA Scenarios
+export interface GPAScenarioCourse {
+  code: string;
+  title: string;
+  units: number;
+  grade: string;
+}
+
 export interface GPAScenario {
   id: string;
   user_id: string;
   name: string;
-  courses: any[];
+  courses: GPAScenarioCourse[];
+  gpa?: number;
   created_at: string;
   updated_at: string;
 }
 
-export const createGPAScenario = async (data: { name: string; courses: any[] }) => {
+export const createGPAScenario = async (data: { name: string; courses: GPAScenarioCourse[] }) => {
   const res = await apiClient.post('/gpa-scenarios', data);
   return unwrap<GPAScenario>(res);
 };
@@ -352,7 +434,7 @@ export const listGPAScenarios = async () => {
   return unwrap<GPAScenario[]>(res);
 };
 
-export const updateGPAScenario = async (id: string, data: { name?: string; courses?: any[] }) => {
+export const updateGPAScenario = async (id: string, data: { name?: string; courses?: GPAScenarioCourse[] }) => {
   const res = await apiClient.put(`/gpa-scenarios/${id}`, data);
   return unwrap<{ message: string }>(res);
 };
@@ -410,13 +492,16 @@ export const toggleFeatureFlag = async (name: string, isEnabled: boolean): Promi
   await apiClient.patch(`/feature-flags/${name}/toggle`, { is_enabled: isEnabled });
 };
 
-export const updateFeatureFlag = async (name: string, data: {
-  description?: string;
-  is_enabled?: boolean;
-  target_roles?: string[];
-  target_levels?: number[];
-  percentage?: number;
-}): Promise<void> => {
+export const updateFeatureFlag = async (
+  name: string,
+  data: {
+    description?: string;
+    is_enabled?: boolean;
+    target_roles?: string[];
+    target_levels?: number[];
+    percentage?: number;
+  },
+): Promise<void> => {
   await apiClient.put(`/feature-flags/${name}`, data);
 };
 
