@@ -34,6 +34,11 @@ export interface StudentDocument {
 }
 
 export interface StudentProfile extends User {
+  // graduation_status is a real students-table column, but GET /users/:id
+  // doesn't currently include it in the response — kept optional here so
+  // the field stays undefined (matching current behavior) until it's wired
+  // into that endpoint.
+  graduationStatus?: string;
   audit_logs?: AuditLog[];
   documents?: StudentDocument[];
 }
@@ -49,7 +54,7 @@ export const updateBasicInfo = async (payload: {
   avatarUrl?: string;
 }) => {
   const res = await apiClient.put('/profile-edit/basic-info', payload);
-  return unwrap<{ data: User }>(res);
+  return unwrap<User>(res);
 };
 
 export const uploadProfilePhoto = async (file: File) => {
@@ -81,28 +86,31 @@ export const getStudentFullProfile = async (userId: string) => {
   const res = await apiClient.get(`/hod/students/${userId}`);
   const raw = unwrap<{ data: StudentProfile; audit_logs?: AuditLog[]; documents?: StudentDocument[] }>(res);
   if (raw.data) {
-    raw.data.audit_logs = (raw as any).audit_logs;
-    raw.data.documents = (raw as any).documents;
+    raw.data.audit_logs = raw.audit_logs;
+    raw.data.documents = raw.documents;
   }
   return raw.data || raw;
 };
 
-export const hodEditStudent = async (userId: string, payload: {
-  firstName?: string;
-  lastName?: string;
-  phone?: string;
-  homeAddress?: string;
-  dateOfBirth?: string;
-  emergencyContactName?: string;
-  emergencyContactPhone?: string;
-  matricNumber?: string;
-  level?: string;
-  academicStanding?: string;
-  graduationStatus?: string;
-  admissionMode?: string;
-  yearAdmitted?: string;
-  reason?: string;
-}) => {
+export const hodEditStudent = async (
+  userId: string,
+  payload: {
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    homeAddress?: string;
+    dateOfBirth?: string;
+    emergencyContactName?: string;
+    emergencyContactPhone?: string;
+    matricNumber?: string;
+    level?: string;
+    academicStanding?: string;
+    graduationStatus?: string;
+    admissionMode?: string;
+    yearAdmitted?: string;
+    reason?: string;
+  },
+) => {
   const res = await apiClient.put(`/hod/students/${userId}`, payload);
   return unwrap<{ data: User }>(res);
 };

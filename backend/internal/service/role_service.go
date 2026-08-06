@@ -258,8 +258,13 @@ func (s *RoleService) ListAllSystemRoles(ctx context.Context) ([]SystemRoleInfo,
 }
 
 // ParseRoleName converts DB role names to frontend-compatible names.
+// ParseRoleName converts a raw DB role name to the display name the rest of
+// the API/frontend use — must stay in sync with auth.go's normalizeRoleName,
+// which every other endpoint (e.g. GET /auth/me) uses for the same purpose.
 func ParseRoleName(dbRole string) string {
 	switch dbRole {
+	case "admin":
+		return "delegated_admin"
 	case "bursar_dept":
 		return "dept_bursar"
 	case "bursar_class":
@@ -272,6 +277,8 @@ func ParseRoleName(dbRole string) string {
 // ParseRoleNameReverse converts frontend role names to DB role names.
 func ParseRoleNameReverse(frontendRole string) string {
 	switch frontendRole {
+	case "delegated_admin":
+		return "admin"
 	case "dept_bursar":
 		return "bursar_dept"
 	case "class_bursar":

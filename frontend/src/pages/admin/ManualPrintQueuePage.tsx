@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import DataTable from '../../components/data-display/DataTable';
+import DataTable, { type Column } from '../../components/data-display/DataTable';
 import StatusBadge from '../../components/data-display/StatusBadge';
 import { useNotification } from '../../hooks/useNotification';
 import { Printer, Loader2, CheckCircle, Package } from 'lucide-react';
 import { getManualPrintQueue, updatePrintQueueStatus } from '../../api/manuals';
 import type { PrintQueueItem } from '../../api/manuals';
+import { getErrorMessage } from '../../utils/errors';
 
 const ManualPrintQueuePage = () => {
   const { success, error: notifyError } = useNotification();
@@ -37,14 +38,14 @@ const ManualPrintQueuePage = () => {
       await updatePrintQueueStatus(id, status);
       setQueue((prev) => prev.map((q) => (q.id === id ? { ...q, status } : q)));
       success('Updated', `Marked as ${status}`);
-    } catch (err: any) {
-      notifyError('Update Failed', err?.response?.data?.error || 'Could not update status');
+    } catch (err: unknown) {
+      notifyError('Update Failed', getErrorMessage(err, 'Could not update status'));
     } finally {
       setActionLoading(null);
     }
   };
 
-  const columns = [
+  const columns: Column<PrintQueueItem>[] = [
     {
       key: 'manual_title',
       label: 'Manual',
@@ -72,12 +73,12 @@ const ManualPrintQueuePage = () => {
     {
       key: 'queued_at',
       label: 'Queued',
-      render: (val: unknown) => val ? new Date(val as string).toLocaleDateString() : 'N/A',
+      render: (val: unknown) => (val ? new Date(val as string).toLocaleDateString() : 'N/A'),
     },
     {
       key: 'status',
       label: 'Status',
-      render: (val: unknown) => <StatusBadge status={val as string || 'queued'} />,
+      render: (val: unknown) => <StatusBadge status={(val as string) || 'queued'} />,
     },
     {
       key: 'action',
@@ -89,7 +90,13 @@ const ManualPrintQueuePage = () => {
               <Button
                 size="xs"
                 variant="success"
-                leftIcon={actionLoading === row.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                leftIcon={
+                  actionLoading === row.id ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle className="w-3.5 h-3.5" />
+                  )
+                }
                 onClick={() => handleUpdateStatus(row.id, 'ready')}
                 disabled={actionLoading === row.id}
               >
@@ -104,7 +111,13 @@ const ManualPrintQueuePage = () => {
               <Button
                 size="xs"
                 variant="success"
-                leftIcon={actionLoading === row.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Package className="w-3.5 h-3.5" />}
+                leftIcon={
+                  actionLoading === row.id ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Package className="w-3.5 h-3.5" />
+                  )
+                }
                 onClick={() => handleUpdateStatus(row.id, 'collected')}
                 disabled={actionLoading === row.id}
               >
@@ -182,7 +195,7 @@ const ManualPrintQueuePage = () => {
             <p>No print requests found.</p>
           </div>
         ) : (
-          <DataTable columns={columns as any} data={queue as unknown as Record<string, unknown>[]} />
+          <DataTable columns={columns} data={queue} />
         )}
       </Card>
     </div>

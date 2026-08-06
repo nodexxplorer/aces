@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"net/netip"
 	"time"
@@ -96,7 +97,7 @@ func (server *Server) checkAccountLockout(ctx *gin.Context, userID uuid.UUID) er
 	}
 
 	if lockout.IsLocked && lockout.UnlockAt.Valid && lockout.UnlockAt.Time.After(time.Now()) {
-		return err
+		return errors.New("account is locked")
 	}
 
 	return nil

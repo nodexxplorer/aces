@@ -9,11 +9,14 @@ const WaitingDashboardPage = () => {
   const { error: notifyError, success: notifySuccess } = useNotification();
   const [loading, setLoading] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState<string>(
-    user?.isApproved === false && user?.isActive !== false ? 'pending' :
-    user?.isApproved === false && user?.isActive === false ? 'rejected' : 'pending'
+    user?.isApproved === false && user?.isActive !== false
+      ? 'pending'
+      : user?.isApproved === false && user?.isActive === false
+        ? 'rejected'
+        : 'pending',
   );
-  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
-  const [submittedAt, setSubmittedAt] = useState<string | null>(null);
+  const [rejectionReason] = useState<string | null>(null);
+  const [submittedAt] = useState<string | null>(null);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -103,15 +106,21 @@ const WaitingDashboardPage = () => {
 
             <div className="text-left space-y-3 bg-surface-50 dark:bg-surface-800/50 rounded-xl p-4 mb-6">
               <div className="flex justify-between items-center">
-                <span className="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wide">Name</span>
+                <span className="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wide">
+                  Name
+                </span>
                 <span className="text-sm font-semibold text-surface-800 dark:text-surface-200">{displayName}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wide">Matric Number</span>
+                <span className="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wide">
+                  Matric Number
+                </span>
                 <span className="text-sm font-semibold text-surface-800 dark:text-surface-200">{displayMatric}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wide">Level</span>
+                <span className="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wide">
+                  Level
+                </span>
                 <span className="text-sm font-semibold text-surface-800 dark:text-surface-200">{displayLevel}</span>
               </div>
             </div>
@@ -123,7 +132,9 @@ const WaitingDashboardPage = () => {
                 </span>
                 {rejectionReason && (
                   <div className="p-3 bg-danger-500/5 border border-danger-500/10 rounded-xl text-left mt-2">
-                    <span className="block text-xs font-semibold text-danger-500 uppercase tracking-wider mb-1">Reason:</span>
+                    <span className="block text-xs font-semibold text-danger-500 uppercase tracking-wider mb-1">
+                      Reason:
+                    </span>
                     <p className="text-sm text-surface-700 dark:text-surface-300">&quot;{rejectionReason}&quot;</p>
                   </div>
                 )}
@@ -141,9 +152,7 @@ const WaitingDashboardPage = () => {
                   Under Review
                 </span>
                 {submittedAt && (
-                  <p className="text-xs text-surface-400 dark:text-surface-500">
-                    Submitted {formatDate(submittedAt)}
-                  </p>
+                  <p className="text-xs text-surface-400 dark:text-surface-500">Submitted {formatDate(submittedAt)}</p>
                 )}
               </div>
             )}
@@ -155,11 +164,7 @@ const WaitingDashboardPage = () => {
                   disabled={loading}
                   className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {loading ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="w-4 h-4" />
-                  )}
+                  {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                   {loading ? 'Checking...' : 'Check Status'}
                 </button>
               )}

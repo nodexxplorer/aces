@@ -61,8 +61,8 @@ type Config struct {
 	SMTPFrom           string
 	SMTPMock           bool
 	Environment        string
-	OpenAIApiKey       string
-	OpenAIModel        string
+	GeminiApiKey       string
+	GeminiModel        string
 	AIFallbackEnabled  bool
 	FrontendPublicURL  string
 }
@@ -108,10 +108,10 @@ func Load() *Config {
 		SMTPFrom:           getEnv("SMTP_FROM", "no-reply@aces.zone"),
 		SMTPMock:           getBool("SMTP_MOCK", true),
 		Environment:        getEnv("ENVIRONMENT", "development"),
-		OpenAIApiKey:       getEnv("OPENAI_API_KEY", ""),
-		OpenAIModel:        getEnv("OPENAI_MODEL", "gpt-4o-mini"),
+		GeminiApiKey:       getEnv("GEMINI_API_KEY", ""),
+		GeminiModel:        getEnv("GEMINI_MODEL", "gemini-2.5-flash"),
 		AIFallbackEnabled:  getBool("AI_FALLBACK_ENABLED", true),
-		FrontendPublicURL:  getEnv("FRONTEND_PUBLIC_URL", "http://localhost:5173"),
+		FrontendPublicURL:  getFirstEnv("FRONTEND_PUBLIC_URL", "http://localhost:5173"),
 	}
 }
 
@@ -129,6 +129,19 @@ func getDuration(key string, defaultMinutes int) time.Duration {
 		}
 	}
 	return time.Duration(defaultMinutes) * time.Minute
+}
+
+// getFirstEnv reads a single-URL config value, defensively taking only the
+// first entry if it was mistakenly configured as a comma-separated list (the
+// format used by list-valued vars like ALLOWED_ORIGINS) — a raw comma-joined
+// value here would otherwise get baked directly into things like Paystack
+// callback URLs, e.g. "http://a,http://b/payments/confirmation".
+func getFirstEnv(key, fallback string) string {
+	val := getEnv(key, fallback)
+	if idx := strings.Index(val, ","); idx >= 0 {
+		val = val[:idx]
+	}
+	return strings.TrimSpace(strings.TrimSuffix(val, "/"))
 }
 
 func getSlice(key string, fallback []string) []string {

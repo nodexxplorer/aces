@@ -1,18 +1,51 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import { useNotification } from '../../hooks/useNotification';
 import {
-  Megaphone, Plus, Edit3, Trash2, Eye, Send, Archive, Clock,
-  Filter, Loader2, ChevronDown, BarChart3
+  Megaphone,
+  Plus,
+  Edit3,
+  Trash2,
+  Eye,
+  Send,
+  Archive,
+  Clock,
+  Filter,
+  Loader2,
+  ChevronDown,
+  BarChart3,
 } from 'lucide-react';
 import {
-  createAnnouncementV2, listAdminAnnouncements, getAnnouncementV2,
-  updateAnnouncementV2, deleteAnnouncementV2, publishAnnouncement,
-  archiveAnnouncement, getAnnouncementStats, listAnnouncementReceipts,
-  getReceiptStats, listAnnouncementTemplates
+  createAnnouncementV2,
+  listAdminAnnouncements,
+  getAnnouncementV2,
+  updateAnnouncementV2,
+  deleteAnnouncementV2,
+  archiveAnnouncement,
+  getAnnouncementStats,
+  getReceiptStats,
+  listAnnouncementTemplates,
 } from '../../api/verification-announcements';
-import type { AnnouncementV2, AnnouncementStatusCount, AnnouncementTemplate, ReceiptStats } from '../../api/verification-announcements';
+import type {
+  AnnouncementV2,
+  AnnouncementStatusCount,
+  AnnouncementTemplate,
+  ReceiptStats,
+} from '../../api/verification-announcements';
+import { getErrorMessage } from '../../utils/errors';
+
+interface AnnouncementPayload {
+  title: string;
+  content: string;
+  summary?: string;
+  priority?: string;
+  category?: string;
+  target_audience?: string[];
+  is_pinned?: boolean;
+  requires_acknowledgment?: boolean;
+  status?: string;
+  scheduled_for?: string;
+}
 
 type FormData = {
   title: string;
@@ -71,7 +104,6 @@ const statusColor: Record<string, string> = {
 };
 
 const AnnouncementsManagePage = () => {
-  const navigate = useNavigate();
   const { success, error: notifyError } = useNotification();
 
   const [announcements, setAnnouncements] = useState<AnnouncementV2[]>([]);
@@ -101,7 +133,7 @@ const AnnouncementsManagePage = () => {
       if (statusFilter !== 'all') params.status = statusFilter;
       if (priorityFilter) params.priority = priorityFilter;
       if (categoryFilter) params.category = categoryFilter;
-      const data = await listAdminAnnouncements(params as any);
+      const data = await listAdminAnnouncements(params);
       setAnnouncements(Array.isArray(data) ? data : []);
     } catch {
       notifyError('Load Failed', 'Could not load announcements');
@@ -114,14 +146,19 @@ const AnnouncementsManagePage = () => {
     try {
       const data = await getAnnouncementStats();
       setStats(Array.isArray(data) ? data : []);
-    } catch {}
+    } catch {
+      // Stats are a non-critical enhancement to the page — silently skip
+      // if the endpoint fails so the announcements list still renders.
+    }
   }, []);
 
   const fetchTemplates = useCallback(async () => {
     try {
       const data = await listAnnouncementTemplates();
       setTemplates(Array.isArray(data) ? data : []);
-    } catch {}
+    } catch {
+      // Templates are optional; the create/edit form still works without them.
+    }
   }, []);
 
   useEffect(() => {
@@ -211,7 +248,7 @@ const AnnouncementsManagePage = () => {
     }
     try {
       setSubmitting(true);
-      const payload: Record<string, any> = {
+      const payload: AnnouncementPayload = {
         title: form.title,
         content: form.content,
         summary: form.summary || undefined,
@@ -235,14 +272,14 @@ const AnnouncementsManagePage = () => {
         await updateAnnouncementV2(editingId, payload);
         success('Updated', 'Announcement updated successfully');
       } else {
-        await createAnnouncementV2(payload as any);
+        await createAnnouncementV2(payload);
         success('Created', 'Announcement created successfully');
       }
       setModalOpen(false);
       fetchAnnouncements();
       fetchStats();
-    } catch (err: any) {
-      notifyError('Save Failed', err?.response?.data?.error || err?.message || 'Could not save announcement');
+    } catch (err: unknown) {
+      notifyError('Save Failed', getErrorMessage(err, 'Could not save announcement'));
     } finally {
       setSubmitting(false);
     }
@@ -255,8 +292,8 @@ const AnnouncementsManagePage = () => {
       setDeleteConfirmId(null);
       fetchAnnouncements();
       fetchStats();
-    } catch (err: any) {
-      notifyError('Delete Failed', err?.message || 'Could not delete');
+    } catch (err: unknown) {
+      notifyError('Delete Failed', getErrorMessage(err, 'Could not delete'));
     }
   };
 
@@ -266,8 +303,8 @@ const AnnouncementsManagePage = () => {
       success('Archived', 'Announcement archived');
       fetchAnnouncements();
       fetchStats();
-    } catch (err: any) {
-      notifyError('Archive Failed', err?.message || 'Could not archive');
+    } catch (err: unknown) {
+      notifyError('Archive Failed', getErrorMessage(err, 'Could not archive'));
     }
   };
 
@@ -344,7 +381,9 @@ const AnnouncementsManagePage = () => {
             key={s.label}
             className="bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl p-4"
           >
-            <p className="text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wide">{s.label}</p>
+            <p className="text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wide">
+              {s.label}
+            </p>
             <p className={`text-2xl font-bold mt-1 ${s.color}`}>{s.value}</p>
           </div>
         ))}
@@ -377,7 +416,9 @@ const AnnouncementsManagePage = () => {
               >
                 <option value="">All Priorities</option>
                 {priorities.map((p) => (
-                  <option key={p} value={p}>{p}</option>
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
                 ))}
               </select>
               <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400 pointer-events-none" />
@@ -390,7 +431,9 @@ const AnnouncementsManagePage = () => {
               >
                 <option value="">All Categories</option>
                 {categories.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
                 ))}
               </select>
               <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400 pointer-events-none" />
@@ -419,18 +462,20 @@ const AnnouncementsManagePage = () => {
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-base font-semibold text-surface-900 dark:text-white truncate">
-                      {ann.title}
-                    </h3>
+                    <h3 className="text-base font-semibold text-surface-900 dark:text-white truncate">{ann.title}</h3>
                     {ann.is_pinned && (
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400 font-medium">
                         Pinned
                       </span>
                     )}
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${priorityColor[ann.priority] || ''}`}>
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${priorityColor[ann.priority] || ''}`}
+                    >
                       {ann.priority}
                     </span>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${statusColor[ann.status] || ''}`}>
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${statusColor[ann.status] || ''}`}
+                    >
                       {ann.status}
                     </span>
                     {ann.requires_acknowledgment && (
@@ -449,9 +494,7 @@ const AnnouncementsManagePage = () => {
                     </span>
                     <span className="capitalize">{ann.category}</span>
                     <span>
-                      {ann.target_audience?.includes('all')
-                        ? 'All Students'
-                        : ann.target_audience?.join(', ') || 'All'}
+                      {ann.target_audience?.includes('all') ? 'All Students' : ann.target_audience?.join(', ') || 'All'}
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="w-3.5 h-3.5" />
@@ -545,9 +588,7 @@ const AnnouncementsManagePage = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-                  Summary
-                </label>
+                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Summary</label>
                 <input
                   type="text"
                   value={form.summary}
@@ -559,7 +600,9 @@ const AnnouncementsManagePage = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Priority</label>
+                  <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
+                    Priority
+                  </label>
                   <div className="relative">
                     <select
                       value={form.priority}
@@ -567,14 +610,18 @@ const AnnouncementsManagePage = () => {
                       className="appearance-none w-full pl-3 pr-8 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg text-surface-900 dark:text-white"
                     >
                       {priorities.map((p) => (
-                        <option key={p} value={p}>{p}</option>
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
                       ))}
                     </select>
                     <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400 pointer-events-none" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Category</label>
+                  <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
+                    Category
+                  </label>
                   <div className="relative">
                     <select
                       value={form.category}
@@ -582,7 +629,9 @@ const AnnouncementsManagePage = () => {
                       className="appearance-none w-full pl-3 pr-8 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg text-surface-900 dark:text-white"
                     >
                       {categories.map((c) => (
-                        <option key={c} value={c}>{c}</option>
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
                       ))}
                     </select>
                     <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400 pointer-events-none" />
@@ -591,7 +640,9 @@ const AnnouncementsManagePage = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-2">Target Audience</label>
+                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-2">
+                  Target Audience
+                </label>
                 <div className="flex flex-wrap gap-2">
                   {audiences.map((a) => (
                     <button
@@ -682,11 +733,7 @@ const AnnouncementsManagePage = () => {
               >
                 Save Draft
               </Button>
-              <Button
-                isLoading={submitting}
-                onClick={() => handleSubmit(true)}
-                leftIcon={<Send className="w-4 h-4" />}
-              >
+              <Button isLoading={submitting} onClick={() => handleSubmit(true)} leftIcon={<Send className="w-4 h-4" />}>
                 {editingId ? 'Update & Publish' : 'Publish'}
               </Button>
             </div>
@@ -724,12 +771,21 @@ const AnnouncementsManagePage = () => {
 
       {viewModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => { setViewModal(null); setViewReceipts(null); }} />
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => {
+              setViewModal(null);
+              setViewReceipts(null);
+            }}
+          />
           <div className="relative bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white dark:bg-surface-800 border-b border-surface-200 dark:border-surface-700 px-6 py-4 rounded-t-2xl flex items-center justify-between z-10">
               <h2 className="text-lg font-semibold text-surface-900 dark:text-white">{viewModal.title}</h2>
               <button
-                onClick={() => { setViewModal(null); setViewReceipts(null); }}
+                onClick={() => {
+                  setViewModal(null);
+                  setViewReceipts(null);
+                }}
                 className="text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 text-xl"
               >
                 &times;
@@ -737,7 +793,9 @@ const AnnouncementsManagePage = () => {
             </div>
             <div className="p-6 space-y-4">
               <div className="flex flex-wrap gap-2">
-                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${priorityColor[viewModal.priority] || ''}`}>
+                <span
+                  className={`text-xs px-2.5 py-1 rounded-full font-medium ${priorityColor[viewModal.priority] || ''}`}
+                >
                   {viewModal.priority}
                 </span>
                 <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${statusColor[viewModal.status] || ''}`}>
@@ -757,7 +815,9 @@ const AnnouncementsManagePage = () => {
                 <div>
                   <span className="text-surface-500 dark:text-surface-400">Audience:</span>{' '}
                   <span className="text-surface-900 dark:text-white font-medium">
-                    {viewModal.target_audience?.includes('all') ? 'All Students' : viewModal.target_audience?.join(', ')}
+                    {viewModal.target_audience?.includes('all')
+                      ? 'All Students'
+                      : viewModal.target_audience?.join(', ')}
                   </span>
                 </div>
                 <div>
@@ -780,18 +840,25 @@ const AnnouncementsManagePage = () => {
                 )}
                 <div className="col-span-2">
                   <span className="text-surface-500 dark:text-surface-400">Pinned:</span>{' '}
-                  <span className="text-surface-900 dark:text-white font-medium">{viewModal.is_pinned ? 'Yes' : 'No'}</span>
+                  <span className="text-surface-900 dark:text-white font-medium">
+                    {viewModal.is_pinned ? 'Yes' : 'No'}
+                  </span>
                 </div>
                 <div className="col-span-2">
                   <span className="text-surface-500 dark:text-surface-400">Acknowledgment Required:</span>{' '}
-                  <span className="text-surface-900 dark:text-white font-medium">{viewModal.requires_acknowledgment ? 'Yes' : 'No'}</span>
+                  <span className="text-surface-900 dark:text-white font-medium">
+                    {viewModal.requires_acknowledgment ? 'Yes' : 'No'}
+                  </span>
                 </div>
               </div>
             </div>
             <div className="sticky bottom-0 bg-white dark:bg-surface-800 border-t border-surface-200 dark:border-surface-700 px-6 py-4 rounded-b-2xl flex justify-end gap-3">
               <Button
                 variant="ghost"
-                onClick={() => { setViewModal(null); setViewReceipts(null); }}
+                onClick={() => {
+                  setViewModal(null);
+                  setViewReceipts(null);
+                }}
               >
                 Close
               </Button>
@@ -811,15 +878,21 @@ const AnnouncementsManagePage = () => {
         </div>
       )}
 
-      {templateDropdownOpen && (
-        <div className="fixed inset-0 z-40" onClick={() => setTemplateDropdownOpen(false)} />
-      )}
+      {templateDropdownOpen && <div className="fixed inset-0 z-40" onClick={() => setTemplateDropdownOpen(false)} />}
     </div>
   );
 };
 
 const SaveIcon = () => (
-  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    className="w-4 h-4"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
     <polyline points="17 21 17 13 7 13 7 21" />
     <polyline points="7 3 7 8 15 8" />

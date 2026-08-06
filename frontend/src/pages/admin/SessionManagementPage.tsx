@@ -2,7 +2,16 @@ import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import { useNotification } from '../../hooks/useNotification';
 import { Save, CalendarRange, Loader2, CheckCircle, AlertCircle, Plus, Trash2 } from 'lucide-react';
-import { getSessions, createSession, updateSession, deleteSession, listSessionSemesters, createSemester, deleteSemester } from '../../api/sessions';
+import {
+  getSessions,
+  createSession,
+  updateSession,
+  deleteSession,
+  listSessionSemesters,
+  createSemester,
+  deleteSemester,
+} from '../../api/sessions';
+import { getErrorMessage } from '../../utils/errors';
 import type { Session, SemesterEntry } from '../../types';
 
 const SessionManagementPage = () => {
@@ -45,8 +54,8 @@ const SessionManagementPage = () => {
           setSemesters((prev) => ({ ...prev, [s.id]: [] }));
         }
       }
-    } catch (err: any) {
-      notifyError('Load Failed', err?.response?.data?.error || 'Could not load sessions');
+    } catch (err: unknown) {
+      notifyError('Load Failed', getErrorMessage(err, 'Could not load sessions'));
     } finally {
       setLoading(false);
     }
@@ -71,8 +80,8 @@ const SessionManagementPage = () => {
       setStartDate('');
       setEndDate('');
       fetchSessions();
-    } catch (err: any) {
-      const msg = err?.response?.data?.error || 'Could not create session.';
+    } catch (err: unknown) {
+      const msg = getErrorMessage(err, 'Could not create session.');
       setFormError(msg);
       notifyError('Creation Failed', msg);
     } finally {
@@ -87,8 +96,8 @@ const SessionManagementPage = () => {
       } as Partial<Session>);
       success('Session Updated', `${session.name} has been ${!session.is_active ? 'activated' : 'deactivated'}`);
       fetchSessions();
-    } catch (err: any) {
-      notifyError('Update Failed', err?.response?.data?.error || 'Could not update session');
+    } catch (err: unknown) {
+      notifyError('Update Failed', getErrorMessage(err, 'Could not update session'));
     }
   };
 
@@ -98,8 +107,8 @@ const SessionManagementPage = () => {
       await deleteSession(session.id);
       success('Session Deleted', `${session.name} has been removed`);
       fetchSessions();
-    } catch (err: any) {
-      notifyError('Delete Failed', err?.response?.data?.error || 'Could not delete session');
+    } catch (err: unknown) {
+      notifyError('Delete Failed', getErrorMessage(err, 'Could not delete session'));
     }
   };
 
@@ -121,8 +130,8 @@ const SessionManagementPage = () => {
       setSemesterStart('');
       setSemesterEnd('');
       fetchSessions();
-    } catch (err: any) {
-      notifyError('Failed', err?.response?.data?.error || 'Could not create semester');
+    } catch (err: unknown) {
+      notifyError('Failed', getErrorMessage(err, 'Could not create semester'));
     } finally {
       setSemSaving(false);
     }
@@ -174,20 +183,41 @@ const SessionManagementPage = () => {
               className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600"
               placeholder="e.g. 2025/2026"
               value={sessionName}
-              onChange={(e) => { setSessionName(e.target.value); setFormError(''); }}
+              onChange={(e) => {
+                setSessionName(e.target.value);
+                setFormError('');
+              }}
               required
             />
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Start Date</label>
-                <input type="date" className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">End Date</label>
-                <input type="date" className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
               </div>
             </div>
-            <button type="submit" className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 text-sm font-medium disabled:opacity-50" disabled={saving || !sessionName.trim()}>
+            <button
+              type="submit"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 text-sm font-medium disabled:opacity-50"
+              disabled={saving || !sessionName.trim()}
+            >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               {saving ? 'Creating...' : 'Create Session'}
             </button>
@@ -208,28 +238,57 @@ const SessionManagementPage = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Session</label>
-              <select className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600" value={semesterSessionId} onChange={(e) => setSemesterSessionId(e.target.value)} required>
+              <select
+                className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600"
+                value={semesterSessionId}
+                onChange={(e) => setSemesterSessionId(e.target.value)}
+                required
+              >
                 <option value="">Select session</option>
-                {sessions.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                {sessions.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Semester</label>
-              <select className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600" value={semesterName} onChange={(e) => setSemesterName(e.target.value)}>
+              <select
+                className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600"
+                value={semesterName}
+                onChange={(e) => setSemesterName(e.target.value)}
+              >
                 <option value="first">First Semester</option>
                 <option value="second">Second Semester</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Start Date</label>
-              <input type="date" className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600" value={semesterStart} onChange={(e) => setSemesterStart(e.target.value)} />
+              <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
+                Start Date
+              </label>
+              <input
+                type="date"
+                className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600"
+                value={semesterStart}
+                onChange={(e) => setSemesterStart(e.target.value)}
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">End Date</label>
-              <input type="date" className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600" value={semesterEnd} onChange={(e) => setSemesterEnd(e.target.value)} />
+              <input
+                type="date"
+                className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600"
+                value={semesterEnd}
+                onChange={(e) => setSemesterEnd(e.target.value)}
+              />
             </div>
           </div>
-          <button type="submit" className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 text-sm font-medium disabled:opacity-50" disabled={semSaving || !semesterSessionId}>
+          <button
+            type="submit"
+            className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 text-sm font-medium disabled:opacity-50"
+            disabled={semSaving || !semesterSessionId}
+          >
             {semSaving ? 'Creating...' : 'Create Semester'}
           </button>
         </form>
@@ -258,7 +317,8 @@ const SessionManagementPage = () => {
                       <div>
                         <p className="font-medium">{s.name}</p>
                         <p className="text-xs text-surface-500">
-                          {s.start_date ? new Date(s.start_date).toLocaleDateString() : 'No start'} — {s.end_date ? new Date(s.end_date).toLocaleDateString() : 'No end'}
+                          {s.start_date ? new Date(s.start_date).toLocaleDateString() : 'No start'} —{' '}
+                          {s.end_date ? new Date(s.end_date).toLocaleDateString() : 'No end'}
                         </p>
                       </div>
                     </div>
@@ -266,12 +326,17 @@ const SessionManagementPage = () => {
                       <button
                         onClick={() => handleToggleActive(s)}
                         className={`px-3 py-1 text-xs font-medium rounded-lg border ${
-                          s.is_active ? 'border-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700' : 'border-success-300 bg-success-50 text-success-700 hover:bg-success-100'
+                          s.is_active
+                            ? 'border-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700'
+                            : 'border-success-300 bg-success-50 text-success-700 hover:bg-success-100'
                         }`}
                       >
                         {s.is_active ? 'Deactivate' : 'Activate'}
                       </button>
-                      <button onClick={() => handleDeleteSession(s)} className="px-3 py-1 text-xs font-medium rounded-lg border border-danger-300 text-danger-600 hover:bg-danger-50">
+                      <button
+                        onClick={() => handleDeleteSession(s)}
+                        className="px-3 py-1 text-xs font-medium rounded-lg border border-danger-300 text-danger-600 hover:bg-danger-50"
+                      >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -283,12 +348,25 @@ const SessionManagementPage = () => {
                       <p className="text-xs text-surface-400 italic">No semesters yet</p>
                     )}
                     {semesters[s.id]?.map((sem) => (
-                      <div key={sem.id} className="flex items-center justify-between text-xs py-1 px-2 rounded bg-surface-50 dark:bg-surface-800">
-                        <span className="capitalize font-medium">{sem.name === 'harmattan' || sem.name === 'first' ? 'First' : sem.name === 'rain' || sem.name === 'second' ? 'Second' : sem.name} Semester</span>
+                      <div
+                        key={sem.id}
+                        className="flex items-center justify-between text-xs py-1 px-2 rounded bg-surface-50 dark:bg-surface-800"
+                      >
+                        <span className="capitalize font-medium">
+                          {sem.name === 'harmattan' || sem.name === 'first'
+                            ? 'First'
+                            : sem.name === 'rain' || sem.name === 'second'
+                              ? 'Second'
+                              : sem.name}{' '}
+                          Semester
+                        </span>
                         <div className="flex items-center gap-2 text-surface-400">
                           {sem.start_date && <span>{new Date(sem.start_date).toLocaleDateString()}</span>}
                           {sem.is_active && <span className="text-success-500 font-medium">Active</span>}
-                          <button onClick={() => handleDeleteSemester(sem.id, sem.name)} className="hover:text-danger-500">
+                          <button
+                            onClick={() => handleDeleteSemester(sem.id, sem.name)}
+                            className="hover:text-danger-500"
+                          >
                             <Trash2 className="w-3 h-3" />
                           </button>
                         </div>

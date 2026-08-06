@@ -384,8 +384,18 @@ func (server *Server) listStudentAnnouncements(ctx *gin.Context) {
 		}
 	}
 
+	// TargetLevel must be the caller's actual level: the query's
+	// "target_level IS NULL OR target_level = $1" only matches level-targeted
+	// announcements when $1 is non-NULL, otherwise the OR always collapses to
+	// the IS NULL branch and every level-targeted announcement is invisible.
+	var studentLevel *int32
+	userID := getUserID(ctx)
+	if student, err := queries.GetStudentByUserId(ctx, userID); err == nil {
+		studentLevel = &student.Level
+	}
+
 	announcements, err := queries.ListStudentAnnouncements(ctx, db.ListStudentAnnouncementsParams{
-		TargetLevel: nil,
+		TargetLevel: studentLevel,
 		Limit:       limit,
 		Offset:      offset,
 	})

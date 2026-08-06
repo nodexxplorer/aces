@@ -4,7 +4,17 @@ import Input from '../ui/Input';
 import Select from '../ui/Select';
 
 interface SkillListingFormProps {
-  onSubmit: (data: { title: string; description: string; categoryId: string; level: 'beginner' | 'intermediate' | 'expert'; isPaid: boolean; price?: number; isBarterAvailable: boolean; barterPreferences?: string; availability?: string }) => void;
+  onSubmit: (data: {
+    title: string;
+    description: string;
+    categoryId: string;
+    level: 'beginner' | 'intermediate' | 'expert';
+    isPaid: boolean;
+    price?: number;
+    isBarterAvailable: boolean;
+    barterPreferences?: string;
+    availability?: string;
+  }) => void;
   categories: { id: string; name: string }[];
   isLoading?: boolean;
 }
@@ -59,7 +69,7 @@ const SkillListingForm = ({ onSubmit, categories, isLoading }: SkillListingFormP
             { value: 'expert', label: 'Expert' },
           ]}
           value={level}
-          onChange={(e) => setLevel(e.target.value as any)}
+          onChange={(e) => setLevel(e.target.value as 'beginner' | 'intermediate' | 'expert')}
         />
       </div>
       <div>

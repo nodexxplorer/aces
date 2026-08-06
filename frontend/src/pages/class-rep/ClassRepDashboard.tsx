@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
+import Card, { CardHeader, CardTitle } from '../../components/ui/Card';
 import KpiCard from '../../components/data-display/KpiCard';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
-import { Users, ClipboardList, ShieldCheck, Plus, Send, FileText, BarChart3 } from 'lucide-react';
+import { Users, ClipboardList, Plus, Send, FileText, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useNotification } from '../../hooks/useNotification';
+import { getErrorMessage } from '../../utils/errors';
 import {
   getClassRepClassList,
   listMyAttendanceSessions,
@@ -16,7 +17,7 @@ import {
 } from '../../api/class-rep';
 
 const ClassRepDashboard = () => {
-  const { success, error: notifyError } = useNotification();
+  const { error: notifyError } = useNotification();
   const [students, setStudents] = useState<ClassRepStudent[]>([]);
   const [sessions, setSessions] = useState<AttendanceSession[]>([]);
   const [reports, setReports] = useState<ClassRepReport[]>([]);
@@ -33,8 +34,8 @@ const ClassRepDashboard = () => {
         if (classList.status === 'fulfilled') setStudents(classList.value);
         if (sessionsList.status === 'fulfilled') setSessions(sessionsList.value);
         if (reportsList.status === 'fulfilled') setReports(reportsList.value);
-      } catch (e: any) {
-        notifyError('Load Error', e.message || 'Failed to load data');
+      } catch (e: unknown) {
+        notifyError('Load Error', getErrorMessage(e, 'Failed to load data'));
       } finally {
         setLoading(false);
       }
@@ -69,8 +70,16 @@ const ClassRepDashboard = () => {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard title="Class Size" value={`${students.length} Students`} icon={<Users className="w-5 h-5" />} />
-        <KpiCard title="Attendance Rate" value={totalStudents > 0 ? `${attendanceRate}%` : 'No data'} icon={<ClipboardList className="w-5 h-5" />} />
-        <KpiCard title="Sessions Held" value={`${finalizedSessions}/${totalSessions}`} icon={<BarChart3 className="w-5 h-5" />} />
+        <KpiCard
+          title="Attendance Rate"
+          value={totalStudents > 0 ? `${attendanceRate}%` : 'No data'}
+          icon={<ClipboardList className="w-5 h-5" />}
+        />
+        <KpiCard
+          title="Sessions Held"
+          value={`${finalizedSessions}/${totalSessions}`}
+          icon={<BarChart3 className="w-5 h-5" />}
+        />
         <KpiCard title="Pending Reports" value={`${pendingReports}`} icon={<FileText className="w-5 h-5" />} />
       </div>
 
@@ -84,12 +93,16 @@ const ClassRepDashboard = () => {
                 <CardTitle>Recent Attendance Sessions</CardTitle>
               </div>
               <Link to="/class-rep/attendance">
-                <Button size="xs" leftIcon={<Plus className="w-3 h-3" />}>New Session</Button>
+                <Button size="xs" leftIcon={<Plus className="w-3 h-3" />}>
+                  New Session
+                </Button>
               </Link>
             </CardHeader>
             <div className="p-4 pt-0">
               {sessions.length === 0 ? (
-                <p className="text-xs text-surface-400 text-center py-6">No attendance sessions yet. Click "New Session" to start.</p>
+                <p className="text-xs text-surface-400 text-center py-6">
+                  No attendance sessions yet. Click "New Session" to start.
+                </p>
               ) : (
                 <div className="divide-y divide-surface-150 dark:divide-surface-800">
                   {sessions.slice(0, 5).map((s) => (
@@ -105,7 +118,9 @@ const ClassRepDashboard = () => {
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-mono text-success-500">{s.total_present} present</span>
                         <span className="text-xs font-mono text-danger-500">{s.total_absent} absent</span>
-                        <Badge variant={s.status === 'finalized' ? 'success' : s.status === 'open' ? 'primary' : 'secondary'}>
+                        <Badge
+                          variant={s.status === 'finalized' ? 'success' : s.status === 'open' ? 'primary' : 'secondary'}
+                        >
                           {s.status}
                         </Badge>
                       </div>
@@ -129,7 +144,9 @@ const ClassRepDashboard = () => {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-surface-50 dark:bg-surface-800/50 border-b border-surface-200 dark:border-surface-700">
-                    <th className="text-left px-6 py-3 text-xs font-semibold text-surface-500 uppercase">Matric Number</th>
+                    <th className="text-left px-6 py-3 text-xs font-semibold text-surface-500 uppercase">
+                      Matric Number
+                    </th>
                     <th className="text-left px-6 py-3 text-xs font-semibold text-surface-500 uppercase">Name</th>
                     <th className="text-left px-6 py-3 text-xs font-semibold text-surface-500 uppercase">Status</th>
                   </tr>
@@ -175,7 +192,11 @@ const ClassRepDashboard = () => {
                   <div key={r.id} className="p-2 rounded-lg border border-surface-100 dark:border-surface-800">
                     <p className="text-sm font-semibold text-surface-900 dark:text-surface-100 truncate">{r.title}</p>
                     <div className="flex justify-between items-center mt-1">
-                      <Badge variant={r.status === 'submitted' ? 'warning' : r.status === 'resolved' ? 'success' : 'secondary'}>
+                      <Badge
+                        variant={
+                          r.status === 'submitted' ? 'warning' : r.status === 'resolved' ? 'success' : 'secondary'
+                        }
+                      >
                         {r.status}
                       </Badge>
                       <span className="text-[10px] text-surface-400">{r.report_type}</span>
@@ -193,7 +214,11 @@ const ClassRepDashboard = () => {
             </CardHeader>
             <div className="p-4 pt-0 space-y-2">
               <Link to="/class-rep/attendance" className="block">
-                <Button variant="outline" className="w-full justify-start" leftIcon={<ClipboardList className="w-4 h-4" />}>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  leftIcon={<ClipboardList className="w-4 h-4" />}
+                >
                   Take Attendance
                 </Button>
               </Link>

@@ -2,18 +2,16 @@ import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import DataTable from '../../components/data-display/DataTable';
-import RoleBadge from '../../components/data-display/RoleBadge';
 import StatusBadge from '../../components/data-display/StatusBadge';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import { useNotification } from '../../hooks/useNotification';
-import { Shield, Plus, Loader2, Trash2, UserCog } from 'lucide-react';
-import { getAllRoles, createRole } from '../../api/role-management';
-import type { UserRole } from '../../types';
+import { Shield, Plus, Loader2, UserCog } from 'lucide-react';
+import { getAllRoles, createRole, type Role } from '../../api/role-management';
 
 const RoleManagementPage = () => {
   const { success } = useNotification();
-  const [roles, setRoles] = useState<any[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [roleName, setRoleName] = useState('');
@@ -28,7 +26,7 @@ const RoleManagementPage = () => {
     try {
       setLoading(true);
       const data = await getAllRoles();
-      const items = Array.isArray(data) ? data : (data as any).items || [];
+      const items = Array.isArray(data) ? data : (data as unknown as { items?: Role[] }).items || [];
       setRoles(items);
     } catch {
       // silent
@@ -42,7 +40,7 @@ const RoleManagementPage = () => {
     if (!roleName) return;
     try {
       setSubmitting(true);
-      await createRole({ name: roleName, description: roleDescription, permissions: [] } as any);
+      await createRole({ name: roleName, description: roleDescription, permissions: [] });
       setCreateOpen(false);
       setRoleName('');
       setRoleDescription('');
@@ -59,7 +57,7 @@ const RoleManagementPage = () => {
     {
       key: 'name',
       label: 'Role',
-      render: (_: unknown, row: any) => (
+      render: (_: unknown, row: Role) => (
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
             <UserCog className="w-4 h-4 text-primary-600" />
@@ -74,15 +72,17 @@ const RoleManagementPage = () => {
     {
       key: 'permissions',
       label: 'Permissions',
-      render: (_: unknown, row: any) => {
+      render: (_: unknown, row: Role) => {
         const perms = row.permissions || [];
         return (
           <div className="flex flex-wrap gap-1">
-            {perms.length > 0 ? perms.slice(0, 3).map((p: string) => (
-              <span key={p} className="text-[10px] px-2 py-0.5 rounded-full bg-surface-100 text-surface-600">
-                {p}
-              </span>
-            )) : (
+            {perms.length > 0 ? (
+              perms.slice(0, 3).map((p: string) => (
+                <span key={p} className="text-[10px] px-2 py-0.5 rounded-full bg-surface-100 text-surface-600">
+                  {p}
+                </span>
+              ))
+            ) : (
               <span className="text-[10px] text-surface-400">Default permissions</span>
             )}
             {perms.length > 3 && (
@@ -97,16 +97,12 @@ const RoleManagementPage = () => {
     {
       key: 'userCount',
       label: 'Users',
-      render: (val: unknown) => (
-        <span className="text-sm font-medium">{(val as number) || 0}</span>
-      ),
+      render: (val: unknown) => <span className="text-sm font-medium">{(val as number) || 0}</span>,
     },
     {
       key: 'status',
       label: 'Status',
-      render: (_: unknown, row: any) => (
-        <StatusBadge status={row.isActive !== false ? 'active' : 'suspended'} />
-      ),
+      render: (_: unknown, row: Role) => <StatusBadge status={row.isActive !== false ? 'active' : 'suspended'} />,
     },
   ];
 

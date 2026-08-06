@@ -4,17 +4,18 @@ import Card, { CardHeader, CardTitle, CardDescription } from '../../components/u
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
-import { getStudentFullProfile, hodEditStudent, getStudentAuditLogs } from '../../api/profile-edit';
+import { getStudentFullProfile, hodEditStudent, type AuditLog, type StudentProfile } from '../../api/profile-edit';
 import { useNotification } from '../../hooks/useNotification';
-import { ArrowLeft, Save, Shield, Clock, User, Phone, MapPin, Mail, BookOpen, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Save, Shield, Clock, User, Phone, MapPin, Mail, AlertCircle } from 'lucide-react';
+import { getErrorMessage } from '../../utils/errors';
 
 const EditStudentPage = () => {
   const { id } = useParams();
   const { success, error: notifyError } = useNotification();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [profile, setProfile] = useState<any>(null);
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [profile, setProfile] = useState<StudentProfile | null>(null);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [reason, setReason] = useState('');
   const [showReason, setShowReason] = useState(false);
 
@@ -38,7 +39,7 @@ const EditStudentPage = () => {
     if (!id) return;
     setLoading(true);
     getStudentFullProfile(id)
-      .then((data: any) => {
+      .then((data: StudentProfile) => {
         setProfile(data);
         setAuditLogs(data.audit_logs || []);
         setForm({
@@ -57,25 +58,27 @@ const EditStudentPage = () => {
           yearAdmitted: data.yearAdmitted ? String(data.yearAdmitted) : '',
         });
       })
-      .catch((err: any) => notifyError('Error', err?.response?.data?.error || 'Failed to load profile'))
+      .catch((err: unknown) => notifyError('Error', getErrorMessage(err, 'Failed to load profile')))
       .finally(() => setLoading(false));
   }, [id]);
 
-  const hasChanges = JSON.stringify(form) !== JSON.stringify({
-    firstName: profile?.firstName || '',
-    lastName: profile?.lastName || '',
-    phone: profile?.phone || '',
-    homeAddress: profile?.homeAddress || '',
-    dateOfBirth: profile?.dateOfBirth || '',
-    emergencyContactName: profile?.emergencyContactName || '',
-    emergencyContactPhone: profile?.emergencyContactPhone || '',
-    matricNumber: profile?.matricNumber || '',
-    level: profile?.level ? String(profile.level) : '',
-    academicStanding: profile?.academicStanding || '',
-    graduationStatus: profile?.graduationStatus || '',
-    admissionMode: profile?.admissionMode || '',
-    yearAdmitted: profile?.yearAdmitted ? String(profile.yearAdmitted) : '',
-  });
+  const hasChanges =
+    JSON.stringify(form) !==
+    JSON.stringify({
+      firstName: profile?.firstName || '',
+      lastName: profile?.lastName || '',
+      phone: profile?.phone || '',
+      homeAddress: profile?.homeAddress || '',
+      dateOfBirth: profile?.dateOfBirth || '',
+      emergencyContactName: profile?.emergencyContactName || '',
+      emergencyContactPhone: profile?.emergencyContactPhone || '',
+      matricNumber: profile?.matricNumber || '',
+      level: profile?.level ? String(profile.level) : '',
+      academicStanding: profile?.academicStanding || '',
+      graduationStatus: profile?.graduationStatus || '',
+      admissionMode: profile?.admissionMode || '',
+      yearAdmitted: profile?.yearAdmitted ? String(profile.yearAdmitted) : '',
+    });
 
   const handleSave = async () => {
     if (!id) return;
@@ -85,18 +88,17 @@ const EditStudentPage = () => {
     }
     setSaving(true);
     try {
-      const payload: any = { ...form };
-      if (reason) payload.reason = reason;
+      const payload = { ...form, ...(reason ? { reason } : {}) };
       await hodEditStudent(id, payload);
       success('Student Updated', 'Student profile has been updated.');
       setReason('');
       setShowReason(false);
       // Reload
-      const data = await getStudentFullProfile(id);
+      const data = (await getStudentFullProfile(id)) as StudentProfile;
       setProfile(data);
       setAuditLogs(data.audit_logs || []);
-    } catch (err: any) {
-      notifyError('Update Failed', err?.response?.data?.error || 'Failed to update student.');
+    } catch (err: unknown) {
+      notifyError('Update Failed', getErrorMessage(err, 'Failed to update student.'));
     } finally {
       setSaving(false);
     }
@@ -115,7 +117,9 @@ const EditStudentPage = () => {
       <div className="text-center py-20">
         <AlertCircle className="w-10 h-10 text-danger-500 mx-auto mb-3" />
         <p className="text-surface-500">Student not found.</p>
-        <Link to="/admin/users" className="text-primary-500 text-sm mt-2 inline-block">Back to Users</Link>
+        <Link to="/admin/users" className="text-primary-500 text-sm mt-2 inline-block">
+          Back to Users
+        </Link>
       </div>
     );
   }
@@ -145,14 +149,47 @@ const EditStudentPage = () => {
               <CardDescription>Edit personal details</CardDescription>
             </CardHeader>
             <div className="p-4 pt-0 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input label="First Name" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} leftIcon={<User className="w-4 h-4" />} />
-              <Input label="Last Name" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
+              <Input
+                label="First Name"
+                value={form.firstName}
+                onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+                leftIcon={<User className="w-4 h-4" />}
+              />
+              <Input
+                label="Last Name"
+                value={form.lastName}
+                onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+              />
               <Input label="Email" value={profile.email || ''} disabled leftIcon={<Mail className="w-4 h-4" />} />
-              <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} leftIcon={<Phone className="w-4 h-4" />} />
-              <Input label="Date of Birth" type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} />
-              <Input label="Home Address" value={form.homeAddress} onChange={(e) => setForm({ ...form, homeAddress: e.target.value })} leftIcon={<MapPin className="w-4 h-4" />} />
-              <Input label="Emergency Contact Name" value={form.emergencyContactName} onChange={(e) => setForm({ ...form, emergencyContactName: e.target.value })} />
-              <Input label="Emergency Contact Phone" value={form.emergencyContactPhone} onChange={(e) => setForm({ ...form, emergencyContactPhone: e.target.value })} leftIcon={<Phone className="w-4 h-4" />} />
+              <Input
+                label="Phone"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                leftIcon={<Phone className="w-4 h-4" />}
+              />
+              <Input
+                label="Date of Birth"
+                type="date"
+                value={form.dateOfBirth}
+                onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
+              />
+              <Input
+                label="Home Address"
+                value={form.homeAddress}
+                onChange={(e) => setForm({ ...form, homeAddress: e.target.value })}
+                leftIcon={<MapPin className="w-4 h-4" />}
+              />
+              <Input
+                label="Emergency Contact Name"
+                value={form.emergencyContactName}
+                onChange={(e) => setForm({ ...form, emergencyContactName: e.target.value })}
+              />
+              <Input
+                label="Emergency Contact Phone"
+                value={form.emergencyContactPhone}
+                onChange={(e) => setForm({ ...form, emergencyContactPhone: e.target.value })}
+                leftIcon={<Phone className="w-4 h-4" />}
+              />
             </div>
           </Card>
 
@@ -163,7 +200,11 @@ const EditStudentPage = () => {
               <CardDescription>Changes require a documented reason</CardDescription>
             </CardHeader>
             <div className="p-4 pt-0 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input label="Matric Number" value={form.matricNumber} onChange={(e) => setForm({ ...form, matricNumber: e.target.value })} />
+              <Input
+                label="Matric Number"
+                value={form.matricNumber}
+                onChange={(e) => setForm({ ...form, matricNumber: e.target.value })}
+              />
               <div>
                 <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Level</label>
                 <select
@@ -180,7 +221,9 @@ const EditStudentPage = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Academic Standing</label>
+                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
+                  Academic Standing
+                </label>
                 <select
                   className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600"
                   value={form.academicStanding}
@@ -193,7 +236,9 @@ const EditStudentPage = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Graduation Status</label>
+                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
+                  Graduation Status
+                </label>
                 <select
                   className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600"
                   value={form.graduationStatus}
@@ -206,8 +251,16 @@ const EditStudentPage = () => {
                   <option value="expelled">Expelled</option>
                 </select>
               </div>
-              <Input label="Admission Mode" value={form.admissionMode} onChange={(e) => setForm({ ...form, admissionMode: e.target.value })} />
-              <Input label="Year Admitted" value={form.yearAdmitted} onChange={(e) => setForm({ ...form, yearAdmitted: e.target.value })} />
+              <Input
+                label="Admission Mode"
+                value={form.admissionMode}
+                onChange={(e) => setForm({ ...form, admissionMode: e.target.value })}
+              />
+              <Input
+                label="Year Admitted"
+                value={form.yearAdmitted}
+                onChange={(e) => setForm({ ...form, yearAdmitted: e.target.value })}
+              />
             </div>
           </Card>
 
@@ -245,12 +298,7 @@ const EditStudentPage = () => {
                     Save Changes
                   </Button>
                   {showReason && (
-                    <Button
-                      variant="outline"
-                      onClick={handleSave}
-                      disabled={reason.length < 10}
-                      isLoading={saving}
-                    >
+                    <Button variant="outline" onClick={handleSave} disabled={reason.length < 10} isLoading={saving}>
                       Confirm Save
                     </Button>
                   )}
@@ -270,7 +318,9 @@ const EditStudentPage = () => {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-surface-500">Status</span>
-                <Badge variant={profile.isActive ? 'success' : 'danger'}>{profile.isActive ? 'Active' : 'Inactive'}</Badge>
+                <Badge variant={profile.isActive ? 'success' : 'danger'}>
+                  {profile.isActive ? 'Active' : 'Inactive'}
+                </Badge>
               </div>
               <div className="flex justify-between">
                 <span className="text-surface-500">Approval</span>
@@ -292,10 +342,8 @@ const EditStudentPage = () => {
               </div>
             </CardHeader>
             <div className="p-4 pt-0">
-              {auditLogs.length === 0 && (
-                <p className="text-xs text-surface-400">No changes recorded yet.</p>
-              )}
-              {auditLogs.slice(0, 10).map((log: any, idx: number) => (
+              {auditLogs.length === 0 && <p className="text-xs text-surface-400">No changes recorded yet.</p>}
+              {auditLogs.slice(0, 10).map((log, idx: number) => (
                 <div key={idx} className="py-2 border-b border-surface-100 dark:border-surface-800 last:border-0">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-medium text-surface-700 dark:text-surface-300">{log.field_name}</span>
@@ -307,9 +355,7 @@ const EditStudentPage = () => {
                     {log.old_value && <span>{log.old_value} → </span>}
                     <span className="text-surface-600 dark:text-surface-300">{log.new_value}</span>
                   </div>
-                  {log.reason && (
-                    <p className="text-[10px] text-surface-400 italic mt-0.5">Reason: {log.reason}</p>
-                  )}
+                  {log.reason && <p className="text-[10px] text-surface-400 italic mt-0.5">Reason: {log.reason}</p>}
                   <p className="text-[10px] text-surface-400 mt-0.5">
                     {log.created_at ? new Date(log.created_at).toLocaleString() : ''}
                   </p>

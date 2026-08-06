@@ -31,7 +31,16 @@ export const useAuth = () => {
   const refreshUser = async () => {
     try {
       const latestUser = await getMe();
-      updateUser(latestUser);
+      // The backend has no concept of a "currently active" role — it always
+      // reports the account's primary role. Preserve whatever role the user
+      // has locally switched to (as long as they still hold it), otherwise
+      // every refresh would silently bounce a switched class-rep/bursar user
+      // back to their primary role's dashboard.
+      const currentActiveRole = useAuthStore.getState().user?.activeRole;
+      const roles = latestUser.roles || ['student'];
+      const preservedActiveRole =
+        currentActiveRole && roles.includes(currentActiveRole) ? currentActiveRole : latestUser.activeRole;
+      updateUser({ ...latestUser, activeRole: preservedActiveRole });
       if (latestUser.roles) {
         setAvailableRoles(latestUser.roles);
       }

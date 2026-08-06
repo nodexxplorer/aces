@@ -1,17 +1,18 @@
-import { useRoleStore } from '../stores/roleStore';
 import { useAuthStore } from '../stores/authStore';
 import type { UserRole } from '../types';
 
 export const useRBAC = () => {
-  const { hasRole, hasAnyRole } = useRoleStore();
   const activeRole = useAuthStore((s) => s.user?.activeRole ?? 'student');
 
-  const isAdmin = hasAnyRole(['hod', 'delegated_admin', 'admin']);
-  const isStaff = hasAnyRole(['hod', 'delegated_admin', 'lecturer']);
-  const isStudent = hasRole('student');
-  const isAlumni = hasRole('alumni');
-  const isBursar = hasAnyRole(['class_bursar', 'dept_bursar']);
-  const isClassRep = hasRole('class_rep');
+  // These must key off the currently active role, not every role the user
+  // has ever held (roleStore.availableRoles) — otherwise a multi-role user
+  // stays flagged as e.g. isAdmin after switching to a non-admin role.
+  const isAdmin = (['hod', 'delegated_admin', 'admin'] as UserRole[]).includes(activeRole);
+  const isStaff = (['hod', 'delegated_admin', 'lecturer'] as UserRole[]).includes(activeRole);
+  const isStudent = activeRole === 'student';
+  const isAlumni = activeRole === 'alumni';
+  const isBursar = (['class_bursar', 'dept_bursar'] as UserRole[]).includes(activeRole);
+  const isClassRep = activeRole === 'class_rep';
 
   const canAccess = (allowedRoles: UserRole[]): boolean => {
     if (allowedRoles.length === 0) return true;

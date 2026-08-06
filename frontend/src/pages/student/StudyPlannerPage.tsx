@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, CheckCircle, Clock, AlertTriangle, Circle, Calendar } from 'lucide-react';
-import { createStudyTask, listMyStudyTasks, updateStudyTask, deleteStudyTask, type StudyTask } from '../../api/additional-features';
-import { useAuthStore } from '../../stores/authStore';
+import {
+  createStudyTask,
+  listMyStudyTasks,
+  updateStudyTask,
+  deleteStudyTask,
+  type StudyTask,
+} from '../../api/additional-features';
 
 type Priority = 'high' | 'medium' | 'low';
 type Status = 'pending' | 'in_progress' | 'completed';
@@ -27,7 +32,6 @@ const filterTabs: { key: FilterTab; label: string }[] = [
 ];
 
 export default function StudyPlannerPage() {
-  const user = useAuthStore((s) => s.user);
   const [tasks, setTasks] = useState<StudyTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -94,7 +98,7 @@ export default function StudyPlannerPage() {
     try {
       await updateStudyTask(task.id, { status: nextStatus });
       // Optimistically update local state immediately
-      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: nextStatus } : t));
+      setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status: nextStatus } : t)));
       // Refetch in background to sync with server — don't surface errors here
       fetchTasks().catch(() => {});
     } catch {
@@ -106,7 +110,7 @@ export default function StudyPlannerPage() {
     setError('');
     try {
       await deleteStudyTask(taskId);
-      setTasks(prev => prev.filter(t => t.id !== taskId));
+      setTasks((prev) => prev.filter((t) => t.id !== taskId));
       fetchTasks().catch(() => {});
     } catch {
       setError('Failed to delete task');
@@ -127,11 +131,13 @@ export default function StudyPlannerPage() {
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 shrink-0" />
           {error}
-          <button onClick={() => setError('')} className="ml-auto text-red-500 hover:text-red-700">&times;</button>
+          <button onClick={() => setError('')} className="ml-auto text-red-500 hover:text-red-700">
+            &times;
+          </button>
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Study Planner</h1>
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
@@ -140,7 +146,7 @@ export default function StudyPlannerPage() {
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-xl font-medium transition-colors flex items-center gap-2"
+          className="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-xl font-medium transition-colors flex items-center gap-2 shrink-0"
         >
           <Plus className="w-4 h-4" />
           New Task
@@ -208,9 +214,7 @@ export default function StudyPlannerPage() {
                 )}
 
                 <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className={`px-2 py-0.5 rounded-full font-medium ${pCfg.className}`}>
-                    {pCfg.label}
-                  </span>
+                  <span className={`px-2 py-0.5 rounded-full font-medium ${pCfg.className}`}>{pCfg.label}</span>
                   <span className={`px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${sCfg.className}`}>
                     <StatusIcon className="w-3 h-3" />
                     {sCfg.label}
@@ -225,7 +229,12 @@ export default function StudyPlannerPage() {
                 {task.due_date && (
                   <div className="flex items-center gap-1.5 text-xs text-surface-500 dark:text-surface-400">
                     <Calendar className="w-3.5 h-3.5" />
-                    Due {new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    Due{' '}
+                    {new Date(task.due_date).toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
                   </div>
                 )}
 
@@ -262,7 +271,10 @@ export default function StudyPlannerPage() {
       )}
 
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowModal(false)}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setShowModal(false)}
+        >
           <div
             className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-xl w-full max-w-md p-6 space-y-4"
             onClick={(e) => e.stopPropagation()}
@@ -292,7 +304,7 @@ export default function StudyPlannerPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Priority</label>
                   <select

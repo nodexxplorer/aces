@@ -1,6 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Banknote, CheckCircle, XCircle, Clock, Filter, Plus, BarChart3 } from 'lucide-react';
-import { listExpenses, createExpense, getExpenseSummary, updateExpenseStatus, type Expense } from '../../api/additional-features';
+import {
+  listExpenses,
+  createExpense,
+  getExpenseSummary,
+  updateExpenseStatus,
+  type Expense,
+} from '../../api/additional-features';
+import { useRBAC } from '../../hooks/useRBAC';
 
 const STATUS_BADGES: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
@@ -19,18 +26,19 @@ interface ExpenseSummary {
 
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [summary, setSummary] = useState<ExpenseSummary>({ total_expenses: 0, total_count: 0, pending_count: 0, approved_count: 0, rejected_count: 0, approved_amount: 0 });
+  const [summary, setSummary] = useState<ExpenseSummary>({
+    total_expenses: 0,
+    total_count: 0,
+    pending_count: 0,
+    approved_count: 0,
+    rejected_count: 0,
+    approved_amount: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [showForm, setShowForm] = useState(false);
-  const [isAdmin] = useState(() => {
-    try {
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      return user.role === 'admin' || user.role === 'superadmin' || user.role === 'bursar';
-    } catch {
-      return false;
-    }
-  });
+  const { isAdmin: isAdminRole, isBursar } = useRBAC();
+  const isAdmin = isAdminRole || isBursar;
 
   const [form, setForm] = useState({
     description: '',
@@ -95,8 +103,7 @@ export default function ExpensesPage() {
     }
   };
 
-  const filteredExpenses =
-    activeTab === 'all' ? expenses : expenses.filter((e) => e.status === activeTab);
+  const filteredExpenses = activeTab === 'all' ? expenses : expenses.filter((e) => e.status === activeTab);
 
   const summaryCards = [
     {
@@ -135,12 +142,8 @@ export default function ExpensesPage() {
               <BarChart3 className="w-6 h-6 text-green-600 dark:text-green-400" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-surface-900 dark:text-surface-100">
-                Expense Tracking
-              </h1>
-              <p className="text-sm text-surface-500 dark:text-surface-400">
-                Track and manage departmental expenses
-              </p>
+              <h1 className="text-2xl font-bold text-surface-900 dark:text-surface-100">Expense Tracking</h1>
+              <p className="text-sm text-surface-500 dark:text-surface-400">Track and manage departmental expenses</p>
             </div>
           </div>
           {isAdmin && (
@@ -157,9 +160,7 @@ export default function ExpensesPage() {
         {/* Create Expense Form */}
         {showForm && isAdmin && (
           <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-surface-900 dark:text-surface-100 mb-4">
-              Create New Expense
-            </h2>
+            <h2 className="text-lg font-semibold text-surface-900 dark:text-surface-100 mb-4">Create New Expense</h2>
             <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
@@ -263,9 +264,7 @@ export default function ExpensesPage() {
                 </div>
                 <div>
                   <p className="text-xs text-surface-500 dark:text-surface-400">{card.label}</p>
-                  <p className="text-lg font-bold text-surface-900 dark:text-surface-100">
-                    {card.value}
-                  </p>
+                  <p className="text-lg font-bold text-surface-900 dark:text-surface-100">{card.value}</p>
                 </div>
               </div>
             </div>
@@ -295,13 +294,9 @@ export default function ExpensesPage() {
         {/* Expenses Table */}
         <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm overflow-hidden">
           {loading ? (
-            <div className="text-center py-12 text-surface-500 dark:text-surface-400">
-              Loading expenses...
-            </div>
+            <div className="text-center py-12 text-surface-500 dark:text-surface-400">Loading expenses...</div>
           ) : filteredExpenses.length === 0 ? (
-            <div className="text-center py-12 text-surface-500 dark:text-surface-400">
-              No expenses found
-            </div>
+            <div className="text-center py-12 text-surface-500 dark:text-surface-400">No expenses found</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -331,10 +326,7 @@ export default function ExpensesPage() {
                 </thead>
                 <tbody className="divide-y divide-surface-100 dark:divide-surface-800">
                   {filteredExpenses.map((expense) => (
-                    <tr
-                      key={expense.id}
-                      className="hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors"
-                    >
+                    <tr key={expense.id} className="hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="text-sm font-medium text-surface-900 dark:text-surface-100">
                           {expense.description}
@@ -353,9 +345,7 @@ export default function ExpensesPage() {
                       <td className="px-6 py-4 text-sm font-semibold text-surface-900 dark:text-surface-100">
                         \u20A6{expense.amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}
                       </td>
-                      <td className="px-6 py-4 text-sm text-surface-600 dark:text-surface-400">
-                        {expense.category}
-                      </td>
+                      <td className="px-6 py-4 text-sm text-surface-600 dark:text-surface-400">{expense.category}</td>
                       <td className="px-6 py-4 text-sm text-surface-600 dark:text-surface-400">
                         {new Date(expense.expense_date).toLocaleDateString()}
                       </td>
@@ -389,9 +379,7 @@ export default function ExpensesPage() {
                             </div>
                           )}
                           {expense.status !== 'pending' && (
-                            <span className="text-xs text-surface-400 dark:text-surface-500">
-                              &mdash;
-                            </span>
+                            <span className="text-xs text-surface-400 dark:text-surface-500">&mdash;</span>
                           )}
                         </td>
                       )}

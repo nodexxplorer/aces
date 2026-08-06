@@ -11,6 +11,8 @@ import { BookOpen, Plus, Loader2, Eye, Edit, Trash2 } from 'lucide-react';
 import { getManuals, createManual, deleteManual } from '../../api/manuals';
 import type { Manual } from '../../api/manuals';
 import { getCourses } from '../../api/courses';
+import type { Course } from '../../types';
+import { getErrorMessage } from '../../utils/errors';
 
 const ManualsManagementPage = () => {
   const navigate = useNavigate();
@@ -24,7 +26,7 @@ const ManualsManagementPage = () => {
   const [level, setLevel] = useState('500');
   const [price, setPrice] = useState('0');
   const [courseId, setCourseId] = useState('');
-  const [courses, setCourses] = useState<any[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
 
   useEffect(() => {
     fetchManuals();
@@ -35,7 +37,7 @@ const ManualsManagementPage = () => {
     try {
       setLoading(true);
       const data = await getManuals();
-      const items = Array.isArray(data) ? data : (data as any).items || [];
+      const items = Array.isArray(data) ? data : (data as unknown as { items?: Manual[] }).items || [];
       setManuals(items);
     } catch {
       // silent
@@ -47,7 +49,7 @@ const ManualsManagementPage = () => {
   const fetchCourses = async () => {
     try {
       const data = await getCourses({ page: 1, perPage: 100 });
-      const items = Array.isArray(data) ? data : (data as any).items || [];
+      const items = Array.isArray(data) ? data : (data as unknown as { items?: Course[] }).items || [];
       setCourses(items);
     } catch {
       // silent
@@ -73,9 +75,8 @@ const ManualsManagementPage = () => {
       setCourseId('');
       success('Manual Created', `"${title}" has been added to the resource library`);
       fetchManuals();
-    } catch (err: any) {
-      const msg = err?.response?.data?.error || err?.message || 'Could not create manual';
-      notifyError('Create Failed', msg);
+    } catch (err: unknown) {
+      notifyError('Create Failed', getErrorMessage(err, 'Could not create manual'));
     } finally {
       setSubmitting(false);
     }
@@ -87,8 +88,8 @@ const ManualsManagementPage = () => {
       await deleteManual(id);
       setManuals((prev) => prev.filter((m) => m.id !== id));
       success('Manual Deleted', 'Resource removed from library');
-    } catch (err: any) {
-      notifyError('Delete Failed', err?.response?.data?.error || 'Could not delete manual');
+    } catch (err: unknown) {
+      notifyError('Delete Failed', getErrorMessage(err, 'Could not delete manual'));
     }
   };
 
@@ -102,7 +103,10 @@ const ManualsManagementPage = () => {
             <BookOpen className="w-5 h-5 text-primary-600" />
           </div>
           <div>
-            <Link to={`/admin/manuals/${row.id}`} className="font-semibold text-primary-600 dark:text-primary-400 hover:underline">
+            <Link
+              to={`/admin/manuals/${row.id}`}
+              className="font-semibold text-primary-600 dark:text-primary-400 hover:underline"
+            >
               {row.title}
             </Link>
             <p className="text-[10px] text-surface-500">{row.description || 'No description'}</p>
@@ -118,7 +122,7 @@ const ManualsManagementPage = () => {
     {
       key: 'price',
       label: 'Price',
-      render: (val: unknown) => val ? `₦${Number(val).toLocaleString()}` : 'Free',
+      render: (val: unknown) => (val ? `₦${Number(val).toLocaleString()}` : 'Free'),
     },
     {
       key: 'is_active',
@@ -130,7 +134,12 @@ const ManualsManagementPage = () => {
       label: 'Action',
       render: (_: unknown, row: Manual) => (
         <div className="flex gap-2">
-          <Button size="xs" variant="ghost" leftIcon={<Eye className="w-3.5 h-3.5" />} onClick={() => navigate(`/admin/manuals/${row.id}`)}>
+          <Button
+            size="xs"
+            variant="ghost"
+            leftIcon={<Eye className="w-3.5 h-3.5" />}
+            onClick={() => navigate(`/admin/manuals/${row.id}`)}
+          >
             View
           </Button>
           <Button size="xs" variant="ghost" leftIcon={<Edit className="w-3.5 h-3.5" />}>
@@ -177,13 +186,19 @@ const ManualsManagementPage = () => {
             <span className="ml-2 text-sm text-surface-500">Loading manuals...</span>
           </div>
         ) : (
-          <DataTable columns={columns as any} data={manuals as any} />
+          <DataTable<Manual> columns={columns} data={manuals} />
         )}
       </Card>
 
       <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title="Create New Manual">
         <form onSubmit={handleCreate} className="space-y-4">
-          <Input label="Title" placeholder="e.g. CPE 523 Lab Manual" value={title} onChange={(e) => setTitle(e.target.value)} required />
+          <Input
+            label="Title"
+            placeholder="e.g. CPE 523 Lab Manual"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+          />
           <div>
             <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Description</label>
             <textarea
@@ -195,7 +210,14 @@ const ManualsManagementPage = () => {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <Input label="Level" type="number" value={level} onChange={(e) => setLevel(e.target.value)} required />
-            <Input label="Price (NGN)" type="number" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} required />
+            <Input
+              label="Price (NGN)"
+              type="number"
+              step="0.01"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              required
+            />
           </div>
           <div>
             <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Select Course</label>
@@ -205,8 +227,10 @@ const ManualsManagementPage = () => {
               onChange={(e) => setCourseId(e.target.value)}
             >
               <option value="">No specific course</option>
-              {courses.map((c: any) => (
-                <option key={c.id} value={c.id}>{c.code} — {c.title}</option>
+              {courses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.code} — {c.title}
+                </option>
               ))}
             </select>
           </div>

@@ -218,6 +218,16 @@ func (s *ResultService) ListCarryovers(ctx context.Context, studentID uuid.UUID)
 	return s.store.ListStudentCarryoverCourses(ctx, studentID)
 }
 
+// ListCarryoversDetailed enriches carryover rows with course/session names
+// for student-facing display.
+func (s *ResultService) ListCarryoversDetailed(ctx context.Context, studentID uuid.UUID) ([]db.CarryoverCourseDetailed, error) {
+	q, ok := s.store.(*db.Queries)
+	if !ok {
+		return nil, errors.New("this operation requires direct database access")
+	}
+	return q.ListStudentCarryoverCoursesDetailed(ctx, studentID)
+}
+
 func (s *ResultService) DeleteCarryover(ctx context.Context, id uuid.UUID) error {
 	return s.store.DeleteCarryoverCourse(ctx, id)
 }

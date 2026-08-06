@@ -89,19 +89,21 @@ const MyFeedbackPage = () => {
   return (
     <div className="min-h-screen bg-surface-50 dark:bg-surface-950 p-6">
       <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary-500/10 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-primary-500/10 flex items-center justify-center shrink-0">
               <MessageSquare className="w-5 h-5 text-primary-600 dark:text-primary-400" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-surface-900 dark:text-white">My Feedback</h1>
-              <p className="text-sm text-surface-500 dark:text-surface-400">Submit and track your feedback submissions</p>
+              <p className="text-sm text-surface-500 dark:text-surface-400">
+                Submit and track your feedback submissions
+              </p>
             </div>
           </div>
           <button
             onClick={() => setShowForm(!showForm)}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-medium transition-colors"
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-medium transition-colors shrink-0"
           >
             <Plus className="w-4 h-4" />
             Submit Feedback
@@ -114,7 +116,7 @@ const MyFeedbackPage = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Type</label>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {[
                     { value: 'bug', label: 'Bug Report' },
                     { value: 'feature', label: 'Feature Request' },
@@ -202,19 +204,28 @@ const MyFeedbackPage = () => {
           <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm flex flex-col items-center justify-center p-16 text-center">
             <MessageSquare className="w-10 h-10 text-surface-300 dark:text-surface-600 mb-3" />
             <p className="text-sm font-medium text-surface-500 dark:text-surface-400">No feedback submitted yet</p>
-            <p className="text-xs text-surface-400 dark:text-surface-500 mt-1">Click "Submit Feedback" to share your thoughts with the team</p>
+            <p className="text-xs text-surface-400 dark:text-surface-500 mt-1">
+              Click "Submit Feedback" to share your thoughts with the team
+            </p>
           </div>
         ) : (
           <div className="space-y-3">
             {feedbacks.map((fb) => (
-              <div key={fb.id} className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm p-5">
+              <div
+                key={fb.id}
+                className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm p-5"
+              >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-2">
-                      <span className={`inline-flex items-center text-[10px] font-semibold px-2.5 py-1 rounded-full uppercase tracking-wide ${TYPE_STYLES[fb.feedback_type] || TYPE_STYLES.general}`}>
+                      <span
+                        className={`inline-flex items-center text-[10px] font-semibold px-2.5 py-1 rounded-full uppercase tracking-wide ${TYPE_STYLES[fb.feedback_type] || TYPE_STYLES.general}`}
+                      >
                         {fb.feedback_type}
                       </span>
-                      <span className={`inline-flex items-center text-[10px] font-semibold px-2.5 py-1 rounded-full ${STATUS_STYLES[fb.status] || STATUS_STYLES.submitted}`}>
+                      <span
+                        className={`inline-flex items-center text-[10px] font-semibold px-2.5 py-1 rounded-full ${STATUS_STYLES[fb.status] || STATUS_STYLES.submitted}`}
+                      >
                         {fb.status.replace(/_/g, ' ')}
                       </span>
                     </div>
@@ -222,7 +233,9 @@ const MyFeedbackPage = () => {
                     <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">{fb.description}</p>
                     {fb.admin_response && (
                       <div className="mt-3 p-3 rounded-lg bg-primary-50 dark:bg-primary-900/10 border border-primary-100 dark:border-primary-900/30">
-                        <p className="text-xs font-medium text-primary-700 dark:text-primary-400 mb-1">Admin Response</p>
+                        <p className="text-xs font-medium text-primary-700 dark:text-primary-400 mb-1">
+                          Admin Response
+                        </p>
                         <p className="text-sm text-surface-700 dark:text-surface-300">{fb.admin_response}</p>
                       </div>
                     )}

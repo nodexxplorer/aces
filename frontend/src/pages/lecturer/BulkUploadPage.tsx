@@ -6,6 +6,12 @@ import { useNotification } from '../../hooks/useNotification';
 import { FileSpreadsheet, Upload, Check, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { listLecturerAssignments, type LecturerAssignment } from '../../api/lecturers';
+import { getErrorMessage } from '../../utils/errors';
+
+// Some lecturer-assignment responses attach a semester identifier under
+// either naming convention even though the shared `LecturerAssignment` type
+// doesn't declare it; this keeps that defensive lookup type-safe.
+type LecturerAssignmentWithSemesterId = LecturerAssignment & { semester_id?: string; semesterId?: string };
 
 interface PreviewRow {
   matricNumber: string;
@@ -37,7 +43,8 @@ const BulkUploadPage = () => {
   }, [user?.id]);
 
   const handleDownloadTemplate = () => {
-    const csvContent = 'data:text/csv;charset=utf-8,Matric Number,Name,CA (Max 30),Exam (Max 70)\nENG/2021/001,John Doe,28,52\nENG/2021/002,Jane Smith,22,48';
+    const csvContent =
+      'data:text/csv;charset=utf-8,Matric Number,Name,CA (Max 30),Exam (Max 70)\nENG/2021/001,John Doe,28,52\nENG/2021/002,Jane Smith,22,48';
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
@@ -55,12 +62,18 @@ const BulkUploadPage = () => {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
-      const lines = text.trim().split('\n').filter((l) => l.trim());
+      const lines = text
+        .trim()
+        .split('\n')
+        .filter((l) => l.trim());
       if (lines.length < 2) {
         error('Invalid CSV', 'CSV file is empty or missing data rows.');
         return;
       }
-      const header = lines[0].toLowerCase().split(',').map((h) => h.trim());
+      const header = lines[0]
+        .toLowerCase()
+        .split(',')
+        .map((h) => h.trim());
       const matricIdx = header.findIndex((h) => h.includes('matric'));
       const nameIdx = header.findIndex((h) => h.includes('name'));
       const caIdx = header.findIndex((h) => h.includes('ca'));
@@ -114,7 +127,10 @@ const BulkUploadPage = () => {
         await enterScore({
           courseId: selAssign.course_id,
           sessionId: selAssign.session_id,
-          semesterId: (selAssign as any).semester_id || (selAssign as any).semesterId || '',
+          semesterId:
+            (selAssign as LecturerAssignmentWithSemesterId).semester_id ||
+            (selAssign as LecturerAssignmentWithSemesterId).semesterId ||
+            '',
           caScore: row.ca,
           examScore: row.exam,
           matricNumber: row.matricNumber,
@@ -124,8 +140,8 @@ const BulkUploadPage = () => {
       success('Grades Committed', `Successfully uploaded ${successCount} grade records.`);
       setFile(null);
       setPreviewData([]);
-    } catch (err: any) {
-      error('Upload Error', err?.response?.data?.error || err?.message || 'Failed to submit some grades');
+    } catch (err: unknown) {
+      error('Upload Error', getErrorMessage(err, 'Failed to submit some grades'));
     } finally {
       setCommitting(false);
     }
@@ -197,10 +213,16 @@ const BulkUploadPage = () => {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-surface-50 dark:bg-surface-800/50 border-b border-surface-200 dark:border-surface-700">
-                      <th className="text-left px-6 py-3 text-xs font-semibold text-surface-500 uppercase">Matric Number</th>
+                      <th className="text-left px-6 py-3 text-xs font-semibold text-surface-500 uppercase">
+                        Matric Number
+                      </th>
                       <th className="text-left px-6 py-3 text-xs font-semibold text-surface-500 uppercase">Name</th>
-                      <th className="text-left px-6 py-3 text-xs font-semibold text-surface-500 uppercase w-20">CA (30)</th>
-                      <th className="text-left px-6 py-3 text-xs font-semibold text-surface-500 uppercase w-20">Exam (70)</th>
+                      <th className="text-left px-6 py-3 text-xs font-semibold text-surface-500 uppercase w-20">
+                        CA (30)
+                      </th>
+                      <th className="text-left px-6 py-3 text-xs font-semibold text-surface-500 uppercase w-20">
+                        Exam (70)
+                      </th>
                       <th className="text-left px-6 py-3 text-xs font-semibold text-surface-500 uppercase">Status</th>
                     </tr>
                   </thead>

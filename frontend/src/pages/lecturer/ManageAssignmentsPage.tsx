@@ -25,9 +25,8 @@ const ManageAssignmentsPage = () => {
   useEffect(() => {
     getCourses()
       .then((res) => {
-        const list = Array.isArray(res) ? res : res?.data ?? [];
-        setCourses(list);
-        if (list.length > 0) setSelectedCourseId(list[0].id);
+        setCourses(res);
+        if (res.length > 0) setSelectedCourseId(res[0].id);
       })
       .catch(() => notifyError('Error', 'Failed to load courses'));
   }, []);
@@ -74,13 +73,26 @@ const ManageAssignmentsPage = () => {
   };
 
   const columns = [
-    { key: 'title', label: 'Assignment Title', render: (val: unknown) => <span className="font-semibold">{val as string}</span> },
-    { key: 'dueDate', label: 'Due Date', render: (val: unknown) => val ? new Date(val as string).toLocaleDateString() : 'N/A' },
+    {
+      key: 'title',
+      label: 'Assignment Title',
+      render: (val: unknown) => <span className="font-semibold">{val as string}</span>,
+    },
+    {
+      key: 'dueDate',
+      label: 'Due Date',
+      render: (val: unknown) => (val ? new Date(val as string).toLocaleDateString() : 'N/A'),
+    },
     {
       key: 'action',
       label: 'Action',
       render: (_: unknown, row: Assignment) => (
-        <Button variant="danger" size="xs" leftIcon={<Trash2 className="w-3.5 h-3.5" />} onClick={() => handleDelete(row.id)}>
+        <Button
+          variant="danger"
+          size="xs"
+          leftIcon={<Trash2 className="w-3.5 h-3.5" />}
+          onClick={() => handleDelete(row.id)}
+        >
           Delete
         </Button>
       ),
@@ -96,7 +108,10 @@ const ManageAssignmentsPage = () => {
             Create tasks and evaluate submitted student lab workbooks.
           </p>
         </div>
-        <Button onClick={() => setCreateMode(!createMode)} leftIcon={createMode ? <ArrowLeft className="w-4 h-4" /> : <Plus className="w-4 h-4" />}>
+        <Button
+          onClick={() => setCreateMode(!createMode)}
+          leftIcon={createMode ? <ArrowLeft className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+        >
           {createMode ? 'View List' : 'Create Assignment'}
         </Button>
       </div>
@@ -108,10 +123,17 @@ const ManageAssignmentsPage = () => {
           onChange={(e) => setSelectedCourseId(e.target.value)}
         >
           {courses.map((c) => (
-            <option key={c.id} value={c.id}>{c.code} - {c.title}</option>
+            <option key={c.id} value={c.id}>
+              {c.code} - {c.title}
+            </option>
           ))}
         </select>
-        <Input label="Session ID" placeholder="e.g. 2025/2026" value={sessionId} onChange={(e) => setSessionId(e.target.value)} />
+        <Input
+          label="Session ID"
+          placeholder="e.g. 2025/2026"
+          value={sessionId}
+          onChange={(e) => setSessionId(e.target.value)}
+        />
       </div>
 
       {createMode ? (
@@ -121,8 +143,20 @@ const ManageAssignmentsPage = () => {
               <CardTitle>Configure New Task</CardTitle>
             </CardHeader>
             <form onSubmit={handleCreate} className="p-4 pt-0 space-y-4">
-              <Input label="Assignment Title" placeholder="e.g. GPIO Port Config Report" value={title} onChange={(e) => setTitle(e.target.value)} required />
-              <Input label="Due Date & Time" type="datetime-local" value={dueDate} onChange={(e) => setDueDate(e.target.value)} required />
+              <Input
+                label="Assignment Title"
+                placeholder="e.g. GPIO Port Config Report"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+              />
+              <Input
+                label="Due Date & Time"
+                type="datetime-local"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                required
+              />
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Instructions</label>
                 <textarea
@@ -144,7 +178,7 @@ const ManageAssignmentsPage = () => {
             <CardTitle>Task List</CardTitle>
             <CardDescription>{loading ? 'Loading...' : `${assignments.length} assignment(s)`}</CardDescription>
           </CardHeader>
-          <DataTable columns={columns} data={assignments as unknown as Record<string, unknown>[]} />
+          <DataTable columns={columns} data={assignments} />
         </Card>
       )}
     </div>

@@ -31,6 +31,19 @@ func getUserID(ctx *gin.Context) uuid.UUID {
 	return uuid.Nil
 }
 
+// getUserRole extracts the caller's primary role from their JWT claims.
+func getUserRole(ctx *gin.Context) string {
+	claimsVal, exists := ctx.Get("claims")
+	if !exists {
+		return ""
+	}
+	claims, ok := claimsVal.(*auth.Claims)
+	if !ok {
+		return ""
+	}
+	return claims.Role
+}
+
 func decimalFromFloat64(f float64) decimal.Decimal {
 	return decimal.NewFromFloat(f)
 }

@@ -80,8 +80,8 @@ export const createPayment = async (payload: {
   return unwrap<Payment>(res);
 };
 
-export const verifyPayment = async (paymentId: string, verifiedBy: string) => {
-  const res = await apiClient.post(`/payments/${paymentId}/verify`, { verified_by: verifiedBy });
+export const verifyPayment = async (paymentId: string) => {
+  const res = await apiClient.post(`/payments/${paymentId}/verify`);
   return unwrap<Payment>(res);
 };
 
@@ -90,7 +90,10 @@ export const updatePaymentStatus = async (paymentId: string, status: string) => 
   return unwrap<Payment>(res);
 };
 
+// _studentId is unused (the backend derives the student from the auth token)
+// but kept in the signature for call-site compatibility.
 export const checkDuePaid = async (dueId: string, _studentId?: string) => {
+  void _studentId;
   const res = await apiClient.get('/payments/check-paid', { params: { due_id: dueId } });
   return unwrap<{ student_id: string; due_id: string; is_paid: boolean }>(res);
 };
@@ -128,7 +131,10 @@ export const addToCart = async (_studentId: string, dueId: string, amount: numbe
   return unwrap<CartItem>(res);
 };
 
+// _studentId is unused (the backend resolves the current student from the
+// auth token via the /me endpoint) but kept for call-site compatibility.
 export const listStudentCart = async (_studentId: string) => {
+  void _studentId;
   const res = await apiClient.get(`/payments/cart/me`);
   return unwrap<CartItem[]>(res);
 };
@@ -137,7 +143,10 @@ export const removeFromCart = async (cartItemId: string) => {
   await apiClient.delete(`/payments/cart/${cartItemId}`);
 };
 
+// _studentId is unused (the backend resolves the current student from the
+// auth token via the /me endpoint) but kept for call-site compatibility.
 export const clearStudentCart = async (_studentId: string) => {
+  void _studentId;
   await apiClient.delete(`/payments/cart/me`);
 };
 

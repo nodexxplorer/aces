@@ -18,10 +18,26 @@ import {
 import { searchStudentsForRoles } from '../../api/role-management';
 import { useNotification } from '../../hooks/useNotification';
 import {
-  BookOpen, User, Plus, Trash2, CheckCircle, XCircle, Loader2, Search,
-  Calendar, Layers, Filter, CheckCircle2, AlertCircle, X, ShieldCheck
+  BookOpen,
+  User,
+  Plus,
+  Trash2,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  Search,
+  Calendar,
+  Layers,
+  Filter,
+  AlertCircle,
+  X,
+  ShieldCheck,
 } from 'lucide-react';
 import type { Course, AcademicSession, SemesterEntry, StudentForRoleManagement } from '../../types';
+import { getErrorMessage } from '../../utils/errors';
+
+type StudentRegistration = Awaited<ReturnType<typeof getStudentRegistrations>>[number];
+type RegisteredCourseRecord = Awaited<ReturnType<typeof getRegisteredCourses>>[number];
 
 function isSameSemester(courseSemester?: string, selectedSemesterName?: string): boolean {
   if (!selectedSemesterName || !courseSemester) return true;
@@ -56,8 +72,8 @@ const AdminCourseRegistrationsPage = () => {
 
   // Courses & Registrations state
   const [allCourses, setAllCourses] = useState<Course[]>([]);
-  const [allStudentRegistrations, setAllStudentRegistrations] = useState<any[]>([]);
-  const [registeredCourses, setRegisteredCourses] = useState<any[]>([]);
+  const [allStudentRegistrations, setAllStudentRegistrations] = useState<StudentRegistration[]>([]);
+  const [registeredCourses, setRegisteredCourses] = useState<RegisteredCourseRecord[]>([]);
 
   // Loading states
   const [loadingMeta, setLoadingMeta] = useState<boolean>(false);
@@ -80,14 +96,14 @@ const AdminCourseRegistrationsPage = () => {
         searchStudentsForRoles({ per_page: 500 }).catch(() => ({ data: [] })),
       ]);
 
-      const sessList = Array.isArray(sessRes) ? sessRes : ((sessRes as any)?.data ?? []);
+      const sessList = Array.isArray(sessRes) ? sessRes : [];
       setSessions(sessList);
       if (sessList.length > 0 && !selectedSession) {
         setSelectedSession(sessList[0].id);
       }
 
       setAllCourses(Array.isArray(crsRes) ? crsRes : []);
-      setStudents(Array.isArray((stuRes as any).data) ? (stuRes as any).data : []);
+      setStudents(Array.isArray(stuRes.data) ? stuRes.data : []);
     } catch {
       notifyError('Error', 'Failed to load initial session and course metadata');
     } finally {
@@ -108,7 +124,7 @@ const AdminCourseRegistrationsPage = () => {
     }
     listSessionSemesters(selectedSession)
       .then((res) => {
-        const semsList = Array.isArray(res) ? res : ((res as any)?.data ?? []);
+        const semsList = Array.isArray(res) ? res : [];
         setSemesters(semsList);
         if (semsList.length > 0) {
           setSelectedSemester(semsList[0].id);
@@ -147,7 +163,7 @@ const AdminCourseRegistrationsPage = () => {
 
   // 4. Resolve current session & semester registration record
   const currentRegistration = allStudentRegistrations.find(
-    (r) => r.session_id === selectedSession && r.semester_id === selectedSemester
+    (r) => r.session_id === selectedSession && r.semester_id === selectedSemester,
   );
 
   // 5. Load registered courses whenever currentRegistration changes
@@ -189,8 +205,8 @@ const AdminCourseRegistrationsPage = () => {
       });
       success('Registration Initialized', 'Created course registration header for this semester');
       await loadStudentRegistrations(selectedStudent.student_id);
-    } catch (err: any) {
-      notifyError('Initialization Error', err?.message || 'Could not create course registration');
+    } catch (err) {
+      notifyError('Initialization Error', getErrorMessage(err, 'Could not create course registration'));
     } finally {
       setSubmittingCreateReg(false);
     }
@@ -236,8 +252,8 @@ const AdminCourseRegistrationsPage = () => {
       if (targetRegId) {
         await loadRegistrationCourses(targetRegId);
       }
-    } catch (err: any) {
-      notifyError('Enrollment Error', err?.message || 'Failed to add course to registration');
+    } catch (err) {
+      notifyError('Enrollment Error', getErrorMessage(err, 'Failed to add course to registration'));
     } finally {
       setSubmittingAddCourse(false);
     }
@@ -253,8 +269,8 @@ const AdminCourseRegistrationsPage = () => {
         loadStudentRegistrations(selectedStudent.student_id);
       }
       loadRegistrationCourses(currentRegistration.id);
-    } catch (err: any) {
-      notifyError('Error', err?.message || 'Failed to remove course');
+    } catch (err) {
+      notifyError('Error', getErrorMessage(err, 'Failed to remove course'));
     }
   };
 
@@ -266,15 +282,16 @@ const AdminCourseRegistrationsPage = () => {
       if (selectedStudent?.student_id) {
         loadStudentRegistrations(selectedStudent.student_id);
       }
-    } catch (err: any) {
-      notifyError('Error', err?.message || 'Failed to update registration status');
+    } catch (err) {
+      notifyError('Error', getErrorMessage(err, 'Failed to update registration status'));
     }
   };
 
   const handleDeleteRegistration = async (regIdToDelete?: string) => {
     const targetId = regIdToDelete || currentRegistration?.id;
     if (!targetId) return;
-    if (!confirm('Are you sure you want to delete this course registration header and all enrolled courses within it?')) return;
+    if (!confirm('Are you sure you want to delete this course registration header and all enrolled courses within it?'))
+      return;
     try {
       await deleteCourseRegistration(targetId);
       success('Registration Deleted', 'Course registration header deleted successfully');
@@ -282,28 +299,28 @@ const AdminCourseRegistrationsPage = () => {
       if (selectedStudent?.student_id) {
         await loadStudentRegistrations(selectedStudent.student_id);
       }
-    } catch (err: any) {
-      notifyError('Error', err?.message || 'Failed to delete course registration');
+    } catch (err) {
+      notifyError('Error', getErrorMessage(err, 'Failed to delete course registration'));
     }
   };
 
   // Filter student list for dropdown
-  const filteredStudents = students.filter((s) => {
-    if (!studentSearch || studentSearch.length < 2) return false;
-    const q = studentSearch.toLowerCase();
-    const name = (s.full_name || s.email || '').toLowerCase();
-    const matric = (s.matric_number || '').toLowerCase();
-    return name.includes(q) || matric.includes(q);
-  }).slice(0, 20);
+  const filteredStudents = students
+    .filter((s) => {
+      if (!studentSearch || studentSearch.length < 2) return false;
+      const q = studentSearch.toLowerCase();
+      const name = (s.full_name || s.email || '').toLowerCase();
+      const matric = (s.matric_number || '').toLowerCase();
+      return name.includes(q) || matric.includes(q);
+    })
+    .slice(0, 20);
 
   // Find semester object and filter courses for the selected semester
   const selectedSemObj = semesters.find((s) => s.id === selectedSemester);
   const selectedSemName = selectedSemObj?.name || '';
   const selectedSessObj = sessions.find((s) => s.id === selectedSession);
 
-  const availableCoursesForSemester = allCourses.filter((c) =>
-    isSameSemester(c.semester, selectedSemName)
-  );
+  const availableCoursesForSemester = allCourses.filter((c) => isSameSemester(c.semester, selectedSemName));
 
   return (
     <div className="space-y-6">
@@ -353,20 +370,29 @@ const AdminCourseRegistrationsPage = () => {
               <input
                 type="text"
                 placeholder="Type matric number or student name..."
-                value={selectedStudent ? `${selectedStudent.matric_number || 'No Matric'} — ${selectedStudent.full_name || selectedStudent.email}` : studentSearch}
+                value={
+                  selectedStudent
+                    ? `${selectedStudent.matric_number || 'No Matric'} — ${selectedStudent.full_name || selectedStudent.email}`
+                    : studentSearch
+                }
                 onChange={(e) => {
                   setStudentSearch(e.target.value);
                   setSelectedStudent(null);
                   setShowStudentDropdown(true);
                 }}
-                onFocus={() => { if (!selectedStudent) setShowStudentDropdown(true); }}
+                onFocus={() => {
+                  if (!selectedStudent) setShowStudentDropdown(true);
+                }}
                 onBlur={() => setTimeout(() => setShowStudentDropdown(false), 200)}
                 disabled={!!selectedStudent}
                 className="w-full pl-10 pr-10 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:opacity-80 font-medium"
               />
               {selectedStudent && (
                 <button
-                  onClick={() => { setSelectedStudent(null); setStudentSearch(''); }}
+                  onClick={() => {
+                    setSelectedStudent(null);
+                    setStudentSearch('');
+                  }}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600 p-1 rounded-md"
                 >
                   <X className="w-4 h-4" />
@@ -405,7 +431,8 @@ const AdminCourseRegistrationsPage = () => {
           <BookOpen className="w-12 h-12 text-surface-300 dark:text-surface-600 mx-auto mb-3" />
           <h3 className="font-bold text-lg text-surface-700 dark:text-surface-200">No Student Selected</h3>
           <p className="text-sm text-surface-500 max-w-md mx-auto mt-1">
-            Use the student search bar above to select a student and view/manage their course enrollment for the chosen session and semester.
+            Use the student search bar above to select a student and view/manage their course enrollment for the chosen
+            session and semester.
           </p>
         </Card>
       ) : (
@@ -416,7 +443,8 @@ const AdminCourseRegistrationsPage = () => {
               <div>
                 <div className="flex items-center gap-2 text-xs font-semibold text-primary-600 dark:text-primary-400 uppercase tracking-wider mb-1">
                   <Calendar className="w-3.5 h-3.5" />
-                  {selectedSessObj?.name || 'Session'} &middot; {selectedSemName ? `${selectedSemName.toUpperCase()} SEMESTER` : 'Semester'}
+                  {selectedSessObj?.name || 'Session'} &middot;{' '}
+                  {selectedSemName ? `${selectedSemName.toUpperCase()} SEMESTER` : 'Semester'}
                 </div>
                 <h2 className="text-xl font-bold text-surface-900 dark:text-white">
                   {selectedStudent.full_name || selectedStudent.email}
@@ -434,8 +462,8 @@ const AdminCourseRegistrationsPage = () => {
                         currentRegistration.status === 'approved'
                           ? 'success'
                           : currentRegistration.status === 'submitted'
-                          ? 'warning'
-                          : 'default'
+                            ? 'warning'
+                            : 'default'
                       }
                     >
                       Status: {currentRegistration.status.toUpperCase()}
@@ -478,14 +506,21 @@ const AdminCourseRegistrationsPage = () => {
               <div>
                 <h4 className="font-semibold text-surface-800 dark:text-surface-200">No Course Registration Record</h4>
                 <p className="text-xs text-surface-500 mt-1 max-w-md mx-auto">
-                  There is no registered course record for this student in {selectedSessObj?.name || 'the selected session'} ({selectedSemName || 'selected semester'}).
+                  There is no registered course record for this student in{' '}
+                  {selectedSessObj?.name || 'the selected session'} ({selectedSemName || 'selected semester'}).
                 </p>
               </div>
               <div className="flex justify-center gap-3 pt-2">
                 <Button
                   size="sm"
                   variant="primary"
-                  leftIcon={submittingCreateReg ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                  leftIcon={
+                    submittingCreateReg ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <ShieldCheck className="w-4 h-4" />
+                    )
+                  }
                   onClick={handleCreateRegistration}
                   isLoading={submittingCreateReg}
                 >
@@ -508,7 +543,7 @@ const AdminCourseRegistrationsPage = () => {
                   <CardTitle className="text-base flex items-center gap-2">
                     Enrolled Courses
                     <span className="text-xs font-mono text-surface-500 dark:text-surface-400 bg-surface-100 dark:bg-surface-800 px-2 py-0.5 rounded-full">
-                      Total Units: {currentRegistration.total_units || currentRegistration.totalUnits || 0}
+                      Total Units: {currentRegistration.total_units || 0}
                     </span>
                   </CardTitle>
                   <CardDescription>
@@ -557,7 +592,12 @@ const AdminCourseRegistrationsPage = () => {
                 ) : registeredCourses.length === 0 ? (
                   <div className="text-center py-8 border border-dashed border-surface-200 dark:border-surface-700 rounded-lg">
                     <p className="text-xs text-surface-400 mb-3">No courses added to this registration yet.</p>
-                    <Button size="xs" variant="outline" leftIcon={<Plus className="w-3.5 h-3.5" />} onClick={() => setIsAddCourseModalOpen(true)}>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      leftIcon={<Plus className="w-3.5 h-3.5" />}
+                      onClick={() => setIsAddCourseModalOpen(true)}
+                    >
                       Add First Course
                     </Button>
                   </div>
@@ -575,22 +615,25 @@ const AdminCourseRegistrationsPage = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-surface-100 dark:divide-surface-700/50">
-                        {registeredCourses.map((rc: any) => {
+                        {registeredCourses.map((rc) => {
                           const matchedCourse = allCourses.find((c) => c.id === rc.course_id);
                           return (
-                            <tr key={rc.id} className="hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors">
+                            <tr
+                              key={rc.id}
+                              className="hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors"
+                            >
                               <td className="px-3 py-2.5 font-bold font-mono text-surface-900 dark:text-white">
                                 {matchedCourse?.code || rc.course_id.slice(0, 8)}
                               </td>
                               <td className="px-3 py-2.5 font-medium text-surface-700 dark:text-surface-300">
                                 {matchedCourse?.title || 'Unknown Course'}
                               </td>
-                              <td className="px-3 py-2.5 text-xs text-surface-500">{matchedCourse?.level ? `${matchedCourse.level}L` : '—'}</td>
+                              <td className="px-3 py-2.5 text-xs text-surface-500">
+                                {matchedCourse?.level ? `${matchedCourse.level}L` : '—'}
+                              </td>
                               <td className="px-3 py-2.5 font-mono text-xs">{matchedCourse?.unit ?? '-'}</td>
                               <td className="px-3 py-2.5">
-                                <Badge variant={rc.status === 'enrolled' ? 'info' : 'default'}>
-                                  {rc.status}
-                                </Badge>
+                                <Badge variant={rc.status === 'enrolled' ? 'info' : 'default'}>{rc.status}</Badge>
                               </td>
                               <td className="px-3 py-2.5 text-right">
                                 <button
@@ -670,7 +713,9 @@ const AdminCourseRegistrationsPage = () => {
       >
         <div className="space-y-4">
           <p className="text-xs text-surface-500">
-            Select a course to enroll for <span className="font-semibold">{selectedStudent?.full_name || selectedStudent?.email}</span> in {selectedSessObj?.name} ({selectedSemName.toUpperCase()}).
+            Select a course to enroll for{' '}
+            <span className="font-semibold">{selectedStudent?.full_name || selectedStudent?.email}</span> in{' '}
+            {selectedSessObj?.name} ({selectedSemName.toUpperCase()}).
           </p>
 
           <Select

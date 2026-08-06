@@ -9,7 +9,6 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import { Mail, Lock, User, Briefcase } from 'lucide-react';
-import { isValidStaffId } from '../../utils/validators';
 import { lecturerSignup } from '../../api/signup';
 
 const lecturerSignupSchema = z
@@ -56,10 +55,16 @@ const LecturerSignupPage = () => {
       });
 
       login(response.user, response.tokens);
-      success('Registration Successful', 'Your lecturer account has been queued for Head of Department (HOD) approval.');
+      success(
+        'Registration Successful',
+        'Your lecturer account has been queued for Head of Department (HOD) approval.',
+      );
       navigate('/dashboard');
     } catch (err) {
-      error('Registration Failed', err instanceof Error ? err.message : 'An error occurred during account registration.');
+      error(
+        'Registration Failed',
+        err instanceof Error ? err.message : 'An error occurred during account registration.',
+      );
     }
   };
 

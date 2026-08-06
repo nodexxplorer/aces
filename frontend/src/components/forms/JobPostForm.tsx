@@ -4,7 +4,17 @@ import Input from '../ui/Input';
 import Select from '../ui/Select';
 
 interface JobPostFormProps {
-  onSubmit: (data: { title: string; company: string; location?: string; type: 'full_time' | 'part_time' | 'internship' | 'contract'; description: string; requirements?: string; salaryRange?: string; applicationUrl?: string; applicationEmail?: string }) => void;
+  onSubmit: (data: {
+    title: string;
+    company: string;
+    location?: string;
+    type: 'full_time' | 'part_time' | 'internship' | 'contract';
+    description: string;
+    requirements?: string;
+    salaryRange?: string;
+    applicationUrl?: string;
+    applicationEmail?: string;
+  }) => void;
   isLoading?: boolean;
 }
 
@@ -44,12 +54,7 @@ const JobPostForm = ({ onSubmit, isLoading }: JobPostFormProps) => {
         required
       />
       <div className="grid grid-cols-2 gap-4">
-        <Input
-          label="Company Name"
-          value={company}
-          onChange={(e) => setCompany(e.target.value)}
-          required
-        />
+        <Input label="Company Name" value={company} onChange={(e) => setCompany(e.target.value)} required />
         <Select
           label="Employment Type"
           options={[
@@ -59,7 +64,7 @@ const JobPostForm = ({ onSubmit, isLoading }: JobPostFormProps) => {
             { value: 'contract', label: 'Contract' },
           ]}
           value={type}
-          onChange={(e) => setType(e.target.value as any)}
+          onChange={(e) => setType(e.target.value as 'full_time' | 'part_time' | 'internship' | 'contract')}
         />
       </div>
       <div className="grid grid-cols-2 gap-4">

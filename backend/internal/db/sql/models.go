@@ -2671,20 +2671,21 @@ type ContentModerationLog struct {
 }
 
 type Course struct {
-	ID             uuid.UUID          `json:"id"`
-	Code           string             `json:"code"`
-	Title          string             `json:"title"`
-	Description    *string            `json:"description"`
-	Unit           int32              `json:"unit"`
-	Level          int32              `json:"level"`
-	Semester       SemesterSeason     `json:"semester"`
-	LecturerID     pgtype.UUID        `json:"lecturer_id"`
-	PrerequisiteID pgtype.UUID        `json:"prerequisite_id"`
-	MaxCreditHours *int32             `json:"max_credit_hours"`
-	IsActive       bool               `json:"is_active"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-	CourseType     string             `json:"course_type"`
+	ID              uuid.UUID          `json:"id"`
+	Code            string             `json:"code"`
+	Title           string             `json:"title"`
+	Description     *string            `json:"description"`
+	Unit            int32              `json:"unit"`
+	Level           int32              `json:"level"`
+	Semester        SemesterSeason     `json:"semester"`
+	LecturerID      pgtype.UUID        `json:"lecturer_id"`
+	PrerequisiteID  pgtype.UUID        `json:"prerequisite_id"`
+	MaxCreditHours  *int32             `json:"max_credit_hours"`
+	IsActive        bool               `json:"is_active"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	CourseType      string             `json:"course_type"`
+	RequirementType string             `json:"requirement_type"`
 }
 
 type CourseRegistration struct {

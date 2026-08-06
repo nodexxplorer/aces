@@ -2,9 +2,8 @@ import { useState } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Select from '../../components/ui/Select';
 import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
 import { useNotification } from '../../hooks/useNotification';
-import { Upload, Check, FileText } from 'lucide-react';
+import { Upload, Check } from 'lucide-react';
 
 const SubmitAssignmentsPage = () => {
   const { success } = useNotification();

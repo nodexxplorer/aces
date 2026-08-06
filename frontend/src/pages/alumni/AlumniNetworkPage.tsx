@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
+import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
-import { Search, MapPin, Briefcase, GraduationCap, ExternalLink, Filter } from 'lucide-react';
+import { Search, MapPin, Briefcase, ExternalLink, Filter } from 'lucide-react';
 import { searchAlumniDirectory } from '../../api/alumni';
 import type { AlumniDirectoryItem } from '../../types';
 
@@ -74,7 +74,11 @@ const AlumniNetworkPage = () => {
           />
         </div>
         <Button onClick={handleSearch}>Search</Button>
-        <Button variant="outline" leftIcon={<Filter className="w-4 h-4" />} onClick={() => setShowFilters(!showFilters)}>
+        <Button
+          variant="outline"
+          leftIcon={<Filter className="w-4 h-4" />}
+          onClick={() => setShowFilters(!showFilters)}
+        >
           Filters
         </Button>
       </div>
@@ -84,38 +88,75 @@ const AlumniNetworkPage = () => {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4">
             <div>
               <label className="text-xs font-medium text-surface-500">Year From</label>
-              <input type="number" placeholder="2020" className="w-full mt-1 px-3 py-1.5 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg" value={yearFrom} onChange={(e) => setYearFrom(e.target.value)} />
+              <input
+                type="number"
+                placeholder="2020"
+                className="w-full mt-1 px-3 py-1.5 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg"
+                value={yearFrom}
+                onChange={(e) => setYearFrom(e.target.value)}
+              />
             </div>
             <div>
               <label className="text-xs font-medium text-surface-500">Year To</label>
-              <input type="number" placeholder="2026" className="w-full mt-1 px-3 py-1.5 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg" value={yearTo} onChange={(e) => setYearTo(e.target.value)} />
+              <input
+                type="number"
+                placeholder="2026"
+                className="w-full mt-1 px-3 py-1.5 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg"
+                value={yearTo}
+                onChange={(e) => setYearTo(e.target.value)}
+              />
             </div>
             <div>
               <label className="text-xs font-medium text-surface-500">Industry</label>
-              <input type="text" placeholder="e.g. Tech" className="w-full mt-1 px-3 py-1.5 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg" value={industry} onChange={(e) => setIndustry(e.target.value)} />
+              <input
+                type="text"
+                placeholder="e.g. Tech"
+                className="w-full mt-1 px-3 py-1.5 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg"
+                value={industry}
+                onChange={(e) => setIndustry(e.target.value)}
+              />
             </div>
             <div>
               <label className="text-xs font-medium text-surface-500">Location</label>
-              <input type="text" placeholder="e.g. Lagos" className="w-full mt-1 px-3 py-1.5 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg" value={location} onChange={(e) => setLocation(e.target.value)} />
+              <input
+                type="text"
+                placeholder="e.g. Lagos"
+                className="w-full mt-1 px-3 py-1.5 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+              />
             </div>
           </div>
           <div className="flex items-center justify-between px-4 pb-4">
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={mentorOnly} onChange={(e) => setMentorOnly(e.target.checked)} className="w-4 h-4 text-primary-600 rounded" />
+              <input
+                type="checkbox"
+                checked={mentorOnly}
+                onChange={(e) => setMentorOnly(e.target.checked)}
+                className="w-4 h-4 text-primary-600 rounded"
+              />
               Mentors only
             </label>
             <div className="flex gap-2">
-              <Button variant="ghost" size="sm" onClick={clearFilters}>Clear</Button>
-              <Button size="sm" onClick={fetchAlumni}>Apply</Button>
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                Clear
+              </Button>
+              <Button size="sm" onClick={fetchAlumni}>
+                Apply
+              </Button>
             </div>
           </div>
         </Card>
       )}
 
       {loading ? (
-        <Card><div className="p-12 text-center text-sm text-surface-500">Loading alumni directory...</div></Card>
+        <Card>
+          <div className="p-12 text-center text-sm text-surface-500">Loading alumni directory...</div>
+        </Card>
       ) : alumni.length === 0 ? (
-        <Card><div className="p-12 text-center text-sm text-surface-400">No alumni found matching your criteria</div></Card>
+        <Card>
+          <div className="p-12 text-center text-sm text-surface-400">No alumni found matching your criteria</div>
+        </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {alumni.map((a) => (
@@ -140,21 +181,21 @@ const AlumniNetworkPage = () => {
                   <MapPin className="w-3.5 h-3.5 shrink-0" /> {a.location}
                 </p>
               )}
-              {a.bio && (
-                <p className="text-xs text-surface-500 line-clamp-2 mb-3">{a.bio}</p>
-              )}
+              {a.bio && <p className="text-xs text-surface-500 line-clamp-2 mb-3">{a.bio}</p>}
               <div className="flex items-center gap-2">
                 {a.is_mentor_available && (
-                  <Badge variant="success" dot>Mentor</Badge>
+                  <Badge variant="success" dot>
+                    Mentor
+                  </Badge>
                 )}
-                {a.industry && (
-                  <Badge variant="outline">{a.industry}</Badge>
-                )}
+                {a.industry && <Badge variant="outline">{a.industry}</Badge>}
               </div>
               <div className="flex gap-2 mt-3">
                 {a.linkedin_url && (
                   <a href={a.linkedin_url} target="_blank" rel="noopener noreferrer">
-                    <Button size="xs" variant="outline" leftIcon={<ExternalLink className="w-3 h-3" />}>LinkedIn</Button>
+                    <Button size="xs" variant="outline" leftIcon={<ExternalLink className="w-3 h-3" />}>
+                      LinkedIn
+                    </Button>
                   </a>
                 )}
               </div>

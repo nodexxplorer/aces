@@ -4,12 +4,21 @@ import Select from '../../components/ui/Select';
 import Button from '../../components/ui/Button';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../hooks/useAuth';
+import { getErrorMessage } from '../../utils/errors';
 import { Search, Loader2, Send, X } from 'lucide-react';
 import { listLecturerAssignments, type LecturerAssignment } from '../../api/lecturers';
 import { searchStudentsForRoles } from '../../api/role-management';
 import { getCourseClassList } from '../../api/courses';
 import { enterScore } from '../../api/results';
 import type { StudentForRoleManagement } from '../../types';
+
+interface ClassListItem {
+  student_id?: string;
+  matric_number: string;
+  name: string;
+  course_code: string;
+  status: string;
+}
 
 export default function LecturerSingleEntryPage() {
   const { user } = useAuth();
@@ -22,7 +31,7 @@ export default function LecturerSingleEntryPage() {
   const [showStudentDropdown, setShowStudentDropdown] = useState(false);
   const [caScore, setCaScore] = useState('');
   const [examScore, setExamScore] = useState('');
-  const [loadingMeta, setLoadingMeta] = useState(true);
+  const [, setLoadingMeta] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -36,7 +45,7 @@ export default function LecturerSingleEntryPage() {
         const arr = Array.isArray(ass) ? ass : [];
         setAssignments(arr);
         if (arr.length > 0) setSelectedAssignmentId(arr[0].id);
-        setStudents(Array.isArray((stu as any).data) ? (stu as any).data : []);
+        setStudents(Array.isArray(stu.data) ? stu.data : []);
       })
       .catch(() => notifyError('Error', 'Failed to load initial data'))
       .finally(() => setLoadingMeta(false));
@@ -50,8 +59,8 @@ export default function LecturerSingleEntryPage() {
       .then((classList) => {
         if (!Array.isArray(classList)) return;
         const mapped: StudentForRoleManagement[] = classList
-          .filter((item: any) => item.matric_number && item.matric_number !== '—')
-          .map((item: any) => ({
+          .filter((item: ClassListItem) => item.matric_number && item.matric_number !== '—')
+          .map((item: ClassListItem) => ({
             id: item.student_id || '',
             student_id: item.student_id || '',
             full_name: item.name,
@@ -80,11 +89,26 @@ export default function LecturerSingleEntryPage() {
   const exam = parseFloat(examScore || '0');
 
   const handleSubmit = async () => {
-    if (!selectedStudent) { warning('Missing Info', 'Select a student'); return; }
-    if (!selAssignment) { warning('Missing Info', 'Select an assigned course'); return; }
-    if (isNaN(ca) || ca < 0 || ca > 30) { warning('Invalid Score', 'CA score must be 0–30'); return; }
-    if (isNaN(exam) || exam < 0 || exam > 70) { warning('Invalid Score', 'Exam score must be 0–70'); return; }
-    if (ca + exam > 100) { warning('Invalid Score', 'Total score cannot exceed 100'); return; }
+    if (!selectedStudent) {
+      warning('Missing Info', 'Select a student');
+      return;
+    }
+    if (!selAssignment) {
+      warning('Missing Info', 'Select an assigned course');
+      return;
+    }
+    if (isNaN(ca) || ca < 0 || ca > 30) {
+      warning('Invalid Score', 'CA score must be 0–30');
+      return;
+    }
+    if (isNaN(exam) || exam < 0 || exam > 70) {
+      warning('Invalid Score', 'Exam score must be 0–70');
+      return;
+    }
+    if (ca + exam > 100) {
+      warning('Invalid Score', 'Total score cannot exceed 100');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -92,7 +116,10 @@ export default function LecturerSingleEntryPage() {
         studentId: selectedStudent.student_id || selectedStudent.id,
         courseId: selAssignment.course_id,
         sessionId: selAssignment.session_id,
-        semesterId: (selAssignment as any).semester_id || (selAssignment as any).semesterId || '',
+        semesterId:
+          (selAssignment as unknown as { semester_id?: string; semesterId?: string }).semester_id ||
+          (selAssignment as unknown as { semester_id?: string; semesterId?: string }).semesterId ||
+          '',
         caScore: ca,
         examScore: exam,
         matricNumber: selectedStudent.matric_number || '',
@@ -102,8 +129,8 @@ export default function LecturerSingleEntryPage() {
       setExamScore('');
       setSelectedStudent(null);
       setStudentSearch('');
-    } catch (err: any) {
-      notifyError('Error', err?.response?.data?.error || err?.message || 'Failed to submit score');
+    } catch (err: unknown) {
+      notifyError('Error', getErrorMessage(err, 'Failed to submit score'));
     } finally {
       setSubmitting(false);
     }
@@ -143,7 +170,11 @@ export default function LecturerSingleEntryPage() {
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
               <input
                 type="text"
-                placeholder={selectedStudent ? `${selectedStudent.matric_number} (${selectedStudent.full_name})` : 'Search student...'}
+                placeholder={
+                  selectedStudent
+                    ? `${selectedStudent.matric_number} (${selectedStudent.full_name})`
+                    : 'Search student...'
+                }
                 value={studentSearch}
                 onFocus={() => setShowStudentDropdown(true)}
                 onChange={(e) => {
@@ -155,7 +186,10 @@ export default function LecturerSingleEntryPage() {
               />
               {selectedStudent && (
                 <button
-                  onClick={() => { setSelectedStudent(null); setStudentSearch(''); }}
+                  onClick={() => {
+                    setSelectedStudent(null);
+                    setStudentSearch('');
+                  }}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600"
                 >
                   <X className="w-4 h-4" />
@@ -185,7 +219,9 @@ export default function LecturerSingleEntryPage() {
 
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">CA Score (0–30)</label>
+              <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
+                CA Score (0–30)
+              </label>
               <input
                 type="number"
                 min={0}
@@ -198,7 +234,9 @@ export default function LecturerSingleEntryPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Exam Score (0–70)</label>
+              <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
+                Exam Score (0–70)
+              </label>
               <input
                 type="number"
                 min={0}

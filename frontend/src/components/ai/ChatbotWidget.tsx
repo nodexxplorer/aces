@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { MessageCircle, X, Send, Bot, User, Sparkles, HelpCircle, Sun, Moon, Monitor } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { sendChatMessage, getQuickActions } from '../../api/ai';
 import type { QuickAction } from '../../api/ai';
 import { useDarkMode } from '../../hooks/useDarkMode';
+import { useRBAC } from '../../hooks/useRBAC';
 import { cn } from '../../utils/cn';
 
 interface Message {
@@ -25,16 +26,16 @@ const ChatbotWidget = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [quickActions, setQuickActions] = useState<QuickAction[]>([]);
   const [sessionId] = useState(() => crypto.randomUUID());
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const { mode, setMode } = useDarkMode();
-  const location = useLocation();
   const navigate = useNavigate();
+  const { isAdmin, activeRole } = useRBAC();
 
-  const isAdminPage = location.pathname.startsWith('/admin');
+  const hideSupport = isAdmin || activeRole === 'lecturer';
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -46,14 +47,19 @@ const ChatbotWidget = () => {
 
   useEffect(() => {
     if (isChatOpen && messages.length === 0) {
-      getQuickActions().then(setQuickActions).catch(() => {});
-      setMessages([{
-        id: 'welcome',
-        role: 'assistant',
-        content: "Hello! I'm your **ACES Assistant** 🤖\n\nI can help you with schedules, grades, dues, courses, mentorship, and more.\n\nTry a quick action below or just ask me anything!",
-        timestamp: new Date(),
-        suggestions: ['Show my schedule', 'Check my grades', 'How to pay dues'],
-      }]);
+      getQuickActions()
+        .then(setQuickActions)
+        .catch(() => {});
+      setMessages([
+        {
+          id: 'welcome',
+          role: 'assistant',
+          content:
+            "Hello! I'm your **ACES Assistant** 🤖\n\nI can help you with schedules, grades, dues, courses, mentorship, and more.\n\nTry a quick action below or just ask me anything!",
+          timestamp: new Date(),
+          suggestions: ['Show my schedule', 'Check my grades', 'How to pay dues'],
+        },
+      ]);
     }
     if (isChatOpen) {
       setTimeout(() => inputRef.current?.focus(), 300);
@@ -82,7 +88,7 @@ const ChatbotWidget = () => {
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMsg]);
+    setMessages((prev) => [...prev, userMsg]);
     setInput('');
     setIsLoading(true);
 
@@ -98,14 +104,18 @@ const ChatbotWidget = () => {
         modelUsed: resp.model_used,
       };
 
-      setMessages(prev => [...prev, assistantMsg]);
+      setMessages((prev) => [...prev, assistantMsg]);
     } catch {
-      setMessages(prev => [...prev, {
-        id: `error-${Date.now()}`,
-        role: 'assistant',
-        content: "I'm having trouble connecting right now. Please try again or contact the HOD office for assistance.",
-        timestamp: new Date(),
-      }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `error-${Date.now()}`,
+          role: 'assistant',
+          content:
+            "I'm having trouble connecting right now. Please try again or contact the HOD office for assistance.",
+          timestamp: new Date(),
+        },
+      ]);
     } finally {
       setIsLoading(false);
     }
@@ -177,19 +187,24 @@ const ChatbotWidget = () => {
             {/* Messages */}
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
               {messages.map((msg) => (
-                <div key={msg.id} className={cn("flex gap-2", msg.role === 'user' ? "justify-end" : "justify-start")}>
+                <div key={msg.id} className={cn('flex gap-2', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
                   {msg.role === 'assistant' && (
                     <div className="w-7 h-7 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center shrink-0 mt-1">
                       <Bot className="w-4 h-4 text-primary-500" />
                     </div>
                   )}
-                  <div className={cn(
-                    "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
-                    msg.role === 'user'
-                      ? "bg-primary-500 text-white rounded-br-md"
-                      : "bg-surface-100 dark:bg-surface-800 text-surface-800 dark:text-surface-200 rounded-bl-md"
-                  )}>
-                    <div className="whitespace-pre-wrap break-words" dangerouslySetInnerHTML={{ __html: formatMessage(msg.content) }} />
+                  <div
+                    className={cn(
+                      'max-w-[80%] rounded-2xl px-3 py-2 text-sm',
+                      msg.role === 'user'
+                        ? 'bg-primary-500 text-white rounded-br-md'
+                        : 'bg-surface-100 dark:bg-surface-800 text-surface-800 dark:text-surface-200 rounded-bl-md',
+                    )}
+                  >
+                    <div
+                      className="whitespace-pre-wrap break-words"
+                      dangerouslySetInnerHTML={{ __html: formatMessage(msg.content) }}
+                    />
                     {msg.modelUsed && msg.modelUsed !== 'disabled' && msg.modelUsed !== 'rate_limited' && (
                       <div className="mt-1 flex items-center gap-1 text-[10px] text-surface-400">
                         <Sparkles className="w-3 h-3" />
@@ -212,18 +227,30 @@ const ChatbotWidget = () => {
                   </div>
                   <div className="bg-surface-100 dark:bg-surface-800 rounded-2xl rounded-bl-md px-4 py-3">
                     <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-surface-300 dark:bg-surface-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <div className="w-2 h-2 bg-surface-300 dark:bg-surface-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <div className="w-2 h-2 bg-surface-300 dark:bg-surface-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      <div
+                        className="w-2 h-2 bg-surface-300 dark:bg-surface-600 rounded-full animate-bounce"
+                        style={{ animationDelay: '0ms' }}
+                      />
+                      <div
+                        className="w-2 h-2 bg-surface-300 dark:bg-surface-600 rounded-full animate-bounce"
+                        style={{ animationDelay: '150ms' }}
+                      />
+                      <div
+                        className="w-2 h-2 bg-surface-300 dark:bg-surface-600 rounded-full animate-bounce"
+                        style={{ animationDelay: '300ms' }}
+                      />
                     </div>
                   </div>
                 </div>
               )}
 
               {/* Suggestions */}
-              {messages.length > 0 && !isLoading && (
+              {messages.length > 0 &&
+                !isLoading &&
                 (() => {
-                  const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant' && m.suggestions?.length);
+                  const lastAssistant = [...messages]
+                    .reverse()
+                    .find((m) => m.role === 'assistant' && m.suggestions?.length);
                   if (!lastAssistant || lastAssistant.id === messages[messages.length - 1]?.id) return null;
                   return (
                     <div className="flex flex-wrap gap-1.5 ml-9">
@@ -238,8 +265,7 @@ const ChatbotWidget = () => {
                       ))}
                     </div>
                   );
-                })()
-              )}
+                })()}
 
               {/* Quick Actions (only show on welcome) */}
               {messages.length <= 1 && quickActions.length > 0 && (
@@ -251,7 +277,9 @@ const ChatbotWidget = () => {
                       className="flex flex-col items-center gap-1 p-3 rounded-xl bg-surface-50 dark:bg-surface-800 hover:bg-surface-100 dark:hover:bg-surface-700 border border-surface-200 dark:border-surface-700 transition-colors"
                     >
                       <span className="text-xl">{action.icon}</span>
-                      <span className="text-[11px] font-medium text-surface-600 dark:text-surface-400">{action.label}</span>
+                      <span className="text-[11px] font-medium text-surface-600 dark:text-surface-400">
+                        {action.label}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -306,12 +334,12 @@ const ChatbotWidget = () => {
               onClick={cycleTheme}
               className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-surface-900/90 dark:bg-surface-800/90 text-white border border-surface-700/60 shadow-xl backdrop-blur-md hover:bg-surface-800 dark:hover:bg-surface-700 transition-all text-sm font-medium cursor-pointer"
             >
-              <themeInfo.Icon className={cn("w-4 h-4", themeInfo.color)} />
+              <themeInfo.Icon className={cn('w-4 h-4', themeInfo.color)} />
               <span>{themeInfo.label}</span>
             </motion.button>
 
-            {/* Support Page Option - Hidden on Admin Page */}
-            {!isAdminPage && (
+            {/* Support Page Option - students only, hidden for admin/lecturer roles */}
+            {!hideSupport && (
               <motion.button
                 whileHover={{ scale: 1.03, x: -2 }}
                 whileTap={{ scale: 0.97 }}
@@ -347,29 +375,23 @@ const ChatbotWidget = () => {
       <motion.button
         onClick={handleFabClick}
         className={cn(
-          "fixed bottom-4 right-4 sm:right-6 z-50 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 border border-surface-200/20 dark:border-surface-700/50",
+          'fixed bottom-4 right-4 sm:right-6 z-50 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 border border-surface-200/20 dark:border-surface-700/50',
           isMenuOpen || isChatOpen
-            ? "bg-surface-200 dark:bg-surface-800 text-surface-900 dark:text-white"
-            : "bg-primary-500 text-white hover:bg-primary-600"
+            ? 'bg-surface-200 dark:bg-surface-800 text-surface-900 dark:text-white'
+            : 'bg-primary-500 text-white hover:bg-primary-600',
         )}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         aria-label="Toggle action menu"
       >
-        {isMenuOpen || isChatOpen ? (
-          <X className="w-6 h-6" />
-        ) : (
-          <Sparkles className="w-6 h-6" />
-        )}
+        {isMenuOpen || isChatOpen ? <X className="w-6 h-6" /> : <Sparkles className="w-6 h-6" />}
       </motion.button>
     </div>
   );
 };
 
 function formatMessage(content: string): string {
-  return content
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\n/g, '<br/>');
+  return content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>');
 }
 
 export default ChatbotWidget;

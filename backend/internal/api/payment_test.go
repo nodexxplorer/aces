@@ -57,10 +57,12 @@ func TestIsStaffRole_BursarDept(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Set("claims", &auth.Claims{Role: "dept_bursar", Roles: ""})
+	// JWT claims always carry the raw DB enum value ("bursar_dept"); "dept_bursar"
+	// is only a display-layer alias and never appears here.
+	c.Set("claims", &auth.Claims{Role: "bursar_dept", Roles: ""})
 
 	if !isStaffRole(c) {
-		t.Error("dept_bursar should be staff")
+		t.Error("bursar_dept should be staff")
 	}
 }
 

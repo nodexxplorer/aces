@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -274,20 +275,32 @@ func (server *Server) getStudentAttendanceOverview(ctx *gin.Context) {
 		return
 	}
 
-	// Fetch student attendance sheets
+	// Fetch student attendance sheets. session_id filters attendance_sheets,
+	// a sessions.id FK — not the semester's own id, so use activeSem.SessionID.
 	sheets, err := server.store.ListStudentAttendance(ctx, db.ListStudentAttendanceParams{
-		SessionID: activeSem.ID,
+		SessionID: activeSem.SessionID,
 		Column2:   student.ID.String(),
 	})
 	if err != nil {
 		sheets = []db.AttendanceSheet{}
 	}
 
+	studentIDStr := student.ID.String()
 	totalSessions := len(sheets)
 	presentCount := 0
-	for range sheets {
-		presentCount++
+	for _, sheet := range sheets {
+		var records []AttendanceRecord
+		if err := json.Unmarshal(sheet.AttendanceData, &records); err != nil {
+			continue
+		}
+		for _, rec := range records {
+			if rec.StudentID == studentIDStr && rec.Present {
+				presentCount++
+				break
+			}
+		}
 	}
+	absentCount := totalSessions - presentCount
 
 	attendanceRate := 0.0
 	if totalSessions > 0 {
@@ -300,7 +313,7 @@ func (server *Server) getStudentAttendanceOverview(ctx *gin.Context) {
 		"summary": gin.H{
 			"total_sessions":  totalSessions,
 			"present":         presentCount,
-			"absent":          0,
+			"absent":          absentCount,
 			"late":            0,
 			"excused":         0,
 			"attendance_rate": attendanceRate,

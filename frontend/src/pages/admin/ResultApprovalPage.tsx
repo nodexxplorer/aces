@@ -6,10 +6,21 @@ import StatusBadge from '../../components/data-display/StatusBadge';
 import { useNotification } from '../../hooks/useNotification';
 import { Check, X, Loader2 } from 'lucide-react';
 import { getAllResults, approveResult } from '../../api/results';
+import type { Result } from '../../types';
+import { getErrorMessage } from '../../utils/errors';
+
+interface PendingResult extends Result {
+  courseCode?: string;
+  courseTitle?: string;
+  lecturerName?: string;
+  studentCount?: number;
+  status?: string;
+  createdAt?: string;
+}
 
 const ResultApprovalPage = () => {
   const { success, error, warning } = useNotification();
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<PendingResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
 
@@ -21,11 +32,11 @@ const ResultApprovalPage = () => {
     try {
       setLoading(true);
       const result = await getAllResults({ limit: 200, offset: 0 });
-      const items = Array.isArray(result) ? result : (result as any).items || [];
-      const pending = items.filter((r: any) => r.status === 'pending');
+      const items: PendingResult[] = Array.isArray(result) ? result : [];
+      const pending = items.filter((r) => r.status === 'pending');
       setResults(pending);
-    } catch (err: any) {
-      error('Load Failed', err?.message || 'Could not load results');
+    } catch (err) {
+      error('Load Failed', getErrorMessage(err, 'Could not load results'));
     } finally {
       setLoading(false);
     }
@@ -37,8 +48,8 @@ const ResultApprovalPage = () => {
       await approveResult(id);
       setResults((prev) => prev.filter((r) => r.id !== id));
       success('Results Approved', `Grade sheet for ${code} has been approved`);
-    } catch (err: any) {
-      error('Approval Failed', err?.message || 'Could not approve results');
+    } catch (err) {
+      error('Approval Failed', getErrorMessage(err, 'Could not approve results'));
     } finally {
       setActionId(null);
     }
@@ -49,8 +60,8 @@ const ResultApprovalPage = () => {
       setActionId(id);
       setResults((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'rejected' } : r)));
       warning('Results Rejected', `Returned grade sheet for ${code}`);
-    } catch (err: any) {
-      error('Rejection Failed', err?.message || 'Could not reject results');
+    } catch (err) {
+      error('Rejection Failed', getErrorMessage(err, 'Could not reject results'));
     } finally {
       setActionId(null);
     }
@@ -60,27 +71,42 @@ const ResultApprovalPage = () => {
     {
       key: 'courseCode',
       label: 'Course',
-      render: (_: unknown, row: any) => (
+      render: (_: unknown, row: PendingResult) => (
         <div>
           <p className="font-semibold">{row.courseCode || row.course?.code || 'N/A'}</p>
           <p className="text-[10px] text-surface-500">{row.courseTitle || row.course?.title || ''}</p>
         </div>
       ),
     },
-    { key: 'lecturerName', label: 'Lecturer', render: (_: unknown, row: any) => row.lecturerName || row.approvedBy || 'N/A' },
-    { key: 'studentCount', label: 'Enrolled Count', render: (_: unknown, row: any) => row.studentCount || 1 },
-    { key: 'createdAt', label: 'Submitted Date', render: (_: unknown, row: any) => row.createdAt ? new Date(row.createdAt).toLocaleDateString() : 'N/A' },
+    {
+      key: 'lecturerName',
+      label: 'Lecturer',
+      render: (_: unknown, row: PendingResult) => row.lecturerName || row.approvedBy || 'N/A',
+    },
+    { key: 'studentCount', label: 'Enrolled Count', render: (_: unknown, row: PendingResult) => row.studentCount || 1 },
+    {
+      key: 'createdAt',
+      label: 'Submitted Date',
+      render: (_: unknown, row: PendingResult) =>
+        row.createdAt ? new Date(row.createdAt).toLocaleDateString() : 'N/A',
+    },
     { key: 'status', label: 'Status', render: (val: unknown) => <StatusBadge status={val as string} /> },
     {
       key: 'action',
       label: 'Action',
-      render: (_: unknown, row: any) =>
+      render: (_: unknown, row: PendingResult) =>
         row.status === 'pending' ? (
           <div className="flex gap-2">
             <Button
               size="xs"
               variant="success"
-              leftIcon={actionId === row.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+              leftIcon={
+                actionId === row.id ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Check className="w-3.5 h-3.5" />
+                )
+              }
               onClick={() => handleApprove(row.id, row.courseCode || 'this course')}
               disabled={actionId === row.id}
             >
@@ -121,7 +147,7 @@ const ResultApprovalPage = () => {
             <span className="ml-2 text-sm text-surface-500">Loading results...</span>
           </div>
         ) : (
-          <DataTable columns={columns} data={results as unknown as Record<string, unknown>[]} />
+          <DataTable columns={columns} data={results} />
         )}
       </Card>
     </div>

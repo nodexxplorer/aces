@@ -66,7 +66,15 @@ export const getManual = async (manualId: string) => {
   return unwrap<Manual>(res);
 };
 
-export const createManual = async (payload: { title: string; description?: string; level: number; price: number; course_id?: string; file_url?: string; cover_image_url?: string }) => {
+export const createManual = async (payload: {
+  title: string;
+  description?: string;
+  level: number;
+  price: number;
+  course_id?: string;
+  file_url?: string;
+  cover_image_url?: string;
+}) => {
   const res = await apiClient.post('/manuals', payload);
   return unwrap<Manual>(res);
 };
@@ -126,10 +134,21 @@ export const updatePrintQueueStatus = async (queueId: string, status: string) =>
   return res.data;
 };
 
+export interface ManualAdminPurchase {
+  id: string;
+  student_name?: string;
+  matric_number?: string;
+  manual_title?: string;
+  price: number;
+  is_collected: boolean;
+  collected_at?: string;
+  purchased_at: string;
+}
+
 // Admin: purchases by manual
 export const getManualPurchases = async (manualId: string) => {
   const res = await apiClient.get(`/manuals/${manualId}/purchases`);
-  return unwrap<any[]>(res);
+  return unwrap<ManualAdminPurchase[]>(res);
 };
 
 // Admin: mark collected

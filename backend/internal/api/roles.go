@@ -38,10 +38,13 @@ func (server *Server) assignUserRole(ctx *gin.Context) {
 		return
 	}
 
-	// Prevent delegated_admin from assigning admin or delegated_admin roles
+	// Prevent a delegated admin (raw DB role "admin" — "delegated_admin" is only
+	// its display-layer alias and never appears in real JWT claims, so this
+	// must check the raw "admin" role) from assigning admin or delegated_admin
+	// roles to others; only a true hod may grant that tier.
 	claimsVal, exists := ctx.Get("claims")
 	if exists {
-		if c, ok := claimsVal.(*auth.Claims); ok && c.HasRole("delegated_admin") && !c.HasAnyRole([]string{"hod", "admin"}) {
+		if c, ok := claimsVal.(*auth.Claims); ok && c.HasRole("admin") && !c.HasRole("hod") {
 			targetRole := service.ParseRoleNameReverse(req.Role)
 			if targetRole == string(db.UserRoleAdmin) || targetRole == "delegated_admin" {
 				ctx.JSON(http.StatusForbidden, gin.H{"error": "you cannot assign admin or delegated_admin roles"})

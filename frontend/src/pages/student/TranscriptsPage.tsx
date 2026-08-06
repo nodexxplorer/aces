@@ -16,15 +16,12 @@ const TranscriptsPage = () => {
   const [requests, setRequests] = useState<TranscriptRequest[]>([]);
   const [dest, setDest] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user?.id) return;
-    setLoading(true);
     getStudentTranscriptRequests(user.id)
       .then(setRequests)
-      .catch(() => notifyError('Error', 'Failed to load transcript requests'))
-      .finally(() => setLoading(false));
+      .catch(() => notifyError('Error', 'Failed to load transcript requests'));
   }, [user?.id]);
 
   const handleRequestOfficial = async (e: React.FormEvent) => {
@@ -47,7 +44,11 @@ const TranscriptsPage = () => {
 
   const columns = [
     { key: 'destination', label: 'Recipient Institution' },
-    { key: 'createdAt', label: 'Date Requested', render: (val: unknown) => val ? new Date(val as string).toLocaleDateString() : 'N/A' },
+    {
+      key: 'createdAt',
+      label: 'Date Requested',
+      render: (val: unknown) => (val ? new Date(val as string).toLocaleDateString() : 'N/A'),
+    },
     { key: 'status', label: 'Status', render: (val: unknown) => <StatusBadge status={val as string} /> },
   ];
 
@@ -78,9 +79,14 @@ const TranscriptsPage = () => {
               Unofficial Transcript
             </h3>
             <p className="text-xs text-surface-500 mb-4 leading-relaxed">
-              Generate and download an unofficial copy of your results transcript for personal reference or internship applications.
+              Generate and download an unofficial copy of your results transcript for personal reference or internship
+              applications.
             </p>
-            <Button className="w-full" onClick={() => notifyError('Info', 'Unofficial transcript generation requires results data.')} leftIcon={<FileText className="w-4 h-4" />}>
+            <Button
+              className="w-full"
+              onClick={() => notifyError('Info', 'Unofficial transcript generation requires results data.')}
+              leftIcon={<FileText className="w-4 h-4" />}
+            >
               Download Copy
             </Button>
           </Card>

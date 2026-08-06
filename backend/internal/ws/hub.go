@@ -23,6 +23,14 @@ type Message struct {
 	Payload json.RawMessage `json:"payload"`
 }
 
+// ChatPersister persists a 1:1 chat message sent over the raw socket and
+// returns its stored JSON representation (so the pushed payload carries a
+// real id/timestamp, same as the REST sendMessage path).
+type ChatPersister func(fromUserID, toUserID uuid.UUID, content string) (json.RawMessage, error)
+
+// GroupChatPersister persists a group chat message sent over the raw socket.
+type GroupChatPersister func(fromUserID, groupID uuid.UUID, content string) (json.RawMessage, error)
+
 // Hub maintains the set of active clients and broadcasts messages
 type Hub struct {
 	mu         sync.RWMutex
@@ -31,6 +39,14 @@ type Hub struct {
 	register   chan *Client
 	unregister chan *Client
 	broadcast  chan *BroadcastMessage
+
+	// PersistChat/PersistGroupChat, if set, are called by Client.handleChat/
+	// handleGroupChat before relaying a raw-socket message — without these,
+	// messages sent via the raw socket (rather than the REST sendMessage
+	// endpoint) are delivered live but never saved, so they vanish for any
+	// offline recipient or on reload.
+	PersistChat      ChatPersister
+	PersistGroupChat GroupChatPersister
 }
 
 // BroadcastMessage targets a specific user, group, or all clients

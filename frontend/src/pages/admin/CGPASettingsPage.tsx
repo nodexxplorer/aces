@@ -53,7 +53,7 @@ const CGPASettingsPage = () => {
           secondClassLower: parseFloat(secondClassLower),
           thirdClass: parseFloat(thirdClass),
         },
-      } as any);
+      });
       success('Settings Updated', 'CGPA classification thresholds saved');
     } catch {
       // silent
@@ -74,9 +74,7 @@ const CGPASettingsPage = () => {
       <Card>
         <CardHeader>
           <CardTitle>Grade Classification Thresholds</CardTitle>
-          <CardDescription>
-            Minimum CGPA required to achieve each degree classification
-          </CardDescription>
+          <CardDescription>Minimum CGPA required to achieve each degree classification</CardDescription>
         </CardHeader>
         {loading ? (
           <div className="flex items-center justify-center p-12">

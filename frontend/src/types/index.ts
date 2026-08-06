@@ -3,12 +3,24 @@
    ────────────────────────────────────────────── */
 
 // ───── Enums ─────
-export type UserRole = 'hod' | 'delegated_admin' | 'lecturer' | 'class_rep' | 'class_bursar' | 'dept_bursar' | 'student' | 'alumni' | 'project_coordinator' | 'event_coordinator' | 'alumni_rep' | 'admin';
+export type UserRole =
+  | 'hod'
+  | 'delegated_admin'
+  | 'lecturer'
+  | 'class_rep'
+  | 'class_bursar'
+  | 'dept_bursar'
+  | 'student'
+  | 'alumni'
+  | 'project_coordinator'
+  | 'event_coordinator'
+  | 'alumni_rep'
+  | 'admin';
 export type AccountType = 'staff' | 'student' | 'graduate';
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded';
 export type PaymentMethod = 'paystack' | 'manual';
-export type ComplaintStatus = 'open' | 'in_progress' | 'resolved' | 'closed' | 'pending';
+export type ComplaintStatus = 'open' | 'in_review' | 'resolved' | 'rejected';
 export type ComplaintPriority = 'low' | 'medium' | 'high' | 'critical';
 export type TranscriptStatus = 'pending' | 'processing' | 'ready' | 'collected' | 'approved' | 'printed';
 export type ConnectionStatus = 'pending' | 'accepted' | 'rejected' | 'blocked';
@@ -48,6 +60,7 @@ export interface User extends BaseEntity {
   gender?: string;
   address?: string;
   roles: UserRole[];
+  allRoles?: UserRole[];
   activeRole: UserRole;
   role: UserRole;
   accountType?: AccountType;
@@ -329,7 +342,6 @@ export interface TranscriptRequest extends BaseEntity {
   purpose?: string;
   copies?: number;
 }
-
 
 // ───── Timetable ─────
 export type EntryType = 'class' | 'exam';

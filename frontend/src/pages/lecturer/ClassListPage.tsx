@@ -43,24 +43,36 @@ const ClassListPage = () => {
     setLoadingS(true);
     try {
       const res = await getCourseClassList(sel.course_id);
-      setStudents((res || []).map((r: any) => ({
-        matricNumber: r.matric_number || r.matricNumber || '—',
-        name: r.name || r.student_name || r.studentName || '—',
-        courseCode: sel.course_code,
-        status: r.status || 'enrolled',
-      })));
-    } catch { setStudents([]); }
-    finally { setLoadingS(false); }
+      setStudents(
+        (res || []).map((r) => ({
+          matricNumber: r.matric_number || '—',
+          name: r.name || '—',
+          courseCode: sel.course_code,
+          status: r.status || 'enrolled',
+        })),
+      );
+    } catch {
+      setStudents([]);
+    } finally {
+      setLoadingS(false);
+    }
   }, [sel?.id]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const handleExport = () => {
-    const rows = ['Matric,Name,Course,Status', ...students.map((s) => `${s.matricNumber},${s.name},${s.courseCode},${s.status}`)];
+    const rows = [
+      'Matric,Name,Course,Status',
+      ...students.map((s) => `${s.matricNumber},${s.name},${s.courseCode},${s.status}`),
+    ];
     const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `class_list_${sel?.course_code || 'export'}.csv`; a.click();
+    a.href = url;
+    a.download = `class_list_${sel?.course_code || 'export'}.csv`;
+    a.click();
     URL.revokeObjectURL(url);
     success('Downloaded', 'Class list exported as CSV.');
   };
@@ -70,11 +82,22 @@ const ClassListPage = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Course Class List</h1>
-          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Student rosters for your assigned courses.</p>
+          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
+            Student rosters for your assigned courses.
+          </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" leftIcon={<Printer className="w-4 h-4" />} onClick={() => window.print()}>Print</Button>
-          <Button variant="outline" leftIcon={<Download className="w-4 h-4" />} onClick={handleExport} disabled={!students.length}>Export CSV</Button>
+          <Button variant="outline" leftIcon={<Printer className="w-4 h-4" />} onClick={() => window.print()}>
+            Print
+          </Button>
+          <Button
+            variant="outline"
+            leftIcon={<Download className="w-4 h-4" />}
+            onClick={handleExport}
+            disabled={!students.length}
+          >
+            Export CSV
+          </Button>
         </div>
       </div>
       <Card>
@@ -83,13 +106,25 @@ const ClassListPage = () => {
             <CardTitle>Enrolled Students</CardTitle>
             <CardDescription>Filtered by assigned course</CardDescription>
           </div>
-          {loadingA ? <Loader2 className="w-5 h-5 animate-spin text-primary-500" /> : (
-            <Select options={assignments.map((a) => ({ value: a.id, label: `${a.course_code} — ${a.course_title}${a.semester ? ` (${a.semester.toUpperCase()})` : ''}` }))}
-              value={selectedId} onChange={(e) => setSelectedId(e.target.value)} placeholder="Select course" />
+          {loadingA ? (
+            <Loader2 className="w-5 h-5 animate-spin text-primary-500" />
+          ) : (
+            <Select
+              options={assignments.map((a) => ({
+                value: a.id,
+                label: `${a.course_code} — ${a.course_title}${a.semester ? ` (${a.semester.toUpperCase()})` : ''}`,
+              }))}
+              value={selectedId}
+              onChange={(e) => setSelectedId(e.target.value)}
+              placeholder="Select course"
+            />
           )}
         </CardHeader>
         {loadingS ? (
-          <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-primary-500 mr-2" /><span className="text-sm text-surface-500">Loading...</span></div>
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-5 h-5 animate-spin text-primary-500 mr-2" />
+            <span className="text-sm text-surface-500">Loading...</span>
+          </div>
         ) : students.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Users className="w-10 h-10 text-surface-300 mb-3" />
@@ -102,7 +137,9 @@ const ClassListPage = () => {
               <thead>
                 <tr className="bg-surface-50 dark:bg-surface-800/50 border-b border-surface-200 dark:border-surface-700">
                   {['Matric Number', 'Name', 'Course', 'Result Status'].map((h) => (
-                    <th key={h} className="text-left px-6 py-3 text-xs font-semibold text-surface-500 uppercase">{h}</th>
+                    <th key={h} className="text-left px-6 py-3 text-xs font-semibold text-surface-500 uppercase">
+                      {h}
+                    </th>
                   ))}
                 </tr>
               </thead>
@@ -113,7 +150,11 @@ const ClassListPage = () => {
                     <td className="px-6 py-4">{s.name}</td>
                     <td className="px-6 py-4 font-mono text-xs">{s.courseCode}</td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium capitalize ${s.status === 'approved' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'}`}>{s.status}</span>
+                      <span
+                        className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium capitalize ${s.status === 'approved' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'}`}
+                      >
+                        {s.status}
+                      </span>
                     </td>
                   </tr>
                 ))}

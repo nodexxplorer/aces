@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
+import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { FileText, Download, Users, GraduationCap, AlertCircle, TrendingUp, Loader2, BookOpen } from 'lucide-react';
 import { useNotification } from '../../hooks/useNotification';
@@ -33,6 +33,13 @@ interface ClassRepReport {
   content: string;
   status: string;
   submitted_at: string;
+}
+
+interface ExportableUser {
+  full_name?: string;
+  email?: string;
+  role?: string;
+  created_at?: string;
 }
 
 const ReportsPage = () => {
@@ -100,8 +107,11 @@ const ReportsPage = () => {
     try {
       const res = await apiClient.get('/analytics/users', { params: { limit: 500 } });
       const users = res.data?.data || res.data || [];
-      const rows = (Array.isArray(users) ? users : []).map((u: any) => [
-        u.full_name || '', u.email || '', u.role || '', u.created_at || '',
+      const rows = (Array.isArray(users) ? users : []).map((u: ExportableUser) => [
+        u.full_name || '',
+        u.email || '',
+        u.role || '',
+        u.created_at || '',
       ]);
       generateCSV(['Name', 'Email', 'Role', 'Joined'], rows, 'students-report.csv');
     } catch {
@@ -113,9 +123,7 @@ const ReportsPage = () => {
 
   const handleExportGrades = () => {
     setGenerating('grades');
-    const rows = gradeData.map((g) => [
-      g.course_code || '', g.course_title || '', g.grade || '', g.count || 0,
-    ]);
+    const rows = gradeData.map((g) => [g.course_code || '', g.course_title || '', g.grade || '', g.count || 0]);
     generateCSV(['Course Code', 'Course Title', 'Grade', 'Count'], rows, 'grade-distribution.csv');
     setGenerating(null);
   };
@@ -123,7 +131,10 @@ const ReportsPage = () => {
   const handleExportAtRisk = () => {
     setGenerating('risk');
     const rows = atRiskStudents.map((s) => [
-      s.student_name || '', s.matric_number || '', s.risk_level || '', s.gpa || 0,
+      s.student_name || '',
+      s.matric_number || '',
+      s.risk_level || '',
+      s.gpa || 0,
     ]);
     generateCSV(['Name', 'Matric No.', 'Risk Level', 'GPA'], rows, 'at-risk-students.csv');
     setGenerating(null);
@@ -132,7 +143,10 @@ const ReportsPage = () => {
   const handleExportClassRepReports = () => {
     setGenerating('reports');
     const rows = classRepReports.map((r) => [
-      r.report_type || '', r.content || '', r.status || '', r.submitted_at || '',
+      r.report_type || '',
+      r.content || '',
+      r.status || '',
+      r.submitted_at || '',
     ]);
     generateCSV(['Type', 'Content', 'Status', 'Submitted At'], rows, 'class-rep-reports.csv');
     setGenerating(null);
@@ -220,7 +234,13 @@ const ReportsPage = () => {
               </p>
               <Button
                 size="sm"
-                leftIcon={generating === 'students' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                leftIcon={
+                  generating === 'students' ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )
+                }
                 onClick={handleExportStudents}
                 disabled={generating === 'students'}
               >
@@ -238,11 +258,18 @@ const ReportsPage = () => {
             <div className="flex-1">
               <h3 className="font-semibold text-lg text-surface-900 dark:text-white mb-2">Grade Distribution</h3>
               <p className="text-xs text-surface-500 mb-4">
-                Breakdown of grades by course. {gradeData.length > 0 ? `${gradeData.length} records available.` : 'No grade data yet.'}
+                Breakdown of grades by course.{' '}
+                {gradeData.length > 0 ? `${gradeData.length} records available.` : 'No grade data yet.'}
               </p>
               <Button
                 size="sm"
-                leftIcon={generating === 'grades' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                leftIcon={
+                  generating === 'grades' ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )
+                }
                 onClick={handleExportGrades}
                 disabled={generating === 'grades' || gradeData.length === 0}
               >
@@ -260,11 +287,18 @@ const ReportsPage = () => {
             <div className="flex-1">
               <h3 className="font-semibold text-lg text-surface-900 dark:text-white mb-2">At-Risk Students</h3>
               <p className="text-xs text-surface-500 mb-4">
-                Students identified as at-risk based on GPA and performance. {atRiskStudents.length > 0 ? `${atRiskStudents.length} students.` : 'None identified.'}
+                Students identified as at-risk based on GPA and performance.{' '}
+                {atRiskStudents.length > 0 ? `${atRiskStudents.length} students.` : 'None identified.'}
               </p>
               <Button
                 size="sm"
-                leftIcon={generating === 'risk' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                leftIcon={
+                  generating === 'risk' ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )
+                }
                 onClick={handleExportAtRisk}
                 disabled={generating === 'risk' || atRiskStudents.length === 0}
               >
@@ -282,11 +316,18 @@ const ReportsPage = () => {
             <div className="flex-1">
               <h3 className="font-semibold text-lg text-surface-900 dark:text-white mb-2">Class Rep Reports</h3>
               <p className="text-xs text-surface-500 mb-4">
-                All reports submitted by class representatives. {classRepReports.length > 0 ? `${classRepReports.length} reports.` : 'No reports yet.'}
+                All reports submitted by class representatives.{' '}
+                {classRepReports.length > 0 ? `${classRepReports.length} reports.` : 'No reports yet.'}
               </p>
               <Button
                 size="sm"
-                leftIcon={generating === 'reports' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                leftIcon={
+                  generating === 'reports' ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )
+                }
                 onClick={handleExportClassRepReports}
                 disabled={generating === 'reports' || classRepReports.length === 0}
               >

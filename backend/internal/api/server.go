@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/aces/backend/internal/storage"
 	"github.com/aces/backend/internal/ws"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -34,7 +36,7 @@ func corsMiddleware(allowedOrigins []string) gin.HandlerFunc {
 				}
 			}
 
-			if matched || strings.HasSuffix(trimmedOrigin, ".vercel.app") {
+			if matched {
 				c.Header("Access-Control-Allow-Origin", origin)
 			}
 		}
@@ -138,6 +140,24 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 	// Initialize local storage
 	ls, _ := storage.NewLocalStorage(cfg.StorageLocalPath)
 	server.storage = ls
+
+	// Wire raw-socket chat persistence so messages sent via the WS channel
+	// (as opposed to the REST sendMessage endpoint) are saved the same way,
+	// not just relayed live and lost if the recipient is offline.
+	hub.PersistChat = func(from, to uuid.UUID, content string) (json.RawMessage, error) {
+		msg, err := server.campusConnect.SendMessage(context.Background(), from, to, content)
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(msg)
+	}
+	hub.PersistGroupChat = func(from, groupID uuid.UUID, content string) (json.RawMessage, error) {
+		msg, err := server.campusConnect.SendGroupMessage(context.Background(), groupID, from, content)
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(msg)
+	}
 
 	// Initialize Redis cache (optional — gracefully falls back to in-memory)
 	var rc *cache.RedisCache
@@ -293,6 +313,8 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		cgpa.GET("/calculate/:studentId", server.calculateCgpa)
 		cgpa.GET("/settings", server.getCgpaSettings)
 		cgpa.PUT("/settings", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateCgpaSettings)
+		cgpa.GET("/my-results", middleware.RequireRoles("student"), server.getMyApprovedResults)
+		cgpa.POST("/simulate", middleware.RequireRoles("student"), server.simulateCgpa)
 	}
 
 	api.POST("/students", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createStudent)
@@ -340,6 +362,15 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		assignments.DELETE("/grades/:id", middleware.RequireRoles("lecturer", "hod", "delegated_admin"), server.deleteAssignmentGrade)
 	}
 
+	courseMaterials := api.Group("/course-materials")
+	{
+		courseMaterials.POST("", middleware.RequireRoles("lecturer", "hod", "admin", "delegated_admin"), server.uploadCourseMaterial)
+		courseMaterials.GET("/course/:course_id", server.listCourseMaterialsByCourse)
+		courseMaterials.GET("/mine", middleware.RequireRoles("lecturer", "hod", "admin", "delegated_admin"), server.listMyCourseMaterials)
+		courseMaterials.GET("/:id/download", server.downloadCourseMaterial)
+		courseMaterials.DELETE("/:id", middleware.RequireRoles("lecturer", "hod", "admin", "delegated_admin"), server.deleteCourseMaterial)
+	}
+
 	courseRegistrations := api.Group("/course-registrations")
 	{
 		courseRegistrations.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createCourseRegistration)
@@ -359,6 +390,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 	{
 		results.GET("", middleware.RequireRoles("lecturer", "hod", "admin", "delegated_admin"), server.listAllResults)
 		results.POST("", middleware.RequireRoles("lecturer", "hod", "delegated_admin"), server.createResult)
+		results.GET("/slip", server.downloadResultSlip)
 		results.GET("/:id", server.getResult)
 		results.GET("/student/:student_id", server.listStudentResults)
 		results.GET("/course/:course_id/session/:session_id", server.listCourseResults)
@@ -376,6 +408,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		carryovers.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateCarryoverCourse)
 		carryovers.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteCarryoverCourse)
 		carryovers.GET("/student/:student_id", server.listStudentCarryoverCourses)
+		carryovers.GET("/student/:student_id/detailed", server.listStudentCarryoverCoursesDetailed)
 	}
 
 
@@ -412,7 +445,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		payments.GET("/dues/level", server.listDuesByLevel)
 		payments.GET("/dues/:id", server.getDue)
 		payments.PUT("/dues/:id", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.updateDue)
-		payments.DELETE("/dues/:id", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.deleteDue)
+		payments.DELETE("/dues/:id", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.deleteDue)
 
 		payments.POST("/cart", middleware.RequireRoles("student"), server.addToCart)
 		payments.GET("/cart/me", middleware.RequireRoles("student"), server.listStudentCart)
@@ -423,7 +456,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		payments.GET("/batches/student/:student_id", server.listStudentPaymentBatches)
 		payments.GET("/batches/:id", server.getPaymentBatch)
 		payments.GET("/batches/:id/payments", server.listBatchPayments)
-		payments.PUT("/batches/:id/status", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.updatePaymentBatchStatus)
+		payments.PUT("/batches/:id/status", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.updatePaymentBatchStatus)
 
 		payments.POST("", middleware.RequireRoles("student"), server.createPayment)
 		payments.POST("/checkout", middleware.RequireRoles("student"), server.initializeCheckout)
@@ -432,13 +465,13 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		payments.GET("/summary/:student_id", server.getStudentPaymentSummary)
 		payments.GET("/check-paid", server.checkDuePaid)
 		payments.GET("/my-reference", middleware.RequireRoles("student"), server.getMyPaymentByReference)
-		payments.GET("/by-reference", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.getPaymentByReference)
+		payments.GET("/by-reference", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.getPaymentByReference)
 		payments.GET("/defaulters", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.listDefaulters)
 		payments.GET("/recent-verified", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.listRecentVerifiedPayments)
 		payments.GET("", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.listAllPayments)
 		payments.GET("/:id", server.getPayment)
-		payments.PUT("/:id/status", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.updatePaymentStatus)
-		payments.POST("/:id/verify", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.verifyPayment)
+		payments.PUT("/:id/status", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.updatePaymentStatus)
+		payments.POST("/:id/verify", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.verifyPayment)
 	}
 
 	transcripts := api.Group("/transcript-requests")
@@ -488,6 +521,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 	api.DELETE("/complaints/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteComplaint)
 	api.POST("/complaints/:id/assign", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.assignComplaint)
 	api.POST("/complaints/:id/resolve", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.resolveComplaint)
+	api.GET("/complaints/:id/history", server.listComplaintHistory)
 
 	// ── Roles ──
 	rolesGroup := api.Group("/roles")
@@ -577,7 +611,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		alumniGroup.PUT("/status/:id", server.updateAlumniStatus)
 		alumniGroup.POST("/verify/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.verifyAlumni)
 		alumniGroup.GET("/verifications/pending", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listPendingAlumniVerifications)
-		alumniGroup.POST("/jobs", server.createJobPost)
+		alumniGroup.POST("/jobs", middleware.RequireRoles("alumni", "hod", "admin", "delegated_admin"), server.createJobPost)
 		alumniGroup.GET("/jobs", server.listJobPosts)
 		alumniGroup.GET("/jobs/:id", server.getJobPost)
 		alumniGroup.PUT("/jobs/:id", server.updateJobPost)
@@ -728,6 +762,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 	{
 		calendar.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createDepartmentalEvent)
 		calendar.GET("", server.listDepartmentalEvents)
+		calendar.GET("/:id/ics", server.downloadDepartmentalEventICS)
 		calendar.GET("/:id", server.getDepartmentalEvent)
 		calendar.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateDepartmentalEvent)
 		calendar.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteDepartmentalEvent)

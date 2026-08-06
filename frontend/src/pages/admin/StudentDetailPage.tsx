@@ -3,18 +3,40 @@ import { useParams, Link } from 'react-router-dom';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
-import { getUser, getStudentCGPA } from '../../api/users';
+import { getUser } from '../../api/users';
 import { getStudentResults } from '../../api/results';
 import { useNotification } from '../../hooks/useNotification';
-import { ArrowLeft, Mail, Phone, Calendar, Shield, CheckCircle, XCircle, GraduationCap, BookOpen, Award, Loader2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Mail,
+  Phone,
+  Calendar,
+  Shield,
+  CheckCircle,
+  XCircle,
+  GraduationCap,
+  BookOpen,
+  Award,
+  Loader2,
+} from 'lucide-react';
 import type { User as UserType } from '../../types';
+
+interface StudentResultRow {
+  id: string;
+  courseCode?: string;
+  course?: { code?: string };
+  caScore?: number;
+  examScore?: number;
+  totalScore?: number;
+  grade?: string;
+}
 
 const StudentDetailPage = () => {
   const { id } = useParams();
   const { error: notifyError } = useNotification();
   const [studentUser, setStudentUser] = useState<UserType | null>(null);
   const [cgpa, setCgpa] = useState<{ cgpa: number; scale: number } | null>(null);
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<StudentResultRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [resultsLoading, setResultsLoading] = useState(true);
 
@@ -24,17 +46,19 @@ const StudentDetailPage = () => {
     getUser(id)
       .then((user) => {
         setStudentUser(user);
-        return Promise.allSettled([
-          getStudentCGPA(id).catch(() => null),
-          getStudentResults(id).catch(() => []),
-        ]);
+        // CGPA comes embedded in the user record (a users.id, not a
+        // students.id) — getStudentResults needs the real students.id, which
+        // this page doesn't have, so it relies on the backend's own
+        // user-id-to-student-id fallback.
+        if (typeof user.cgpa === 'number') setCgpa({ cgpa: user.cgpa, scale: 5.0 });
+        return getStudentResults(id).catch(() => []);
       })
-      .then(([cgpaResult, resultsResult]) => {
-        if (cgpaResult.status === 'fulfilled' && cgpaResult.value) setCgpa(cgpaResult.value);
-        if (resultsResult.status === 'fulfilled') setResults(resultsResult.value || []);
-      })
+      .then((studentResults) => setResults(studentResults || []))
       .catch(() => notifyError('Error', 'Failed to load student details'))
-      .finally(() => { setLoading(false); setResultsLoading(false); });
+      .finally(() => {
+        setLoading(false);
+        setResultsLoading(false);
+      });
   }, [id]);
 
   if (loading) {
@@ -60,7 +84,8 @@ const StudentDetailPage = () => {
     );
   }
 
-  const fullName = studentUser.fullName || `${studentUser.firstName || ''} ${studentUser.lastName || ''}`.trim() || studentUser.email;
+  const fullName =
+    studentUser.fullName || `${studentUser.firstName || ''} ${studentUser.lastName || ''}`.trim() || studentUser.email;
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -82,9 +107,7 @@ const StudentDetailPage = () => {
                 <Badge variant={studentUser.isActive ? 'success' : 'danger'}>
                   {studentUser.isActive ? 'Active' : 'Inactive'}
                 </Badge>
-                {!studentUser.isApproved && (
-                  <Badge variant="warning">Pending Approval</Badge>
-                )}
+                {!studentUser.isApproved && <Badge variant="warning">Pending Approval</Badge>}
                 <span className="text-xs text-surface-400">Student Profile</span>
               </div>
               <CardTitle className="text-2xl font-bold">{fullName}</CardTitle>
@@ -137,7 +160,11 @@ const StudentDetailPage = () => {
               <Calendar className="w-5 h-5 text-primary-500" />
               <div>
                 <p className="text-xs text-surface-400 font-medium">Member Since</p>
-                <p>{studentUser.createdAt ? new Date(studentUser.createdAt).toLocaleDateString(undefined, { dateStyle: 'long' }) : 'N/A'}</p>
+                <p>
+                  {studentUser.createdAt
+                    ? new Date(studentUser.createdAt).toLocaleDateString(undefined, { dateStyle: 'long' })
+                    : 'N/A'}
+                </p>
               </div>
             </div>
 
@@ -196,7 +223,7 @@ const StudentDetailPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-surface-100 dark:divide-surface-700/50">
-                  {results.slice(0, 10).map((r: any) => (
+                  {results.slice(0, 10).map((r) => (
                     <tr key={r.id}>
                       <td className="px-3 py-2 font-medium">{r.courseCode || r.course?.code || 'N/A'}</td>
                       <td className="px-3 py-2">{r.caScore ?? '-'}</td>

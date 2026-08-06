@@ -4,7 +4,7 @@ import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import StatusBadge from '../../components/data-display/StatusBadge';
 import { useNotification } from '../../hooks/useNotification';
-import { Download, BookOpen, Loader2, QrCode, CheckCircle, ExternalLink } from 'lucide-react';
+import { Download, BookOpen, Loader2, QrCode } from 'lucide-react';
 import { getMyPurchases, downloadCover } from '../../api/manuals';
 import type { ManualPurchase } from '../../api/manuals';
 
@@ -12,7 +12,10 @@ const MyManualsPage = () => {
   const { success, error: notifyError } = useNotification();
   const [purchases, setPurchases] = useState<ManualPurchase[]>([]);
   const [loading, setLoading] = useState(true);
-  const [qrModal, setQrModal] = useState<{ open: boolean; purchase: ManualPurchase | null }>({ open: false, purchase: null });
+  const [qrModal, setQrModal] = useState<{ open: boolean; purchase: ManualPurchase | null }>({
+    open: false,
+    purchase: null,
+  });
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -103,7 +106,13 @@ const MyManualsPage = () => {
                   variant="outline"
                   size="sm"
                   className="flex-1"
-                  leftIcon={downloadingId === p.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  leftIcon={
+                    downloadingId === p.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )
+                  }
                   onClick={() => handleDownload(p)}
                   disabled={downloadingId === p.id}
                 >
@@ -124,11 +133,7 @@ const MyManualsPage = () => {
       )}
 
       {/* QR Code Modal */}
-      <Modal
-        isOpen={qrModal.open}
-        onClose={() => setQrModal({ open: false, purchase: null })}
-        title="Manual QR Code"
-      >
+      <Modal isOpen={qrModal.open} onClose={() => setQrModal({ open: false, purchase: null })} title="Manual QR Code">
         {qrModal.purchase && (
           <div className="space-y-4 text-center">
             <p className="text-sm text-surface-600 dark:text-surface-400">
@@ -150,7 +155,8 @@ const MyManualsPage = () => {
               <p className="text-sm text-surface-400">QR code not yet generated</p>
             )}
             <p className="text-xs text-surface-400">
-              {qrModal.purchase.manual_title} | {(qrModal.purchase as unknown as { matric_number?: string }).matric_number || ''}
+              {qrModal.purchase.manual_title} |{' '}
+              {(qrModal.purchase as unknown as { matric_number?: string }).matric_number || ''}
             </p>
           </div>
         )}

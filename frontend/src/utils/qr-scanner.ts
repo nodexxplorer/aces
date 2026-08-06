@@ -3,7 +3,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 export const initQRScanner = (
   elementId: string,
   onScan: (decodedText: string) => void,
-  onError?: (errorMessage: string) => void
+  onError?: (errorMessage: string) => void,
 ): { start: () => Promise<void>; stop: () => Promise<void> } => {
   const html5QrCode = new Html5Qrcode(elementId);
 
@@ -17,7 +17,7 @@ export const initQRScanner = (
         },
         (errorMessage) => {
           onError?.(errorMessage);
-        }
+        },
       );
     } catch (err) {
       onError?.(`Camera error: ${err}`);
@@ -35,14 +35,27 @@ export const initQRScanner = (
   return { start, stop };
 };
 
-export const parseQRData = (data: string): { type: string; id: string } | null => {
+export const PROFILE_SCAN_PARAM = 'scan';
+
+// A student's profile QR encodes a plain URL (`${origin}/connect?scan=<userId>`) so
+// that any stock phone camera app can open it directly, not just our in-app scanner.
+// Falls back to the older raw-JSON payload for QR codes generated before this change.
+export const parseProfileScanUserId = (data: string): string | null => {
+  const text = data.trim();
   try {
-    const parsed = JSON.parse(data);
-    if (parsed && typeof parsed === 'object' && 'id' in parsed) {
-      return { type: parsed.type || 'manual', id: parsed.id };
-    }
-    return null;
+    const url = new URL(text);
+    const id = url.searchParams.get(PROFILE_SCAN_PARAM);
+    if (id) return id;
   } catch {
-    return null;
+    // not a URL, fall through to legacy format
   }
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed && typeof parsed === 'object' && typeof parsed.userId === 'string' && parsed.userId) {
+      return parsed.userId;
+    }
+  } catch {
+    // not JSON either
+  }
+  return null;
 };

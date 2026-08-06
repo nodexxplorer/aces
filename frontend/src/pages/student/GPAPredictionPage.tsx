@@ -7,7 +7,12 @@ import type { GPAPrediction, GPAGrade } from '../../api/predictions';
 import { TrendingUp, BookOpen, Award, AlertTriangle } from 'lucide-react';
 
 const gradeColors: Record<string, string> = {
-  A: '#22c55e', B: '#3b82f6', C: '#eab308', D: '#f97316', E: '#ef4444', F: '#dc2626',
+  A: '#22c55e',
+  B: '#3b82f6',
+  C: '#eab308',
+  D: '#f97316',
+  E: '#ef4444',
+  F: '#dc2626',
 };
 
 const GPAPredictionPage = () => {
@@ -22,7 +27,12 @@ const GPAPredictionPage = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" /></div>;
+  if (loading)
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   if (error) return <div className="text-center py-12 text-danger-500">{error}</div>;
   if (!data || !data.grades || data.grades.length === 0) {
     return (
@@ -30,7 +40,9 @@ const GPAPredictionPage = () => {
         <h1 className="text-3xl font-bold text-surface-900 dark:text-white">GPA Predictor</h1>
         <Card className="p-12 text-center">
           <AlertTriangle className="w-12 h-12 mx-auto text-surface-300 mb-4" />
-          <p className="text-surface-500">No grade data available yet. Your GPA prediction will appear once results are published.</p>
+          <p className="text-surface-500">
+            No grade data available yet. Your GPA prediction will appear once results are published.
+          </p>
         </Card>
       </div>
     );
@@ -52,13 +64,25 @@ const GPAPredictionPage = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <KpiCard title="Predicted GPA" value={data.predicted_gpa.toFixed(2)} icon={<TrendingUp className="w-5 h-5" />} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard
+          title="Predicted GPA"
+          value={data.predicted_gpa.toFixed(2)}
+          icon={<TrendingUp className="w-5 h-5" />}
+        />
         <KpiCard title="Total Credits" value={String(data.total_credits)} icon={<BookOpen className="w-5 h-5" />} />
         <KpiCard title="Courses Graded" value={String(data.total_courses)} icon={<Award className="w-5 h-5" />} />
         <KpiCard
           title="Academic Standing"
-          value={data.predicted_gpa >= 3.5 ? 'Excellent' : data.predicted_gpa >= 2.5 ? 'Good' : data.predicted_gpa >= 1.5 ? 'Fair' : 'At Risk'}
+          value={
+            data.predicted_gpa >= 3.5
+              ? 'Excellent'
+              : data.predicted_gpa >= 2.5
+                ? 'Good'
+                : data.predicted_gpa >= 1.5
+                  ? 'Fair'
+                  : 'At Risk'
+          }
           icon={<AlertTriangle className="w-5 h-5" />}
         />
       </div>
@@ -109,7 +133,10 @@ const GPAPredictionPage = () => {
                     <td className="text-center py-2">{g.total_score}</td>
                     <td className="text-center py-2">{g.grade_points.toFixed(1)}</td>
                     <td className="text-center py-2">
-                      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{ backgroundColor: gradeColors[g.grade_letter] || '#94a3b8' }}>
+                      <span
+                        className="inline-block px-2 py-0.5 rounded-full text-xs font-bold text-white"
+                        style={{ backgroundColor: gradeColors[g.grade_letter] || '#94a3b8' }}
+                      >
                         {g.grade_letter}
                       </span>
                     </td>

@@ -1,8 +1,8 @@
 -- name: CreateCourse :one
 INSERT INTO courses (
-    code, title, description, unit, level, semester, lecturer_id, prerequisite_id, max_credit_hours, is_active, course_type
+    code, title, description, unit, level, semester, lecturer_id, prerequisite_id, max_credit_hours, is_active, course_type, requirement_type
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
 ) RETURNING *;
 
 -- name: GetCourse :one
@@ -37,6 +37,7 @@ SET
     lecturer_id = $7,
     is_active = $8,
     course_type = $9,
+    requirement_type = $10,
     updated_at = NOW()
 WHERE id = $1
 RETURNING *;

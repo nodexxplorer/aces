@@ -3,12 +3,38 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import {
-  ArrowLeft, Brain, Database, MessageSquare, Shield, Calendar,
-  Layers, AlertTriangle, FileText, ChevronDown, ChevronRight,
-  Cpu, BarChart3, Eye, Lock, Users, Zap, Target, GitBranch,
-  BookOpen, Briefcase, GraduationCap, CreditCard, Settings,
-  TrendingUp, ClipboardList, Sparkles, CheckCircle, XCircle,
-  AlertCircle, Info, Bot, Search, ShieldAlert, Clock
+  ArrowLeft,
+  Brain,
+  Database,
+  MessageSquare,
+  Shield,
+  Calendar,
+  Layers,
+  AlertTriangle,
+  FileText,
+  ChevronDown,
+  Cpu,
+  BarChart3,
+  Eye,
+  Lock,
+  Users,
+  Zap,
+  Target,
+  GitBranch,
+  BookOpen,
+  Briefcase,
+  CreditCard,
+  Settings,
+  TrendingUp,
+  ClipboardList,
+  Sparkles,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Info,
+  Bot,
+  ShieldAlert,
+  Clock,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../../utils/cn';
@@ -31,11 +57,32 @@ const aiModules = [
     icon: <BookOpen className="w-5 h-5 text-primary-500" />,
     color: 'primary',
     features: [
-      { name: 'Smart Study Planner', capability: 'Analyzes timetable, deadlines, and performance to suggest optimal study schedule', example: '"Based on your CSC 301 weak areas and upcoming exam, I recommend 2 hours of review on Tuesday and Thursday."' },
-      { name: 'GPA Predictor', capability: 'Predicts final GPA based on current performance trajectory', example: '"If you maintain current effort in CSC 302, projected grade is B (4.0)."' },
-      { name: 'At-Risk Alert', capability: 'Flags students likely to fail based on attendance + assignment patterns', example: '"Your CSC 302 attendance is trending low. Consider attending extra classes."' },
-      { name: 'Course Recommendation', capability: 'Suggests electives based on interests, career goals, and peer success', example: '"Students who took CSC 401 and did well in your position often succeed in AI/ML electives."' },
-      { name: 'Question Answering', capability: 'Answers questions about courses, deadlines, policies via chatbot', example: '"Assignment 3 is due July 25, 2026 at 11:59 PM."' },
+      {
+        name: 'Smart Study Planner',
+        capability: 'Analyzes timetable, deadlines, and performance to suggest optimal study schedule',
+        example:
+          '"Based on your CSC 301 weak areas and upcoming exam, I recommend 2 hours of review on Tuesday and Thursday."',
+      },
+      {
+        name: 'GPA Predictor',
+        capability: 'Predicts final GPA based on current performance trajectory',
+        example: '"If you maintain current effort in CSC 302, projected grade is B (4.0)."',
+      },
+      {
+        name: 'At-Risk Alert',
+        capability: 'Flags students likely to fail based on attendance + assignment patterns',
+        example: '"Your CSC 302 attendance is trending low. Consider attending extra classes."',
+      },
+      {
+        name: 'Course Recommendation',
+        capability: 'Suggests electives based on interests, career goals, and peer success',
+        example: '"Students who took CSC 401 and did well in your position often succeed in AI/ML electives."',
+      },
+      {
+        name: 'Question Answering',
+        capability: 'Answers questions about courses, deadlines, policies via chatbot',
+        example: '"Assignment 3 is due July 25, 2026 at 11:59 PM."',
+      },
     ],
   },
   {
@@ -44,10 +91,26 @@ const aiModules = [
     icon: <ClipboardList className="w-5 h-5 text-accent-500" />,
     color: 'accent',
     features: [
-      { name: 'Prerequisite Checker', capability: 'Validates prerequisite chains and suggests missing requirements', example: '"You need CSC 201 before CSC 301. You passed CSC 201 in 2024/2025."' },
-      { name: 'Timetable Optimizer', capability: 'Suggests course combinations that minimize conflicts', example: '"This combination has no clashes and gives you Wednesdays free for projects."' },
-      { name: 'Workload Balancer', capability: 'Analyzes credit load against historical performance', example: '"18 credits with 3 carryovers may be too heavy. Consider dropping one elective."' },
-      { name: 'Career Path Mapper', capability: 'Maps course selections to career outcomes', example: '"With these electives, you\'re well-positioned for backend engineering roles."' },
+      {
+        name: 'Prerequisite Checker',
+        capability: 'Validates prerequisite chains and suggests missing requirements',
+        example: '"You need CSC 201 before CSC 301. You passed CSC 201 in 2024/2025."',
+      },
+      {
+        name: 'Timetable Optimizer',
+        capability: 'Suggests course combinations that minimize conflicts',
+        example: '"This combination has no clashes and gives you Wednesdays free for projects."',
+      },
+      {
+        name: 'Workload Balancer',
+        capability: 'Analyzes credit load against historical performance',
+        example: '"18 credits with 3 carryovers may be too heavy. Consider dropping one elective."',
+      },
+      {
+        name: 'Career Path Mapper',
+        capability: 'Maps course selections to career outcomes',
+        example: '"With these electives, you\'re well-positioned for backend engineering roles."',
+      },
     ],
   },
   {
@@ -56,10 +119,26 @@ const aiModules = [
     icon: <Eye className="w-5 h-5 text-success-500" />,
     color: 'success',
     features: [
-      { name: 'Face Recognition', capability: 'Matches student face to ID photo for automatic check-in', example: 'Student walks into class, camera recognizes face, marks present.' },
-      { name: 'Pattern Analysis', capability: 'Detects unusual patterns (chronic lateness, sudden drops)', example: '"5 students have dropped attendance in CSC 302 over 2 weeks."' },
-      { name: 'Predictive Absence', capability: 'Predicts likely absences based on historical patterns', example: '"Tuesday 8 AM classes have 15% higher absence."' },
-      { name: 'Geofence Optimization', capability: 'Suggests optimal geofence radius based on venue size', example: '"LT 1 geofence should be 30 meters for accurate detection."' },
+      {
+        name: 'Face Recognition',
+        capability: 'Matches student face to ID photo for automatic check-in',
+        example: 'Student walks into class, camera recognizes face, marks present.',
+      },
+      {
+        name: 'Pattern Analysis',
+        capability: 'Detects unusual patterns (chronic lateness, sudden drops)',
+        example: '"5 students have dropped attendance in CSC 302 over 2 weeks."',
+      },
+      {
+        name: 'Predictive Absence',
+        capability: 'Predicts likely absences based on historical patterns',
+        example: '"Tuesday 8 AM classes have 15% higher absence."',
+      },
+      {
+        name: 'Geofence Optimization',
+        capability: 'Suggests optimal geofence radius based on venue size',
+        example: '"LT 1 geofence should be 30 meters for accurate detection."',
+      },
     ],
   },
   {
@@ -68,10 +147,26 @@ const aiModules = [
     icon: <BarChart3 className="w-5 h-5 text-warning-500" />,
     color: 'warning',
     features: [
-      { name: 'Grade Distribution', capability: 'Analyzes class performance and flags anomalies', example: '"CSC 301 has a bimodal distribution — consider offering remedial sessions."' },
-      { name: 'Plagiarism Detection', capability: 'Compares assignment submissions for similarity', example: '"2 submissions in CSC 301 show 85% similarity. Flag for lecturer review."' },
-      { name: 'Result Validation', capability: 'Cross-checks entered grades against attendance and assignment scores', example: '"Student X has 90% attendance but exam grade is 35%. Possible data entry error?"' },
-      { name: 'Transcript Summarization', capability: 'Generates plain-language summary of academic performance', example: '"Strong in programming courses, needs improvement in theoretical subjects."' },
+      {
+        name: 'Grade Distribution',
+        capability: 'Analyzes class performance and flags anomalies',
+        example: '"CSC 301 has a bimodal distribution — consider offering remedial sessions."',
+      },
+      {
+        name: 'Plagiarism Detection',
+        capability: 'Compares assignment submissions for similarity',
+        example: '"2 submissions in CSC 301 show 85% similarity. Flag for lecturer review."',
+      },
+      {
+        name: 'Result Validation',
+        capability: 'Cross-checks entered grades against attendance and assignment scores',
+        example: '"Student X has 90% attendance but exam grade is 35%. Possible data entry error?"',
+      },
+      {
+        name: 'Transcript Summarization',
+        capability: 'Generates plain-language summary of academic performance',
+        example: '"Strong in programming courses, needs improvement in theoretical subjects."',
+      },
     ],
   },
   {
@@ -80,11 +175,31 @@ const aiModules = [
     icon: <MessageSquare className="w-5 h-5 text-blue-500" />,
     color: 'blue',
     features: [
-      { name: 'Smart Connections', capability: 'Embeddings-based matching of students with similar interests', example: '"You and Victor both list AI and Python — connect?"' },
-      { name: 'Content Moderation', capability: 'Auto-flags toxic, spam, or inappropriate content', example: 'Post hidden, HOD notified: "Potential violation detected. Review?"' },
-      { name: 'Feed Personalization', capability: 'Ranks posts by relevance using engagement prediction', example: 'Prioritizes posts from close connections and relevant topics.' },
-      { name: 'Language Translation', capability: 'Translates messages and posts between languages', example: 'Student posts in Igbo, AI translates to English for non-Igbo classmates.' },
-      { name: 'Voice-to-Text', capability: 'Transcribes voice notes in messages', example: 'Voice note auto-transcribed with text preview.' },
+      {
+        name: 'Smart Connections',
+        capability: 'Embeddings-based matching of students with similar interests',
+        example: '"You and Victor both list AI and Python — connect?"',
+      },
+      {
+        name: 'Content Moderation',
+        capability: 'Auto-flags toxic, spam, or inappropriate content',
+        example: 'Post hidden, HOD notified: "Potential violation detected. Review?"',
+      },
+      {
+        name: 'Feed Personalization',
+        capability: 'Ranks posts by relevance using engagement prediction',
+        example: 'Prioritizes posts from close connections and relevant topics.',
+      },
+      {
+        name: 'Language Translation',
+        capability: 'Translates messages and posts between languages',
+        example: 'Student posts in Igbo, AI translates to English for non-Igbo classmates.',
+      },
+      {
+        name: 'Voice-to-Text',
+        capability: 'Transcribes voice notes in messages',
+        example: 'Voice note auto-transcribed with text preview.',
+      },
     ],
   },
   {
@@ -93,10 +208,26 @@ const aiModules = [
     icon: <Briefcase className="w-5 h-5 text-violet-500" />,
     color: 'violet',
     features: [
-      { name: 'Job-Student Matching', capability: 'Matches student skills, CGPA, and level to job requirements', example: '"This Google internship matches your Python skills and 300L status."' },
-      { name: 'Resume Parser', capability: 'Extracts skills and experience from uploaded resumes', example: 'Auto-fills student profile skills from resume upload.' },
-      { name: 'Interview Prep', capability: 'Generates mock interview questions based on job description', example: '"Based on this backend role, here are 5 likely technical questions."' },
-      { name: 'Salary Benchmarking', capability: 'Compares offered salary to market rates for role/location', example: '"₦150,000 for junior backend in Lagos is below market average (₦200,000)."' },
+      {
+        name: 'Job-Student Matching',
+        capability: 'Matches student skills, CGPA, and level to job requirements',
+        example: '"This Google internship matches your Python skills and 300L status."',
+      },
+      {
+        name: 'Resume Parser',
+        capability: 'Extracts skills and experience from uploaded resumes',
+        example: 'Auto-fills student profile skills from resume upload.',
+      },
+      {
+        name: 'Interview Prep',
+        capability: 'Generates mock interview questions based on job description',
+        example: '"Based on this backend role, here are 5 likely technical questions."',
+      },
+      {
+        name: 'Salary Benchmarking',
+        capability: 'Compares offered salary to market rates for role/location',
+        example: '"₦150,000 for junior backend in Lagos is below market average (₦200,000)."',
+      },
     ],
   },
   {
@@ -105,10 +236,26 @@ const aiModules = [
     icon: <Users className="w-5 h-5 text-pink-500" />,
     color: 'pink',
     features: [
-      { name: 'Mentor-Mentee Matching', capability: 'Matches based on career goals, skills, personality compatibility', example: '"Dr. John Akpan\'s expertise in AI aligns with your career goal. 92% match."' },
-      { name: 'Session Summarization', capability: 'Summarizes mentorship session notes', example: 'Auto-generated summary of discussion points and action items.' },
-      { name: 'Progress Tracking', capability: 'Analyzes mentorship effectiveness over time', example: '"Mentee\'s confidence in technical interviews improved 40% over 5 sessions."' },
-      { name: 'Resource Recommendation', capability: 'Suggests articles, courses, or contacts based on mentorship topics', example: '"For career in product management, read \'Inspired\' by Marty Cagan."' },
+      {
+        name: 'Mentor-Mentee Matching',
+        capability: 'Matches based on career goals, skills, personality compatibility',
+        example: '"Dr. John Akpan\'s expertise in AI aligns with your career goal. 92% match."',
+      },
+      {
+        name: 'Session Summarization',
+        capability: 'Summarizes mentorship session notes',
+        example: 'Auto-generated summary of discussion points and action items.',
+      },
+      {
+        name: 'Progress Tracking',
+        capability: 'Analyzes mentorship effectiveness over time',
+        example: '"Mentee\'s confidence in technical interviews improved 40% over 5 sessions."',
+      },
+      {
+        name: 'Resource Recommendation',
+        capability: 'Suggests articles, courses, or contacts based on mentorship topics',
+        example: '"For career in product management, read \'Inspired\' by Marty Cagan."',
+      },
     ],
   },
   {
@@ -117,10 +264,26 @@ const aiModules = [
     icon: <CreditCard className="w-5 h-5 text-emerald-500" />,
     color: 'emerald',
     features: [
-      { name: 'Fraud Detection', capability: 'Flags suspicious payment patterns', example: '"3 manual payments from same bank account for different students. Verify?"' },
-      { name: 'Revenue Forecasting', capability: 'Predicts session revenue based on historical trends', example: '"Projected revenue: ₦4.8M (85% confidence). Risk: 15% default rate."' },
-      { name: 'Defaulter Risk Scoring', capability: 'Predicts which students are likely to default on dues', example: '"Peter Essien (400L) has 78% default probability based on history."' },
-      { name: 'Expense Categorization', capability: 'Auto-categorizes expenses from receipt uploads', example: 'Upload receipt → AI extracts amount, vendor, category → auto-logged.' },
+      {
+        name: 'Fraud Detection',
+        capability: 'Flags suspicious payment patterns',
+        example: '"3 manual payments from same bank account for different students. Verify?"',
+      },
+      {
+        name: 'Revenue Forecasting',
+        capability: 'Predicts session revenue based on historical trends',
+        example: '"Projected revenue: ₦4.8M (85% confidence). Risk: 15% default rate."',
+      },
+      {
+        name: 'Defaulter Risk Scoring',
+        capability: 'Predicts which students are likely to default on dues',
+        example: '"Peter Essien (400L) has 78% default probability based on history."',
+      },
+      {
+        name: 'Expense Categorization',
+        capability: 'Auto-categorizes expenses from receipt uploads',
+        example: 'Upload receipt → AI extracts amount, vendor, category → auto-logged.',
+      },
     ],
   },
   {
@@ -129,12 +292,36 @@ const aiModules = [
     icon: <Target className="w-5 h-5 text-red-500" />,
     color: 'red',
     features: [
-      { name: 'Early Warning System', capability: 'Predicts students at risk of probation, carryover, or dropout', example: '"12 students in 300L show early warning signs. Intervention recommended."' },
-      { name: 'Course Performance Prediction', capability: 'Predicts pass/fail rates before exams', example: '"CSC 302 projected pass rate: 65%. Consider extra classes."' },
-      { name: 'Lecturer Performance Insights', capability: 'Analyzes student evaluations, attendance, and result trends', example: '"Dr. Okon\'s classes show 20% higher engagement but 10% lower pass rates."' },
-      { name: 'Resource Allocation', capability: 'Suggests optimal course scheduling and lecturer assignment', example: '"Assign Prof. Etim to CSC 301 — her specialization matches."' },
-      { name: 'Sentiment Analysis', capability: 'Analyzes student feedback and announcements engagement', example: '"Student sentiment on fee increase is 72% negative. Consider town hall."' },
-      { name: 'Anomaly Detection', capability: 'Flags unusual patterns in data', example: '"CSC 301 results show 5 students with identical scores. Possible collusion?"' },
+      {
+        name: 'Early Warning System',
+        capability: 'Predicts students at risk of probation, carryover, or dropout',
+        example: '"12 students in 300L show early warning signs. Intervention recommended."',
+      },
+      {
+        name: 'Course Performance Prediction',
+        capability: 'Predicts pass/fail rates before exams',
+        example: '"CSC 302 projected pass rate: 65%. Consider extra classes."',
+      },
+      {
+        name: 'Lecturer Performance Insights',
+        capability: 'Analyzes student evaluations, attendance, and result trends',
+        example: '"Dr. Okon\'s classes show 20% higher engagement but 10% lower pass rates."',
+      },
+      {
+        name: 'Resource Allocation',
+        capability: 'Suggests optimal course scheduling and lecturer assignment',
+        example: '"Assign Prof. Etim to CSC 301 — her specialization matches."',
+      },
+      {
+        name: 'Sentiment Analysis',
+        capability: 'Analyzes student feedback and announcements engagement',
+        example: '"Student sentiment on fee increase is 72% negative. Consider town hall."',
+      },
+      {
+        name: 'Anomaly Detection',
+        capability: 'Flags unusual patterns in data',
+        example: '"CSC 301 results show 5 students with identical scores. Possible collusion?"',
+      },
     ],
   },
   {
@@ -143,31 +330,105 @@ const aiModules = [
     icon: <Settings className="w-5 h-5 text-cyan-500" />,
     color: 'cyan',
     features: [
-      { name: 'Predictive Maintenance', capability: 'Predicts server issues before they occur', example: '"Database CPU trending toward 90% in 48 hours. Scale up recommended."' },
-      { name: 'Log Analysis', capability: 'Parses error logs to identify root causes', example: '"42% of 500 errors stem from Paystack timeout. Increase retry logic."' },
-      { name: 'User Behavior Anomaly', capability: 'Detects bot accounts or abuse patterns', example: '"Account \'student_123\' sent 200 messages in 1 minute. Likely bot."' },
-      { name: 'Auto-Scaling', capability: 'Suggests infrastructure scaling based on usage patterns', example: '"Registration week traffic up 300%. Scale API servers to 6 instances."' },
-      { name: 'Security Threat Detection', capability: 'Identifies potential security breaches', example: '"Unusual data export pattern from admin account. Possible compromise?"' },
+      {
+        name: 'Predictive Maintenance',
+        capability: 'Predicts server issues before they occur',
+        example: '"Database CPU trending toward 90% in 48 hours. Scale up recommended."',
+      },
+      {
+        name: 'Log Analysis',
+        capability: 'Parses error logs to identify root causes',
+        example: '"42% of 500 errors stem from Paystack timeout. Increase retry logic."',
+      },
+      {
+        name: 'User Behavior Anomaly',
+        capability: 'Detects bot accounts or abuse patterns',
+        example: '"Account \'student_123\' sent 200 messages in 1 minute. Likely bot."',
+      },
+      {
+        name: 'Auto-Scaling',
+        capability: 'Suggests infrastructure scaling based on usage patterns',
+        example: '"Registration week traffic up 300%. Scale API servers to 6 instances."',
+      },
+      {
+        name: 'Security Threat Detection',
+        capability: 'Identifies potential security breaches',
+        example: '"Unusual data export pattern from admin account. Possible compromise?"',
+      },
     ],
   },
 ];
 
 const techStack = [
-  { layer: 'LLM Engine', tech: 'OpenAI GPT-4 / Claude / Local LLM', purpose: 'Natural language processing, chatbot, content generation', icon: <Brain className="w-5 h-5 text-primary-500" /> },
-  { layer: 'ML Platform', tech: 'TensorFlow / PyTorch / Scikit-learn', purpose: 'Predictive models, classification, clustering', icon: <TrendingUp className="w-5 h-5 text-accent-500" /> },
-  { layer: 'Vector Database', tech: 'Pinecone / Weaviate / pgvector', purpose: 'Semantic search, recommendation embeddings', icon: <Database className="w-5 h-5 text-success-500" /> },
-  { layer: 'NLP Pipeline', tech: 'spaCy / Hugging Face Transformers', purpose: 'Text analysis, sentiment, entity extraction', icon: <MessageSquare className="w-5 h-5 text-warning-500" /> },
-  { layer: 'Computer Vision', tech: 'OpenCV / TensorFlow Lite', purpose: 'Face detection, document OCR, image analysis', icon: <Eye className="w-5 h-5 text-blue-500" /> },
-  { layer: 'Speech Processing', tech: 'Whisper (OpenAI)', purpose: 'Voice note transcription, accessibility', icon: <Zap className="w-5 h-5 text-violet-500" /> },
+  {
+    layer: 'LLM Engine',
+    tech: 'OpenAI GPT-4 / Claude / Local LLM',
+    purpose: 'Natural language processing, chatbot, content generation',
+    icon: <Brain className="w-5 h-5 text-primary-500" />,
+  },
+  {
+    layer: 'ML Platform',
+    tech: 'TensorFlow / PyTorch / Scikit-learn',
+    purpose: 'Predictive models, classification, clustering',
+    icon: <TrendingUp className="w-5 h-5 text-accent-500" />,
+  },
+  {
+    layer: 'Vector Database',
+    tech: 'Pinecone / Weaviate / pgvector',
+    purpose: 'Semantic search, recommendation embeddings',
+    icon: <Database className="w-5 h-5 text-success-500" />,
+  },
+  {
+    layer: 'NLP Pipeline',
+    tech: 'spaCy / Hugging Face Transformers',
+    purpose: 'Text analysis, sentiment, entity extraction',
+    icon: <MessageSquare className="w-5 h-5 text-warning-500" />,
+  },
+  {
+    layer: 'Computer Vision',
+    tech: 'OpenCV / TensorFlow Lite',
+    purpose: 'Face detection, document OCR, image analysis',
+    icon: <Eye className="w-5 h-5 text-blue-500" />,
+  },
+  {
+    layer: 'Speech Processing',
+    tech: 'Whisper (OpenAI)',
+    purpose: 'Voice note transcription, accessibility',
+    icon: <Zap className="w-5 h-5 text-violet-500" />,
+  },
 ];
 
 const chatbotDomains = [
-  { domain: 'Academic', examples: ['When is the CSC 301 exam?', 'What are my carryover courses?', 'How do I calculate my GPA?'], icon: <BookOpen className="w-4 h-4" /> },
-  { domain: 'Administrative', examples: ['How do I pay my dues?', 'Where is the HOD office?', 'What documents do I need for transcript?'], icon: <FileText className="w-4 h-4" /> },
-  { domain: 'Registration', examples: ['Can I register for CSC 401 without CSC 301?', 'What electives are available for 400L?'], icon: <ClipboardList className="w-4 h-4" /> },
-  { domain: 'Campus Life', examples: ['What events are happening this week?', 'How do I join a study group?'], icon: <Users className="w-4 h-4" /> },
-  { domain: 'Technical Support', examples: ['I can\'t log in.', 'How do I reset my password?', 'The app is crashing.'], icon: <Settings className="w-4 h-4" /> },
-  { domain: 'Career', examples: ['What jobs match my skills?', 'How do I prepare for a tech interview?'], icon: <Briefcase className="w-4 h-4" /> },
+  {
+    domain: 'Academic',
+    examples: ['When is the CSC 301 exam?', 'What are my carryover courses?', 'How do I calculate my GPA?'],
+    icon: <BookOpen className="w-4 h-4" />,
+  },
+  {
+    domain: 'Administrative',
+    examples: ['How do I pay my dues?', 'Where is the HOD office?', 'What documents do I need for transcript?'],
+    icon: <FileText className="w-4 h-4" />,
+  },
+  {
+    domain: 'Registration',
+    examples: ['Can I register for CSC 401 without CSC 301?', 'What electives are available for 400L?'],
+    icon: <ClipboardList className="w-4 h-4" />,
+  },
+  {
+    domain: 'Campus Life',
+    examples: ['What events are happening this week?', 'How do I join a study group?'],
+    icon: <Users className="w-4 h-4" />,
+  },
+  {
+    domain: 'Technical Support',
+    examples: ["I can't log in.", 'How do I reset my password?', 'The app is crashing.'],
+    icon: <Settings className="w-4 h-4" />,
+  },
+  {
+    domain: 'Career',
+    examples: ['What jobs match my skills?', 'How do I prepare for a tech interview?'],
+    icon: <Briefcase className="w-4 h-4" />,
+  },
 ];
 
 const ethicsTable = [
@@ -202,35 +463,123 @@ const privacyRules = [
 ];
 
 const roadmapPhases = [
-  { phase: 'Phase 1: Foundation', features: 'Chatbot (Q&A), smart search, content moderation, plagiarism detection', timeline: 'Months 1–2', color: 'primary' },
-  { phase: 'Phase 2: Personalization', features: 'Study planner, GPA predictor, job matching, connection suggestions', timeline: 'Months 3–4', color: 'accent' },
-  { phase: 'Phase 3: Prediction', features: 'At-risk alerts, revenue forecasting, attendance prediction, result validation', timeline: 'Months 5–6', color: 'success' },
-  { phase: 'Phase 4: Automation', features: 'Face recognition attendance, expense auto-categorization, auto-scaling', timeline: 'Months 7–8', color: 'warning' },
-  { phase: 'Phase 5: Advanced', features: 'Career path mapping, sentiment analysis, predictive maintenance, anomaly detection', timeline: 'Months 9–12', color: 'violet' },
+  {
+    phase: 'Phase 1: Foundation',
+    features: 'Chatbot (Q&A), smart search, content moderation, plagiarism detection',
+    timeline: 'Months 1–2',
+    color: 'primary',
+  },
+  {
+    phase: 'Phase 2: Personalization',
+    features: 'Study planner, GPA predictor, job matching, connection suggestions',
+    timeline: 'Months 3–4',
+    color: 'accent',
+  },
+  {
+    phase: 'Phase 3: Prediction',
+    features: 'At-risk alerts, revenue forecasting, attendance prediction, result validation',
+    timeline: 'Months 5–6',
+    color: 'success',
+  },
+  {
+    phase: 'Phase 4: Automation',
+    features: 'Face recognition attendance, expense auto-categorization, auto-scaling',
+    timeline: 'Months 7–8',
+    color: 'warning',
+  },
+  {
+    phase: 'Phase 5: Advanced',
+    features: 'Career path mapping, sentiment analysis, predictive maintenance, anomaly detection',
+    timeline: 'Months 9–12',
+    color: 'violet',
+  },
 ];
 
 const edgeCases = [
-  { scenario: 'AI chatbot gives wrong answer', handling: '"I may have made a mistake. Please verify with the HOD office." + feedback button' },
-  { scenario: 'Face recognition fails (poor lighting)', handling: 'Fallback to QR scan or manual check-in. Log failure for model improvement.' },
-  { scenario: 'Plagiarism flag is false positive', handling: 'Lecturer can dismiss flag. System learns from dismissal.' },
-  { scenario: 'AI predicts student will fail but they pass', handling: 'Prediction is probabilistic, not deterministic. Log accuracy for model improvement.' },
-  { scenario: 'Student opts out of AI', handling: 'All AI features disabled. Non-AI fallbacks active. No data used for training.' },
-  { scenario: 'AI service is down', handling: 'Graceful degradation: non-AI features continue, AI features show "Temporarily unavailable."' },
-  { scenario: 'Biased recommendation detected', handling: 'Fairness audit triggered. Model retrained. Affected users notified.' },
-  { scenario: 'AI-generated content is inappropriate', handling: 'Content removed. Incident logged. Model fine-tuned.' },
-  { scenario: 'Student disputes AI decision', handling: 'Human review mandatory. HOD investigates. AI decision overridden if wrong.' },
-  { scenario: 'AI suggests course not in catalog', handling: 'Validation layer blocks suggestion. "This course is not available this session."' },
-  { scenario: 'Face recognition misidentifies student', handling: 'Student can report error. Manual correction. System improves with feedback.' },
-  { scenario: 'AI chatbot accessed by unverified student', handling: 'Limited responses: only general info, no personal data.' },
-  { scenario: 'AI model needs retraining', handling: 'Scheduled during low-traffic period. Old model kept as hot standby.' },
-  { scenario: 'Third-party AI API rate limit hit', handling: 'Queue requests. Fall back to local model for critical features.' },
-  { scenario: 'AI recommends unavailable mentor', handling: 'System checks availability in real-time. Suggests next best match.' },
-  { scenario: 'Study plan conflicts with timetable', handling: 'Validation against timetable module. Conflict flagged, plan adjusted.' },
-  { scenario: 'AI detects possible data breach', handling: 'Immediate alert to System Admin + HOD. Affected accounts temporarily locked.' },
-  { scenario: 'Privacy concerns with face recognition', handling: 'Clear consent during onboarding. Opt-out available. Data processed on-device.' },
-  { scenario: 'Content moderation removes legitimate post', handling: 'Appeal process. HOD reviews. Post restored if error.' },
-  { scenario: 'Salary benchmark is outdated', handling: 'Benchmarks refreshed monthly from external data sources. Date stamp shown.' },
-  { scenario: 'AI predicts low pass rate, lecturer disagrees', handling: 'Lecturer can override with reason. Both predictions logged.' },
+  {
+    scenario: 'AI chatbot gives wrong answer',
+    handling: '"I may have made a mistake. Please verify with the HOD office." + feedback button',
+  },
+  {
+    scenario: 'Face recognition fails (poor lighting)',
+    handling: 'Fallback to QR scan or manual check-in. Log failure for model improvement.',
+  },
+  {
+    scenario: 'Plagiarism flag is false positive',
+    handling: 'Lecturer can dismiss flag. System learns from dismissal.',
+  },
+  {
+    scenario: 'AI predicts student will fail but they pass',
+    handling: 'Prediction is probabilistic, not deterministic. Log accuracy for model improvement.',
+  },
+  {
+    scenario: 'Student opts out of AI',
+    handling: 'All AI features disabled. Non-AI fallbacks active. No data used for training.',
+  },
+  {
+    scenario: 'AI service is down',
+    handling: 'Graceful degradation: non-AI features continue, AI features show "Temporarily unavailable."',
+  },
+  {
+    scenario: 'Biased recommendation detected',
+    handling: 'Fairness audit triggered. Model retrained. Affected users notified.',
+  },
+  {
+    scenario: 'AI-generated content is inappropriate',
+    handling: 'Content removed. Incident logged. Model fine-tuned.',
+  },
+  {
+    scenario: 'Student disputes AI decision',
+    handling: 'Human review mandatory. HOD investigates. AI decision overridden if wrong.',
+  },
+  {
+    scenario: 'AI suggests course not in catalog',
+    handling: 'Validation layer blocks suggestion. "This course is not available this session."',
+  },
+  {
+    scenario: 'Face recognition misidentifies student',
+    handling: 'Student can report error. Manual correction. System improves with feedback.',
+  },
+  {
+    scenario: 'AI chatbot accessed by unverified student',
+    handling: 'Limited responses: only general info, no personal data.',
+  },
+  {
+    scenario: 'AI model needs retraining',
+    handling: 'Scheduled during low-traffic period. Old model kept as hot standby.',
+  },
+  {
+    scenario: 'Third-party AI API rate limit hit',
+    handling: 'Queue requests. Fall back to local model for critical features.',
+  },
+  {
+    scenario: 'AI recommends unavailable mentor',
+    handling: 'System checks availability in real-time. Suggests next best match.',
+  },
+  {
+    scenario: 'Study plan conflicts with timetable',
+    handling: 'Validation against timetable module. Conflict flagged, plan adjusted.',
+  },
+  {
+    scenario: 'AI detects possible data breach',
+    handling: 'Immediate alert to System Admin + HOD. Affected accounts temporarily locked.',
+  },
+  {
+    scenario: 'Privacy concerns with face recognition',
+    handling: 'Clear consent during onboarding. Opt-out available. Data processed on-device.',
+  },
+  {
+    scenario: 'Content moderation removes legitimate post',
+    handling: 'Appeal process. HOD reviews. Post restored if error.',
+  },
+  {
+    scenario: 'Salary benchmark is outdated',
+    handling: 'Benchmarks refreshed monthly from external data sources. Date stamp shown.',
+  },
+  {
+    scenario: 'AI predicts low pass rate, lecturer disagrees',
+    handling: 'Lecturer can override with reason. Both predictions logged.',
+  },
 ];
 
 const dataModel = [
@@ -319,7 +668,10 @@ const ModuleFeatureTable = ({ features }: { features: { name: string; capability
       </thead>
       <tbody>
         {features.map((f, i) => (
-          <tr key={i} className="border-b border-surface-100 dark:border-surface-800 last:border-0 hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors">
+          <tr
+            key={i}
+            className="border-b border-surface-100 dark:border-surface-800 last:border-0 hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors"
+          >
             <td className="py-2.5 px-3 font-medium text-surface-900 dark:text-white whitespace-nowrap">{f.name}</td>
             <td className="py-2.5 px-3 text-surface-600 dark:text-surface-400">{f.capability}</td>
             <td className="py-2.5 px-3 text-surface-500 dark:text-surface-500 italic max-w-xs">{f.example}</td>
@@ -349,7 +701,12 @@ const AIBlueprintPage = () => {
           </span>
         </div>
 
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6">
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="space-y-6"
+        >
           {/* Title */}
           <div className="text-center space-y-3">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-500/10 border border-primary-500/20 text-primary-600 dark:text-primary-400 text-xs font-semibold">
@@ -379,7 +736,7 @@ const AIBlueprintPage = () => {
                   'flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-all',
                   activeSection === s.key
                     ? 'bg-primary-500 text-white shadow-md shadow-primary-500/25'
-                    : 'text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800'
+                    : 'text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800',
                 )}
               >
                 {s.icon}
@@ -402,7 +759,10 @@ const AIBlueprintPage = () => {
                 </CardHeader>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {techStack.map((t, i) => (
-                    <div key={i} className="flex items-start gap-3 p-4 rounded-xl border border-surface-200 dark:border-surface-700 hover:border-primary-300 dark:hover:border-primary-700 transition-colors bg-surface-50/50 dark:bg-surface-800/30">
+                    <div
+                      key={i}
+                      className="flex items-start gap-3 p-4 rounded-xl border border-surface-200 dark:border-surface-700 hover:border-primary-300 dark:hover:border-primary-700 transition-colors bg-surface-50/50 dark:bg-surface-800/30"
+                    >
                       <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-surface-100 dark:bg-surface-800 flex items-center justify-center">
                         {t.icon}
                       </div>
@@ -439,9 +799,13 @@ const AIBlueprintPage = () => {
                     <div className="flex items-center gap-2 flex-wrap pl-4">
                       <span className="px-2 py-1 rounded bg-blue-500/20 text-blue-400">Response</span>
                       <span className="text-surface-500">→</span>
-                      <span className="px-2 py-1 rounded bg-violet-500/20 text-violet-400">Human Review Gate (if required)</span>
+                      <span className="px-2 py-1 rounded bg-violet-500/20 text-violet-400">
+                        Human Review Gate (if required)
+                      </span>
                       <span className="text-surface-500">→</span>
-                      <span className="px-2 py-1 rounded bg-emerald-500/20 text-emerald-400">Action / Display / Notification</span>
+                      <span className="px-2 py-1 rounded bg-emerald-500/20 text-emerald-400">
+                        Action / Display / Notification
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -449,8 +813,9 @@ const AIBlueprintPage = () => {
                   <div className="flex items-start gap-2">
                     <Info className="w-4 h-4 text-primary-500 mt-0.5 shrink-0" />
                     <p className="text-xs text-surface-600 dark:text-surface-400">
-                      <span className="font-semibold text-primary-600 dark:text-primary-400">Rule:</span> All AI outputs that affect student records,
-                      grades, or administrative decisions must pass through a human review gate before execution.
+                      <span className="font-semibold text-primary-600 dark:text-primary-400">Rule:</span> All AI outputs
+                      that affect student records, grades, or administrative decisions must pass through a human review
+                      gate before execution.
                     </p>
                   </div>
                 </div>
@@ -468,15 +833,27 @@ const AIBlueprintPage = () => {
                     className="w-full flex items-center justify-between p-5 hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors text-left"
                   >
                     <div className="flex items-center gap-3">
-                      <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center border', colorMap[mod.color])}>
+                      <div
+                        className={cn(
+                          'w-10 h-10 rounded-lg flex items-center justify-center border',
+                          colorMap[mod.color],
+                        )}
+                      >
                         {mod.icon}
                       </div>
                       <div>
                         <h3 className="font-semibold text-sm text-surface-900 dark:text-white">{mod.title}</h3>
-                        <p className="text-xs text-surface-500 dark:text-surface-400">{mod.subtitle} — {mod.features.length} features</p>
+                        <p className="text-xs text-surface-500 dark:text-surface-400">
+                          {mod.subtitle} — {mod.features.length} features
+                        </p>
                       </div>
                     </div>
-                    <ChevronDown className={cn('w-4 h-4 text-surface-400 transition-transform', expandedModule === idx && 'rotate-180')} />
+                    <ChevronDown
+                      className={cn(
+                        'w-4 h-4 text-surface-400 transition-transform',
+                        expandedModule === idx && 'rotate-180',
+                      )}
+                    />
                   </button>
                   <AnimatePresence>
                     {expandedModule === idx && (
@@ -512,14 +889,20 @@ const AIBlueprintPage = () => {
                 </CardHeader>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {chatbotDomains.map((d, i) => (
-                    <div key={i} className="p-4 rounded-xl border border-surface-200 dark:border-surface-700 space-y-3 hover:border-primary-300 dark:hover:border-primary-700 transition-colors">
+                    <div
+                      key={i}
+                      className="p-4 rounded-xl border border-surface-200 dark:border-surface-700 space-y-3 hover:border-primary-300 dark:hover:border-primary-700 transition-colors"
+                    >
                       <div className="flex items-center gap-2">
                         <div className="text-primary-500">{d.icon}</div>
                         <h4 className="font-semibold text-sm text-surface-900 dark:text-white">{d.domain}</h4>
                       </div>
                       <ul className="space-y-1.5">
                         {d.examples.map((ex, j) => (
-                          <li key={j} className="text-xs text-surface-500 dark:text-surface-400 pl-3 border-l-2 border-surface-200 dark:border-surface-700">
+                          <li
+                            key={j}
+                            className="text-xs text-surface-500 dark:text-surface-400 pl-3 border-l-2 border-surface-200 dark:border-surface-700"
+                          >
                             "{ex}"
                           </li>
                         ))}
@@ -538,12 +921,17 @@ const AIBlueprintPage = () => {
                   </CardTitle>
                 </CardHeader>
                 <div className="bg-surface-100 dark:bg-surface-800 rounded-2xl p-4 max-w-md mx-auto space-y-4">
-                  <div className="text-center text-xs font-semibold text-surface-500 dark:text-surface-400">ACES Assistant</div>
+                  <div className="text-center text-xs font-semibold text-surface-500 dark:text-surface-400">
+                    ACES Assistant
+                  </div>
                   <div className="bg-white dark:bg-surface-900 rounded-xl p-3 shadow-sm space-y-3">
                     <p className="text-xs text-surface-600 dark:text-surface-300">How can I help you today?</p>
                     <div className="flex flex-wrap gap-1.5">
                       {['My Schedule', 'Pay Dues', 'My Grades', 'Find Mentor', 'Study Resources', 'Help'].map((a) => (
-                        <span key={a} className="px-2 py-1 rounded-full bg-primary-50 dark:bg-primary-950/30 text-primary-600 dark:text-primary-400 text-[10px] font-medium border border-primary-200 dark:border-primary-800">
+                        <span
+                          key={a}
+                          className="px-2 py-1 rounded-full bg-primary-50 dark:bg-primary-950/30 text-primary-600 dark:text-primary-400 text-[10px] font-medium border border-primary-200 dark:border-primary-800"
+                        >
                           {a}
                         </span>
                       ))}
@@ -553,10 +941,16 @@ const AIBlueprintPage = () => {
                     When is my next exam?
                   </div>
                   <div className="bg-white dark:bg-surface-900 rounded-xl p-3 mr-8 text-xs shadow-sm space-y-2">
-                    <p className="text-surface-700 dark:text-surface-300">Your next exam is CSC 301 on July 25, 2026 at 10:00 AM in LT 1. You have 5 days to prepare.</p>
+                    <p className="text-surface-700 dark:text-surface-300">
+                      Your next exam is CSC 301 on July 25, 2026 at 10:00 AM in LT 1. You have 5 days to prepare.
+                    </p>
                     <div className="flex gap-1.5">
-                      <span className="px-2 py-1 rounded bg-surface-100 dark:bg-surface-800 text-[10px] text-surface-600 dark:text-surface-400">View Exam Timetable</span>
-                      <span className="px-2 py-1 rounded bg-surface-100 dark:bg-surface-800 text-[10px] text-surface-600 dark:text-surface-400">Study Resources</span>
+                      <span className="px-2 py-1 rounded bg-surface-100 dark:bg-surface-800 text-[10px] text-surface-600 dark:text-surface-400">
+                        View Exam Timetable
+                      </span>
+                      <span className="px-2 py-1 rounded bg-surface-100 dark:bg-surface-800 text-[10px] text-surface-600 dark:text-surface-400">
+                        Study Resources
+                      </span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 bg-white dark:bg-surface-900 rounded-full px-3 py-2 shadow-sm border border-surface-200 dark:border-surface-700">
@@ -579,16 +973,32 @@ const AIBlueprintPage = () => {
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-surface-200 dark:border-surface-700">
-                        <th className="text-left py-2 px-3 font-semibold text-surface-700 dark:text-surface-300">Scenario</th>
-                        <th className="text-left py-2 px-3 font-semibold text-surface-700 dark:text-surface-300">Action</th>
+                        <th className="text-left py-2 px-3 font-semibold text-surface-700 dark:text-surface-300">
+                          Scenario
+                        </th>
+                        <th className="text-left py-2 px-3 font-semibold text-surface-700 dark:text-surface-300">
+                          Action
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {[
-                        { scenario: 'Complex query', action: '"Let me connect you with the HOD office." → Creates ticket' },
-                        { scenario: 'Sensitive issue', action: '"This requires human support." → Routes to HOD or counselor' },
-                        { scenario: 'Unknown query', action: '"I don\'t know the answer. Let me find out." → Logs for training' },
-                        { scenario: 'Emergency', action: '"This sounds urgent. Contact security immediately: [number]"' },
+                        {
+                          scenario: 'Complex query',
+                          action: '"Let me connect you with the HOD office." → Creates ticket',
+                        },
+                        {
+                          scenario: 'Sensitive issue',
+                          action: '"This requires human support." → Routes to HOD or counselor',
+                        },
+                        {
+                          scenario: 'Unknown query',
+                          action: '"I don\'t know the answer. Let me find out." → Logs for training',
+                        },
+                        {
+                          scenario: 'Emergency',
+                          action: '"This sounds urgent. Contact security immediately: [number]"',
+                        },
                         { scenario: 'Repeated failure', action: 'After 3 failed attempts, auto-offers human support' },
                       ].map((e, i) => (
                         <tr key={i} className="border-b border-surface-100 dark:border-surface-800 last:border-0">
@@ -618,9 +1028,15 @@ const AIBlueprintPage = () => {
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-surface-200 dark:border-surface-700">
-                        <th className="text-left py-2 px-3 font-semibold text-surface-700 dark:text-surface-300">AI Output Type</th>
-                        <th className="text-left py-2 px-3 font-semibold text-surface-700 dark:text-surface-300">Human Review?</th>
-                        <th className="text-left py-2 px-3 font-semibold text-surface-700 dark:text-surface-300">Reviewer</th>
+                        <th className="text-left py-2 px-3 font-semibold text-surface-700 dark:text-surface-300">
+                          AI Output Type
+                        </th>
+                        <th className="text-left py-2 px-3 font-semibold text-surface-700 dark:text-surface-300">
+                          Human Review?
+                        </th>
+                        <th className="text-left py-2 px-3 font-semibold text-surface-700 dark:text-surface-300">
+                          Reviewer
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -656,7 +1072,10 @@ const AIBlueprintPage = () => {
                 </CardHeader>
                 <div className="space-y-3">
                   {biasMeasures.map((b, i) => (
-                    <div key={i} className="flex items-start gap-3 p-3 rounded-lg hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors">
+                    <div
+                      key={i}
+                      className="flex items-start gap-3 p-3 rounded-lg hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors"
+                    >
                       <CheckCircle className="w-4 h-4 text-success-500 mt-0.5 shrink-0" />
                       <div>
                         <p className="text-xs font-semibold text-surface-900 dark:text-white">{b.measure}</p>
@@ -677,7 +1096,10 @@ const AIBlueprintPage = () => {
                 </CardHeader>
                 <div className="space-y-3">
                   {privacyRules.map((p, i) => (
-                    <div key={i} className="flex items-start gap-3 p-3 rounded-lg hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors">
+                    <div
+                      key={i}
+                      className="flex items-start gap-3 p-3 rounded-lg hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors"
+                    >
                       <Lock className="w-4 h-4 text-primary-500 mt-0.5 shrink-0" />
                       <div>
                         <p className="text-xs font-semibold text-surface-900 dark:text-white">{p.rule}</p>
@@ -706,17 +1128,27 @@ const AIBlueprintPage = () => {
                   <div className="space-y-6">
                     {roadmapPhases.map((p, i) => (
                       <div key={i} className="relative flex items-start gap-4 pl-4">
-                        <div className={cn('relative z-10 w-3 h-3 rounded-full mt-1.5 shrink-0 ring-4 ring-surface-50 dark:ring-surface-950', {
-                          'bg-primary-500': p.color === 'primary',
-                          'bg-accent-500': p.color === 'accent',
-                          'bg-success-500': p.color === 'success',
-                          'bg-warning-500': p.color === 'warning',
-                          'bg-violet-500': p.color === 'violet',
-                        })} />
+                        <div
+                          className={cn(
+                            'relative z-10 w-3 h-3 rounded-full mt-1.5 shrink-0 ring-4 ring-surface-50 dark:ring-surface-950',
+                            {
+                              'bg-primary-500': p.color === 'primary',
+                              'bg-accent-500': p.color === 'accent',
+                              'bg-success-500': p.color === 'success',
+                              'bg-warning-500': p.color === 'warning',
+                              'bg-violet-500': p.color === 'violet',
+                            },
+                          )}
+                        />
                         <div className="flex-1 p-4 rounded-xl border border-surface-200 dark:border-surface-700 hover:border-primary-300 dark:hover:border-primary-700 transition-colors bg-surface-50/50 dark:bg-surface-800/30">
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                             <h4 className="font-semibold text-sm text-surface-900 dark:text-white">{p.phase}</h4>
-                            <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border', colorMap[p.color])}>
+                            <span
+                              className={cn(
+                                'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border',
+                                colorMap[p.color],
+                              )}
+                            >
                               <Clock className="w-3 h-3" />
                               {p.timeline}
                             </span>
@@ -746,27 +1178,77 @@ const AIBlueprintPage = () => {
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-surface-200 dark:border-surface-700">
-                        <th className="text-left py-2 px-3 font-semibold text-surface-700 dark:text-surface-300">Module</th>
-                        <th className="text-left py-2 px-3 font-semibold text-surface-700 dark:text-surface-300">AI Integrations</th>
+                        <th className="text-left py-2 px-3 font-semibold text-surface-700 dark:text-surface-300">
+                          Module
+                        </th>
+                        <th className="text-left py-2 px-3 font-semibold text-surface-700 dark:text-surface-300">
+                          AI Integrations
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {[
-                        { module: 'Student Dashboard', integrations: 'Study assistant, GPA predictor, at-risk alerts, course recommendations' },
-                        { module: 'Course Registration', integrations: 'Prerequisite checker, timetable optimizer, workload balancer, career mapper' },
-                        { module: 'Attendance', integrations: 'Face recognition, pattern analysis, predictive absence, geofence optimization' },
-                        { module: 'Results & Transcript', integrations: 'Grade distribution, plagiarism detection, result validation, summarization' },
-                        { module: 'Campus Connect', integrations: 'Smart connections, content moderation, feed personalization, translation, voice-to-text' },
-                        { module: 'Job Board', integrations: 'Job-student matching, resume parser, interview prep, salary benchmarking' },
-                        { module: 'Mentorship', integrations: 'Mentor-mentee matching, session summarization, progress tracking, resource recommendations' },
-                        { module: 'Dues & Payment', integrations: 'Fraud detection, revenue forecasting, defaulter scoring, expense categorization' },
-                        { module: 'HOD Dashboard', integrations: 'Early warning, course performance prediction, lecturer insights, resource allocation, sentiment analysis, anomaly detection' },
-                        { module: 'System Admin', integrations: 'Predictive maintenance, log analysis, behavior anomaly, auto-scaling, security threat detection' },
-                        { module: 'Announcements', integrations: 'Smart targeting, engagement prediction, auto-summarization' },
-                        { module: 'Transcript', integrations: 'Auto-validation, discrepancy detection, plain-language summary' },
+                        {
+                          module: 'Student Dashboard',
+                          integrations: 'Study assistant, GPA predictor, at-risk alerts, course recommendations',
+                        },
+                        {
+                          module: 'Course Registration',
+                          integrations: 'Prerequisite checker, timetable optimizer, workload balancer, career mapper',
+                        },
+                        {
+                          module: 'Attendance',
+                          integrations: 'Face recognition, pattern analysis, predictive absence, geofence optimization',
+                        },
+                        {
+                          module: 'Results & Transcript',
+                          integrations: 'Grade distribution, plagiarism detection, result validation, summarization',
+                        },
+                        {
+                          module: 'Campus Connect',
+                          integrations:
+                            'Smart connections, content moderation, feed personalization, translation, voice-to-text',
+                        },
+                        {
+                          module: 'Job Board',
+                          integrations: 'Job-student matching, resume parser, interview prep, salary benchmarking',
+                        },
+                        {
+                          module: 'Mentorship',
+                          integrations:
+                            'Mentor-mentee matching, session summarization, progress tracking, resource recommendations',
+                        },
+                        {
+                          module: 'Dues & Payment',
+                          integrations:
+                            'Fraud detection, revenue forecasting, defaulter scoring, expense categorization',
+                        },
+                        {
+                          module: 'HOD Dashboard',
+                          integrations:
+                            'Early warning, course performance prediction, lecturer insights, resource allocation, sentiment analysis, anomaly detection',
+                        },
+                        {
+                          module: 'System Admin',
+                          integrations:
+                            'Predictive maintenance, log analysis, behavior anomaly, auto-scaling, security threat detection',
+                        },
+                        {
+                          module: 'Announcements',
+                          integrations: 'Smart targeting, engagement prediction, auto-summarization',
+                        },
+                        {
+                          module: 'Transcript',
+                          integrations: 'Auto-validation, discrepancy detection, plain-language summary',
+                        },
                       ].map((row, i) => (
-                        <tr key={i} className="border-b border-surface-100 dark:border-surface-800 last:border-0 hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors">
-                          <td className="py-2.5 px-3 font-medium text-surface-900 dark:text-white whitespace-nowrap">{row.module}</td>
+                        <tr
+                          key={i}
+                          className="border-b border-surface-100 dark:border-surface-800 last:border-0 hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors"
+                        >
+                          <td className="py-2.5 px-3 font-medium text-surface-900 dark:text-white whitespace-nowrap">
+                            {row.module}
+                          </td>
                           <td className="py-2.5 px-3 text-surface-600 dark:text-surface-400">{row.integrations}</td>
                         </tr>
                       ))}
@@ -786,7 +1268,9 @@ const AIBlueprintPage = () => {
                     <AlertTriangle className="w-5 h-5 text-warning-500" />
                     Edge Cases & Business Rules
                   </CardTitle>
-                  <CardDescription>How the system handles exceptional scenarios ({edgeCases.length} rules)</CardDescription>
+                  <CardDescription>
+                    How the system handles exceptional scenarios ({edgeCases.length} rules)
+                  </CardDescription>
                 </CardHeader>
                 <div className="space-y-2">
                   {edgeCases.map((e, i) => (
@@ -795,17 +1279,29 @@ const AIBlueprintPage = () => {
                       onClick={() => setExpandedEdgeCase(expandedEdgeCase === i ? null : i)}
                       className="w-full text-left"
                     >
-                      <div className={cn(
-                        'flex items-center justify-between p-3 rounded-lg transition-colors',
-                        expandedEdgeCase === i
-                          ? 'bg-warning-50 dark:bg-warning-950/20 border border-warning-200 dark:border-warning-800'
-                          : 'hover:bg-surface-50 dark:hover:bg-surface-800/50 border border-transparent'
-                      )}>
+                      <div
+                        className={cn(
+                          'flex items-center justify-between p-3 rounded-lg transition-colors',
+                          expandedEdgeCase === i
+                            ? 'bg-warning-50 dark:bg-warning-950/20 border border-warning-200 dark:border-warning-800'
+                            : 'hover:bg-surface-50 dark:hover:bg-surface-800/50 border border-transparent',
+                        )}
+                      >
                         <div className="flex items-center gap-2">
-                          <AlertCircle className={cn('w-3.5 h-3.5 shrink-0', expandedEdgeCase === i ? 'text-warning-500' : 'text-surface-400')} />
+                          <AlertCircle
+                            className={cn(
+                              'w-3.5 h-3.5 shrink-0',
+                              expandedEdgeCase === i ? 'text-warning-500' : 'text-surface-400',
+                            )}
+                          />
                           <span className="text-xs font-medium text-surface-900 dark:text-white">{e.scenario}</span>
                         </div>
-                        <ChevronDown className={cn('w-3.5 h-3.5 text-surface-400 transition-transform', expandedEdgeCase === i && 'rotate-180')} />
+                        <ChevronDown
+                          className={cn(
+                            'w-3.5 h-3.5 text-surface-400 transition-transform',
+                            expandedEdgeCase === i && 'rotate-180',
+                          )}
+                        />
                       </div>
                       <AnimatePresence>
                         {expandedEdgeCase === i && (
@@ -816,7 +1312,9 @@ const AIBlueprintPage = () => {
                             transition={{ duration: 0.15 }}
                             className="overflow-hidden"
                           >
-                            <p className="text-xs text-surface-600 dark:text-surface-400 pl-6 pr-3 pb-3 pt-1">{e.handling}</p>
+                            <p className="text-xs text-surface-600 dark:text-surface-400 pl-6 pr-3 pb-3 pt-1">
+                              {e.handling}
+                            </p>
                           </motion.div>
                         )}
                       </AnimatePresence>
@@ -842,21 +1340,37 @@ const AIBlueprintPage = () => {
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b border-surface-200 dark:border-surface-700">
-                          <th className="text-left py-2 px-3 font-semibold text-surface-700 dark:text-surface-300">Field</th>
-                          <th className="text-left py-2 px-3 font-semibold text-surface-700 dark:text-surface-300">Type</th>
-                          <th className="text-left py-2 px-3 font-semibold text-surface-700 dark:text-surface-300">Description</th>
+                          <th className="text-left py-2 px-3 font-semibold text-surface-700 dark:text-surface-300">
+                            Field
+                          </th>
+                          <th className="text-left py-2 px-3 font-semibold text-surface-700 dark:text-surface-300">
+                            Type
+                          </th>
+                          <th className="text-left py-2 px-3 font-semibold text-surface-700 dark:text-surface-300">
+                            Description
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
                         {table.fields.map((f, fIdx) => (
                           <tr key={fIdx} className="border-b border-surface-100 dark:border-surface-800 last:border-0">
-                            <td className="py-2 px-3 font-mono font-medium text-primary-600 dark:text-primary-400">{f.name}</td>
+                            <td className="py-2 px-3 font-mono font-medium text-primary-600 dark:text-primary-400">
+                              {f.name}
+                            </td>
                             <td className="py-2 px-3">
-                              <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-semibold', {
-                                'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300': f.type === 'PK',
-                                'bg-accent-100 dark:bg-accent-900/30 text-accent-700 dark:text-accent-300': f.type === 'FK' || f.type === 'FK?',
-                                'bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-400': !['PK', 'FK', 'FK?'].includes(f.type),
-                              })}>
+                              <span
+                                className={cn('px-1.5 py-0.5 rounded text-[10px] font-semibold', {
+                                  'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300':
+                                    f.type === 'PK',
+                                  'bg-accent-100 dark:bg-accent-900/30 text-accent-700 dark:text-accent-300':
+                                    f.type === 'FK' || f.type === 'FK?',
+                                  'bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-400': ![
+                                    'PK',
+                                    'FK',
+                                    'FK?',
+                                  ].includes(f.type),
+                                })}
+                              >
                                 {f.type}
                               </span>
                             </td>

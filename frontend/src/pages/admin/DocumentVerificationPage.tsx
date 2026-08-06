@@ -4,11 +4,25 @@ import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { listPendingDocuments, verifyDocument, rejectDocument } from '../../api/profile-edit';
 import { useNotification } from '../../hooks/useNotification';
-import { FileText, CheckCircle, XCircle, Clock, Eye, AlertCircle } from 'lucide-react';
+import { getErrorMessage } from '../../utils/errors';
+import { FileText, CheckCircle, XCircle, Clock, Eye } from 'lucide-react';
+
+interface PendingDocument {
+  id: string;
+  student_id: string;
+  doc_type: string;
+  file_url: string;
+  file_name: string;
+  file_size: number;
+  status: string;
+  created_at: string;
+  student_name?: string;
+  matric_number?: string;
+}
 
 const DocumentVerificationPage = () => {
   const { success, error: notifyError } = useNotification();
-  const [documents, setDocuments] = useState<any[]>([]);
+  const [documents, setDocuments] = useState<PendingDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
@@ -27,15 +41,17 @@ const DocumentVerificationPage = () => {
     }
   };
 
-  useEffect(() => { loadDocs(); }, []);
+  useEffect(() => {
+    loadDocs();
+  }, []);
 
   const handleVerify = async (docId: string) => {
     try {
       await verifyDocument(docId);
       success('Verified', 'Document verified successfully.');
       loadDocs();
-    } catch (err: any) {
-      notifyError('Error', err?.response?.data?.error || 'Failed to verify.');
+    } catch (err: unknown) {
+      notifyError('Error', getErrorMessage(err, 'Failed to verify.'));
     }
   };
 
@@ -50,8 +66,8 @@ const DocumentVerificationPage = () => {
       setRejectingId(null);
       setRejectReason('');
       loadDocs();
-    } catch (err: any) {
-      notifyError('Error', err?.response?.data?.error || 'Failed to reject.');
+    } catch (err: unknown) {
+      notifyError('Error', getErrorMessage(err, 'Failed to reject.'));
     }
   };
 
@@ -81,64 +97,83 @@ const DocumentVerificationPage = () => {
               <p className="text-sm text-surface-500">No pending documents.</p>
             </div>
           )}
-          {!loading && documents.map((doc) => (
-            <div key={doc.id} className="p-4 hover:bg-surface-50 dark:hover:bg-surface-800/40 transition-colors">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3">
-                  <FileText className="w-5 h-5 text-surface-400 mt-0.5" />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm text-surface-900 dark:text-white">{doc.file_name}</span>
-                      <Badge variant="warning" className="text-[10px]">{doc.doc_type?.replace('_', ' ')}</Badge>
+          {!loading &&
+            documents.map((doc) => (
+              <div key={doc.id} className="p-4 hover:bg-surface-50 dark:hover:bg-surface-800/40 transition-colors">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3">
+                    <FileText className="w-5 h-5 text-surface-400 mt-0.5" />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm text-surface-900 dark:text-white">{doc.file_name}</span>
+                        <Badge variant="warning" className="text-[10px]">
+                          {doc.doc_type?.replace('_', ' ')}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-surface-400 mt-0.5">
+                        {doc.student_name || 'Student'} | {doc.matric_number || ''}
+                      </p>
+                      <p className="text-[10px] text-surface-400 mt-0.5">
+                        Uploaded: {doc.created_at ? new Date(doc.created_at).toLocaleString() : 'N/A'} |{' '}
+                        {(doc.file_size / 1024).toFixed(1)} KB
+                      </p>
+                      {doc.file_url && (
+                        <a
+                          href={doc.file_url.startsWith('http') ? doc.file_url : `/api/v1/files/${doc.file_url}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-primary-500 hover:underline mt-1 inline-flex items-center gap-1"
+                        >
+                          <Eye className="w-3 h-3" /> View Document
+                        </a>
+                      )}
                     </div>
-                    <p className="text-xs text-surface-400 mt-0.5">
-                      {doc.student_name || 'Student'} | {doc.matric_number || ''}
-                    </p>
-                    <p className="text-[10px] text-surface-400 mt-0.5">
-                      Uploaded: {doc.created_at ? new Date(doc.created_at).toLocaleString() : 'N/A'} | {(doc.file_size / 1024).toFixed(1)} KB
-                    </p>
-                    {doc.file_url && (
-                      <a
-                        href={doc.file_url.startsWith('http') ? doc.file_url : `/api/v1/files/${doc.file_url}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-primary-500 hover:underline mt-1 inline-flex items-center gap-1"
-                      >
-                        <Eye className="w-3 h-3" /> View Document
-                      </a>
-                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="xs"
+                      variant="success"
+                      onClick={() => handleVerify(doc.id)}
+                      leftIcon={<CheckCircle className="w-3.5 h-3.5" />}
+                    >
+                      Verify
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="danger"
+                      onClick={() => setRejectingId(rejectingId === doc.id ? null : doc.id)}
+                      leftIcon={<XCircle className="w-3.5 h-3.5" />}
+                    >
+                      Reject
+                    </Button>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button size="xs" variant="success" onClick={() => handleVerify(doc.id)} leftIcon={<CheckCircle className="w-3.5 h-3.5" />}>
-                    Verify
-                  </Button>
-                  <Button size="xs" variant="danger" onClick={() => setRejectingId(rejectingId === doc.id ? null : doc.id)} leftIcon={<XCircle className="w-3.5 h-3.5" />}>
-                    Reject
-                  </Button>
-                </div>
+                {rejectingId === doc.id && (
+                  <div className="mt-3 ml-8 flex gap-2 items-end">
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-surface-700 dark:text-surface-300 mb-1">
+                        Rejection Reason
+                      </label>
+                      <textarea
+                        className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600 text-sm"
+                        rows={2}
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        placeholder="Explain why this document is being rejected..."
+                      />
+                    </div>
+                    <Button
+                      size="xs"
+                      variant="danger"
+                      onClick={() => handleReject(doc.id)}
+                      disabled={rejectReason.length < 5}
+                    >
+                      Confirm
+                    </Button>
+                  </div>
+                )}
               </div>
-              {rejectingId === doc.id && (
-                <div className="mt-3 ml-8 flex gap-2 items-end">
-                  <div className="flex-1">
-                    <label className="block text-xs font-medium text-surface-700 dark:text-surface-300 mb-1">
-                      Rejection Reason
-                    </label>
-                    <textarea
-                      className="w-full px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600 text-sm"
-                      rows={2}
-                      value={rejectReason}
-                      onChange={(e) => setRejectReason(e.target.value)}
-                      placeholder="Explain why this document is being rejected..."
-                    />
-                  </div>
-                  <Button size="xs" variant="danger" onClick={() => handleReject(doc.id)} disabled={rejectReason.length < 5}>
-                    Confirm
-                  </Button>
-                </div>
-              )}
-            </div>
-          ))}
+            ))}
         </div>
       </Card>
     </div>

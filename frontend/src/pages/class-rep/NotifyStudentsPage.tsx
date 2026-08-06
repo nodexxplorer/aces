@@ -5,6 +5,7 @@ import Badge from '../../components/ui/Badge';
 import { useNotification } from '../../hooks/useNotification';
 import { getClassRepClassList, sendClassNotification, type ClassRepStudent } from '../../api/class-rep';
 import { Search, Send, Users, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { getErrorMessage } from '../../utils/errors';
 
 const NotifyStudentsPage = () => {
   const { success, error: notifyError } = useNotification();
@@ -15,7 +16,9 @@ const NotifyStudentsPage = () => {
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
-  const [results, setResults] = useState<{ student_id: string; status: 'sent' | 'failed'; error?: string }[] | null>(null);
+  const [results, setResults] = useState<{ student_id: string; status: 'sent' | 'failed'; error?: string }[] | null>(
+    null,
+  );
 
   useEffect(() => {
     getClassRepClassList()
@@ -27,7 +30,7 @@ const NotifyStudentsPage = () => {
   const filtered = students.filter(
     (s) =>
       s.full_name.toLowerCase().includes(search.toLowerCase()) ||
-      s.matric_number.toLowerCase().includes(search.toLowerCase())
+      s.matric_number.toLowerCase().includes(search.toLowerCase()),
   );
 
   const toggleSelect = (id: string) => {
@@ -76,8 +79,8 @@ const NotifyStudentsPage = () => {
       } else {
         notifyError('Partial Failure', `${sent} sent, ${failed} failed`);
       }
-    } catch (e: any) {
-      notifyError('Error', e.message || 'Failed to send notifications');
+    } catch (e: unknown) {
+      notifyError('Error', getErrorMessage(e, 'Failed to send notifications'));
     } finally {
       setSending(false);
     }
@@ -109,7 +112,9 @@ const NotifyStudentsPage = () => {
                 <Users className="w-5 h-5 text-primary-500" />
                 <CardTitle>Select Recipients</CardTitle>
               </div>
-              <span className="text-xs text-surface-400">{selected.size} of {filtered.length} selected</span>
+              <span className="text-xs text-surface-400">
+                {selected.size} of {filtered.length} selected
+              </span>
             </CardHeader>
 
             <div className="px-4 pb-3">
@@ -147,7 +152,12 @@ const NotifyStudentsPage = () => {
                     className="w-4 h-4 rounded border-surface-300 text-primary-600 focus:ring-primary-500/20"
                   />
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-xs font-semibold shrink-0">
-                    {s.full_name?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                    {s.full_name
+                      ?.split(' ')
+                      .map((n: string) => n[0])
+                      .join('')
+                      .slice(0, 2)
+                      .toUpperCase()}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-surface-900 dark:text-white truncate">{s.full_name}</p>
@@ -156,9 +166,7 @@ const NotifyStudentsPage = () => {
                   {s.is_defaulter && <Badge variant="danger">Defaulter</Badge>}
                 </label>
               ))}
-              {filtered.length === 0 && (
-                <p className="text-xs text-surface-400 text-center py-6">No students found</p>
-              )}
+              {filtered.length === 0 && <p className="text-xs text-surface-400 text-center py-6">No students found</p>}
             </div>
           </Card>
         </div>
@@ -182,7 +190,9 @@ const NotifyStudentsPage = () => {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-surface-600 dark:text-surface-300 mb-1">Message</label>
+                <label className="block text-xs font-semibold text-surface-600 dark:text-surface-300 mb-1">
+                  Message
+                </label>
                 <textarea
                   rows={5}
                   placeholder="Type your message here..."

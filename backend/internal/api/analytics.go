@@ -19,7 +19,7 @@ func (server *Server) getDashboardStats(ctx *gin.Context) {
 func (server *Server) getRecentUsers(ctx *gin.Context) {
 	limit := 5
 	if l := ctx.Query("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
 			limit = parsed
 		}
 	}

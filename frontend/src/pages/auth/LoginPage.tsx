@@ -11,6 +11,7 @@ import Input from '../../components/ui/Input';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import { Mail, Lock, LogIn, X, ShieldOff } from 'lucide-react';
 import { login as apiLogin } from '../../api/auth';
+import { getErrorMessage } from '../../utils/errors';
 
 const loginSchema = z.object({
   identifier: z.string().min(3, 'Email, Matric No, or Staff ID is required'),
@@ -40,20 +41,15 @@ const LoginPage = () => {
       sessionStorage.setItem('just_logged_in', 'true');
       login(userData, tokens);
       navigate('/login/celebration');
-    } catch 
-    (err: any) {
-      const msg = err?.response?.data?.error || err?.message || 'Please verify your credentials and try again.';
+    } catch (err) {
+      const msg = getErrorMessage(err, 'Please verify your credentials and try again.');
       setAuthError(msg);
       error('Wrong Credentials', msg);
     }
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
+    <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
       <Card glass className="p-8">
         <CardHeader className="flex-col items-center gap-1 text-center mb-6">
           <img src="/aces-logo.png" alt="Aces Logo" className="w-12 h-12 rounded-2xl mb-2 object-contain shadow-lg" />
@@ -81,9 +77,7 @@ const LoginPage = () => {
                     <ShieldOff className="w-5 h-5 text-danger-500 dark:text-danger-400" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-danger-700 dark:text-danger-300">
-                      Authentication Failed
-                    </p>
+                    <p className="text-sm font-semibold text-danger-700 dark:text-danger-300">Authentication Failed</p>
                     <p className="text-xs text-danger-600/80 dark:text-danger-400/70 mt-0.5 leading-relaxed">
                       {authError}
                     </p>
@@ -115,22 +109,36 @@ const LoginPage = () => {
             {...register('password')}
           />
           <div className="flex items-center justify-between text-xs pt-1">
-            <Link to="/forgot-password" className="text-primary-400 hover:text-primary-300 font-medium transition-colors">
+            <Link
+              to="/forgot-password"
+              className="text-primary-400 hover:text-primary-300 font-medium transition-colors"
+            >
               Forgot password?
             </Link>
           </div>
-          <Button type="submit" className="w-full mt-2" isLoading={isSubmitting} leftIcon={<LogIn className="w-4 h-4" />}>
+          <Button
+            type="submit"
+            className="w-full mt-2"
+            isLoading={isSubmitting}
+            leftIcon={<LogIn className="w-4 h-4" />}
+          >
             Sign In
           </Button>
         </form>
         <div className="mt-6 text-center text-xs text-surface-400">
           Don't have an account?{' '}
           <div className="mt-2 flex justify-center gap-4">
-            <Link to="/signup/student" className="text-primary-400 hover:text-primary-300 font-semibold transition-colors">
+            <Link
+              to="/signup/student"
+              className="text-primary-400 hover:text-primary-300 font-semibold transition-colors"
+            >
               Student Sign Up
             </Link>
             <span className="text-surface-600">|</span>
-            <Link to="/signup/lecturer" className="text-primary-400 hover:text-primary-300 font-semibold transition-colors">
+            <Link
+              to="/signup/lecturer"
+              className="text-primary-400 hover:text-primary-300 font-semibold transition-colors"
+            >
               Lecturer Sign Up
             </Link>
           </div>

@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Calculator, Save, Trash2, Plus, TrendingUp, BarChart3 } from 'lucide-react';
-import { createGPAScenario, listGPAScenarios, deleteGPAScenario, type GPAScenario } from '../../api/additional-features';
+import {
+  createGPAScenario,
+  listGPAScenarios,
+  deleteGPAScenario,
+  type GPAScenario,
+} from '../../api/additional-features';
 
 interface CourseRow {
   id: string;
@@ -47,9 +52,7 @@ export default function GPACalculatorPage() {
   }
 
   function updateCourse(id: string, field: keyof CourseRow, value: string | number) {
-    setCourses((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, [field]: value } : c))
-    );
+    setCourses((prev) => prev.map((c) => (c.id === id ? { ...c, [field]: value } : c)));
   }
 
   function removeCourse(id: string) {
@@ -62,10 +65,7 @@ export default function GPACalculatorPage() {
   }
 
   const totalCredits = courses.reduce((sum, c) => sum + (c.units || 0), 0);
-  const totalPoints = courses.reduce(
-    (sum, c) => sum + (c.units || 0) * (gradeMap[c.grade] ?? 0),
-    0
-  );
+  const totalPoints = courses.reduce((sum, c) => sum + (c.units || 0) * (gradeMap[c.grade] ?? 0), 0);
   const gpa = totalCredits > 0 ? totalPoints / totalCredits : 0;
 
   function gpaColor() {
@@ -120,14 +120,12 @@ export default function GPACalculatorPage() {
     <div className="min-h-screen bg-surface-50 dark:bg-surface-950 p-6">
       <div className="max-w-5xl mx-auto space-y-8">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-3">
             <Calculator className="w-8 h-8 text-primary-500" />
-            <h1 className="text-3xl font-bold text-surface-900 dark:text-white">
-              GPA Calculator
-            </h1>
+            <h1 className="text-3xl font-bold text-surface-900 dark:text-white">GPA Calculator</h1>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <input
               type="text"
               placeholder="Scenario name..."
@@ -148,30 +146,22 @@ export default function GPACalculatorPage() {
 
         {/* GPA Display */}
         <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm p-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-center">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-center">
             <div className="text-center">
               <p className="text-sm text-surface-500 dark:text-surface-400 mb-1">GPA</p>
-              <p className={`text-6xl font-bold transition-colors duration-500 ${gpaColor()}`}>
-                {gpa.toFixed(2)}
-              </p>
+              <p className={`text-6xl font-bold transition-colors duration-500 ${gpaColor()}`}>{gpa.toFixed(2)}</p>
             </div>
             <div className="text-center">
               <p className="text-sm text-surface-500 dark:text-surface-400 mb-1">Total Credits</p>
-              <p className="text-3xl font-semibold text-surface-900 dark:text-white">
-                {totalCredits}
-              </p>
+              <p className="text-3xl font-semibold text-surface-900 dark:text-white">{totalCredits}</p>
             </div>
             <div className="text-center">
               <p className="text-sm text-surface-500 dark:text-surface-400 mb-1">Total Points</p>
-              <p className="text-3xl font-semibold text-surface-900 dark:text-white">
-                {totalPoints}
-              </p>
+              <p className="text-3xl font-semibold text-surface-900 dark:text-white">{totalPoints}</p>
             </div>
             <div className="text-center">
               <p className="text-sm text-surface-500 dark:text-surface-400 mb-1">Courses</p>
-              <p className="text-3xl font-semibold text-surface-900 dark:text-white">
-                {courses.length}
-              </p>
+              <p className="text-3xl font-semibold text-surface-900 dark:text-white">{courses.length}</p>
             </div>
           </div>
         </div>
@@ -197,10 +187,7 @@ export default function GPACalculatorPage() {
               </thead>
               <tbody>
                 {courses.map((course) => (
-                  <tr
-                    key={course.id}
-                    className="border-t border-surface-100 dark:border-surface-800"
-                  >
+                  <tr key={course.id} className="border-t border-surface-100 dark:border-surface-800">
                     <td className="px-4 py-3">
                       <input
                         type="text"
@@ -287,9 +274,7 @@ export default function GPACalculatorPage() {
                     <span className="w-10 h-10 flex items-center justify-center rounded-lg bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 font-bold">
                       {item.grade}
                     </span>
-                    <span className="text-sm text-surface-600 dark:text-surface-300">
-                      {item.desc}
-                    </span>
+                    <span className="text-sm text-surface-600 dark:text-surface-300">{item.desc}</span>
                   </div>
                   <span className="font-semibold text-surface-900 dark:text-white">
                     {item.point} pt{item.point !== 1 ? 's' : ''}
@@ -319,11 +304,9 @@ export default function GPACalculatorPage() {
                     className="flex items-center justify-between px-4 py-3 bg-surface-50 dark:bg-surface-800 rounded-lg"
                   >
                     <div>
-                      <p className="font-medium text-surface-900 dark:text-white">
-                        {scenario.name}
-                      </p>
+                      <p className="font-medium text-surface-900 dark:text-white">{scenario.name}</p>
                       <p className="text-xs text-surface-500 dark:text-surface-400">
-                        GPA: {(scenario as any).gpa?.toFixed(2) ?? 'N/A'} &middot;{' '}
+                        GPA: {scenario.gpa?.toFixed(2) ?? 'N/A'} &middot;{' '}
                         {new Date(scenario.created_at).toLocaleDateString()}
                       </p>
                     </div>

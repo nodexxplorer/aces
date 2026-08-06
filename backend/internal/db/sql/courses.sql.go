@@ -25,24 +25,25 @@ func (q *Queries) CountCourses(ctx context.Context) (int32, error) {
 
 const createCourse = `-- name: CreateCourse :one
 INSERT INTO courses (
-    code, title, description, unit, level, semester, lecturer_id, prerequisite_id, max_credit_hours, is_active, course_type
+    code, title, description, unit, level, semester, lecturer_id, prerequisite_id, max_credit_hours, is_active, course_type, requirement_type
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
-) RETURNING id, code, title, description, unit, level, semester, lecturer_id, prerequisite_id, max_credit_hours, is_active, created_at, updated_at, course_type
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+) RETURNING id, code, title, description, unit, level, semester, lecturer_id, prerequisite_id, max_credit_hours, is_active, created_at, updated_at, course_type, requirement_type
 `
 
 type CreateCourseParams struct {
-	Code           string         `json:"code"`
-	Title          string         `json:"title"`
-	Description    *string        `json:"description"`
-	Unit           int32          `json:"unit"`
-	Level          int32          `json:"level"`
-	Semester       SemesterSeason `json:"semester"`
-	LecturerID     pgtype.UUID    `json:"lecturer_id"`
-	PrerequisiteID pgtype.UUID    `json:"prerequisite_id"`
-	MaxCreditHours *int32         `json:"max_credit_hours"`
-	IsActive       bool           `json:"is_active"`
-	CourseType     string         `json:"course_type"`
+	Code            string         `json:"code"`
+	Title           string         `json:"title"`
+	Description     *string        `json:"description"`
+	Unit            int32          `json:"unit"`
+	Level           int32          `json:"level"`
+	Semester        SemesterSeason `json:"semester"`
+	LecturerID      pgtype.UUID    `json:"lecturer_id"`
+	PrerequisiteID  pgtype.UUID    `json:"prerequisite_id"`
+	MaxCreditHours  *int32         `json:"max_credit_hours"`
+	IsActive        bool           `json:"is_active"`
+	CourseType      string         `json:"course_type"`
+	RequirementType string         `json:"requirement_type"`
 }
 
 func (q *Queries) CreateCourse(ctx context.Context, arg CreateCourseParams) (Course, error) {
@@ -58,6 +59,7 @@ func (q *Queries) CreateCourse(ctx context.Context, arg CreateCourseParams) (Cou
 		arg.MaxCreditHours,
 		arg.IsActive,
 		arg.CourseType,
+		arg.RequirementType,
 	)
 	var i Course
 	err := row.Scan(
@@ -75,6 +77,7 @@ func (q *Queries) CreateCourse(ctx context.Context, arg CreateCourseParams) (Cou
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CourseType,
+		&i.RequirementType,
 	)
 	return i, err
 }
@@ -90,7 +93,7 @@ func (q *Queries) DeleteCourse(ctx context.Context, id uuid.UUID) error {
 }
 
 const getCourse = `-- name: GetCourse :one
-SELECT id, code, title, description, unit, level, semester, lecturer_id, prerequisite_id, max_credit_hours, is_active, created_at, updated_at, course_type FROM courses
+SELECT id, code, title, description, unit, level, semester, lecturer_id, prerequisite_id, max_credit_hours, is_active, created_at, updated_at, course_type, requirement_type FROM courses
 WHERE id = $1 LIMIT 1
 `
 
@@ -112,12 +115,13 @@ func (q *Queries) GetCourse(ctx context.Context, id uuid.UUID) (Course, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CourseType,
+		&i.RequirementType,
 	)
 	return i, err
 }
 
 const getCourseByCode = `-- name: GetCourseByCode :one
-SELECT id, code, title, description, unit, level, semester, lecturer_id, prerequisite_id, max_credit_hours, is_active, created_at, updated_at, course_type FROM courses
+SELECT id, code, title, description, unit, level, semester, lecturer_id, prerequisite_id, max_credit_hours, is_active, created_at, updated_at, course_type, requirement_type FROM courses
 WHERE code = $1 LIMIT 1
 `
 
@@ -139,12 +143,13 @@ func (q *Queries) GetCourseByCode(ctx context.Context, code string) (Course, err
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CourseType,
+		&i.RequirementType,
 	)
 	return i, err
 }
 
 const listCourses = `-- name: ListCourses :many
-SELECT id, code, title, description, unit, level, semester, lecturer_id, prerequisite_id, max_credit_hours, is_active, created_at, updated_at, course_type FROM courses
+SELECT id, code, title, description, unit, level, semester, lecturer_id, prerequisite_id, max_credit_hours, is_active, created_at, updated_at, course_type, requirement_type FROM courses
 ORDER BY level, code
 LIMIT $1 OFFSET $2
 `
@@ -178,6 +183,7 @@ func (q *Queries) ListCourses(ctx context.Context, arg ListCoursesParams) ([]Cou
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.CourseType,
+			&i.RequirementType,
 		); err != nil {
 			return nil, err
 		}
@@ -190,7 +196,7 @@ func (q *Queries) ListCourses(ctx context.Context, arg ListCoursesParams) ([]Cou
 }
 
 const listCoursesByLevelAndSemester = `-- name: ListCoursesByLevelAndSemester :many
-SELECT id, code, title, description, unit, level, semester, lecturer_id, prerequisite_id, max_credit_hours, is_active, created_at, updated_at, course_type FROM courses
+SELECT id, code, title, description, unit, level, semester, lecturer_id, prerequisite_id, max_credit_hours, is_active, created_at, updated_at, course_type, requirement_type FROM courses
 WHERE is_active = true AND level = $1 AND semester = $2
 ORDER BY code
 `
@@ -224,6 +230,7 @@ func (q *Queries) ListCoursesByLevelAndSemester(ctx context.Context, arg ListCou
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.CourseType,
+			&i.RequirementType,
 		); err != nil {
 			return nil, err
 		}
@@ -246,21 +253,23 @@ SET
     lecturer_id = $7,
     is_active = $8,
     course_type = $9,
+    requirement_type = $10,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, code, title, description, unit, level, semester, lecturer_id, prerequisite_id, max_credit_hours, is_active, created_at, updated_at, course_type
+RETURNING id, code, title, description, unit, level, semester, lecturer_id, prerequisite_id, max_credit_hours, is_active, created_at, updated_at, course_type, requirement_type
 `
 
 type UpdateCourseParams struct {
-	ID          uuid.UUID      `json:"id"`
-	Title       string         `json:"title"`
-	Description *string        `json:"description"`
-	Unit        int32          `json:"unit"`
-	Level       int32          `json:"level"`
-	Semester    SemesterSeason `json:"semester"`
-	LecturerID  pgtype.UUID    `json:"lecturer_id"`
-	IsActive    bool           `json:"is_active"`
-	CourseType  string         `json:"course_type"`
+	ID              uuid.UUID      `json:"id"`
+	Title           string         `json:"title"`
+	Description     *string        `json:"description"`
+	Unit            int32          `json:"unit"`
+	Level           int32          `json:"level"`
+	Semester        SemesterSeason `json:"semester"`
+	LecturerID      pgtype.UUID    `json:"lecturer_id"`
+	IsActive        bool           `json:"is_active"`
+	CourseType      string         `json:"course_type"`
+	RequirementType string         `json:"requirement_type"`
 }
 
 func (q *Queries) UpdateCourse(ctx context.Context, arg UpdateCourseParams) (Course, error) {
@@ -274,6 +283,7 @@ func (q *Queries) UpdateCourse(ctx context.Context, arg UpdateCourseParams) (Cou
 		arg.LecturerID,
 		arg.IsActive,
 		arg.CourseType,
+		arg.RequirementType,
 	)
 	var i Course
 	err := row.Scan(
@@ -291,6 +301,7 @@ func (q *Queries) UpdateCourse(ctx context.Context, arg UpdateCourseParams) (Cou
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CourseType,
+		&i.RequirementType,
 	)
 	return i, err
 }

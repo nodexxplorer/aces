@@ -49,7 +49,7 @@ const ManualsPage = () => {
     (m) =>
       m.is_active &&
       (!level || m.level === parseInt(level)) &&
-      (!searchQuery || m.title.toLowerCase().includes(searchQuery.toLowerCase()))
+      (!searchQuery || m.title.toLowerCase().includes(searchQuery.toLowerCase())),
   );
 
   const handleAddToCart = (manual: Manual) => {
@@ -89,7 +89,7 @@ const ManualsPage = () => {
         </a>
       </div>
 
-      <div className="flex gap-4 max-w-xl">
+      <div className="flex flex-col md:flex-row gap-3 max-w-xl">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
           <input
@@ -110,7 +110,9 @@ const ManualsPage = () => {
             { value: '5', label: '500 Level' },
           ]}
           value={level}
-          onChange={(e) => { setLevel(e.target.value); }}
+          onChange={(e) => {
+            setLevel(e.target.value);
+          }}
         />
       </div>
 
@@ -140,11 +142,7 @@ const ManualsPage = () => {
               }}
               isPurchased={purchasedIds.has(m.id)}
               isInCart={cartManualIds.has(m.id)}
-              onPurchase={
-                purchasedIds.has(m.id) || cartManualIds.has(m.id)
-                  ? undefined
-                  : () => handleAddToCart(m)
-              }
+              onPurchase={purchasedIds.has(m.id) || cartManualIds.has(m.id) ? undefined : () => handleAddToCart(m)}
             />
           ))}
         </div>

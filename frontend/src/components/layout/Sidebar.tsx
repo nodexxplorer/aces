@@ -4,12 +4,41 @@ import { useRBAC } from '../../hooks/useRBAC';
 import { useAuth } from '../../hooks/useAuth';
 import { cn } from '../../utils/cn';
 import {
-  LayoutDashboard, BookOpen, CreditCard, FileText, HelpCircle,
-  Calendar, User, BookMarked, Users, Award, ShieldAlert,
-  Settings, Briefcase, GraduationCap, DollarSign, Database,
-  TrendingUp, ClipboardList, Printer, ListTodo, ClipboardCheck,
-  ChevronLeft, ChevronDown, LogOut, X,
-  BarChart3, Clock, Megaphone, Wrench, AlertTriangle, Bell, PenLine
+  LayoutDashboard,
+  BookOpen,
+  CreditCard,
+  FileText,
+  HelpCircle,
+  Calendar,
+  User,
+  BookMarked,
+  Users,
+  Award,
+  ShieldAlert,
+  Settings,
+  Briefcase,
+  GraduationCap,
+  DollarSign,
+  Database,
+  TrendingUp,
+  ClipboardList,
+  Printer,
+  ListTodo,
+  ClipboardCheck,
+  ChevronLeft,
+  ChevronDown,
+  LogOut,
+  X,
+  BarChart3,
+  Clock,
+  Megaphone,
+  Wrench,
+  AlertTriangle,
+  Bell,
+  PenLine,
+  FolderOpen,
+  RotateCcw,
+  Pin,
 } from 'lucide-react';
 import type { UserRole } from '../../types';
 
@@ -38,22 +67,46 @@ interface NavSection {
 }
 
 const menuItems: MenuItem[] = [
-  { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['student', 'lecturer', 'class_rep', 'class_bursar', 'dept_bursar', 'alumni'] },
+  {
+    label: 'Dashboard',
+    path: '/dashboard',
+    icon: LayoutDashboard,
+    roles: ['student', 'lecturer', 'class_rep', 'class_bursar', 'dept_bursar', 'alumni'],
+  },
 
   { label: 'Communication', path: '/communication', icon: Bell, roles: ['student'] },
 
   { label: 'My Results', path: '/results', icon: Award, roles: ['student'] },
   { label: 'GPA Tools', path: '/gpa', icon: TrendingUp, roles: ['student'] },
+  { label: 'Carryovers', path: '/carryovers', icon: RotateCcw, roles: ['student'] },
   { label: 'Study Planner', path: '/study-planner', icon: ClipboardList, roles: ['student'] },
   { label: 'Grade Appeals', path: '/grade-appeals', icon: AlertTriangle, roles: ['student'] },
   { label: 'Course Registration', path: '/courses/register', icon: BookMarked, roles: ['student'] },
   { label: 'Transcripts', path: '/transcripts', icon: FileText, roles: ['student'] },
   { label: 'Practicals & Lab', path: '/practicals', icon: ClipboardList, roles: ['student'] },
   { label: 'Timetable', path: '/timetable', icon: Calendar, roles: ['student'] },
+  { label: 'Course Materials', path: '/materials', icon: FolderOpen, roles: ['student'] },
   { label: 'Manuals Marketplace', path: '/manuals', icon: BookOpen, roles: ['student'] },
   { label: 'My Manuals', path: '/manuals/my', icon: BookMarked, roles: ['student'] },
   { label: 'Complaints', path: '/complaints', icon: HelpCircle, roles: ['student'] },
-  { label: 'Support', path: '/support', icon: HelpCircle, roles: ['student', 'lecturer', 'class_rep', 'class_bursar', 'dept_bursar', 'alumni'] },
+  {
+    label: 'Calendar',
+    path: '/calendar',
+    icon: Calendar,
+    roles: ['student', 'lecturer', 'class_rep', 'class_bursar', 'dept_bursar', 'alumni', 'hod', 'delegated_admin'],
+  },
+  {
+    label: 'Notice Board',
+    path: '/notice-board',
+    icon: Pin,
+    roles: ['student', 'lecturer', 'class_rep', 'class_bursar', 'dept_bursar', 'alumni', 'hod', 'delegated_admin'],
+  },
+  {
+    label: 'Support',
+    path: '/support',
+    icon: HelpCircle,
+    roles: ['student', 'lecturer', 'class_rep', 'class_bursar', 'dept_bursar', 'alumni'],
+  },
 
   { label: 'Job Board', path: '/student/jobs', icon: Briefcase, roles: ['student'] },
   { label: 'My Applications', path: '/student/applications', icon: FileText, roles: ['student'] },
@@ -63,7 +116,12 @@ const menuItems: MenuItem[] = [
   { label: 'Connect', path: '/connect', icon: Users },
   // { label: 'Skills & Trade', path: '/skills', icon: TrendingUp },
 
-  { label: 'Alumni Portal', path: '/alumni', icon: GraduationCap, roles: ['student', 'alumni', 'hod', 'delegated_admin'] },
+  {
+    label: 'Alumni Portal',
+    path: '/alumni',
+    icon: GraduationCap,
+    roles: ['student', 'alumni', 'hod', 'delegated_admin'],
+  },
   { label: 'Job Board', path: '/alumni/jobs', icon: Briefcase, roles: ['alumni', 'hod', 'delegated_admin'] },
   { label: 'Give Back', path: '/alumni/give-back', icon: DollarSign, roles: ['alumni', 'hod', 'delegated_admin'] },
 
@@ -74,6 +132,7 @@ const menuItems: MenuItem[] = [
   { label: 'Manage Assignments', path: '/lecturer/assignments', icon: ListTodo, roles: ['lecturer'] },
   { label: 'Class List', path: '/lecturer/class-list', icon: Users, roles: ['lecturer'] },
   { label: 'Review Attendance', path: '/lecturer/attendance-review', icon: ClipboardCheck, roles: ['lecturer'] },
+  { label: 'Course Materials', path: '/lecturer/materials', icon: FolderOpen, roles: ['lecturer'] },
 
   { label: 'Class Rep Portal', path: '/class-rep', icon: LayoutDashboard, roles: ['class_rep'] },
   { label: 'Semester Timetable', path: '/timetable', icon: Calendar, roles: ['class_rep'] },
@@ -84,14 +143,29 @@ const menuItems: MenuItem[] = [
   { label: 'Notify Classmates', path: '/class-rep/notify', icon: Megaphone, roles: ['class_rep'] },
 
   { label: 'Bursar Portal', path: '/bursar', icon: LayoutDashboard, roles: ['class_bursar', 'dept_bursar'] },
-  { label: 'Dues Management', path: '/bursar/dues', icon: DollarSign, roles: ['class_bursar', 'dept_bursar', 'hod', 'delegated_admin'] },
+  {
+    label: 'Dues Management',
+    path: '/bursar/dues',
+    icon: DollarSign,
+    roles: ['class_bursar', 'dept_bursar', 'hod', 'delegated_admin'],
+  },
   { label: 'Verify Payments', path: '/bursar/verify', icon: DollarSign, roles: ['class_bursar', 'dept_bursar'] },
   { label: 'Defaulters List', path: '/bursar/defaulters', icon: ShieldAlert, roles: ['class_bursar', 'dept_bursar'] },
 
   { label: 'Admin Portal', path: '/admin', icon: LayoutDashboard, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Results Management', path: '/admin/results/manage', icon: ClipboardList, roles: ['hod', 'delegated_admin', 'admin'] },
+  {
+    label: 'Results Management',
+    path: '/admin/results/manage',
+    icon: ClipboardList,
+    roles: ['hod', 'delegated_admin', 'admin'],
+  },
   { label: 'User Directory', path: '/admin/users', icon: Users, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'User Roles and Permissions', path: '/admin/user-roles', icon: ShieldAlert, roles: ['hod', 'delegated_admin', 'admin'] },
+  {
+    label: 'User Roles and Permissions',
+    path: '/admin/user-roles',
+    icon: ShieldAlert,
+    roles: ['hod', 'delegated_admin', 'admin'],
+  },
   { label: 'Analytics', path: '/admin/analytics', icon: BarChart3, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Course Hub', path: '/admin/course-hub', icon: BookOpen, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Sessions', path: '/admin/sessions', icon: Calendar, roles: ['hod', 'delegated_admin', 'admin'] },
@@ -102,10 +176,25 @@ const menuItems: MenuItem[] = [
   { label: 'Manuals', path: '/admin/manuals', icon: BookOpen, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Print Queue', path: '/admin/print-queue', icon: Printer, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Alumni Mgmt', path: '/admin/alumni', icon: GraduationCap, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Job Moderation', path: '/admin/job-moderation', icon: Briefcase, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Document Verification', path: '/admin/documents', icon: FileText, roles: ['hod', 'delegated_admin', 'admin'] },
+  {
+    label: 'Job Moderation',
+    path: '/admin/job-moderation',
+    icon: Briefcase,
+    roles: ['hod', 'delegated_admin', 'admin'],
+  },
+  {
+    label: 'Document Verification',
+    path: '/admin/documents',
+    icon: FileText,
+    roles: ['hod', 'delegated_admin', 'admin'],
+  },
   { label: 'At-Risk Students', path: '/admin/at-risk', icon: ShieldAlert, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Grade Distribution', path: '/admin/grade-distribution', icon: BarChart3, roles: ['hod', 'delegated_admin', 'admin'] },
+  {
+    label: 'Grade Distribution',
+    path: '/admin/grade-distribution',
+    icon: BarChart3,
+    roles: ['hod', 'delegated_admin', 'admin'],
+  },
   // { label: 'Expenses', path: '/admin/expenses', icon: DollarSign, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Operations', path: '/admin/system', icon: Wrench, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Settings', path: '/admin/settings', icon: Settings, roles: ['hod', 'delegated_admin', 'admin'] },
@@ -123,12 +212,16 @@ const mobileSections: NavSection[] = [
     roles: ['student'],
     items: [
       { label: 'My Results', path: '/results', icon: Award },
+      { label: 'GPA Tools', path: '/gpa', icon: TrendingUp },
+      { label: 'Carryovers', path: '/carryovers', icon: RotateCcw },
       { label: 'Course Registration', path: '/courses/register', icon: BookMarked },
       { label: 'Transcripts', path: '/transcripts', icon: FileText },
       { label: 'Practicals & Lab', path: '/practicals', icon: ClipboardList },
       { label: 'Timetable', path: '/timetable', icon: Calendar },
+      { label: 'Course Materials', path: '/materials', icon: FolderOpen },
       { label: 'Manuals Marketplace', path: '/manuals', icon: BookOpen },
       { label: 'My Manuals', path: '/manuals/my', icon: BookMarked },
+      { label: 'Complaints', path: '/complaints', icon: HelpCircle },
       { label: 'Job Board', path: '/student/jobs', icon: Briefcase },
       { label: 'My Applications', path: '/student/applications', icon: FileText },
     ],
@@ -139,6 +232,8 @@ const mobileSections: NavSection[] = [
     key: 'community',
     items: [
       { label: 'Connect', path: '/connect', icon: Users },
+      { label: 'Calendar', path: '/calendar', icon: Calendar },
+      { label: 'Notice Board', path: '/notice-board', icon: Pin },
     ],
   },
   {
@@ -146,9 +241,7 @@ const mobileSections: NavSection[] = [
     icon: '\u{1F4B3}',
     key: 'finance',
     roles: ['student'],
-    items: [
-      { label: 'Payments & Dues', path: '/payments', icon: CreditCard },
-    ],
+    items: [{ label: 'Payments & Dues', path: '/payments', icon: CreditCard }],
   },
   {
     title: 'ALUMNI',
@@ -156,9 +249,7 @@ const mobileSections: NavSection[] = [
     key: 'alumni',
     locked: true,
     lockMessage: 'Available for graduates (Year 5+)',
-    items: [
-      { label: 'Alumni Portal', path: '/alumni', icon: GraduationCap },
-    ],
+    items: [{ label: 'Alumni Portal', path: '/alumni', icon: GraduationCap }],
   },
   {
     title: 'SYSTEM',
@@ -182,6 +273,18 @@ const mobileSections: NavSection[] = [
       { label: 'Notify Classmates', path: '/class-rep/notify', icon: Megaphone },
     ],
   },
+  {
+    title: 'BURSAR',
+    icon: '\u{1F4B0}',
+    key: 'bursar',
+    roles: ['class_bursar', 'dept_bursar'],
+    items: [
+      { label: 'Bursar Portal', path: '/bursar', icon: LayoutDashboard },
+      { label: 'Dues Management', path: '/bursar/dues', icon: DollarSign },
+      { label: 'Verify Payments', path: '/bursar/verify', icon: DollarSign },
+      { label: 'Defaulters List', path: '/bursar/defaulters', icon: ShieldAlert },
+    ],
+  },
 ];
 
 const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: SidebarProps) => {
@@ -189,16 +292,15 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
   const { user, logout } = useAuth();
   const [expandedSections, setExpandedSections] = useState<string[]>(['academics']);
 
-  const isPendingApproval = user &&
+  const isPendingApproval =
+    user &&
     user.onboardingCompleted !== false &&
     user.isApproved === false &&
     user.isActive !== false &&
-    ['student', 'lecturer'].includes(user.role || user.activeRole || '');
+    ['student', 'lecturer'].includes(activeRole || '');
 
   const toggleSection = (key: string) => {
-    setExpandedSections((prev) =>
-      prev.includes(key) ? prev.filter((s) => s !== key) : [...prev, key]
-    );
+    setExpandedSections((prev) => (prev.includes(key) ? prev.filter((s) => s !== key) : [...prev, key]));
   };
 
   const filteredItems = menuItems.filter((item) => {
@@ -214,7 +316,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
       <div
         className={cn(
           'fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden transition-opacity duration-200',
-          mobileOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          mobileOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none',
         )}
         onClick={onMobileClose}
       />
@@ -223,7 +325,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
       <aside
         className={cn(
           'fixed top-0 left-0 bottom-0 z-50 w-80 bg-white dark:bg-surface-900 shadow-2xl md:hidden flex flex-col transition-transform duration-300 ease-out',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+          mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
         {/* Mobile header */}
@@ -256,7 +358,9 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
                 <p className="text-sm font-semibold text-surface-900 dark:text-surface-100 truncate">
                   {user.firstName || 'User'} {user.lastName || ''}
                 </p>
-                <p className="text-xs text-surface-500 dark:text-surface-400 capitalize">{activeRole.replace('_', ' ')}</p>
+                <p className="text-xs text-surface-500 dark:text-surface-400 capitalize">
+                  {activeRole.replace('_', ' ')}
+                </p>
               </div>
             </div>
           </div>
@@ -273,7 +377,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
                 'flex items-center gap-3 px-4 py-3 mx-2 rounded-xl text-sm font-medium transition-colors',
                 isActive
                   ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/20 dark:text-primary-400'
-                  : 'text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800'
+                  : 'text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800',
               )
             }
           >
@@ -285,7 +389,9 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
             <div className="px-6 py-8 text-center">
               <Clock className="w-8 h-8 mx-auto text-amber-400 mb-3" />
               <p className="text-sm font-semibold text-surface-700 dark:text-surface-200">Waiting for Approval</p>
-              <p className="text-xs text-surface-400 dark:text-surface-500 mt-1">Only Dashboard, Profile &amp; Logout are available</p>
+              <p className="text-xs text-surface-400 dark:text-surface-500 mt-1">
+                Only Dashboard, Profile &amp; Logout are available
+              </p>
             </div>
           ) : (
             <>
@@ -308,7 +414,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
                         'flex items-center justify-between w-full px-4 py-2.5 mx-2 text-xs font-semibold uppercase tracking-widest rounded-lg transition-colors',
                         showLocked
                           ? 'text-surface-400 dark:text-surface-600 cursor-default'
-                          : 'text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800'
+                          : 'text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800',
                       )}
                     >
                       <span className="flex items-center gap-2">
@@ -341,7 +447,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
                                   'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors',
                                   isActive
                                     ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/20 dark:text-primary-400'
-                                    : 'text-surface-600 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800 hover:text-surface-800 dark:hover:text-surface-200'
+                                    : 'text-surface-600 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800 hover:text-surface-800 dark:hover:text-surface-200',
                                 )
                               }
                             >
@@ -382,7 +488,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                 isActive
                   ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/20 dark:text-primary-400'
-                  : 'text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800'
+                  : 'text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800',
               )
             }
           >
@@ -407,13 +513,23 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
         className={cn(
           'hidden md:flex flex-col bg-white/95 dark:bg-surface-900/95 backdrop-blur-xl border-r border-surface-200 dark:border-surface-800 transition-all duration-300 ease-out shadow-2xl',
           'relative h-full',
-          'w-16', !collapsed && 'md:w-72'
+          'w-16',
+          !collapsed && 'md:w-72',
         )}
       >
-        <div className={cn('h-16 flex items-center justify-center border-b border-surface-200 dark:border-surface-800', !collapsed && 'md:justify-start md:px-6')}>
+        <div
+          className={cn(
+            'h-16 flex items-center justify-center border-b border-surface-200 dark:border-surface-800',
+            !collapsed && 'md:justify-start md:px-6',
+          )}
+        >
           <div className={cn('flex items-center', !collapsed ? 'md:gap-2' : 'flex-col')}>
             <img src="/aces-logo.png" alt="Aces Logo" className="w-8 h-8 rounded-lg object-contain shadow-md" />
-            {!collapsed && <span className="hidden md:block font-bold text-lg text-surface-900 dark:text-white tracking-wide">ACES ZONE</span>}
+            {!collapsed && (
+              <span className="hidden md:block font-bold text-lg text-surface-900 dark:text-white tracking-wide">
+                ACES ZONE
+              </span>
+            )}
           </div>
         </div>
         <nav className="flex-1 overflow-y-auto py-4 space-y-1 scrollbar-thin">
@@ -429,7 +545,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
                     !collapsed && 'md:gap-3 md:px-3 md:py-2.5 md:mx-2 md:text-sm md:font-medium md:justify-start',
                     isActive
                       ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/20 dark:text-primary-400'
-                      : 'text-surface-600 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800 hover:text-surface-900 dark:hover:text-surface-100'
+                      : 'text-surface-600 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800 hover:text-surface-900 dark:hover:text-surface-100',
                   )
                 }
                 title={item.label}
@@ -445,7 +561,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
             onClick={onToggleCollapse}
             className={cn(
               'hidden md:flex items-center w-full justify-center p-2.5 rounded-xl transition-all duration-150 mb-1 text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800',
-              !collapsed && 'md:gap-3 md:px-3 md:py-2.5 md:text-sm md:font-medium'
+              !collapsed && 'md:gap-3 md:px-3 md:py-2.5 md:text-sm md:font-medium',
             )}
             title={collapsed ? 'Expand' : 'Collapse'}
           >
@@ -456,7 +572,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
             onClick={() => logout()}
             className={cn(
               'flex items-center w-full justify-center p-2.5 rounded-xl transition-all duration-150 text-danger-600 hover:bg-danger-50 dark:text-danger-400 dark:hover:bg-danger-950/20',
-              !collapsed && 'md:gap-3 md:px-3 md:py-2.5 md:text-sm md:font-medium'
+              !collapsed && 'md:gap-3 md:px-3 md:py-2.5 md:text-sm md:font-medium',
             )}
             title="Logout"
           >

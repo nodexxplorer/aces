@@ -3,13 +3,43 @@ import Card, { CardHeader, CardTitle, CardDescription } from '../../components/u
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { getCoursesByLevelAndSemester } from '../../api/courses';
-import { submitRegistration, getActiveSessionAndSemester, getMyRegisteredCourseIDs, getStudentRegistrations } from '../../api/course-registrations';
+import {
+  submitRegistration,
+  getActiveSessionAndSemester,
+  getMyRegisteredCourseIDs,
+  getStudentRegistrations,
+} from '../../api/course-registrations';
+import type { RawSession, RawSemester } from '../../api/course-registrations';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../hooks/useAuth';
 import { Check, Plus, AlertCircle, Save, BookOpen, RefreshCw, ClipboardList } from 'lucide-react';
-import type { Course } from '../../types';
+import { getErrorMessage } from '../../utils/errors';
+import type { Course, User } from '../../types';
 
 type Tab = 'register' | 'registrations';
+
+interface RegisteredCourseRow {
+  id: string;
+  course_id: string;
+  status: string;
+  grade?: string;
+  ca_score?: number;
+  caScore?: number;
+  exam_score?: number;
+  examScore?: number;
+  is_carryover?: boolean;
+  isCarryover?: boolean;
+}
+
+interface RegistrationRow {
+  id: string;
+  status: string;
+  total_units?: number;
+  totalUnits?: number;
+  registered_courses?: RegisteredCourseRow[];
+}
+
+type UserWithStudentId = User & { studentId?: string; student_id?: string };
 
 const CourseRegistrationPage = () => {
   const { success, warning, error: notifyError } = useNotification();
@@ -22,14 +52,17 @@ const CourseRegistrationPage = () => {
   const [registeredCourseIds, setRegisteredCourseIds] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [semesterInfo, setSemesterInfo] = useState<{ session: any; semester: any }>({ session: null, semester: null });
+  const [semesterInfo, setSemesterInfo] = useState<{ session: RawSession | null; semester: RawSemester | null }>({
+    session: null,
+    semester: null,
+  });
   const [loadError, setLoadError] = useState(false);
 
   // Registrations tab state
-  const [registrations, setRegistrations] = useState<any[]>([]);
+  const [registrations, setRegistrations] = useState<RegistrationRow[]>([]);
   const [loadingRegistrations, setLoadingRegistrations] = useState(false);
 
-  const studentLevel = (user as any)?.level || 100;
+  const studentLevel = user?.level || 100;
 
   const loadCourses = useCallback(async () => {
     setLoading(true);
@@ -62,7 +95,8 @@ const CourseRegistrationPage = () => {
   const loadRegistrations = useCallback(async () => {
     setLoadingRegistrations(true);
     try {
-      const studentId = (user as any)?.studentId || (user as any)?.student_id || (user as any)?.id;
+      const u = user as UserWithStudentId | null;
+      const studentId = u?.studentId || u?.student_id || u?.id;
       if (!studentId) return;
       const regs = await getStudentRegistrations(studentId);
       setRegistrations(Array.isArray(regs) ? regs : []);
@@ -84,9 +118,7 @@ const CourseRegistrationPage = () => {
   }, [activeTab, loadRegistrations]);
 
   const toggleCourse = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
   };
 
   const availableCourses = courses.filter((c) => !registeredCourseIds.has(c.id));
@@ -119,13 +151,12 @@ const CourseRegistrationPage = () => {
       });
       success(
         'Registration Submitted',
-        `Successfully registered ${selectedCourses.length} courses (${totalUnits} units) for the semester.`
+        `Successfully registered ${selectedCourses.length} courses (${totalUnits} units) for the semester.`,
       );
       setSelectedIds([]);
       loadCourses();
-    } catch (err: any) {
-      const msg = err?.response?.data?.error || err?.message || 'Failed to submit registration.';
-      notifyError('Registration Failed', msg);
+    } catch (err) {
+      notifyError('Registration Failed', getErrorMessage(err, 'Failed to submit registration.'));
     } finally {
       setSubmitting(false);
     }
@@ -133,7 +164,7 @@ const CourseRegistrationPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Course Registration</h1>
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
@@ -142,17 +173,25 @@ const CourseRegistrationPage = () => {
               : 'Select and register your academic courses for the current semester.'}
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => { loadCourses(); if (activeTab === 'registrations') loadRegistrations(); }} leftIcon={<RefreshCw className="w-4 h-4" />}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            loadCourses();
+            if (activeTab === 'registrations') loadRegistrations();
+          }}
+          leftIcon={<RefreshCw className="w-4 h-4" />}
+        >
           Refresh
         </Button>
       </div>
 
       {/* Tab bar */}
       <div className="flex gap-1 border-b border-surface-200 dark:border-surface-800 pb-px">
-        {([
+        {[
           { key: 'register' as Tab, label: 'Register Courses', icon: BookOpen },
           { key: 'registrations' as Tab, label: 'My Registrations', icon: ClipboardList },
-        ]).map(({ key, label, icon: Icon }) => (
+        ].map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             onClick={() => setActiveTab(key)}
@@ -165,7 +204,9 @@ const CourseRegistrationPage = () => {
             <Icon className="w-4 h-4" />
             {label}
             {key === 'registrations' && registrations.length > 0 && (
-              <Badge variant="info" className="ml-1 text-[10px]">{registrations.length}</Badge>
+              <Badge variant="info" className="ml-1 text-[10px]">
+                {registrations.length}
+              </Badge>
             )}
           </button>
         ))}
@@ -177,7 +218,9 @@ const CourseRegistrationPage = () => {
           {registeredCourseIds.size > 0 && (
             <div className="flex items-center gap-2 p-3 bg-success-500/5 border border-success-500/20 rounded-lg text-xs text-success-600">
               <Check className="w-4 h-4 shrink-0" />
-              <span>{registeredCourseIds.size} course(s) already registered this semester — hidden from the list below.</span>
+              <span>
+                {registeredCourseIds.size} course(s) already registered this semester — hidden from the list below.
+              </span>
             </div>
           )}
 
@@ -211,42 +254,58 @@ const CourseRegistrationPage = () => {
                       <span className="ml-2 text-sm text-surface-500">Loading courses...</span>
                     </div>
                   )}
-                  {!loading && availableCourses.map((c) => {
-                    const isSelected = selectedIds.includes(c.id);
-                    return (
-                      <div key={c.id} className="flex items-center justify-between p-4 hover:bg-surface-50 dark:hover:bg-surface-800/40 transition-colors">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-semibold text-sm text-surface-900 dark:text-white">{c.code}</span>
-                            <Badge variant={c.courseType === 'core' ? 'primary' : c.courseType === 'elective' ? 'success' : 'outline'}>
-                              {c.courseType || c.subcategory || 'core'}
-                            </Badge>
-                            {c.prerequisiteId && (
-                              <Badge variant="warning" className="text-[10px]">Prereq</Badge>
+                  {!loading &&
+                    availableCourses.map((c) => {
+                      const isSelected = selectedIds.includes(c.id);
+                      return (
+                        <div
+                          key={c.id}
+                          className="flex items-center justify-between p-4 hover:bg-surface-50 dark:hover:bg-surface-800/40 transition-colors"
+                        >
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-semibold text-sm text-surface-900 dark:text-white">{c.code}</span>
+                              <Badge
+                                variant={
+                                  c.courseType === 'core'
+                                    ? 'primary'
+                                    : c.courseType === 'elective'
+                                      ? 'success'
+                                      : 'outline'
+                                }
+                              >
+                                {c.courseType || c.subcategory || 'core'}
+                              </Badge>
+                              {c.prerequisiteId && (
+                                <Badge variant="warning" className="text-[10px]">
+                                  Prereq
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-surface-500">{c.title}</p>
+                            {c.description && (
+                              <p className="text-[11px] text-surface-400 mt-0.5 line-clamp-1">{c.description}</p>
                             )}
                           </div>
-                          <p className="text-xs text-surface-500">{c.title}</p>
-                          {c.description && (
-                            <p className="text-[11px] text-surface-400 mt-0.5 line-clamp-1">{c.description}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <span className="text-xs text-surface-400 font-medium block">{c.unit} Units</span>
-                            <span className="text-[10px] text-surface-400 capitalize">{c.semester}</span>
+                          <div className="flex items-center gap-4">
+                            <div className="text-right">
+                              <span className="text-xs text-surface-400 font-medium block">{c.unit} Units</span>
+                              <span className="text-[10px] text-surface-400 capitalize">{c.semester}</span>
+                            </div>
+                            <Button
+                              size="xs"
+                              variant={isSelected ? 'success' : 'outline'}
+                              onClick={() => toggleCourse(c.id)}
+                              leftIcon={
+                                isSelected ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />
+                              }
+                            >
+                              {isSelected ? 'Selected' : 'Add'}
+                            </Button>
                           </div>
-                          <Button
-                            size="xs"
-                            variant={isSelected ? 'success' : 'outline'}
-                            onClick={() => toggleCourse(c.id)}
-                            leftIcon={isSelected ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-                          >
-                            {isSelected ? 'Selected' : 'Add'}
-                          </Button>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
                   {!loading && !loadError && availableCourses.length === 0 && (
                     <div className="text-center py-12">
                       <BookOpen className="w-10 h-10 text-surface-300 mx-auto mb-3" />
@@ -280,7 +339,9 @@ const CourseRegistrationPage = () => {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-surface-500">Total Credit Units</span>
-                    <span className={`font-semibold ${totalUnits < minUnits ? 'text-warning-500' : totalUnits > maxUnits ? 'text-danger-500' : 'text-primary-500'}`}>
+                    <span
+                      className={`font-semibold ${totalUnits < minUnits ? 'text-warning-500' : totalUnits > maxUnits ? 'text-danger-500' : 'text-primary-500'}`}
+                    >
                       {totalUnits} / {maxUnits}
                     </span>
                   </div>
@@ -320,7 +381,10 @@ const CourseRegistrationPage = () => {
                   <h4 className="font-medium text-sm text-surface-700 dark:text-surface-300 mb-3">Selected Courses</h4>
                   <div className="space-y-2">
                     {selectedCourses.map((c) => (
-                      <div key={c.id} className="flex items-center justify-between text-xs py-1.5 border-b border-surface-100 dark:border-surface-800 last:border-0">
+                      <div
+                        key={c.id}
+                        className="flex items-center justify-between text-xs py-1.5 border-b border-surface-100 dark:border-surface-800 last:border-0"
+                      >
                         <div>
                           <span className="font-medium text-surface-800 dark:text-surface-200">{c.code}</span>
                           <span className="text-surface-400 ml-1.5">{c.title}</span>
@@ -356,17 +420,23 @@ const CourseRegistrationPage = () => {
             <Card className="p-8 text-center">
               <ClipboardList className="w-10 h-10 text-surface-300 mx-auto mb-3" />
               <p className="text-sm text-surface-500">No course registrations found.</p>
-              <p className="text-xs text-surface-400 mt-1">Switch to the "Register Courses" tab to register for courses.</p>
+              <p className="text-xs text-surface-400 mt-1">
+                Switch to the "Register Courses" tab to register for courses.
+              </p>
             </Card>
           ) : (
-            registrations.map((reg: any, idx: number) => (
+            registrations.map((reg, idx: number) => (
               <Card key={reg.id}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
                       <CardTitle className="flex items-center gap-2">
                         Registration #{registrations.length - idx}
-                        <Badge variant={reg.status === 'approved' ? 'success' : reg.status === 'submitted' ? 'warning' : 'default'}>
+                        <Badge
+                          variant={
+                            reg.status === 'approved' ? 'success' : reg.status === 'submitted' ? 'warning' : 'default'
+                          }
+                        >
                           {reg.status}
                         </Badge>
                       </CardTitle>
@@ -392,7 +462,7 @@ const CourseRegistrationPage = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-surface-100 dark:divide-surface-700/50">
-                          {reg.registered_courses.map((rc: any) => (
+                          {reg.registered_courses.map((rc) => (
                             <tr key={rc.id}>
                               <td className="px-3 py-2 font-mono text-xs">{rc.course_id.slice(0, 8)}...</td>
                               <td className="px-3 py-2">

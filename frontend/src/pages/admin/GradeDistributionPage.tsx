@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { getGradeDistribution } from '../../api/predictions';
 import type { GradeDistribution } from '../../api/predictions';
 import { BarChart3 } from 'lucide-react';
@@ -18,7 +18,12 @@ const GradeDistributionPage = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" /></div>;
+  if (loading)
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
 
   if (data.length === 0) {
     return (
@@ -26,7 +31,9 @@ const GradeDistributionPage = () => {
         <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Grade Distribution Analysis</h1>
         <Card className="p-12 text-center">
           <BarChart3 className="w-12 h-12 mx-auto text-surface-300 mb-4" />
-          <p className="text-surface-500">No grade data available yet. Distributions will appear once results are published.</p>
+          <p className="text-surface-500">
+            No grade data available yet. Distributions will appear once results are published.
+          </p>
         </Card>
       </div>
     );
@@ -64,11 +71,15 @@ const GradeDistributionPage = () => {
               <div className="p-4 pt-0">
                 <div className="flex items-center gap-4 mb-3">
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-surface-900 dark:text-white">{course.avg_score.toFixed(1)}</div>
+                    <div className="text-2xl font-bold text-surface-900 dark:text-white">
+                      {course.avg_score.toFixed(1)}
+                    </div>
                     <div className="text-[11px] text-surface-400">Avg Score</div>
                   </div>
                   <div className="text-center">
-                    <div className={`text-2xl font-bold ${course.pass_rate >= 70 ? 'text-success-500' : course.pass_rate >= 50 ? 'text-yellow-500' : 'text-danger-500'}`}>
+                    <div
+                      className={`text-2xl font-bold ${course.pass_rate >= 70 ? 'text-success-500' : course.pass_rate >= 50 ? 'text-yellow-500' : 'text-danger-500'}`}
+                    >
                       {course.pass_rate}%
                     </div>
                     <div className="text-[11px] text-surface-400">Pass Rate</div>

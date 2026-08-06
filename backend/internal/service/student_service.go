@@ -9,6 +9,7 @@ import (
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/shopspring/decimal"
 )
 
 type StudentService struct {
@@ -119,6 +120,123 @@ func (s *StudentService) CalculateCGPA(ctx context.Context, studentID uuid.UUID)
 		CGPA:               cgpaVal,
 		TotalCreditsEarned: totalUnits,
 		AcademicStanding:   standing,
+	}, nil
+}
+
+// ScoreOverride is a hypothetical score for one course, keyed by course ID.
+// If the course already has an approved result, its grade is replaced for
+// the simulation; if it doesn't (a course in progress, or a retake), it's
+// added as a new weighted entry.
+type ScoreOverride struct {
+	CourseID uuid.UUID
+	Score    float64
+}
+
+type SimulatedCourse struct {
+	CourseID    uuid.UUID `json:"course_id"`
+	CourseCode  string    `json:"course_code"`
+	CourseTitle string    `json:"course_title"`
+	Unit        int32     `json:"unit"`
+	Grade       string    `json:"grade"`
+	GradePoint  float64   `json:"grade_point"`
+	IsOverride  bool      `json:"is_override"`
+}
+
+type CGPASimulation struct {
+	CurrentCGPA   float64           `json:"current_cgpa"`
+	ProjectedCGPA float64           `json:"projected_cgpa"`
+	TotalUnits    int32             `json:"total_units"`
+	Breakdown     []SimulatedCourse `json:"breakdown"`
+}
+
+// GetApprovedResultsDetailed returns a student's real approved results with
+// course details, used to seed the CGPA what-if simulator.
+func (s *StudentService) GetApprovedResultsDetailed(ctx context.Context, studentID uuid.UUID) ([]db.StudentResultDetail, error) {
+	q, ok := s.store.(*db.Queries)
+	if !ok {
+		return nil, errors.New("this operation requires direct database access")
+	}
+	return q.GetStudentApprovedResultsDetailed(ctx, studentID)
+}
+
+// SimulateCGPA computes what a student's CGPA would become if they scored a
+// hypothetical amount in one or more courses, without persisting anything —
+// a pure "what if" projection layered on top of their real approved results.
+func (s *StudentService) SimulateCGPA(ctx context.Context, studentID uuid.UUID, overrides []ScoreOverride) (*CGPASimulation, error) {
+	q, ok := s.store.(*db.Queries)
+	if !ok {
+		return nil, errors.New("simulation requires direct database access")
+	}
+
+	results, err := q.GetStudentApprovedResultsDetailed(ctx, studentID)
+	if err != nil {
+		return nil, errors.New("failed to fetch student results: " + err.Error())
+	}
+
+	breakdown := make([]SimulatedCourse, 0, len(results)+len(overrides))
+	seen := make(map[uuid.UUID]int) // courseID -> index in breakdown
+
+	var currentGradePoints, projectedGradePoints float64
+	var totalUnits int32
+
+	for _, r := range results {
+		gpVal, _ := r.GradePoint.Float64()
+		currentGradePoints += gpVal * float64(r.Unit)
+		totalUnits += r.Unit
+		seen[r.CourseID] = len(breakdown)
+		breakdown = append(breakdown, SimulatedCourse{
+			CourseID: r.CourseID, CourseCode: r.CourseCode, CourseTitle: r.CourseTitle,
+			Unit: r.Unit, Grade: r.Grade, GradePoint: gpVal,
+		})
+	}
+	projectedGradePoints = currentGradePoints
+
+	for _, o := range overrides {
+		scoreDecimal := decimal.NewFromFloat(o.Score)
+		grade, gradePoint := ScoreToGrade(scoreDecimal)
+
+		if idx, exists := seen[o.CourseID]; exists {
+			// Replace an existing course's contribution with the hypothetical grade.
+			old := breakdown[idx]
+			projectedGradePoints -= old.GradePoint * float64(old.Unit)
+			projectedGradePoints += gradePoint * float64(old.Unit)
+			breakdown[idx].Grade = grade
+			breakdown[idx].GradePoint = gradePoint
+			breakdown[idx].IsOverride = true
+			continue
+		}
+
+		course, err := q.GetCourse(ctx, o.CourseID)
+		if err != nil {
+			continue // unknown course — skip rather than fail the whole simulation
+		}
+		projectedGradePoints += gradePoint * float64(course.Unit)
+		totalUnits += course.Unit
+		breakdown = append(breakdown, SimulatedCourse{
+			CourseID: course.ID, CourseCode: course.Code, CourseTitle: course.Title,
+			Unit: course.Unit, Grade: grade, GradePoint: gradePoint, IsOverride: true,
+		})
+	}
+
+	var currentTotalUnits int32
+	for _, r := range results {
+		currentTotalUnits += r.Unit
+	}
+
+	currentCGPA := 0.0
+	if currentTotalUnits > 0 {
+		currentCGPA = math.Round((currentGradePoints/float64(currentTotalUnits))*100) / 100
+	}
+	projectedCGPA := 0.0
+	if totalUnits > 0 {
+		projectedCGPA = math.Round((projectedGradePoints/float64(totalUnits))*100) / 100
+	}
+
+	return &CGPASimulation{
+		CurrentCGPA:   currentCGPA,
+		ProjectedCGPA: projectedCGPA,
+		TotalUnits:    totalUnits,
+		Breakdown:     breakdown,
 	}, nil
 }
 

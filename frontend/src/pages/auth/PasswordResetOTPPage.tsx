@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, KeyRound, Lock, CheckCircle, ArrowRight } from 'lucide-react';
 import { requestPasswordReset, verifyPasswordResetOTP, resetPasswordWithOTP } from '../../api/additional-features';
+import { getErrorMessage } from '../../utils/errors';
 
 export default function PasswordResetOTPPage() {
   const navigate = useNavigate();
@@ -21,8 +22,8 @@ export default function PasswordResetOTPPage() {
     try {
       await requestPasswordReset(email);
       setStep(2);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to send OTP');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to send OTP'));
     } finally {
       setLoading(false);
     }
@@ -40,8 +41,8 @@ export default function PasswordResetOTPPage() {
     try {
       await verifyPasswordResetOTP(email, otpString);
       setStep(3);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Invalid OTP');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Invalid OTP'));
     } finally {
       setLoading(false);
     }
@@ -62,8 +63,8 @@ export default function PasswordResetOTPPage() {
     try {
       await resetPasswordWithOTP(email, otp.join(''), newPassword);
       setStep(4);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to reset password');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to reset password'));
     } finally {
       setLoading(false);
     }
@@ -106,8 +107,8 @@ export default function PasswordResetOTPPage() {
                     step > s
                       ? 'bg-primary-500 text-white'
                       : step === s
-                      ? 'bg-primary-500 text-white ring-4 ring-primary-200 dark:ring-primary-800'
-                      : 'bg-surface-200 dark:bg-surface-700 text-surface-500'
+                        ? 'bg-primary-500 text-white ring-4 ring-primary-200 dark:ring-primary-800'
+                        : 'bg-surface-200 dark:bg-surface-700 text-surface-500'
                   }`}
                 >
                   {step > s ? '✓' : s}
@@ -180,7 +181,8 @@ export default function PasswordResetOTPPage() {
               </div>
               <h1 className="text-2xl font-bold text-surface-900 dark:text-white mb-2">Enter Verification Code</h1>
               <p className="text-surface-500 dark:text-surface-400">
-                We've sent a 6-digit code to <span className="font-medium text-surface-700 dark:text-surface-300">{email}</span>
+                We've sent a 6-digit code to{' '}
+                <span className="font-medium text-surface-700 dark:text-surface-300">{email}</span>
               </p>
             </div>
 
@@ -195,7 +197,9 @@ export default function PasswordResetOTPPage() {
                 {otp.map((digit, index) => (
                   <input
                     key={index}
-                    ref={(el) => { otpRefs.current[index] = el; }}
+                    ref={(el) => {
+                      otpRefs.current[index] = el;
+                    }}
                     type="text"
                     inputMode="numeric"
                     maxLength={1}
@@ -218,7 +222,11 @@ export default function PasswordResetOTPPage() {
 
               <button
                 type="button"
-                onClick={() => { setStep(1); setError(''); setOtp(['', '', '', '', '', '']); }}
+                onClick={() => {
+                  setStep(1);
+                  setError('');
+                  setOtp(['', '', '', '', '', '']);
+                }}
                 className="w-full mt-3 text-primary-500 hover:text-primary-600 py-2 text-sm font-medium transition-colors"
               >
                 Change email address
@@ -234,9 +242,7 @@ export default function PasswordResetOTPPage() {
                 <Lock className="w-8 h-8 text-primary-500" />
               </div>
               <h1 className="text-2xl font-bold text-surface-900 dark:text-white mb-2">Set New Password</h1>
-              <p className="text-surface-500 dark:text-surface-400">
-                Create a strong new password for your account.
-              </p>
+              <p className="text-surface-500 dark:text-surface-400">Create a strong new password for your account.</p>
             </div>
 
             <form onSubmit={handleResetPassword}>
@@ -297,9 +303,7 @@ export default function PasswordResetOTPPage() {
             <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
               <CheckCircle className="w-10 h-10 text-green-500" />
             </div>
-            <h1 className="text-2xl font-bold text-surface-900 dark:text-white mb-2">
-              Password Reset Successful
-            </h1>
+            <h1 className="text-2xl font-bold text-surface-900 dark:text-white mb-2">Password Reset Successful</h1>
             <p className="text-surface-500 dark:text-surface-400 mb-8">
               Your password has been successfully updated. You can now sign in with your new password.
             </p>

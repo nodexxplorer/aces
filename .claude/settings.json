@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go build *)",
+      "Bash(npx tsc *)",
+      "Bash(sqlc version *)",
+      "Bash(go vet *)",
+      "Bash(go test *)",
+      "Bash(git checkout *)",
+      "Bash(PGPASSWORD='incorrec0$t' psql postgresql://postgres.ddsbaemuydxazkpxslyl@aws-0-eu-central-1.pooler.supabase.com:5432/postgres?sslmode=require -c 'SELECT version, dirty FROM schema_migrations;')",
+      "Bash(apt list *)",
+      "Bash(go install *)",
+      "Bash(pkill -f \"cmd/server/main.go\")",
+      "Read(//tmp/claude-1000/**)",
+      "Bash(grep -E \"course-materials|cgpa/simulate|cgpa/my-results|calendar/:id/ics|results/slip|carryovers/student|complaints/:id/history|payments/batches/:id/status|payments/:id/verify\" /tmp/claude-1000/server_smoketest2.log)",
+      "Bash(rm -rf /tmp/claude-1000/sqlc-test)",
+      "Bash(gofmt -l internal/db/sql/models.go internal/db/sql/courses.sql.go internal/api/course.go internal/service/course_service.go)"
+    ],
+    "additionalDirectories": [
+      "/tmp/claude-1000/sqlc-test"
+    ]
+  }
+}

@@ -4,7 +4,6 @@ import type {
   MentorshipRequest,
   JobPost,
   JobApplication,
-  AlumniEvent,
   EventAttendee,
   AlumniProfile,
   AlumniFullProfile,
@@ -154,7 +153,7 @@ export const updateJobPost = async (
     salary_range?: string;
     application_url?: string;
     application_deadline?: string;
-  }
+  },
 ) => {
   const res = await apiClient.put(`/alumni/jobs/${jobId}`, payload);
   return unwrap<JobPost>(res);
@@ -165,10 +164,13 @@ export const listUserJobPosts = async (userId: string) => {
   return unwrap<JobPost[]>(res);
 };
 
-export const applyToJob = async (jobId: string, payload: {
-  cover_letter?: string;
-  resume_url?: string;
-}) => {
+export const applyToJob = async (
+  jobId: string,
+  payload: {
+    cover_letter?: string;
+    resume_url?: string;
+  },
+) => {
   const res = await apiClient.post(`/alumni/jobs/${jobId}/apply`, payload);
   return unwrap<JobApplication>(res);
 };

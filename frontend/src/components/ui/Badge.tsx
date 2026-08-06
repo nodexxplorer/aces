@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { cn } from '../../utils/cn';
 
-type BadgeVariant = 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'outline' | 'secondary';
+export type BadgeVariant = 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'outline' | 'secondary';
 
 interface BadgeProps {
   children: ReactNode;
@@ -22,7 +22,13 @@ const variants: Record<BadgeVariant, string> = {
 };
 
 const Badge = ({ children, variant = 'default', className, dot }: BadgeProps) => (
-  <span className={cn('inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-medium rounded-full', variants[variant], className)}>
+  <span
+    className={cn(
+      'inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-medium rounded-full',
+      variants[variant],
+      className,
+    )}
+  >
     {dot && <span className="w-1.5 h-1.5 rounded-full bg-current" />}
     {children}
   </span>

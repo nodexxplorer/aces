@@ -3,13 +3,27 @@ import Card, { CardHeader, CardTitle, CardDescription } from '../../components/u
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
+import Modal from '../../components/ui/Modal';
 import DataTable from '../../components/data-display/DataTable';
 import StatusBadge from '../../components/data-display/StatusBadge';
-import { submitComplaint, getMyComplaints } from '../../api/complaints';
+import {
+  submitComplaint,
+  getMyComplaints,
+  getComplaintHistory,
+  type ComplaintStatusHistoryEntry,
+} from '../../api/complaints';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
-import { Send } from 'lucide-react';
+import { Send, Loader2, CheckCircle2, Circle, XCircle } from 'lucide-react';
 import type { Complaint } from '../../types';
+
+const STAGE_ORDER = ['open', 'in_review', 'resolved'] as const;
+const STAGE_LABELS: Record<string, string> = {
+  open: 'Submitted',
+  in_review: 'Under Review',
+  resolved: 'Resolved',
+  rejected: 'Rejected',
+};
 
 const ComplaintsPage = () => {
   const { user } = useAuth();
@@ -19,7 +33,10 @@ const ComplaintsPage = () => {
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
+  const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
+  const [history, setHistory] = useState<ComplaintStatusHistoryEntry[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -59,10 +76,27 @@ const ComplaintsPage = () => {
     }
   };
 
+  const handleRowClick = (complaint: Complaint) => {
+    setSelectedComplaint(complaint);
+    setLoadingHistory(true);
+    getComplaintHistory(complaint.id)
+      .then(setHistory)
+      .catch(() => setHistory([]))
+      .finally(() => setLoadingHistory(false));
+  };
+
   const columns = [
     { key: 'category', label: 'Category' },
-    { key: 'subject', label: 'Subject', render: (val: unknown) => <span className="font-medium">{(val as string) || 'N/A'}</span> },
-    { key: 'created_at', label: 'Filed Date', render: (val: unknown) => val ? new Date(val as string).toLocaleDateString() : 'N/A' },
+    {
+      key: 'subject',
+      label: 'Subject',
+      render: (val: unknown) => <span className="font-medium">{(val as string) || 'N/A'}</span>,
+    },
+    {
+      key: 'created_at',
+      label: 'Filed Date',
+      render: (val: unknown) => (val ? new Date(val as string).toLocaleDateString() : 'N/A'),
+    },
     { key: 'status', label: 'Status', render: (val: unknown) => <StatusBadge status={val as string} /> },
   ];
 
@@ -82,7 +116,11 @@ const ComplaintsPage = () => {
               <CardTitle>Ticket Log</CardTitle>
               <CardDescription>Records of filed complaints and administrative replies</CardDescription>
             </CardHeader>
-            <DataTable columns={columns} data={complaints as unknown as Record<string, unknown>[]} />
+            <DataTable
+              columns={columns}
+              data={complaints as unknown as Record<string, unknown>[]}
+              onRowClick={(row) => handleRowClick(row as unknown as Complaint)}
+            />
           </Card>
         </div>
 
@@ -128,6 +166,74 @@ const ComplaintsPage = () => {
           </Card>
         </div>
       </div>
+
+      <Modal
+        isOpen={!!selectedComplaint}
+        onClose={() => setSelectedComplaint(null)}
+        title={selectedComplaint?.subject || 'Complaint Timeline'}
+      >
+        {loadingHistory ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-5 h-5 animate-spin text-primary-500" />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm text-surface-500 dark:text-surface-400">{selectedComplaint?.description}</p>
+            <div className="space-y-0">
+              {STAGE_ORDER.map((stage, i) => {
+                const entry = history.find((h) => h.to_status === stage);
+                const currentStatus = selectedComplaint?.status;
+                const isRejected = currentStatus === 'rejected';
+                const reachedIndex = STAGE_ORDER.indexOf((currentStatus as (typeof STAGE_ORDER)[number]) || 'open');
+                const isReached = !isRejected && i <= reachedIndex;
+                const isLast = i === STAGE_ORDER.length - 1;
+                return (
+                  <div key={stage} className="flex gap-3">
+                    <div className="flex flex-col items-center">
+                      {isReached ? (
+                        <CheckCircle2 className="w-5 h-5 text-success-500 shrink-0" />
+                      ) : (
+                        <Circle className="w-5 h-5 text-surface-300 dark:text-surface-600 shrink-0" />
+                      )}
+                      {!isLast && (
+                        <div
+                          className={`w-px flex-1 my-1 ${isReached ? 'bg-success-300' : 'bg-surface-200 dark:bg-surface-700'}`}
+                        />
+                      )}
+                    </div>
+                    <div className="pb-6">
+                      <p
+                        className={`text-sm font-medium ${isReached ? 'text-surface-900 dark:text-surface-100' : 'text-surface-400'}`}
+                      >
+                        {STAGE_LABELS[stage]}
+                      </p>
+                      {entry && (
+                        <p className="text-xs text-surface-400 mt-0.5">{new Date(entry.created_at).toLocaleString()}</p>
+                      )}
+                      {entry?.note && (
+                        <p className="text-xs text-surface-500 dark:text-surface-400 mt-1 italic">"{entry.note}"</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {selectedComplaint?.status === 'rejected' && (
+                <div className="flex gap-3">
+                  <XCircle className="w-5 h-5 text-danger-500 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-danger-600">Rejected</p>
+                    {history.find((h) => h.to_status === 'rejected')?.note && (
+                      <p className="text-xs text-surface-500 dark:text-surface-400 mt-1 italic">
+                        "{history.find((h) => h.to_status === 'rejected')?.note}"
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

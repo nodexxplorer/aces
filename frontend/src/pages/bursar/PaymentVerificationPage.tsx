@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { getPaymentByReference, getRecentVerifiedPayments, verifyPayment } from '../../api/payments';
 import { Search, CheckCircle } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
+import { getErrorMessage } from '../../utils/errors';
 import type { Payment } from '../../types';
 
 const PaymentVerificationPage = () => {
@@ -38,12 +39,15 @@ const PaymentVerificationPage = () => {
     if (!searchedRecord || !user?.id) return;
     try {
       setVerifying(true);
-      const updated = await verifyPayment(searchedRecord.id, user.id);
+      const updated = await verifyPayment(searchedRecord.id);
       setSearchedRecord(updated);
       setRecentVerifications((prev) => [updated, ...prev]);
-      success('Manually Approved', `Payment ${searchedRecord.paystack_reference || searchedRecord.id} has been approved.`);
-    } catch (err: any) {
-      notifyError('Approval Failed', err?.response?.data?.error || 'Could not verify payment');
+      success(
+        'Manually Approved',
+        `Payment ${searchedRecord.paystack_reference || searchedRecord.id} has been approved.`,
+      );
+    } catch (err) {
+      notifyError('Approval Failed', getErrorMessage(err, 'Could not verify payment'));
     } finally {
       setVerifying(false);
     }
@@ -66,7 +70,11 @@ const PaymentVerificationPage = () => {
     { key: 'item_name', label: 'Purpose' },
     { key: 'amount', label: 'Amount', render: (val: unknown) => formatCurrency(val as number) },
     { key: 'status', label: 'Status', render: (val: unknown) => <StatusBadge status={val as string} /> },
-    { key: 'created_at', label: 'Date', render: (val: unknown) => val ? new Date(val as string).toLocaleDateString() : '—' },
+    {
+      key: 'created_at',
+      label: 'Date',
+      render: (val: unknown) => (val ? new Date(val as string).toLocaleDateString() : '—'),
+    },
   ];
 
   return (
@@ -111,11 +119,26 @@ const PaymentVerificationPage = () => {
               </CardHeader>
               <div className="p-4 pt-0 space-y-4 text-sm">
                 <div className="space-y-2">
-                  <div className="flex justify-between"><span className="text-surface-500">Student</span><span className="font-semibold">{searchedRecord.student_name}</span></div>
-                  <div className="flex justify-between"><span className="text-surface-500">Matric No</span><span className="font-semibold">{searchedRecord.matric_number}</span></div>
-                  <div className="flex justify-between"><span className="text-surface-500">Purpose</span><span className="font-semibold">{searchedRecord.item_name}</span></div>
-                  <div className="flex justify-between"><span className="text-surface-500">Amount</span><span className="font-semibold">{formatCurrency(searchedRecord.amount)}</span></div>
-                  <div className="flex justify-between"><span className="text-surface-500">Status</span><StatusBadge status={searchedRecord.status} /></div>
+                  <div className="flex justify-between">
+                    <span className="text-surface-500">Student</span>
+                    <span className="font-semibold">{searchedRecord.student_name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-surface-500">Matric No</span>
+                    <span className="font-semibold">{searchedRecord.matric_number}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-surface-500">Purpose</span>
+                    <span className="font-semibold">{searchedRecord.item_name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-surface-500">Amount</span>
+                    <span className="font-semibold">{formatCurrency(searchedRecord.amount)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-surface-500">Status</span>
+                    <StatusBadge status={searchedRecord.status} />
+                  </div>
                 </div>
                 {searchedRecord.status === 'pending' && (
                   <button

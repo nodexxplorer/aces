@@ -32,9 +32,12 @@ const DefaultersPage = () => {
   const filtered = levelFilter !== '' ? list.filter((d) => d.level === levelFilter) : list;
 
   const handleExport = () => {
-    const csv = ['Matric Number,Name,Level,Unpaid Dues,Outstanding (₦)', ...filtered.map(
-      (d) => `${d.matric_number},${d.full_name},${d.level * 100},${d.unpaid_dues_count},${d.total_outstanding}`
-    )].join('\n');
+    const csv = [
+      'Matric Number,Name,Level,Unpaid Dues,Outstanding (₦)',
+      ...filtered.map(
+        (d) => `${d.matric_number},${d.full_name},${d.level * 100},${d.unpaid_dues_count},${d.total_outstanding}`,
+      ),
+    ].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -61,14 +64,17 @@ const DefaultersPage = () => {
             Students with unpaid dues — auto-computed from active dues vs completed payments.
           </p>
         </div>
-        <button onClick={handleExport} className="inline-flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-medium hover:bg-surface-50 dark:hover:bg-surface-800">
+        <button
+          onClick={handleExport}
+          className="inline-flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-medium hover:bg-surface-50 dark:hover:bg-surface-800"
+        >
           <Download className="w-4 h-4" />
           Export CSV
         </button>
       </div>
 
       <Card>
-        <CardHeader className="flex-row items-center justify-between gap-4">
+        <CardHeader className="flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <CardTitle>Defaulter Registry</CardTitle>
             <CardDescription>{loading ? 'Loading...' : `${filtered.length} student(s)`}</CardDescription>
@@ -79,7 +85,11 @@ const DefaultersPage = () => {
             onChange={(e) => setLevelFilter(e.target.value ? parseInt(e.target.value) : '')}
           >
             <option value="">All Levels</option>
-            {[1,2,3,4,5].map((l) => <option key={l} value={l}>{l * 100} Level</option>)}
+            {[1, 2, 3, 4, 5].map((l) => (
+              <option key={l} value={l}>
+                {l * 100} Level
+              </option>
+            ))}
           </select>
         </CardHeader>
         <DataTable columns={columns} data={filtered as unknown as Record<string, unknown>[]} />

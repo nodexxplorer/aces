@@ -6,17 +6,32 @@ export const getStudentResults = async (studentId: string, params?: PaginationPa
   return unwrap<Result[]>(res);
 };
 
+// A single semester's results as a branded PDF — distinct from the full
+// transcript request/approval flow, for things like scholarship applications.
+export const getResultSlipDownloadUrl = (sessionId: string, semesterId: string) => {
+  const base = apiClient.defaults.baseURL || '';
+  return `${base}/results/slip?session_id=${sessionId}&semester_id=${semesterId}`;
+};
+
 export const getCourseResults = async (courseId: string, sessionId: string) => {
-  const { data } = await apiClient.get<{ data: Result[] }>(`/results/course/${courseId}/session/${sessionId}`);
-  return data.data;
+  const res = await apiClient.get(`/results/course/${courseId}/session/${sessionId}`);
+  return unwrap<Result[]>(res);
 };
 
 export const getResult = async (resultId: string) => {
-  const { data } = await apiClient.get<{ data: Result }>(`/results/${resultId}`);
-  return data.data;
+  const res = await apiClient.get(`/results/${resultId}`);
+  return unwrap<Result>(res);
 };
 
-export const enterScore = async (payload: { studentId?: string; courseId: string; sessionId: string; semesterId: string; caScore: number; examScore: number; matricNumber?: string }) => {
+export const enterScore = async (payload: {
+  studentId?: string;
+  courseId: string;
+  sessionId: string;
+  semesterId: string;
+  caScore: number;
+  examScore: number;
+  matricNumber?: string;
+}) => {
   const backendPayload: Record<string, unknown> = {
     course_id: payload.courseId,
     session_id: payload.sessionId,
@@ -30,8 +45,8 @@ export const enterScore = async (payload: { studentId?: string; courseId: string
   if (payload.matricNumber) {
     backendPayload.matric_number = payload.matricNumber;
   }
-  const { data } = await apiClient.post<{ data: Result }>('/results', backendPayload);
-  return data.data;
+  const res = await apiClient.post('/results', backendPayload);
+  return unwrap<Result>(res);
 };
 
 export const updateScore = async (resultId: string, payload: { caScore: number; examScore: number }) => {
@@ -39,18 +54,18 @@ export const updateScore = async (resultId: string, payload: { caScore: number; 
     ca_score: payload.caScore,
     exam_score: payload.examScore,
   };
-  const { data } = await apiClient.put<{ data: Result }>(`/results/${resultId}`, backendPayload);
-  return data.data;
+  const res = await apiClient.put(`/results/${resultId}`, backendPayload);
+  return unwrap<Result>(res);
 };
 
 export const approveResult = async (resultId: string) => {
-  const { data } = await apiClient.put<{ data: Result }>(`/results/${resultId}/status`, { status: 'approved' });
-  return data.data;
+  const res = await apiClient.put(`/results/${resultId}/status`, { status: 'approved' });
+  return unwrap<Result>(res);
 };
 
 export const getResultAuditLogs = async (resultId: string) => {
-  const { data } = await apiClient.get<{ data: unknown[] }>(`/results/${resultId}/audit-logs`);
-  return data.data;
+  const res = await apiClient.get(`/results/${resultId}/audit-logs`);
+  return unwrap<unknown[]>(res);
 };
 
 export const getAllResults = async (params?: PaginationParams) => {

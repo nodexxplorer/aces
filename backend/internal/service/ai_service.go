@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -16,28 +17,44 @@ import (
 )
 
 type AIService struct {
-	store   db.Querier
-	config  *config.Config
-	client  *http.Client
+	store  db.Querier
+	config *config.Config
+	client *http.Client
 }
 
-type ChatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+// Gemini's generateContent request/response shapes. Unlike OpenAI, the
+// system prompt is a separate top-level field (not a "system" message in the
+// list), and conversation turns use "user"/"model" roles instead of
+// "user"/"assistant".
+type geminiPart struct {
+	Text string `json:"text"`
 }
 
-type ChatRequest struct {
-	Messages    []ChatMessage `json:"messages"`
-	MaxTokens   int           `json:"max_tokens"`
-	Temperature float64       `json:"temperature"`
+type geminiContent struct {
+	Role  string       `json:"role,omitempty"`
+	Parts []geminiPart `json:"parts"`
 }
 
-type ChatResponse struct {
-	Choices []struct {
-		Message struct {
-			Content string `json:"content"`
-		} `json:"message"`
-	} `json:"choices"`
+type geminiGenerationConfig struct {
+	Temperature     float64 `json:"temperature,omitempty"`
+	MaxOutputTokens int     `json:"maxOutputTokens,omitempty"`
+}
+
+type geminiRequest struct {
+	Contents          []geminiContent         `json:"contents"`
+	SystemInstruction *geminiContent          `json:"systemInstruction,omitempty"`
+	GenerationConfig  *geminiGenerationConfig `json:"generationConfig,omitempty"`
+}
+
+type geminiResponse struct {
+	Candidates []struct {
+		Content struct {
+			Parts []geminiPart `json:"parts"`
+		} `json:"content"`
+	} `json:"candidates"`
+	Error *struct {
+		Message string `json:"message"`
+	} `json:"error,omitempty"`
 }
 
 type ChatbotResponse struct {
@@ -109,7 +126,7 @@ func (s *AIService) Chat(ctx context.Context, userID uuid.UUID, message string, 
 
 	response := s.handleWithRules(ctx, userID, message)
 
-	if response == nil && s.config.OpenAIApiKey != "" {
+	if response == nil && s.config.GeminiApiKey != "" {
 		response = s.handleWithLLM(ctx, userID, message, sessionID)
 	}
 
@@ -376,25 +393,24 @@ Rules:
 - Format responses with simple markdown when helpful
 - Suggest 2-3 relevant quick actions when appropriate`
 
-	messages := []ChatMessage{
-		{Role: "system", Content: systemPrompt},
-	}
-
+	contents := make([]geminiContent, 0, len(history)*2+1)
 	for _, h := range history {
 		if h.InputText != "" {
-			messages = append(messages, ChatMessage{Role: "user", Content: h.InputText})
+			contents = append(contents, geminiContent{Role: "user", Parts: []geminiPart{{Text: h.InputText}}})
 		}
 		if h.OutputText != "" {
-			messages = append(messages, ChatMessage{Role: "assistant", Content: h.OutputText})
+			contents = append(contents, geminiContent{Role: "model", Parts: []geminiPart{{Text: h.OutputText}}})
 		}
 	}
+	contents = append(contents, geminiContent{Role: "user", Parts: []geminiPart{{Text: message}}})
 
-	messages = append(messages, ChatMessage{Role: "user", Content: message})
-
-	payload := ChatRequest{
-		Messages:    messages,
-		MaxTokens:   300,
-		Temperature: 0.7,
+	payload := geminiRequest{
+		Contents:          contents,
+		SystemInstruction: &geminiContent{Parts: []geminiPart{{Text: systemPrompt}}},
+		GenerationConfig: &geminiGenerationConfig{
+			Temperature:     0.7,
+			MaxOutputTokens: 300,
+		},
 	}
 
 	body, err := json.Marshal(payload)
@@ -402,13 +418,13 @@ Rules:
 		return nil
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", bytes.NewReader(body))
+	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", s.config.GeminiModel, s.config.GeminiApiKey)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 	if err != nil {
 		return nil
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+s.config.OpenAIApiKey)
 
 	resp, err := s.client.Do(req)
 	if err != nil {
@@ -416,25 +432,28 @@ Rules:
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil
-	}
-
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil
 	}
 
-	var chatResp ChatResponse
+	var chatResp geminiResponse
 	if err := json.Unmarshal(respBody, &chatResp); err != nil {
 		return nil
 	}
 
-	if len(chatResp.Choices) == 0 {
+	if resp.StatusCode != http.StatusOK {
+		if chatResp.Error != nil {
+			log.Printf("[ai-service] Gemini request failed (%d): %s", resp.StatusCode, chatResp.Error.Message)
+		}
 		return nil
 	}
 
-	reply := chatResp.Choices[0].Message.Content
+	if len(chatResp.Candidates) == 0 || len(chatResp.Candidates[0].Content.Parts) == 0 {
+		return nil
+	}
+
+	reply := chatResp.Candidates[0].Content.Parts[0].Text
 	if reply == "" {
 		return nil
 	}
@@ -442,7 +461,7 @@ Rules:
 	return &ChatbotResponse{
 		Reply:      reply,
 		Confidence: 0.85,
-		ModelUsed:  fmt.Sprintf("llm_%s", s.config.OpenAIModel),
+		ModelUsed:  fmt.Sprintf("llm_%s", s.config.GeminiModel),
 	}
 }
 

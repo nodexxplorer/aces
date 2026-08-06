@@ -106,7 +106,7 @@ func (server *Server) updateComplaint(ctx *gin.Context) {
 		return
 	}
 
-	complaint, err := server.complaints.UpdateStatus(ctx, id, req.Status)
+	complaint, err := server.complaints.UpdateStatus(ctx, id, req.Status, getUserID(ctx), getUserRole(ctx))
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
@@ -168,7 +168,7 @@ func (server *Server) assignComplaint(ctx *gin.Context) {
 		return
 	}
 
-	complaint, err := server.complaints.Assign(ctx, id, assignedTo)
+	complaint, err := server.complaints.Assign(ctx, id, assignedTo, getUserID(ctx), getUserRole(ctx))
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
@@ -190,7 +190,7 @@ func (server *Server) resolveComplaint(ctx *gin.Context) {
 		return
 	}
 
-	complaint, err := server.complaints.Resolve(ctx, id, req.Resolution)
+	complaint, err := server.complaints.Resolve(ctx, id, req.Resolution, getUserID(ctx), getUserRole(ctx))
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
@@ -216,6 +216,33 @@ func (server *Server) resolveComplaint(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"data": complaint})
+}
+
+// listComplaintHistory GET /complaints/:id/history — the resolution
+// pipeline's timeline, so a student can see where their complaint stands.
+func (server *Server) listComplaintHistory(ctx *gin.Context) {
+	id, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid complaint id"})
+		return
+	}
+
+	complaint, err := server.complaints.GetByID(ctx, id)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "complaint not found"})
+		return
+	}
+	if !requireOwnershipOrStaff(ctx, server.store, complaint.StudentID) {
+		return
+	}
+
+	history, err := server.complaints.History(ctx, id)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"data": history})
 }
 
 func (server *Server) listMyComplaints(ctx *gin.Context) {
