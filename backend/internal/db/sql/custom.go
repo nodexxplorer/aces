@@ -17,6 +17,62 @@ func (q *Queries) GetDB() DBTX {
 	return q.db
 }
 
+// GetAttendanceSession fetches a single attendance session by ID, used to
+// verify ownership (session.ClassRepID) before letting a caller open/close
+// it or view its checkins.
+func (q *Queries) GetAttendanceSession(ctx context.Context, id uuid.UUID) (AttendanceSession, error) {
+	var i AttendanceSession
+	err := q.db.QueryRow(ctx, `
+		SELECT id, course_id, class_rep_id, session_id, semester_id, date, method,
+		       venue, status, started_at, closed_at, total_present, total_absent,
+		       total_students, created_at
+		FROM attendance_sessions
+		WHERE id = $1
+	`, id).Scan(
+		&i.ID, &i.CourseID, &i.ClassRepID, &i.SessionID, &i.SemesterID, &i.Date,
+		&i.Method, &i.Venue, &i.Status, &i.StartedAt, &i.ClosedAt, &i.TotalPresent,
+		&i.TotalAbsent, &i.TotalStudents, &i.CreatedAt,
+	)
+	return i, err
+}
+
+type StudentAttendanceSummaryRow struct {
+	TotalClasses int32
+	Attended     int32
+}
+
+// GetStudentAttendanceSummary computes a student's attendance rate for a
+// semester from the QR check-in system (attendance_sessions/checkins) —
+// total classes held for the student's registered courses that semester,
+// vs. how many the student was marked present for.
+//
+// studentID is students.id (to match course_registrations); userID is
+// users.id (attendance_checkins.student_id is actually a users.id FK
+// despite the column name — see checkInStudent in dashboard.go).
+func (q *Queries) GetStudentAttendanceSummary(ctx context.Context, studentID, userID, semesterID uuid.UUID) (StudentAttendanceSummaryRow, error) {
+	var i StudentAttendanceSummaryRow
+	err := q.db.QueryRow(ctx, `
+		WITH my_courses AS (
+			SELECT rc.course_id
+			FROM registered_courses rc
+			JOIN course_registrations cr ON cr.id = rc.registration_id
+			WHERE cr.student_id = $1 AND cr.semester_id = $3
+		),
+		my_sessions AS (
+			SELECT s.id
+			FROM attendance_sessions s
+			JOIN my_courses mc ON mc.course_id = s.course_id
+			WHERE s.semester_id = $3 AND s.status IN ('closed', 'finalized')
+		)
+		SELECT
+			(SELECT COUNT(*) FROM my_sessions)::int AS total_classes,
+			(SELECT COUNT(*) FROM attendance_checkins ac
+			 JOIN my_sessions ms ON ms.id = ac.session_id
+			 WHERE ac.student_id = $2 AND ac.present = true)::int AS attended
+	`, studentID, userID, semesterID).Scan(&i.TotalClasses, &i.Attended)
+	return i, err
+}
+
 // UpdateUserEmailAndRole updates email and role fields of a user.
 func (q *Queries) UpdateUserEmailAndRole(ctx context.Context, id uuid.UUID, email string, role UserRole) (User, error) {
 	var i User

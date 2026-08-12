@@ -2542,6 +2542,8 @@ type ClassNotice struct {
 	ExpiresAt     pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	Level         *int32             `json:"level"`
+	TargetUserIds []byte             `json:"target_user_ids"`
 }
 
 type ClassNoticeComment struct {
@@ -3066,6 +3068,7 @@ type ManualPurchase struct {
 	IsCollected bool               `json:"is_collected"`
 	CollectedAt pgtype.Timestamptz `json:"collected_at"`
 	PurchasedAt pgtype.Timestamptz `json:"purchased_at"`
+	PrintedAt   pgtype.Timestamptz `json:"printed_at"`
 }
 
 type MeetingAttendee struct {
