@@ -2,6 +2,8 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -99,7 +101,59 @@ func (server *Server) createAnnouncementV2(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
+
+	if req.Status == "published" {
+		server.notifyAnnouncementTargets(ctx, queries, announcement, req.TargetAudience, req.TargetDepartments, req.TargetLevels)
+	}
+
 	ctx.JSON(http.StatusCreated, gin.H{"data": announcement})
+}
+
+// notifyAnnouncementTargets resolves the users targeted by an announcement's
+// audience/level/department fields and pushes each of them an in-app +
+// (per their preferences) email notification.
+func (server *Server) notifyAnnouncementTargets(
+	ctx *gin.Context,
+	queries *db.Queries,
+	announcement db.Announcement,
+	targetAudience, targetDepartments []string,
+	targetLevels []int32,
+) {
+	userIDs, err := queries.ResolveAnnouncementTargetUserIDs(ctx, targetAudience, targetLevels, targetDepartments)
+	if err != nil {
+		log.Printf("[announcement] failed to resolve notification targets for %s: %v", announcement.ID, err)
+		return
+	}
+
+	message := announcement.Content
+	if announcement.Summary != nil && *announcement.Summary != "" {
+		message = *announcement.Summary
+	}
+
+	priority := "normal"
+	switch fmt.Sprintf("%v", announcement.Priority) {
+	case "urgent", "important":
+		priority = "high"
+	case "reminder":
+		priority = "low"
+	}
+
+	entityType := "announcement"
+	for _, uid := range userIDs {
+		server.notifyUser(
+			ctx,
+			uid,
+			string(db.NotificationTypeAnnouncement),
+			"system",
+			priority,
+			announcement.Title,
+			message,
+			"/announcements/"+announcement.ID.String(),
+			"View Announcement",
+			&entityType,
+			&announcement.ID,
+		)
+	}
 }
 
 func (server *Server) listAdminAnnouncements(ctx *gin.Context) {

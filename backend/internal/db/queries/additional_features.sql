@@ -117,14 +117,18 @@ JOIN users u ON u.id = ga.student_id
 WHERE ga.id = $1;
 
 -- name: UpdateGradeAppealStatus :exec
+-- COALESCE so a transition that only touches one side (e.g. lecturer_review
+-- -> hod_review, which sets hod_id/hod_response and leaves lecturer_id/
+-- lecturer_response unset) doesn't null out the other reviewer's notes from
+-- an earlier stage.
 UPDATE grade_appeals
-SET status = $2,
-    lecturer_response = $3,
-    lecturer_id = $4,
-    hod_response = $5,
-    hod_id = $6,
-    revised_score = $7,
-    resolved_at = CASE WHEN $2 IN ('resolved', 'rejected') THEN NOW() ELSE resolved_at END,
+SET status = $2::appeal_status,
+    lecturer_response = COALESCE($3, lecturer_response),
+    lecturer_id = COALESCE($4, lecturer_id),
+    hod_response = COALESCE($5, hod_response),
+    hod_id = COALESCE($6, hod_id),
+    revised_score = COALESCE($7, revised_score),
+    resolved_at = CASE WHEN $2::text IN ('resolved', 'rejected') THEN NOW() ELSE resolved_at END,
     updated_at = NOW()
 WHERE id = $1;
 
@@ -168,15 +172,21 @@ WHERE st.user_id = $1 AND st.status IN ('pending', 'in_progress')
 ORDER BY st.due_date;
 
 -- name: CreateClassNotice :one
-INSERT INTO class_notices (class_rep_id, title, content, is_pinned, allow_comments, attachment_url, expires_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO class_notices (class_rep_id, title, content, is_pinned, allow_comments, attachment_url, expires_at, level, target_user_ids)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
--- name: ListClassNotices :many
+-- name: ListClassNoticesForViewer :many
+-- level = NULL on the notice means campus-wide; a non-null viewer_level only
+-- matches notices for that level (staff pass a NULL viewer_level and see
+-- every level). target_user_ids = '[]' means "everyone in scope"; otherwise
+-- only the listed user IDs can see it.
 SELECT cn.*, u.full_name AS author_name
 FROM class_notices cn
 JOIN users u ON u.id = cn.class_rep_id
 WHERE (cn.expires_at IS NULL OR cn.expires_at > NOW())
+  AND (cn.level IS NULL OR sqlc.narg(viewer_level)::int IS NULL OR cn.level = sqlc.narg(viewer_level))
+  AND (cn.target_user_ids = '[]'::jsonb OR cn.target_user_ids @> to_jsonb(sqlc.arg(viewer_id)::text))
 ORDER BY cn.is_pinned DESC, cn.pinned_order NULLS LAST, cn.created_at DESC;
 
 -- name: GetClassNotice :one
@@ -249,47 +259,6 @@ FROM meeting_attendees ma
 JOIN users u ON u.id = ma.user_id
 WHERE ma.meeting_id = $1;
 
--- name: CreateBroadcast :one
-INSERT INTO emergency_broadcasts (sender_id, title, message, priority, template, channels, target_roles, requires_acknowledgment)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING *;
-
--- name: ListRecentBroadcasts :many
-SELECT eb.*, u.full_name AS sender_name
-FROM emergency_broadcasts eb
-JOIN users u ON u.id = eb.sender_id
-ORDER BY eb.created_at DESC
-LIMIT $1;
-
--- name: GetBroadcast :one
-SELECT eb.*, u.full_name AS sender_name
-FROM emergency_broadcasts eb
-JOIN users u ON u.id = eb.sender_id
-WHERE eb.id = $1;
-
--- name: AcknowledgeBroadcast :exec
-INSERT INTO broadcast_acknowledgments (broadcast_id, user_id)
-VALUES ($1, $2)
-ON CONFLICT DO NOTHING;
-
--- name: GetBroadcastAckCount :one
-SELECT COUNT(*)::int AS ack_count FROM broadcast_acknowledgments WHERE broadcast_id = $1;
-
--- name: HasUserAcknowledged :one
-SELECT COUNT(*)::int > 0 AS acknowledged FROM broadcast_acknowledgments
-WHERE broadcast_id = $1 AND user_id = $2;
-
--- name: ListUserBroadcasts :many
-SELECT eb.*, u.full_name AS sender_name,
-       EXISTS(
-           SELECT 1 FROM broadcast_acknowledgments ba
-           WHERE ba.broadcast_id = eb.id AND ba.user_id = $1
-       ) AS acknowledged
-FROM emergency_broadcasts eb
-JOIN users u ON u.id = eb.sender_id
-WHERE eb.target_roles @> to_jsonb($2::text)
-ORDER BY eb.created_at DESC
-LIMIT $3;
 
 -- name: CreateDepartmentalEvent :one
 INSERT INTO departmental_events (creator_id, title, description, event_type, start_time, end_time, venue, target_levels, target_audience, is_all_day, color)
@@ -339,8 +308,8 @@ WHERE e.id = $1;
 
 -- name: UpdateExpenseStatus :exec
 UPDATE expenses
-SET status = $2, approved_by = $3, approved_at = CASE WHEN $2 IN ('approved', 'rejected') THEN NOW() ELSE approved_at END,
-    rejection_reason = $4, updated_at = NOW()
+SET status = $2::expense_status, approved_by = $3, approved_at = CASE WHEN $2::expense_status IN ('approved', 'rejected') THEN NOW() ELSE approved_at END,
+    rejection_reason = $4
 WHERE id = $1;
 
 -- name: GetExpenseSummary :one

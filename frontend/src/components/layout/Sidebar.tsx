@@ -22,7 +22,6 @@ import {
   Database,
   TrendingUp,
   ClipboardList,
-  Printer,
   ListTodo,
   ClipboardCheck,
   ChevronLeft,
@@ -37,8 +36,7 @@ import {
   Bell,
   PenLine,
   FolderOpen,
-  RotateCcw,
-  Pin,
+  Download,
 } from 'lucide-react';
 import type { UserRole } from '../../types';
 
@@ -78,36 +76,36 @@ const menuItems: MenuItem[] = [
 
   { label: 'My Results', path: '/results', icon: Award, roles: ['student'] },
   { label: 'GPA Tools', path: '/gpa', icon: TrendingUp, roles: ['student'] },
-  { label: 'Carryovers', path: '/carryovers', icon: RotateCcw, roles: ['student'] },
   { label: 'Study Planner', path: '/study-planner', icon: ClipboardList, roles: ['student'] },
   { label: 'Grade Appeals', path: '/grade-appeals', icon: AlertTriangle, roles: ['student'] },
-  { label: 'Course Registration', path: '/courses/register', icon: BookMarked, roles: ['student'] },
+  { label: 'Courses', path: '/courses', icon: BookMarked, roles: ['student'] },
   { label: 'Transcripts', path: '/transcripts', icon: FileText, roles: ['student'] },
   { label: 'Practicals & Lab', path: '/practicals', icon: ClipboardList, roles: ['student'] },
   { label: 'Timetable', path: '/timetable', icon: Calendar, roles: ['student'] },
-  { label: 'Course Materials', path: '/materials', icon: FolderOpen, roles: ['student'] },
-  { label: 'Manuals Marketplace', path: '/manuals', icon: BookOpen, roles: ['student'] },
-  { label: 'My Manuals', path: '/manuals/my', icon: BookMarked, roles: ['student'] },
+  { label: 'Manuals', path: '/manuals', icon: BookOpen, roles: ['student'] },
   { label: 'Complaints', path: '/complaints', icon: HelpCircle, roles: ['student'] },
   {
     label: 'Calendar',
     path: '/calendar',
     icon: Calendar,
-    roles: ['student', 'lecturer', 'class_rep', 'class_bursar', 'dept_bursar', 'alumni', 'hod', 'delegated_admin'],
+    roles: [
+      'student',
+      'lecturer',
+      'class_rep',
+      'class_bursar',
+      'dept_bursar',
+      'alumni',
+      'hod',
+      'delegated_admin',
+      'admin',
+    ],
   },
-  {
-    label: 'Notice Board',
-    path: '/notice-board',
-    icon: Pin,
-    roles: ['student', 'lecturer', 'class_rep', 'class_bursar', 'dept_bursar', 'alumni', 'hod', 'delegated_admin'],
-  },
-  {
-    label: 'Support',
-    path: '/support',
-    icon: HelpCircle,
-    roles: ['student', 'lecturer', 'class_rep', 'class_bursar', 'dept_bursar', 'alumni'],
-  },
-
+  // {
+  //   label: 'Notice Board',
+  //   path: '/notice-board',
+  //   icon: Pin,
+  //   roles: ['student', 'lecturer', 'class_rep', 'class_bursar', 'dept_bursar', 'alumni', 'hod', 'delegated_admin'],
+  // },
   { label: 'Job Board', path: '/student/jobs', icon: Briefcase, roles: ['student'] },
   { label: 'My Applications', path: '/student/applications', icon: FileText, roles: ['student'] },
 
@@ -174,7 +172,12 @@ const menuItems: MenuItem[] = [
   // { label: 'Complaints', path: '/admin/complaints', icon: HelpCircle, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Timetable', path: '/admin/timetable', icon: Clock, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Manuals', path: '/admin/manuals', icon: BookOpen, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Print Queue', path: '/admin/print-queue', icon: Printer, roles: ['hod', 'delegated_admin', 'admin'] },
+  {
+    label: 'Bulk Cover Download',
+    path: '/admin/manuals/covers/bulk',
+    icon: Download,
+    roles: ['hod', 'delegated_admin', 'admin'],
+  },
   { label: 'Alumni Mgmt', path: '/admin/alumni', icon: GraduationCap, roles: ['hod', 'delegated_admin', 'admin'] },
   {
     label: 'Job Moderation',
@@ -213,14 +216,11 @@ const mobileSections: NavSection[] = [
     items: [
       { label: 'My Results', path: '/results', icon: Award },
       { label: 'GPA Tools', path: '/gpa', icon: TrendingUp },
-      { label: 'Carryovers', path: '/carryovers', icon: RotateCcw },
-      { label: 'Course Registration', path: '/courses/register', icon: BookMarked },
+      { label: 'Courses', path: '/courses', icon: BookMarked },
       { label: 'Transcripts', path: '/transcripts', icon: FileText },
       { label: 'Practicals & Lab', path: '/practicals', icon: ClipboardList },
       { label: 'Timetable', path: '/timetable', icon: Calendar },
-      { label: 'Course Materials', path: '/materials', icon: FolderOpen },
-      { label: 'Manuals Marketplace', path: '/manuals', icon: BookOpen },
-      { label: 'My Manuals', path: '/manuals/my', icon: BookMarked },
+      { label: 'Manuals', path: '/manuals', icon: BookOpen },
       { label: 'Complaints', path: '/complaints', icon: HelpCircle },
       { label: 'Job Board', path: '/student/jobs', icon: Briefcase },
       { label: 'My Applications', path: '/student/applications', icon: FileText },
@@ -233,7 +233,9 @@ const mobileSections: NavSection[] = [
     items: [
       { label: 'Connect', path: '/connect', icon: Users },
       { label: 'Calendar', path: '/calendar', icon: Calendar },
-      { label: 'Notice Board', path: '/notice-board', icon: Pin },
+      { label: 'Communication', path: '/communication', icon: Bell },
+
+      // { label: 'Notice Board', path: '/notice-board', icon: Pin },
     ],
   },
   {

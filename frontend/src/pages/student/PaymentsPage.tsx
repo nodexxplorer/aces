@@ -15,7 +15,7 @@ import {
   clearStudentCart,
   checkDuePaid,
 } from '../../api/payments';
-import { purchaseManual } from '../../api/manuals';
+import { purchaseManual, checkoutManual } from '../../api/manuals';
 import { useCartStore } from '../../stores/cartStore';
 import type { CartItem } from '../../api/payments';
 import { useAuth } from '../../hooks/useAuth';
@@ -155,16 +155,25 @@ const PaymentsPage = () => {
   const handleManualCheckout = async () => {
     if (manualCartItems.length === 0) return;
     setManualCheckoutBusy(true);
+
+    // Free manuals can be purchased directly. Priced manuals need a Paystack
+    // checkout first — purchaseManual refuses them without a completed
+    // payment — and since a Paystack redirect navigates the whole page away,
+    // only one priced manual can be sent to checkout per click.
+    const freeItems = manualCartItems.filter((item) => !(item.manual.price > 0));
+    const pricedItems = manualCartItems.filter((item) => item.manual.price > 0);
+
     let purchased = 0;
     let failed = 0;
-
-    for (const item of manualCartItems) {
+    for (const item of freeItems) {
       try {
         await purchaseManual(item.manual.id);
+        removeManualItem(item.manual.id);
         purchased++;
       } catch (err: unknown) {
         const msg = getErrorMessage(err, 'Purchase failed');
         if (msg.includes('already purchased')) {
+          removeManualItem(item.manual.id);
           purchased++;
         } else {
           failed++;
@@ -172,15 +181,40 @@ const PaymentsPage = () => {
       }
     }
 
-    clearManualCart();
+    if (purchased > 0) {
+      success('Purchased', `${purchased} free manual(s) added to "My Manuals".`);
+    }
+    if (failed > 0) {
+      notifyError('Purchase Failed', `${failed} manual(s) failed to purchase.`);
+    }
 
-    if (failed === 0) {
-      success(
-        'Checkout Complete',
-        `${purchased} manual(s) purchased successfully. Check "My Manuals" for your QR codes.`,
-      );
-    } else {
-      notifyError('Partial Checkout', `${purchased} purchased, ${failed} failed.`);
+    if (pricedItems.length === 0) {
+      setManualCheckoutBusy(false);
+      return;
+    }
+
+    if (!user?.email) {
+      notifyError('Checkout Error', 'User email is required.');
+      setManualCheckoutBusy(false);
+      return;
+    }
+
+    const next = pricedItems[0];
+    try {
+      const res = await checkoutManual(next.manual.id, user.email);
+      if (res?.authorization_url) {
+        success(
+          'Redirecting',
+          pricedItems.length > 1
+            ? `Forwarding to Paystack for ${next.manual.title}. Check out the remaining ${pricedItems.length - 1} manual(s) afterward.`
+            : `Forwarding to Paystack for ${next.manual.title}...`,
+        );
+        window.location.href = res.authorization_url;
+        return;
+      }
+      notifyError('Checkout Error', 'No redirect URL returned.');
+    } catch (err: unknown) {
+      notifyError('Checkout Error', getErrorMessage(err, 'Unable to initiate gateway transaction.'));
     }
 
     setManualCheckoutBusy(false);
@@ -360,7 +394,7 @@ const PaymentsPage = () => {
                             {formatCurrency(due.amount)}
                           </td>
                           <td className="px-4 py-3 text-xs text-surface-500">
-                            {due.level ? `${due.level * 100} Level` : 'All'}
+                            {due.level ? `${due.level} Level` : 'All'}
                           </td>
                           <td className="px-4 py-3 text-right">
                             <Button

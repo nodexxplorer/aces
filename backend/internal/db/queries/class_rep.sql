@@ -137,9 +137,9 @@ INSERT INTO attendance_sessions (
 
 -- name: UpdateAttendanceSessionStatus :one
 UPDATE attendance_sessions
-SET status = $2,
-    started_at = CASE WHEN $2 = 'open' THEN NOW() ELSE started_at END,
-    closed_at = CASE WHEN $2 = 'closed' OR $2 = 'finalized' THEN NOW() ELSE closed_at END
+SET status = $2::varchar,
+    started_at = CASE WHEN $2::varchar = 'open' THEN NOW() ELSE started_at END,
+    closed_at = CASE WHEN $2::varchar IN ('closed', 'finalized') THEN NOW() ELSE closed_at END
 WHERE id = $1
 RETURNING *;
 

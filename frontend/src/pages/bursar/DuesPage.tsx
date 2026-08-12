@@ -208,7 +208,7 @@ export default function DuesPage() {
                 >
                   <option value="">{activeTab === 'dept_dues' ? 'All Levels' : 'Select level'}</option>
                   {[1, 2, 3, 4, 5].map((l) => (
-                    <option key={l} value={l}>
+                    <option key={l} value={l * 100}>
                       {l * 100} Level
                     </option>
                   ))}

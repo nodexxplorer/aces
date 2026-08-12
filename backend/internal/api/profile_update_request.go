@@ -28,7 +28,15 @@ func (server *Server) createProfileUpdateRequest(ctx *gin.Context) {
 		return
 	}
 
-	studentID, _ := uuid.Parse(req.StudentID)
+	// This route is student-only (see server.go), so the caller's own
+	// students.id — never the body — is always the record owner.
+	callerUserID := getUserID(ctx)
+	student, err := server.store.GetStudentByUserId(ctx, callerUserID)
+	if err != nil {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
+		return
+	}
+	studentID := student.ID
 
 	arg := db.CreateProfileUpdateRequestParams{
 		StudentID: studentID,
@@ -60,6 +68,10 @@ func (server *Server) getProfileUpdateRequest(ctx *gin.Context) {
 		return
 	}
 
+	if !requireOwnershipOrStaff(ctx, server.store, request.StudentID) {
+		return
+	}
+
 	ctx.JSON(http.StatusOK, request)
 }
 
@@ -67,6 +79,10 @@ func (server *Server) listStudentProfileUpdateRequests(ctx *gin.Context) {
 	studentID, err := uuid.Parse(ctx.Param("student_id"))
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid student id"})
+		return
+	}
+
+	if !requireOwnershipOrStaff(ctx, server.store, studentID) {
 		return
 	}
 
@@ -107,7 +123,6 @@ func (server *Server) listPendingProfileUpdateRequests(ctx *gin.Context) {
 
 type updateProfileUpdateRequestStatusReq struct {
 	Status          string  `json:"status" binding:"required"`
-	ApprovedBy      *string `json:"approved_by" binding:"omitempty,uuid"`
 	ApprovedAt      *string `json:"approved_at"`
 	RejectionReason *string `json:"rejection_reason"`
 }
@@ -131,12 +146,9 @@ func (server *Server) updateProfileUpdateRequestStatus(ctx *gin.Context) {
 		RejectionReason: req.RejectionReason,
 	}
 
-	if req.ApprovedBy != nil {
-		approvedBy, err := uuid.Parse(*req.ApprovedBy)
-		if err == nil {
-			arg.ApprovedBy = pgtype.UUID{Bytes: approvedBy, Valid: true}
-		}
-	}
+	// Always the caller's own ID, never client-supplied, so the audit trail
+	// records who actually authenticated the request.
+	arg.ApprovedBy = pgtype.UUID{Bytes: getUserID(ctx), Valid: true}
 
 	if req.ApprovedAt != nil {
 		approvedAt, err := time.Parse(time.RFC3339, *req.ApprovedAt)

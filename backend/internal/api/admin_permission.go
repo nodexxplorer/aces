@@ -19,7 +19,6 @@ type grantAdminPermissionRequest struct {
 	CanViewAnalytics       bool   `json:"can_view_analytics"`
 	CanManageAnnouncements bool   `json:"can_manage_announcements"`
 	CanBackupData          bool   `json:"can_backup_data"`
-	GrantedByHodID         string `json:"granted_by_hod_id" binding:"required,uuid"`
 }
 
 func (server *Server) grantAdminPermission(ctx *gin.Context) {
@@ -35,11 +34,9 @@ func (server *Server) grantAdminPermission(ctx *gin.Context) {
 		return
 	}
 
-	hodID, err := uuid.Parse(req.GrantedByHodID)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
-		return
-	}
+	// This route is hod-only (see server.go), so the caller's own ID is
+	// always the true grantor — never trust the body for this.
+	hodID := getUserID(ctx)
 
 	arg := db.GrantAdminPermissionsParams{
 		UserID:                 userID,

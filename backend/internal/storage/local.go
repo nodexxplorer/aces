@@ -51,10 +51,23 @@ func (s *LocalStorage) SaveFile(fileHeader *multipart.FileHeader, subDir string)
 		"application/pdf": true,
 		"application/msword": true, "application/vnd.openxmlformats-officedocument.wordprocessingml.document": true,
 		"application/vnd.ms-excel": true, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": true,
+		"application/vnd.ms-powerpoint": true, "application/vnd.openxmlformats-officedocument.presentationml.presentation": true,
 		"text/plain": true,
 	}
+	// Modern Office formats (.docx/.xlsx/.pptx) are ZIP archives internally —
+	// http.DetectContentType has no OOXML-specific signature, so it sniffs
+	// them as "application/zip" (or "application/octet-stream") no matter
+	// what their real MIME type is. Every such upload was silently rejected
+	// here. Fall back to the file extension for exactly those two generic
+	// sniffed types instead of trusting content-sniffing alone.
+	allowedOfficeExt := map[string]bool{
+		".docx": true, ".xlsx": true, ".pptx": true,
+	}
+	isGenericBinary := contentType == "application/zip" || contentType == "application/octet-stream"
 	if n > 0 && !allowedTypes[contentType] {
-		return "", fmt.Errorf("file type %s is not allowed", contentType)
+		if !(isGenericBinary && allowedOfficeExt[filepath.Ext(fileHeader.Filename)]) {
+			return "", fmt.Errorf("file type %s is not allowed", contentType)
+		}
 	}
 
 	targetDir := filepath.Join(s.basePath, subDir)

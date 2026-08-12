@@ -3147,7 +3147,7 @@ type Payment struct {
 	ID                uuid.UUID          `json:"id"`
 	StudentID         uuid.UUID          `json:"student_id"`
 	BatchID           pgtype.UUID        `json:"batch_id"`
-	DueID             uuid.UUID          `json:"due_id"`
+	DueID             pgtype.UUID        `json:"due_id"`
 	Type              PaymentType        `json:"type"`
 	ItemName          string             `json:"item_name"`
 	Amount            decimal.Decimal    `json:"amount"`

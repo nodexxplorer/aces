@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"math/big"
 	"time"
 
 	db "github.com/aces/backend/internal/db/sql"
@@ -97,10 +98,10 @@ func (s *StudentService) CalculateCGPA(ctx context.Context, studentID uuid.UUID)
 		}
 	}
 
-	var cgpaNum pgtype.Numeric
-	cgpaNum.Int.SetInt64(int64(cgpaVal * 100))
-	cgpaNum.Exp = -2
-	cgpaNum.Valid = true
+	// pgtype.Numeric's zero value has a nil .Int — calling SetInt64 on that
+	// nil *big.Int panicked on every single call to this function, for every
+	// caller (self-service and staff alike). big.NewInt allocates a real one.
+	cgpaNum := pgtype.Numeric{Int: big.NewInt(int64(cgpaVal * 100)), Exp: -2, Valid: true}
 
 	academicStanding := db.AcademicStanding(standing)
 

@@ -162,10 +162,10 @@ const ChatbotWidget = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="fixed bottom-20 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] max-w-[400px] h-[600px] max-h-[calc(100vh-7rem)] bg-white dark:bg-surface-900 rounded-2xl shadow-2xl border border-surface-200 dark:border-surface-700 flex flex-col overflow-hidden"
+            className="fixed inset-0 sm:inset-auto sm:bottom-20 sm:right-6 z-50 w-full sm:w-[calc(100vw-2rem)] sm:max-w-[400px] h-[100dvh] sm:h-[600px] sm:max-h-[calc(100vh-7rem)] bg-white dark:bg-surface-900 rounded-none sm:rounded-2xl shadow-2xl border-0 sm:border border-surface-200 dark:border-surface-700 flex flex-col overflow-hidden"
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white">
+            <div className="flex items-center justify-between px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-gradient-to-r from-primary-500 to-primary-600 text-white">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
                   <Bot className="w-5 h-5" />
@@ -289,7 +289,7 @@ const ChatbotWidget = () => {
             </div>
 
             {/* Input */}
-            <div className="px-4 py-3 border-t border-surface-200 dark:border-surface-700">
+            <div className="px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-surface-200 dark:border-surface-700">
               <div className="flex items-center gap-2">
                 <input
                   ref={inputRef}
@@ -372,10 +372,14 @@ const ChatbotWidget = () => {
       </AnimatePresence>
 
       {/* ── Main Collapsible Footer Button ── */}
+      {/* Hidden on mobile while the chat is open since it goes full-screen
+          there and the header's own close button already covers that job;
+          the FAB would otherwise float on top of the fullscreen chat. */}
       <motion.button
         onClick={handleFabClick}
         className={cn(
-          'fixed bottom-4 right-4 sm:right-6 z-50 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 border border-surface-200/20 dark:border-surface-700/50',
+          'fixed bottom-4 right-4 sm:right-6 z-50 w-14 h-14 rounded-full shadow-2xl items-center justify-center transition-all duration-300 border border-surface-200/20 dark:border-surface-700/50',
+          isChatOpen ? 'hidden sm:flex' : 'flex',
           isMenuOpen || isChatOpen
             ? 'bg-surface-200 dark:bg-surface-800 text-surface-900 dark:text-white'
             : 'bg-primary-500 text-white hover:bg-primary-600',

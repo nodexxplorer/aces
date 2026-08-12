@@ -148,7 +148,7 @@ const AttendancePage = () => {
         setStudents(
           list.map((s) => ({
             student_id: s.id,
-            user_id: s.id,
+            user_id: s.user_id || s.id,
             matric_number: s.matric_number,
             full_name: s.full_name,
             level: s.level,
@@ -188,6 +188,14 @@ const AttendancePage = () => {
     }, 5000);
     return () => clearInterval(interval);
   }, [displayQrOpen, activeSession]);
+
+  const handleDownloadQr = () => {
+    if (!qrCanvasRef.current || !activeSession) return;
+    const link = document.createElement('a');
+    link.download = `attendance-checkin-qr-${activeSession.id}.png`;
+    link.href = qrCanvasRef.current.toDataURL('image/png');
+    link.click();
+  };
 
   const getStudentStatus = (studentId: string): StatusType => {
     const checkin = checkins.find((c) => c.student_id === studentId);
@@ -240,7 +248,7 @@ const AttendancePage = () => {
       notifyError('Not Found', 'This student is not on the registered roster for this course.');
       return;
     }
-    await handleUpdateStatus(match.student_id, 'present');
+    await handleUpdateStatus(match.user_id, 'present');
     success('Checked In', `${match.full_name} marked present.`);
   };
 
@@ -249,7 +257,7 @@ const AttendancePage = () => {
     setSaving(true);
     try {
       for (const s of filteredStudents) {
-        await handleUpdateStatus(s.student_id, targetStatus);
+        await handleUpdateStatus(s.user_id, targetStatus);
       }
       success('Bulk Update', `All visible students marked as ${targetStatus}`);
     } catch (e) {
@@ -314,14 +322,14 @@ const AttendancePage = () => {
     const matchesSearch =
       s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.matric_number.toLowerCase().includes(searchQuery.toLowerCase());
-    const currentSt = getStudentStatus(s.student_id);
+    const currentSt = getStudentStatus(s.user_id);
     const matchesStatus = statusFilter === 'all' || currentSt === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  const presentCount = students.filter((s) => getStudentStatus(s.student_id) === 'present').length;
-  const lateCount = students.filter((s) => getStudentStatus(s.student_id) === 'late').length;
-  const excusedCount = students.filter((s) => getStudentStatus(s.student_id) === 'excused').length;
+  const presentCount = students.filter((s) => getStudentStatus(s.user_id) === 'present').length;
+  const lateCount = students.filter((s) => getStudentStatus(s.user_id) === 'late').length;
+  const excusedCount = students.filter((s) => getStudentStatus(s.user_id) === 'excused').length;
   const absentCount = students.length - (presentCount + lateCount + excusedCount);
   const attendanceRate = students.length > 0 ? Math.round(((presentCount + lateCount) / students.length) * 100) : 0;
 
@@ -537,7 +545,7 @@ const AttendancePage = () => {
                 </tr>
               ) : (
                 filteredStudents.map((s, idx) => {
-                  const currentSt = getStudentStatus(s.student_id);
+                  const currentSt = getStudentStatus(s.user_id);
                   return (
                     <tr key={s.student_id} className="hover:bg-surface-50/50 dark:hover:bg-surface-800/30">
                       <td className="px-6 py-4 text-surface-400 text-xs">{idx + 1}</td>
@@ -550,7 +558,7 @@ const AttendancePage = () => {
                         {activeSession ? (
                           <div className="inline-flex rounded-lg border border-surface-200 dark:border-surface-700 p-0.5 bg-surface-50 dark:bg-surface-800">
                             <button
-                              onClick={() => handleUpdateStatus(s.student_id, 'present')}
+                              onClick={() => handleUpdateStatus(s.user_id, 'present')}
                               className={`px-2.5 py-1 text-xs font-medium rounded-md flex items-center gap-1 transition-all ${
                                 currentSt === 'present'
                                   ? 'bg-success-500 text-white shadow-sm'
@@ -560,7 +568,7 @@ const AttendancePage = () => {
                               <CheckCircle2 className="w-3 h-3" /> <span className="hidden sm:inline">Present</span>
                             </button>
                             <button
-                              onClick={() => handleUpdateStatus(s.student_id, 'absent')}
+                              onClick={() => handleUpdateStatus(s.user_id, 'absent')}
                               className={`px-2.5 py-1 text-xs font-medium rounded-md flex items-center gap-1 transition-all ${
                                 currentSt === 'absent'
                                   ? 'bg-danger-500 text-white shadow-sm'
@@ -570,7 +578,7 @@ const AttendancePage = () => {
                               <XCircle className="w-3 h-3" /> <span className="hidden sm:inline">Absent</span>
                             </button>
                             <button
-                              onClick={() => handleUpdateStatus(s.student_id, 'late')}
+                              onClick={() => handleUpdateStatus(s.user_id, 'late')}
                               className={`px-2.5 py-1 text-xs font-medium rounded-md flex items-center gap-1 transition-all ${
                                 currentSt === 'late'
                                   ? 'bg-yellow-500 text-white shadow-sm'
@@ -580,7 +588,7 @@ const AttendancePage = () => {
                               <Clock className="w-3 h-3" /> <span className="hidden sm:inline">Late</span>
                             </button>
                             <button
-                              onClick={() => handleUpdateStatus(s.student_id, 'excused')}
+                              onClick={() => handleUpdateStatus(s.user_id, 'excused')}
                               className={`px-2.5 py-1 text-xs font-medium rounded-md flex items-center gap-1 transition-all ${
                                 currentSt === 'excused'
                                   ? 'bg-blue-500 text-white shadow-sm'
@@ -634,9 +642,19 @@ const AttendancePage = () => {
             <p className="text-sm text-surface-500 mt-4">
               {presentCount} of {students.length} students checked in
             </p>
-            <Button variant="outline" className="w-full mt-4" onClick={() => setDisplayQrOpen(false)}>
-              Close
-            </Button>
+            <div className="flex gap-2 w-full mt-4">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={handleDownloadQr}
+                leftIcon={<Download className="w-4 h-4" />}
+              >
+                Download
+              </Button>
+              <Button className="flex-1" onClick={() => setDisplayQrOpen(false)}>
+                Close
+              </Button>
+            </div>
           </Card>
         </div>
       )}

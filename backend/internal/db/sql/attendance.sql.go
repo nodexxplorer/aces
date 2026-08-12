@@ -251,9 +251,9 @@ const updateAttendanceSheet = `-- name: UpdateAttendanceSheet :one
 UPDATE attendance_sheets
 SET
     attendance_data = $2,
-    status = $3,
+    status = $3::varchar,
     pdf_url = $4,
-    finalized_at = CASE WHEN $3 = 'finalized' THEN NOW() ELSE finalized_at END,
+    finalized_at = CASE WHEN $3::varchar = 'finalized' THEN NOW() ELSE finalized_at END,
     emailed_to_lecturer = $5
 WHERE id = $1
 RETURNING id, course_id, date, class_rep_id, attendance_data, pdf_url, status, finalized_at, emailed_to_lecturer, session_id, created_at

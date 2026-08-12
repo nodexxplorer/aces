@@ -34,6 +34,7 @@ export interface LecturerAssignment {
   level: number;
   session_id: string;
   semester: string;
+  semester_id: string | null;
   is_primary: boolean;
   assigned_by: string;
   assigned_by_name: string;
@@ -79,7 +80,7 @@ export interface PendingPayment {
   student_name: string;
   matric_number: string;
   level: number;
-  due_id: string;
+  due_id: string | null;
   due_name: string;
   amount: number;
   paystack_reference: string | null;

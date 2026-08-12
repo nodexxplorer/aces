@@ -1,14 +1,16 @@
 import { useState } from 'react';
-import { Bell, Megaphone, Pin } from 'lucide-react';
+import { Bell, Megaphone, Pin, Calendar } from 'lucide-react';
 import Tabs from '../../components/ui/Tabs';
 import NotificationsTab from '../shared/NotificationsPage';
 import AnnouncementsTab from '../shared/StudentAnnouncementsPage';
 import NoticesTab from '../shared/ClassNoticeBoardPage';
+import CalendarTab from '../admin/CalendarPage';
 
 const communicationTabs = [
   { id: 'notifications', label: 'Notifications', icon: <Bell className="w-4 h-4" /> },
   { id: 'announcements', label: 'Announcements', icon: <Megaphone className="w-4 h-4" /> },
   { id: 'notices', label: 'Notice Board', icon: <Pin className="w-4 h-4" /> },
+  { id: 'calendar', label: 'Calendar', icon: <Calendar className="w-4 h-4" /> },
 ];
 
 export default function StudentCommunicationPage() {
@@ -33,6 +35,7 @@ export default function StudentCommunicationPage() {
             {activeTab === 'notifications' && <NotificationsTab />}
             {activeTab === 'announcements' && <AnnouncementsTab />}
             {activeTab === 'notices' && <NoticesTab />}
+            {activeTab === 'calendar' && <CalendarTab />}
           </div>
         </div>
       </div>

@@ -124,7 +124,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		complaints:        service.NewComplaintService(store),
 		announcements:     service.NewAnnouncementService(store),
 		notifications:     service.NewNotificationService(store),
-		notificationsFull: service.NewNotificationServiceFull(db.New(dbPool), hub, emailSender),
+		notificationsFull: service.NewNotificationServiceFull(db.New(dbPool), hub, emailSender, cfg.FrontendPublicURL),
 		transcripts:   service.NewTranscriptService(store),
 		analytics:     service.NewAnalyticsService(store),
 		cgpa:          service.NewCGPAService(store),
@@ -465,6 +465,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		payments.GET("/summary/:student_id", server.getStudentPaymentSummary)
 		payments.GET("/check-paid", server.checkDuePaid)
 		payments.GET("/my-reference", middleware.RequireRoles("student"), server.getMyPaymentByReference)
+		payments.POST("/confirm", middleware.RequireRoles("student"), server.confirmMyPaymentByReference)
 		payments.GET("/by-reference", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.getPaymentByReference)
 		payments.GET("/defaulters", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.listDefaulters)
 		payments.GET("/recent-verified", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.listRecentVerifiedPayments)
@@ -552,16 +553,16 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		manualsGroup.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteManual)
 
 		// Student purchase flow
+		manualsGroup.POST("/:id/checkout", middleware.RequireRoles("student"), server.createManualPayment)
 		manualsGroup.POST("/purchase", middleware.RequireRoles("student"), server.purchaseManual)
 		manualsGroup.GET("/my-purchases", middleware.RequireRoles("student"), server.listMyPurchases)
 		manualsGroup.GET("/:id/cover", server.downloadManualCover)
+		manualsGroup.GET("/purchases/:id/receipt", server.downloadManualReceipt)
 
 		// Admin: bought list & print queue
 		manualsGroup.GET("/:id/purchases", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.listManualPurchasesByManual)
+		manualsGroup.GET("/:id/covers/bulk", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.bulkDownloadManualCovers)
 		manualsGroup.POST("/purchases/:id/collect", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.markManualCollected)
-		manualsGroup.POST("/print-queue", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.addToPrintQueue)
-		manualsGroup.GET("/print-queue", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.listPrintQueue)
-		manualsGroup.PUT("/print-queue/:id", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.updatePrintQueueStatus)
 
 		// QR scan & enrollment
 		manualsGroup.POST("/qr-verify", middleware.RequireRoles("student"), server.verifyManualQR)

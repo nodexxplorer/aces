@@ -87,14 +87,26 @@ type tokenPair struct {
 func (server *Server) setTokenCookies(ctx *gin.Context, pair *tokenPair) {
 	secure := server.config.IsProduction() || ctx.GetHeader("X-Forwarded-Proto") == "https"
 
-	ctx.SetSameSite(http.SameSiteNoneMode)
+	// SameSite=None cookies are silently dropped by browsers unless Secure is
+	// also set, which requires HTTPS. Local dev runs over plain HTTP, so fall
+	// back to Lax there — it still works since frontend/backend share the
+	// "localhost" site even on different ports.
+	if secure {
+		ctx.SetSameSite(http.SameSiteNoneMode)
+	} else {
+		ctx.SetSameSite(http.SameSiteLaxMode)
+	}
 	ctx.SetCookie("aces_access_token", pair.AccessToken, int(server.config.JWTAccessDuration.Seconds()), "/", "", secure, true)
 	ctx.SetCookie("aces_refresh_token", pair.RefreshToken, int(server.config.JWTRefreshDuration.Seconds()), "/", "", secure, true)
 }
 
 func (server *Server) clearTokenCookies(ctx *gin.Context) {
 	secure := server.config.IsProduction() || ctx.GetHeader("X-Forwarded-Proto") == "https"
-	ctx.SetSameSite(http.SameSiteNoneMode)
+	if secure {
+		ctx.SetSameSite(http.SameSiteNoneMode)
+	} else {
+		ctx.SetSameSite(http.SameSiteLaxMode)
+	}
 	ctx.SetCookie("aces_access_token", "", -1, "/", "", secure, true)
 	ctx.SetCookie("aces_refresh_token", "", -1, "/", "", secure, true)
 }

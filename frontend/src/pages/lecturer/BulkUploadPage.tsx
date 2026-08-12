@@ -8,11 +8,6 @@ import { useAuth } from '../../hooks/useAuth';
 import { listLecturerAssignments, type LecturerAssignment } from '../../api/lecturers';
 import { getErrorMessage } from '../../utils/errors';
 
-// Some lecturer-assignment responses attach a semester identifier under
-// either naming convention even though the shared `LecturerAssignment` type
-// doesn't declare it; this keeps that defensive lookup type-safe.
-type LecturerAssignmentWithSemesterId = LecturerAssignment & { semester_id?: string; semesterId?: string };
-
 interface PreviewRow {
   matricNumber: string;
   name: string;
@@ -21,7 +16,7 @@ interface PreviewRow {
   error?: string;
 }
 
-const BulkUploadPage = () => {
+export const BulkUploadTab = () => {
   const { success, error } = useNotification();
   const [course, setCourse] = useState('cpe511');
   const [file, setFile] = useState<File | null>(null);
@@ -118,6 +113,10 @@ const BulkUploadPage = () => {
       error('Missing Course', 'Select an assigned course.');
       return;
     }
+    if (!selAssign.semester_id) {
+      error('Missing Semester', 'This course assignment has no matching semester on record — contact an admin.');
+      return;
+    }
 
     setCommitting(true);
     let successCount = 0;
@@ -127,10 +126,7 @@ const BulkUploadPage = () => {
         await enterScore({
           courseId: selAssign.course_id,
           sessionId: selAssign.session_id,
-          semesterId:
-            (selAssign as LecturerAssignmentWithSemesterId).semester_id ||
-            (selAssign as LecturerAssignmentWithSemesterId).semesterId ||
-            '',
+          semesterId: selAssign.semester_id,
           caScore: row.ca,
           examScore: row.exam,
           matricNumber: row.matricNumber,
@@ -149,13 +145,7 @@ const BulkUploadPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Bulk Upload Grades</h1>
-          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-            Import continuous assessment and examination grades using Excel or CSV sheets.
-          </p>
-        </div>
+      <div className="flex justify-end">
         <Button variant="outline" leftIcon={<FileSpreadsheet className="w-4 h-4" />} onClick={handleDownloadTemplate}>
           Download CSV Template
         </Button>
@@ -254,5 +244,3 @@ const BulkUploadPage = () => {
     </div>
   );
 };
-
-export default BulkUploadPage;

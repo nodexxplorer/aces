@@ -1,16 +1,14 @@
 import { useState } from 'react';
-import { Calendar, BarChart3, Database, HelpCircle, MessageSquare, ShieldAlert, Wrench } from 'lucide-react';
-import CalendarPage from './CalendarPage';
+import { BarChart3, Database, HelpCircle, MessageSquare, ShieldAlert, Wrench } from 'lucide-react';
 import ReportsPage from './ReportsPage';
 import BackupPage from './BackupPage';
 import ComplaintsManagePage from './ComplaintsManagePage';
 import FeedbackManagePage from './FeedbackManagePage';
 import FeatureFlagsPage from './FeatureFlagsPage';
 
-type Tab = 'calendar' | 'reports' | 'backups' | 'complaints' | 'feedback' | 'feature-flags';
+type Tab = 'reports' | 'backups' | 'complaints' | 'feedback' | 'feature-flags';
 
-const tabs: { key: Tab; label: string; icon: typeof Calendar }[] = [
-  { key: 'calendar', label: 'Calendar', icon: Calendar },
+const tabs: { key: Tab; label: string; icon: typeof BarChart3 }[] = [
   { key: 'reports', label: 'Reports', icon: BarChart3 },
   { key: 'backups', label: 'Backups', icon: Database },
   { key: 'complaints', label: 'Complaints', icon: HelpCircle },
@@ -19,7 +17,7 @@ const tabs: { key: Tab; label: string; icon: typeof Calendar }[] = [
 ];
 
 export default function SystemAdminPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('calendar');
+  const [activeTab, setActiveTab] = useState<Tab>('reports');
 
   return (
     <div className="space-y-6">
@@ -29,7 +27,9 @@ export default function SystemAdminPage() {
         </div>
         <div>
           <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Operations</h1>
-          <p className="text-sm text-surface-500 dark:text-surface-400">Calendar, reports, backups, complaints, feedback, and feature flags.</p>
+          <p className="text-sm text-surface-500 dark:text-surface-400">
+            Reports, backups, complaints, feedback, and feature flags.
+          </p>
         </div>
       </div>
 
@@ -51,7 +51,6 @@ export default function SystemAdminPage() {
       </div>
 
       <div>
-        {activeTab === 'calendar' && <CalendarPage />}
         {activeTab === 'reports' && <ReportsPage />}
         {activeTab === 'backups' && <BackupPage />}
         {activeTab === 'complaints' && <ComplaintsManagePage />}

@@ -64,6 +64,10 @@ func (server *Server) createResult(ctx *gin.Context) {
 				ctx.JSON(http.StatusForbidden, gin.H{"error": "you are not assigned to teach this course"})
 				return
 			}
+			// A lecturer submits results, they don't sign off on them — that's
+			// the HOD-only PUT /:id/status route. Without this, a lecturer could
+			// set status: "approved" straight from the create/update endpoint.
+			req.Status = string(db.ResultStatusPending)
 		}
 	}
 
@@ -258,6 +262,10 @@ func (server *Server) updateResult(ctx *gin.Context) {
 				ctx.JSON(http.StatusForbidden, gin.H{"error": "you are not assigned to teach this course"})
 				return
 			}
+			// Same as createResult — a lecturer can edit their submission but
+			// can't self-sign-off; approval only happens via the HOD-only
+			// PUT /:id/status route.
+			req.Status = string(db.ResultStatusPending)
 		}
 	}
 
@@ -279,7 +287,6 @@ func (server *Server) updateResult(ctx *gin.Context) {
 
 type updateResultStatusRequest struct {
 	Status          string `json:"status" binding:"required"`
-	ApprovedBy      string `json:"approved_by" binding:"omitempty,uuid"`
 	RejectionReason string `json:"rejection_reason" binding:"omitempty"`
 }
 
@@ -296,11 +303,10 @@ func (server *Server) updateResultStatus(ctx *gin.Context) {
 		return
 	}
 
-	var approvedBy *uuid.UUID
-	if req.ApprovedBy != "" {
-		id, _ := uuid.Parse(req.ApprovedBy)
-		approvedBy = &id
-	}
+	// Derived from the session, never the request body — an audit-trail
+	// "approved by" field must record who actually authenticated the call.
+	callerID := getUserID(ctx)
+	approvedBy := &callerID
 
 	var rejectionReason *string
 	if req.RejectionReason != "" {
@@ -369,7 +375,6 @@ type createResultAuditLogRequest struct {
 	OldValue     *string `json:"old_value"`
 	NewValue     *string `json:"new_value"`
 	Reason       string  `json:"reason" binding:"required"`
-	EditedBy     string  `json:"edited_by" binding:"required,uuid"`
 	IpAddress    *string `json:"ip_address"`
 	UserAgent    *string `json:"user_agent"`
 }
@@ -387,7 +392,7 @@ func (server *Server) createResultAuditLog(ctx *gin.Context) {
 		return
 	}
 
-	editedBy, _ := uuid.Parse(req.EditedBy)
+	editedBy := getUserID(ctx)
 
 	auditLog, err := server.results.CreateAuditLog(ctx, resultID, req.FieldChanged, req.OldValue, req.NewValue, req.Reason, editedBy, req.IpAddress, req.UserAgent)
 	if err != nil {

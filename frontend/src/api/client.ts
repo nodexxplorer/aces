@@ -13,6 +13,23 @@ const apiClient = axios.create({
   withCredentials: true,
 });
 
+function readCookie(name: string): string | null {
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+// Double-submit CSRF defense: the backend issues a non-httpOnly
+// aces_csrf_token cookie alongside the session cookies. A cross-site page
+// can make the browser send our cookies automatically, but it can't read
+// this one to copy into the header, so the backend rejects the forgery.
+apiClient.interceptors.request.use((config) => {
+  const token = readCookie('aces_csrf_token');
+  if (token) {
+    config.headers['X-CSRF-Token'] = token;
+  }
+  return config;
+});
+
 export async function safeRequest<T>(request: () => Promise<{ data: { data: T } }>): Promise<T> {
   try {
     const response = await request();

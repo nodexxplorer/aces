@@ -50,10 +50,10 @@ FROM mentorship_requests mr JOIN users u ON mr.student_id = u.id
 WHERE mr.mentor_id = $1 ORDER BY mr.created_at DESC;
 
 -- name: UpdateMentorshipStatus :one
-UPDATE mentorship_requests SET status = $2,
-    responded_at = CASE WHEN $2 IN ('accepted','declined') THEN NOW() ELSE responded_at END,
-    started_at = CASE WHEN $2 = 'active' THEN NOW() ELSE started_at END,
-    ended_at = CASE WHEN $2 = 'completed' THEN NOW() ELSE ended_at END
+UPDATE mentorship_requests SET status = $2::mentorship_status,
+    responded_at = CASE WHEN $2::mentorship_status IN ('accepted','declined') THEN NOW() ELSE responded_at END,
+    started_at = CASE WHEN $2::mentorship_status = 'active' THEN NOW() ELSE started_at END,
+    ended_at = CASE WHEN $2::mentorship_status = 'completed' THEN NOW() ELSE ended_at END
 WHERE id = $1 RETURNING *;
 
 -- ==================== JOB POSTS ====================
@@ -159,9 +159,9 @@ SELECT ms.* FROM mentorship_sessions ms
 WHERE ms.mentorship_id = $1 ORDER BY ms.scheduled_at DESC;
 
 -- name: UpdateMentorshipSessionStatus :one
-UPDATE mentorship_sessions SET status = $2,
-    mentor_confirmed = CASE WHEN $2 = 'completed' THEN true ELSE mentor_confirmed END,
-    mentee_confirmed = CASE WHEN $2 = 'completed' THEN true ELSE mentee_confirmed END
+UPDATE mentorship_sessions SET status = $2::varchar,
+    mentor_confirmed = CASE WHEN $2::varchar = 'completed' THEN true ELSE mentor_confirmed END,
+    mentee_confirmed = CASE WHEN $2::varchar = 'completed' THEN true ELSE mentee_confirmed END
 WHERE id = $1 RETURNING *;
 
 -- ==================== DONATIONS ====================

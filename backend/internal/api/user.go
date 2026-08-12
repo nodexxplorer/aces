@@ -29,6 +29,11 @@ func (server *Server) createUser(ctx *gin.Context) {
 		return
 	}
 
+	if blockedPrivilegedRoleGrant(ctx, req.Role) {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "you cannot create a user with hod or admin/delegated_admin role"})
+		return
+	}
+
 	// Only HOD can set created_by_hod_id
 	if req.CreatedByHodID != "" {
 		hodID, err := uuid.Parse(req.CreatedByHodID)
@@ -292,6 +297,10 @@ func (server *Server) updateUser(ctx *gin.Context) {
 		// "dept_bursar") when it round-trips from GET /users/:id — must be
 		// mapped back to the raw DB enum value before writing it.
 		dbRole := service.ParseRoleNameReverse(*req.Role)
+		if blockedPrivilegedRoleGrant(ctx, dbRole) {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "you cannot set hod or admin/delegated_admin role"})
+			return
+		}
 		input.Role = &dbRole
 	}
 

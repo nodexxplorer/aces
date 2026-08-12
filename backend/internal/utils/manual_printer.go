@@ -37,6 +37,12 @@ type CoverPageInput struct {
 // GenerateManualCover produces a PDF/1.4 A4 cover page matching the physical
 // University of Uyo lab manual cover used by the Dept. of Computer Engineering.
 func GenerateManualCover(input CoverPageInput) ([]byte, error) {
+	return GenerateManualCoverBatch([]CoverPageInput{input})
+}
+
+// resolveSessionSemester applies the same session/semester fallback defaults
+// used by every cover page, single or batched.
+func resolveSessionSemester(input CoverPageInput) string {
 	sessionLabel := input.Session
 	if sessionLabel == "" {
 		sessionLabel = "2025/2026"
@@ -45,49 +51,67 @@ func GenerateManualCover(input CoverPageInput) ([]byte, error) {
 	if semesterLabel == "" {
 		semesterLabel = "Second Semester"
 	}
-	sessionSemester := sessionLabel + " \u00b7 " + semesterLabel
+	return sessionLabel + " \u00b7 " + semesterLabel
+}
 
-	// ── Generate QR bitmap ([][]bool) ──────────────────────────────────────
-	var qrMatrix [][]bool
-	if input.QRCodeData != nil && *input.QRCodeData != "" {
-		qc, err := qrcode.New(*input.QRCodeData, qrcode.Medium)
-		if err == nil {
-			qrMatrix = qc.Bitmap()
-		}
+// GenerateManualCoverBatch produces a single multi-page PDF/1.4 document with
+// one cover page per input, in order — so an admin can print an entire
+// class's covers from one file instead of downloading them one at a time.
+// The Helvetica/Times fonts and the university crest are shared XObjects
+// referenced by every page rather than duplicated per page, so file size
+// scales with page count, not with page count times asset size.
+func GenerateManualCoverBatch(inputs []CoverPageInput) ([]byte, error) {
+	if len(inputs) == 0 {
+		return nil, fmt.Errorf("no covers to generate")
 	}
 
-	// ── Prepare logo as a JPEG-encoded Image XObject ───────────────────────
 	logoW, logoH, logoJPEG, err := encodeLogoJPEG()
 	if err != nil {
 		return nil, fmt.Errorf("encode logo: %w", err)
 	}
 
-	// ── Build page content stream ──────────────────────────────────────────
-	content := buildCoverContent(input, sessionSemester, qrMatrix)
-
-	// ── Assemble PDF objects ───────────────────────────────────────────────
 	var buf bytes.Buffer
 	objs := []string{}
-
 	addObj := func(s string) int { objs = append(objs, s); return len(objs) }
 
-	addObj("<< /Type /Catalog /Pages 2 0 R >>")         // 1
-	addObj("<< /Type /Pages /Kids [3 0 R] /Count 1 >>") // 2
-	pageObjIdx := addObj("")                            // 3 (patched below, needs child obj numbers)
-	contentObjIdx := addObj(fmt.Sprintf("<< /Length %d >>\nstream\n%s\nendstream", len(content), content)) // 4
-	addObj("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>")            // 5  F1
-	addObj("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>")       // 6  F2
-	addObj("<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman /Encoding /WinAnsiEncoding >>")          // 7  F3
-	addObj("<< /Type /Font /Subtype /Type1 /BaseFont /Times-Bold /Encoding /WinAnsiEncoding >>")           // 8  F4
-	imageObjIdx := addObj(fmt.Sprintf(
+	catalogIdx := addObj("") // patched once the Pages object index is known
+	pagesIdx := addObj("")   // patched once every page's object index is known
+
+	f1Idx := addObj("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>")
+	f2Idx := addObj("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>")
+	f3Idx := addObj("<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman /Encoding /WinAnsiEncoding >>")
+	f4Idx := addObj("<< /Type /Font /Subtype /Type1 /BaseFont /Times-Bold /Encoding /WinAnsiEncoding >>")
+	imageIdx := addObj(fmt.Sprintf(
 		"<< /Type /XObject /Subtype /Image /Width %d /Height %d /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length %d >>\nstream\n%s\nendstream",
 		logoW, logoH, len(logoJPEG), string(logoJPEG),
-	)) // 9
+	))
 
-	objs[pageObjIdx-1] = fmt.Sprintf(
-		"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents %d 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R /F3 7 0 R /F4 8 0 R >> /XObject << /Im1 %d 0 R >> >> >>",
-		contentObjIdx, imageObjIdx,
-	)
+	pageIdxs := make([]int, 0, len(inputs))
+	for _, input := range inputs {
+		sessionSemester := resolveSessionSemester(input)
+
+		var qrMatrix [][]bool
+		if input.QRCodeData != nil && *input.QRCodeData != "" {
+			if qc, qrErr := qrcode.New(*input.QRCodeData, qrcode.Medium); qrErr == nil {
+				qrMatrix = qc.Bitmap()
+			}
+		}
+
+		content := buildCoverContent(input, sessionSemester, qrMatrix)
+		contentIdx := addObj(fmt.Sprintf("<< /Length %d >>\nstream\n%s\nendstream", len(content), content))
+		pageIdx := addObj(fmt.Sprintf(
+			"<< /Type /Page /Parent %d 0 R /MediaBox [0 0 595 842] /Contents %d 0 R /Resources << /Font << /F1 %d 0 R /F2 %d 0 R /F3 %d 0 R /F4 %d 0 R >> /XObject << /Im1 %d 0 R >> >> >>",
+			pagesIdx, contentIdx, f1Idx, f2Idx, f3Idx, f4Idx, imageIdx,
+		))
+		pageIdxs = append(pageIdxs, pageIdx)
+	}
+
+	kidsRefs := make([]string, len(pageIdxs))
+	for i, idx := range pageIdxs {
+		kidsRefs[i] = fmt.Sprintf("%d 0 R", idx)
+	}
+	objs[pagesIdx-1] = fmt.Sprintf("<< /Type /Pages /Kids [%s] /Count %d >>", strings.Join(kidsRefs, " "), len(pageIdxs))
+	objs[catalogIdx-1] = fmt.Sprintf("<< /Type /Catalog /Pages %d 0 R >>", pagesIdx)
 
 	buf.WriteString("%PDF-1.4\n")
 	offsets := make([]int, len(objs))
@@ -103,7 +127,7 @@ func GenerateManualCover(input CoverPageInput) ([]byte, error) {
 	for _, off := range offsets {
 		buf.WriteString(fmt.Sprintf("%010d 00000 n \n", off))
 	}
-	buf.WriteString(fmt.Sprintf("trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n", n, xrefOff))
+	buf.WriteString(fmt.Sprintf("trailer\n<< /Size %d /Root %d 0 R >>\nstartxref\n%d\n%%%%EOF\n", n, catalogIdx, xrefOff))
 
 	return buf.Bytes(), nil
 }
@@ -179,12 +203,12 @@ func buildCoverContent(input CoverPageInput, sessionSemester string, qrMatrix []
 
 	txt.WriteString("BT\n")
 
-	pdfCentered(&txt, centerX, uniY, 19, "F4", "UNIVERSITY OF UYO")               // Times-Bold 19pt
-	pdfCentered(&txt, centerX, facultyY, 10.5, "F3", "FACULTY OF ENGINEERING")    // Times-Roman 10.5pt
+	pdfCentered(&txt, centerX, uniY, 19, "F4", "UNIVERSITY OF UYO")                     // Times-Bold 19pt
+	pdfCentered(&txt, centerX, facultyY, 10.5, "F3", "FACULTY OF ENGINEERING")          // Times-Roman 10.5pt
 	pdfCentered(&txt, centerX, deptY, 14.5, "F4", "DEPARTMENT OF COMPUTER ENGINEERING") // Times-Bold 14.5pt
 
-	pdfCentered(&txt, centerX, labManualY, 11.5, "F1", "LABORATORY MANUAL FOR")   // Arial (Helvetica) 11.5pt
-	pdfCentered(&txt, centerX, courseCodeY, 30, "F4", input.CourseCode)  // Times-Bold 30pt
+	pdfCentered(&txt, centerX, labManualY, 11.5, "F1", "LABORATORY MANUAL FOR")              // Arial (Helvetica) 11.5pt
+	pdfCentered(&txt, centerX, courseCodeY, 30, "F4", input.CourseCode)                      // Times-Bold 30pt
 	pdfCentered(&txt, centerX, courseTitleY, 14.5, "F2", strings.ToUpper(input.CourseTitle)) // Arial Bold 14.5pt
 
 	pdfCentered(&txt, centerX, studentIDY, 11.5, "F3", "STUDENT'S IDENTIFICATION") // Times-Roman 11.5pt

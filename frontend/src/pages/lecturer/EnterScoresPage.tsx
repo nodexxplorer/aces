@@ -31,7 +31,7 @@ interface CourseResultRow {
   examScore?: number | string;
 }
 
-const EnterScoresPage = () => {
+export const ScoresTab = () => {
   const { user } = useAuth();
   const { success, warning, error: notifyError } = useNotification();
   const [assignments, setAssignments] = useState<LecturerAssignment[]>([]);
@@ -117,13 +117,7 @@ const EnterScoresPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Enter Class Scores</h1>
-          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-            Update CA and exam scores for your course.
-          </p>
-        </div>
+      <div className="flex justify-end">
         <Button isLoading={saving} onClick={handleSave} leftIcon={<Save className="w-4 h-4" />} disabled={!rows.length}>
           Save Changes
         </Button>
@@ -209,5 +203,3 @@ const EnterScoresPage = () => {
     </div>
   );
 };
-
-export default EnterScoresPage;

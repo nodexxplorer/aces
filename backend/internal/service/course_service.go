@@ -157,6 +157,17 @@ func (s *CourseService) Update(ctx context.Context, id uuid.UUID, input UpdateCo
 	return s.store.UpdateCourse(ctx, arg)
 }
 
+// Delete removes a course. Creating a course with a lecturer assigned writes
+// a row to lecturer_course_assignments immediately, and that FK (like the
+// self-referencing prerequisite_id) has no ON DELETE CASCADE — so even a
+// brand-new, never-used course could never be deleted. Clear that purely
+// administrative linkage first; real academic data (registrations, results,
+// materials) still blocks deletion, which is intentional — the caller should
+// archive the course instead.
 func (s *CourseService) Delete(ctx context.Context, id uuid.UUID) error {
+	if q, ok := s.store.(*db.Queries); ok {
+		_, _ = q.GetDB().Exec(ctx, `DELETE FROM lecturer_course_assignments WHERE course_id = $1`, id)
+		_, _ = q.GetDB().Exec(ctx, `UPDATE courses SET prerequisite_id = NULL WHERE prerequisite_id = $1`, id)
+	}
 	return s.store.DeleteCourse(ctx, id)
 }

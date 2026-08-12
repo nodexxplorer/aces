@@ -18,12 +18,11 @@ const ResultDetailPage = lazy(() => import('./pages/student/ResultDetailPage'));
 const PaymentsPage = lazy(() => import('./pages/student/PaymentsPage'));
 const PaymentConfirmationPage = lazy(() => import('./pages/student/PaymentConfirmationPage'));
 const TranscriptsPage = lazy(() => import('./pages/student/TranscriptsPage'));
-const CourseRegistrationPage = lazy(() => import('./pages/student/CourseRegistrationPage'));
+const CoursesPage = lazy(() => import('./pages/student/CoursesPage'));
 const ComplaintsPage = lazy(() => import('./pages/student/ComplaintsPage'));
 const TimetablePage = lazy(() => import('./pages/student/TimetablePage'));
 const ProfilePage = lazy(() => import('./pages/student/ProfilePage'));
 const ManualsPage = lazy(() => import('./pages/student/ManualsPage'));
-const MyManualsPage = lazy(() => import('./pages/student/MyManualsPage'));
 const PracticalDetailsPage = lazy(() => import('./pages/student/PracticalDetailsPage'));
 const StudentJobBoardPage = lazy(() => import('./pages/student/StudentJobBoardPage'));
 const MyApplicationsPage = lazy(() => import('./pages/student/MyApplicationsPage'));
@@ -65,7 +64,7 @@ const AnnouncementsPage = lazy(() => import('./pages/admin/AnnouncementsManagePa
 const AcademicsHubPage = lazy(() => import('./pages/admin/AcademicsHubPage'));
 const TimetableManagePage = lazy(() => import('./pages/admin/TimetableManagePage'));
 const ManualsManagementPage = lazy(() => import('./pages/admin/ManualsManagementPage'));
-const ManualPrintQueuePage = lazy(() => import('./pages/admin/ManualPrintQueuePage'));
+const ManualCoverBulkDownloadPage = lazy(() => import('./pages/admin/ManualCoverBulkDownloadPage'));
 const AlumniManagementPage = lazy(() => import('./pages/admin/AlumniManagementPage'));
 const ResultsManagementPage = lazy(() => import('./pages/admin/ResultsManagementPage'));
 
@@ -94,9 +93,7 @@ const CalendarPage = lazy(() => import('./pages/admin/CalendarPage'));
 const ExpensesPage = lazy(() => import('./pages/admin/ExpensesPage'));
 
 // New high-impact features
-const CarryoverPage = lazy(() => import('./pages/student/CarryoverPage'));
 const AttendanceCheckinPage = lazy(() => import('./pages/student/AttendanceCheckinPage'));
-const StudentCourseMaterialsPage = lazy(() => import('./pages/student/CourseMaterialsPage'));
 const LecturerCourseMaterialsPage = lazy(() => import('./pages/lecturer/CourseMaterialsPage'));
 
 const SupportPage = lazy(() => import('./pages/shared/SupportPage'));
@@ -268,10 +265,11 @@ export const router = createBrowserRouter([
               { path: '/payments', element: <PaymentsPage /> },
               { path: '/payments/confirmation', element: <PaymentConfirmationPage /> },
               { path: '/transcripts', element: <TranscriptsPage /> },
-              { path: '/courses/register', element: <CourseRegistrationPage /> },
+              { path: '/courses', element: <CoursesPage /> },
+              { path: '/courses/register', element: <Navigate to="/courses?tab=register" replace /> },
               { path: '/timetable', element: <TimetablePage /> },
               { path: '/manuals', element: <ManualsPage /> },
-              { path: '/manuals/my', element: <MyManualsPage /> },
+              { path: '/manuals/my', element: <Navigate to="/manuals?tab=my" replace /> },
               { path: '/practicals', element: <PracticalDetailsPage /> },
               { path: '/student/jobs', element: <StudentJobBoardPage /> },
               { path: '/student/applications', element: <MyApplicationsPage /> },
@@ -281,8 +279,8 @@ export const router = createBrowserRouter([
               { path: '/grade-appeals', element: <GradeAppealsPage /> },
               { path: '/support', element: <SupportPage /> },
               { path: '/help-center', element: <SupportPage /> },
-              { path: '/carryovers', element: <CarryoverPage /> },
-              { path: '/materials', element: <StudentCourseMaterialsPage /> },
+              { path: '/carryovers', element: <Navigate to="/courses?tab=carryovers" replace /> },
+              { path: '/materials', element: <Navigate to="/courses?tab=materials" replace /> },
               { path: '/attendance/checkin', element: <AttendanceCheckinPage /> },
             ],
           },
@@ -358,7 +356,7 @@ export const router = createBrowserRouter([
               { path: '/admin/system', element: <SystemAdminPage /> },
               { path: '/admin/timetable', element: <TimetableManagePage /> },
               { path: '/admin/manuals', element: <ManualsManagementPage /> },
-              { path: '/admin/print-queue', element: <ManualPrintQueuePage /> },
+              { path: '/admin/manuals/covers/bulk', element: <ManualCoverBulkDownloadPage /> },
               { path: '/admin/alumni', element: <AlumniManagementPage /> },
               { path: '/admin/cgpa-settings', element: <CGPASettingsPage /> },
               { path: '/admin/settings', element: <SettingsPage /> },

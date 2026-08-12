@@ -3,8 +3,9 @@ import Card, { CardHeader, CardTitle, CardDescription } from '../../components/u
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { useNotification } from '../../hooks/useNotification';
-import { getClassRepClassList, sendClassNotification, type ClassRepStudent } from '../../api/class-rep';
-import { Search, Send, Users, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { getClassRepClassList, type ClassRepStudent } from '../../api/class-rep';
+import { createClassNotice } from '../../api/additional-features';
+import { Megaphone, Send, Pin, Search, Users } from 'lucide-react';
 import { getErrorMessage } from '../../utils/errors';
 
 const NotifyStudentsPage = () => {
@@ -15,10 +16,8 @@ const NotifyStudentsPage = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
+  const [pinned, setPinned] = useState(false);
   const [sending, setSending] = useState(false);
-  const [results, setResults] = useState<{ student_id: string; status: 'sent' | 'failed'; error?: string }[] | null>(
-    null,
-  );
 
   useEffect(() => {
     getClassRepClassList()
@@ -55,32 +54,36 @@ const NotifyStudentsPage = () => {
       notifyError('Validation', 'Title and message are required');
       return;
     }
-    if (selected.size === 0) {
-      notifyError('Validation', 'Select at least one student');
-      return;
-    }
 
     setSending(true);
-    setResults(null);
     try {
-      const targetUserIds = Array.from(selected).map((studentId) => {
-        const student = students.find((s) => s.id === studentId);
-        return student?.user_id || studentId;
+      // Notices target by user_id, not students.id — resolve each selected
+      // roster row to the id the backend actually checks membership against.
+      const targetUserIds =
+        selected.size > 0 && selected.size < students.length
+          ? Array.from(selected)
+              .map((id) => students.find((s) => s.id === id)?.user_id)
+              .filter((id): id is string => !!id)
+          : undefined;
+
+      await createClassNotice({
+        title: title.trim(),
+        content: message.trim(),
+        is_pinned: pinned,
+        target_user_ids: targetUserIds,
       });
-      const res = await sendClassNotification(targetUserIds, title.trim(), message.trim());
-      setResults(res);
-      const sent = res.filter((r) => r.status === 'sent').length;
-      const failed = res.filter((r) => r.status === 'failed').length;
-      if (failed === 0) {
-        success('Notification Sent', `Successfully sent to ${sent} student${sent !== 1 ? 's' : ''}`);
-        setTitle('');
-        setMessage('');
-        setSelected(new Set());
-      } else {
-        notifyError('Partial Failure', `${sent} sent, ${failed} failed`);
-      }
+      success(
+        'Notice Posted',
+        targetUserIds && targetUserIds.length > 0
+          ? `Sent to ${targetUserIds.length} selected student${targetUserIds.length !== 1 ? 's' : ''} in your level.`
+          : 'Sent to everyone in your level.',
+      );
+      setTitle('');
+      setMessage('');
+      setPinned(false);
+      setSelected(new Set());
     } catch (e: unknown) {
-      notifyError('Error', getErrorMessage(e, 'Failed to send notifications'));
+      notifyError('Error', getErrorMessage(e, 'Failed to post notice'));
     } finally {
       setSending(false);
     }
@@ -97,9 +100,10 @@ const NotifyStudentsPage = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Send Notification to Class</h1>
+        <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Notify Classmates</h1>
         <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-          Send a notification message to students in your class level.
+          Posts to the Class Notice Board, visible only to your level — pick specific students or leave everyone
+          selected to reach the whole class.
         </p>
       </div>
 
@@ -113,7 +117,7 @@ const NotifyStudentsPage = () => {
                 <CardTitle>Select Recipients</CardTitle>
               </div>
               <span className="text-xs text-surface-400">
-                {selected.size} of {filtered.length} selected
+                {selected.size === 0 ? 'Everyone in your level' : `${selected.size} of ${filtered.length} selected`}
               </span>
             </CardHeader>
 
@@ -135,7 +139,7 @@ const NotifyStudentsPage = () => {
                 onClick={toggleAll}
                 className="text-xs text-primary-600 dark:text-primary-400 hover:underline font-medium"
               >
-                {selected.size === filtered.length ? 'Deselect All' : 'Select All'}
+                {selected.size === filtered.length ? 'Deselect All (send to everyone)' : 'Select All'}
               </button>
             </div>
 
@@ -175,8 +179,15 @@ const NotifyStudentsPage = () => {
         <div>
           <Card>
             <CardHeader>
-              <CardTitle>Compose Notification</CardTitle>
-              <CardDescription>This will be sent as an in-app notification to selected students</CardDescription>
+              <div className="flex items-center gap-2">
+                <Megaphone className="w-5 h-5 text-primary-500" />
+                <CardTitle>Compose Notice</CardTitle>
+              </div>
+              <CardDescription>
+                {selected.size === 0
+                  ? 'Will post for everyone in your level.'
+                  : `Will post only for the ${selected.size} student${selected.size !== 1 ? 's' : ''} selected.`}
+              </CardDescription>
             </CardHeader>
             <div className="p-4 pt-0 space-y-4">
               <div>
@@ -201,42 +212,27 @@ const NotifyStudentsPage = () => {
                   onChange={(e) => setMessage(e.target.value)}
                 />
               </div>
+              <label className="flex items-center gap-2 text-sm text-surface-700 dark:text-surface-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={pinned}
+                  onChange={(e) => setPinned(e.target.checked)}
+                  className="w-4 h-4 rounded border-surface-300 text-primary-600 focus:ring-primary-500/20"
+                />
+                <Pin className="w-3.5 h-3.5" />
+                Pin to top of notice board
+              </label>
               <Button
                 className="w-full"
-                leftIcon={sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                leftIcon={sending ? undefined : <Send className="w-4 h-4" />}
                 onClick={handleSend}
-                disabled={sending || selected.size === 0 || !title.trim() || !message.trim()}
+                isLoading={sending}
+                disabled={sending || !title.trim() || !message.trim()}
               >
-                {sending ? 'Sending...' : `Send to ${selected.size} Student${selected.size !== 1 ? 's' : ''}`}
+                {sending ? 'Posting...' : 'Post Notice'}
               </Button>
             </div>
           </Card>
-
-          {/* Results */}
-          {results && (
-            <Card className="mt-4">
-              <CardHeader>
-                <CardTitle>Delivery Results</CardTitle>
-              </CardHeader>
-              <div className="p-4 pt-0 space-y-1">
-                {results.map((r) => {
-                  const student = students.find((s) => s.id === r.student_id || s.user_id === r.student_id);
-                  return (
-                    <div key={r.student_id} className="flex items-center gap-2 text-xs">
-                      {r.status === 'sent' ? (
-                        <CheckCircle className="w-3.5 h-3.5 text-success-500 shrink-0" />
-                      ) : (
-                        <XCircle className="w-3.5 h-3.5 text-danger-500 shrink-0" />
-                      )}
-                      <span className="text-surface-700 dark:text-surface-300 truncate">
-                        {student?.full_name || r.student_id}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
-          )}
         </div>
       </div>
     </div>

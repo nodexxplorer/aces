@@ -1,0 +1,38 @@
+# Secrets — the single reason this file exists: `COPY . .` in the builder
+# stage would otherwise bake these into an intermediate image layer even
+# though the final runtime stage only explicitly copies the compiled binary.
+.env
+.env.local
+.env.production
+.env.development
+app.env
+.vault_secrets
+.vault_secrets.json
+vault/data/
+**/wallet.pid
+**/vault_secrets.txt
+**/.approle_creds
+
+# Version control / CI
+.git/
+.github/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Build artifacts / local-only paths not needed inside the image
+bin/
+dist/
+*.exe
+*.test
+*.out
+*.cov
+*.log
+uploads/
+scratch/
+
+# Docs unrelated to the build
+*.md
