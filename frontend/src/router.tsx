@@ -36,6 +36,7 @@ const LecturerClassListPage = lazy(() => import('./pages/lecturer/ClassListPage'
 const LecturerSingleEntryPage = lazy(() => import('./pages/lecturer/SingleEntryPage'));
 const LecturerReportsPage = lazy(() => import('./pages/lecturer/LecturerReportsPage'));
 const LecturerAttendanceReviewPage = lazy(() => import('./pages/lecturer/AttendanceReviewPage'));
+const LecturerLeaveRequestsPage = lazy(() => import('./pages/lecturer/LeaveRequestsPage'));
 
 // Class Rep
 const ClassRepDashboard = lazy(() => import('./pages/class-rep/ClassRepDashboard'));
@@ -78,12 +79,13 @@ const UserDetailPage = lazy(() => import('./pages/admin/UserDetailPage'));
 const EditStudentPage = lazy(() => import('./pages/admin/EditStudentPage'));
 const DocumentVerificationPage = lazy(() => import('./pages/admin/DocumentVerificationPage'));
 const CourseDetailPage = lazy(() => import('./pages/admin/CourseDetailPage'));
-// const LecturerManagementPage = lazy(() => import('./pages/admin/LecturerManagementPage'));
+const LecturerManagementPage = lazy(() => import('./pages/admin/LecturerManagementPage'));
 
 // AI Predictions
 const GPAHubPage = lazy(() => import('./pages/student/GPAHubPage'));
 const AtRiskDashboard = lazy(() => import('./pages/admin/AtRiskDashboard'));
 const GradeDistributionPage = lazy(() => import('./pages/admin/GradeDistributionPage'));
+const RevenueForecastPage = lazy(() => import('./pages/admin/RevenueForecastPage'));
 
 // Additional Features
 const StudyPlannerPage = lazy(() => import('./pages/student/StudyPlannerPage'));
@@ -311,6 +313,7 @@ export const router = createBrowserRouter([
               { path: '/lecturer/reports', element: <LecturerReportsPage /> },
               { path: '/lecturer/attendance-review', element: <LecturerAttendanceReviewPage /> },
               { path: '/lecturer/materials', element: <LecturerCourseMaterialsPage /> },
+              { path: '/lecturer/leave', element: <LecturerLeaveRequestsPage /> },
             ],
           },
 
@@ -363,6 +366,7 @@ export const router = createBrowserRouter([
               { path: '/admin/ai-settings', element: <AISettingsPage /> },
               { path: '/admin/at-risk', element: <AtRiskDashboard /> },
               { path: '/admin/grade-distribution', element: <GradeDistributionPage /> },
+              { path: '/admin/revenue-forecast', element: <RevenueForecastPage /> },
               { path: '/admin/expenses', element: <ExpensesPage /> },
               { path: '/admin/students/:id', element: <StudentDetailPage /> },
               { path: '/admin/users/:id', element: <UserDetailPage /> },
@@ -371,7 +375,7 @@ export const router = createBrowserRouter([
               { path: '/admin/courses/:id', element: <CourseDetailPage /> },
               { path: '/admin/manuals/:id', element: <ManualDetailPage /> },
               { path: '/admin/job-moderation', element: <AdminJobModerationPage /> },
-              // { path: '/admin/lecturers', element: <LecturerManagementPage /> },
+              { path: '/admin/lecturers', element: <LecturerManagementPage /> },
             ],
           },
 
