@@ -75,10 +75,26 @@ func (server *Server) updateCgpaSettings(ctx *gin.Context) {
 }
 
 func (server *Server) calculateCgpa(ctx *gin.Context) {
-	studentID, err := uuid.Parse(ctx.Param("studentId"))
+	pathID, err := uuid.Parse(ctx.Param("studentId"))
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid student ID"})
 		return
+	}
+
+	// CalculateCGPA (and requireOwnershipOrStaff's comparison) both key off
+	// students.id, but every admin caller of this endpoint (Graduation
+	// Check, Academics Hub) only has the users.id from the /users listing —
+	// there's no students.id anywhere in that response. Staff bypass the
+	// ownership check entirely, so for them it's safe to resolve either id
+	// type: try it as students.id first, fall back to treating it as
+	// users.id and looking up the real students.id from that.
+	studentID := pathID
+	if isStaffCaller(ctx) {
+		if _, err := server.store.GetStudent(ctx, pathID); err != nil {
+			if student, serr := server.store.GetStudentByUserId(ctx, pathID); serr == nil {
+				studentID = student.ID
+			}
+		}
 	}
 
 	if !requireOwnershipOrStaff(ctx, server.store, studentID) {

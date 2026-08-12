@@ -6,7 +6,6 @@ import (
 
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type ManualService struct {
@@ -64,30 +63,6 @@ func (s *ManualService) ListPurchasesByManual(ctx context.Context, manualID uuid
 
 func (s *ManualService) MarkCollected(ctx context.Context, id uuid.UUID) (db.ManualPurchase, error) {
 	return s.store.MarkManualCollected(ctx, id)
-}
-
-func (s *ManualService) AddToPrintQueue(ctx context.Context, params db.CreatePrintQueueItemParams) (db.ManualPrintQueue, error) {
-	return s.store.CreatePrintQueueItem(ctx, params)
-}
-
-func (s *ManualService) ListPrintQueue(ctx context.Context, status *string, limit, offset int32) ([]db.ListPrintQueueRow, error) {
-	var statusVal string
-	if status != nil {
-		statusVal = *status
-	}
-	return s.store.ListPrintQueue(ctx, db.ListPrintQueueParams{
-		Status: statusVal, Limit: limit, Offset: offset,
-	})
-}
-
-func (s *ManualService) UpdatePrintQueueStatus(ctx context.Context, id uuid.UUID, status string, processedBy *uuid.UUID) (db.ManualPrintQueue, error) {
-	var processedByUUID pgtype.UUID
-	if processedBy != nil {
-		processedByUUID = pgtype.UUID{Bytes: *processedBy, Valid: true}
-	}
-	return s.store.UpdatePrintQueueStatus(ctx, db.UpdatePrintQueueStatusParams{
-		ID: id, Status: status, ProcessedBy: processedByUUID,
-	})
 }
 
 func (s *ManualService) EnrollPractical(ctx context.Context, params db.CreatePracticalEnrollmentParams) (db.PracticalEnrollment, error) {

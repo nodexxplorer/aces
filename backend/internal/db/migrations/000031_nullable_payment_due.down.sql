@@ -1,0 +1,1 @@
+ALTER TABLE payments ALTER COLUMN due_id SET NOT NULL;

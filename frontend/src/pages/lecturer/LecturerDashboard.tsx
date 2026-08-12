@@ -2,20 +2,17 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
-import { getLecturerDashboardStats, createLeaveRequest } from '../../api/lecturers';
+import { getLecturerDashboardStats } from '../../api/lecturers';
 import type { LecturerDashboardStats } from '../../api/lecturers';
 import { useNotification } from '../../hooks/useNotification';
 import { Link } from 'react-router-dom';
-import { BookOpen, Users, ClipboardList, Send, Calendar, Loader2 } from 'lucide-react';
+import { BookOpen, Users, ClipboardList, FileClock, Calendar, Loader2 } from 'lucide-react';
 
 const LecturerDashboard = () => {
   const { user } = useAuth();
-  const { success, error } = useNotification();
+  const { error } = useNotification();
   const [stats, setStats] = useState<LecturerDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [leaveForm, setLeaveForm] = useState({ leave_type: 'sick', start_date: '', end_date: '', reason: '' });
-  const [submittingLeave, setSubmittingLeave] = useState(false);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -31,21 +28,6 @@ const LecturerDashboard = () => {
     fetchStats();
   }, [error]);
 
-  const handleLeaveSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!leaveForm.start_date || !leaveForm.end_date || !leaveForm.reason) return;
-    setSubmittingLeave(true);
-    try {
-      await createLeaveRequest(leaveForm);
-      success('Leave Submitted', 'Your leave request has been submitted for approval.');
-      setLeaveForm({ leave_type: 'sick', start_date: '', end_date: '', reason: '' });
-    } catch {
-      error('Submission Failed', 'Could not submit leave request. Please try again.');
-    } finally {
-      setSubmittingLeave(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -57,9 +39,7 @@ const LecturerDashboard = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-surface-900 dark:text-white">
-          Lecturer Portal
-        </h1>
+        <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Lecturer Portal</h1>
         <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
           Welcome back, {user?.firstName} {user?.lastName}. Manage your academic modules and score registries.
         </p>
@@ -120,7 +100,7 @@ const LecturerDashboard = () => {
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    <Link to="/lecturer/scores">
+                    <Link to="/lecturer/grades">
                       <Button size="xs" variant="outline" leftIcon={<ClipboardList className="w-3.5 h-3.5" />}>
                         Enter Grades
                       </Button>
@@ -140,58 +120,6 @@ const LecturerDashboard = () => {
               )}
             </div>
           </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Leave Request</CardTitle>
-              <CardDescription>Submit a leave of absence request for administrative approval</CardDescription>
-            </CardHeader>
-            <form onSubmit={handleLeaveSubmit} className="p-4 pt-0 space-y-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Leave Type</label>
-                <select
-                  value={leaveForm.leave_type}
-                  onChange={(e) => setLeaveForm((p) => ({ ...p, leave_type: e.target.value }))}
-                  className="w-full rounded-lg border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-900 text-sm text-surface-900 dark:text-surface-100 p-2 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
-                >
-                  <option value="sick">Sick Leave</option>
-                  <option value="annual">Annual Leave</option>
-                  <option value="study">Study Leave</option>
-                  <option value="compassionate">Compassionate Leave</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <Input
-                  label="Start Date"
-                  type="date"
-                  value={leaveForm.start_date}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLeaveForm((p) => ({ ...p, start_date: e.target.value }))}
-                  required
-                />
-                <Input
-                  label="End Date"
-                  type="date"
-                  value={leaveForm.end_date}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLeaveForm((p) => ({ ...p, end_date: e.target.value }))}
-                  required
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Reason</label>
-                <textarea
-                  placeholder="Provide a reason for your leave request..."
-                  className="w-full h-24 rounded-lg border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-900 text-sm text-surface-900 dark:text-surface-100 p-3 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all resize-none"
-                  value={leaveForm.reason}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setLeaveForm((p) => ({ ...p, reason: e.target.value }))}
-                  required
-                />
-              </div>
-              <Button type="submit" isLoading={submittingLeave} leftIcon={<Send className="w-4 h-4" />}>
-                Submit Request
-              </Button>
-            </form>
-          </Card>
         </div>
 
         <div className="space-y-6">
@@ -200,19 +128,28 @@ const LecturerDashboard = () => {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <div className="p-4 pt-0 space-y-3">
-              <Link to="/lecturer/bulk-upload" className="block">
+              <Link to="/lecturer/grades" className="block">
                 <Button variant="outline" className="w-full justify-start" leftIcon={<Calendar className="w-4 h-4" />}>
                   Bulk Upload Grades
                 </Button>
               </Link>
               <Link to="/lecturer/assignments" className="block">
-                <Button variant="outline" className="w-full justify-start" leftIcon={<ClipboardList className="w-4 h-4" />}>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  leftIcon={<ClipboardList className="w-4 h-4" />}
+                >
                   Grading Assignments
                 </Button>
               </Link>
               <Link to="/lecturer/class-list" className="block">
                 <Button variant="outline" className="w-full justify-start" leftIcon={<Users className="w-4 h-4" />}>
                   View Class List
+                </Button>
+              </Link>
+              <Link to="/lecturer/leave" className="block">
+                <Button variant="outline" className="w-full justify-start" leftIcon={<FileClock className="w-4 h-4" />}>
+                  Leave Requests
                 </Button>
               </Link>
             </div>

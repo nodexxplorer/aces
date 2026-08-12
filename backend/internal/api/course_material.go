@@ -69,7 +69,7 @@ func (server *Server) uploadCourseMaterial(ctx *gin.Context) {
 
 	savedPath, err := server.storage.SaveFile(header, "course-materials")
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 

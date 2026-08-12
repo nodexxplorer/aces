@@ -8,6 +8,7 @@ import (
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // ─── Lecturer Management Handlers ────────────────────────────────────────────
@@ -512,7 +513,7 @@ func (server *Server) recordManualPayment(ctx *gin.Context) {
 
 	payment, err := server.store.CreatePayment(ctx, db.CreatePaymentParams{
 		StudentID:         studentID,
-		DueID:             dueID,
+		DueID:             pgtype.UUID{Bytes: dueID, Valid: true},
 		Type:              db.PaymentType(due.Type),
 		ItemName:          due.Name,
 		Amount:            due.Amount,

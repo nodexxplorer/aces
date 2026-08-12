@@ -13,7 +13,6 @@ import (
 
 type Querier interface {
 	AcknowledgeAnnouncement(ctx context.Context, arg AcknowledgeAnnouncementParams) error
-	AcknowledgeBroadcast(ctx context.Context, arg AcknowledgeBroadcastParams) error
 	// ==================== GROUP MEMBERS ====================
 	AddGroupMember(ctx context.Context, arg AddGroupMemberParams) (GroupMember, error)
 	AddMeetingAttendee(ctx context.Context, arg AddMeetingAttendeeParams) error
@@ -71,7 +70,6 @@ type Querier interface {
 	CreateAttendanceSheet(ctx context.Context, arg CreateAttendanceSheetParams) (AttendanceSheet, error)
 	// ==================== ALUMNI AUDIT LOGS ====================
 	CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) error
-	CreateBroadcast(ctx context.Context, arg CreateBroadcastParams) (EmergencyBroadcast, error)
 	// ==================== BURSAR ASSIGNMENTS ====================
 	CreateBursarAssignment(ctx context.Context, arg CreateBursarAssignmentParams) (BursarAssignment, error)
 	// ==================== CAMPUS REPORTS ====================
@@ -171,11 +169,8 @@ type Querier interface {
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateSignupApproval(ctx context.Context, arg CreateSignupApprovalParams) (SignupApproval, error)
 	// ==================== SKILL CATEGORIES ====================
-	CreateSkillCategory(ctx context.Context, arg CreateSkillCategoryParams) (SkillCategory, error)
 	// ==================== SKILL LISTINGS ====================
-	CreateSkillListing(ctx context.Context, arg CreateSkillListingParams) (SkillListing, error)
 	// ==================== SKILL RATINGS ====================
-	CreateSkillRating(ctx context.Context, arg CreateSkillRatingParams) (SkillRating, error)
 	CreateStaff(ctx context.Context, arg CreateStaffParams) (Staff, error)
 	CreateStaffMeeting(ctx context.Context, arg CreateStaffMeetingParams) (StaffMeeting, error)
 	CreateStudent(ctx context.Context, arg CreateStudentParams) (Student, error)
@@ -185,7 +180,6 @@ type Querier interface {
 	CreateStudyTask(ctx context.Context, arg CreateStudyTaskParams) (StudyTask, error)
 	CreateTimetableEntry(ctx context.Context, arg CreateTimetableEntryParams) (Timetable, error)
 	// ==================== TRADE OFFERS ====================
-	CreateTradeOffer(ctx context.Context, arg CreateTradeOfferParams) (TradeOffer, error)
 	CreateTranscriptRequest(ctx context.Context, arg CreateTranscriptRequestParams) (TranscriptRequest, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	// ==================== USER ROLES ====================
@@ -232,7 +226,6 @@ type Querier interface {
 	DeleteSession(ctx context.Context, id uuid.UUID) error
 	DeactivateAllSessions(ctx context.Context) error
 	DeactivateAllSemesters(ctx context.Context) error
-	DeleteSkillListing(ctx context.Context, id uuid.UUID) error
 	DeleteStaff(ctx context.Context, id uuid.UUID) error
 	DeleteStudyTask(ctx context.Context, arg DeleteStudyTaskParams) error
 	DeleteTimetableEntry(ctx context.Context, id uuid.UUID) error
@@ -267,8 +260,6 @@ type Querier interface {
 	GetAttendanceSheet(ctx context.Context, id uuid.UUID) (AttendanceSheet, error)
 	// Returns total classes held and attended for a student in a course/session
 	GetAttendanceSummary(ctx context.Context, arg GetAttendanceSummaryParams) (GetAttendanceSummaryRow, error)
-	GetBroadcast(ctx context.Context, id uuid.UUID) (GetBroadcastRow, error)
-	GetBroadcastAckCount(ctx context.Context, broadcastID uuid.UUID) (int32, error)
 	GetBudgetAlerts(ctx context.Context) ([]ExpenseBudget, error)
 	GetBursarAssignment(ctx context.Context, id uuid.UUID) (BursarAssignment, error)
 	GetCampusProfile(ctx context.Context, userID uuid.UUID) (CampusProfile, error)
@@ -336,8 +327,6 @@ type Querier interface {
 	GetSessionByName(ctx context.Context, name string) (Session, error)
 	GetSignupApproval(ctx context.Context, id uuid.UUID) (SignupApproval, error)
 	GetSignupApprovalByUserId(ctx context.Context, userID uuid.UUID) (SignupApproval, error)
-	GetSkillCategory(ctx context.Context, id uuid.UUID) (SkillCategory, error)
-	GetSkillListing(ctx context.Context, id uuid.UUID) (GetSkillListingRow, error)
 	GetStaff(ctx context.Context, id uuid.UUID) (Staff, error)
 	GetStaffByStaffID(ctx context.Context, staffID string) (Staff, error)
 	GetStaffByUserID(ctx context.Context, userID uuid.UUID) (Staff, error)
@@ -357,14 +346,12 @@ type Querier interface {
 	GetStudyTask(ctx context.Context, arg GetStudyTaskParams) (GetStudyTaskRow, error)
 	GetTimetableEntry(ctx context.Context, id uuid.UUID) (Timetable, error)
 	GetTodayInteractionCount(ctx context.Context, userID uuid.UUID) (int32, error)
-	GetTradeOffer(ctx context.Context, id uuid.UUID) (TradeOffer, error)
 	GetTranscriptRequest(ctx context.Context, id uuid.UUID) (TranscriptRequest, error)
 	GetUnverifiedStudents(ctx context.Context) ([]VerificationRecord, error)
 	GetUpcomingTasks(ctx context.Context, arg GetUpcomingTasksParams) ([]GetUpcomingTasksRow, error)
 	GetUser(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	// ==================== USER REPUTATION ====================
-	GetUserReputation(ctx context.Context, userID uuid.UUID) (UserReputation, error)
 	GetUserRole(ctx context.Context, id uuid.UUID) (UserRoleAssignment, error)
 	GetUserStrikeCount(ctx context.Context, userID uuid.UUID) (int32, error)
 	GetUserStrikes(ctx context.Context, userID uuid.UUID) ([]ConnectionStrike, error)
@@ -372,7 +359,6 @@ type Querier interface {
 	GrantAdminPermissions(ctx context.Context, arg GrantAdminPermissionsParams) (AdminPermission, error)
 	HasStudentAcknowledgedAnnouncement(ctx context.Context, arg HasStudentAcknowledgedAnnouncementParams) (bool, error)
 	HasStudentReadAnnouncement(ctx context.Context, arg HasStudentReadAnnouncementParams) (bool, error)
-	HasUserAcknowledged(ctx context.Context, arg HasUserAcknowledgedParams) (bool, error)
 	HideAnnouncementComment(ctx context.Context, id uuid.UUID) error
 	HideFeedPost(ctx context.Context, id uuid.UUID) error
 	IncrementAnnouncementAckCount(ctx context.Context, id uuid.UUID) error
@@ -416,7 +402,7 @@ type Querier interface {
 	ListBatchPayments(ctx context.Context, batchID pgtype.UUID) ([]Payment, error)
 	ListBursarAssignmentsByUser(ctx context.Context, userID uuid.UUID) ([]BursarAssignment, error)
 	ListCampusReports(ctx context.Context, dollar_1 interface{}) ([]ListCampusReportsRow, error)
-	ListClassNotices(ctx context.Context) ([]ListClassNoticesRow, error)
+	ListClassNoticesForViewer(ctx context.Context, arg ListClassNoticesForViewerParams) ([]ListClassNoticesForViewerRow, error)
 	ListClassRepElections(ctx context.Context, dollar_1 int32) ([]ClassRepElection, error)
 	ListClassRepPerformanceReviews(ctx context.Context, classRepID uuid.UUID) ([]ClassRepPerformance, error)
 	ListClassRepReportsByRep(ctx context.Context, arg ListClassRepReportsByRepParams) ([]ClassRepReport, error)
@@ -475,7 +461,6 @@ type Querier interface {
 	ListPromotableStudents(ctx context.Context, arg ListPromotableStudentsParams) ([]ListPromotableStudentsRow, error)
 	ListPublishedAnnouncements(ctx context.Context, arg ListPublishedAnnouncementsParams) ([]ListPublishedAnnouncementsRow, error)
 	ListReadReceiptsByAnnouncement(ctx context.Context, announcementID uuid.UUID) ([]ListReadReceiptsByAnnouncementRow, error)
-	ListRecentBroadcasts(ctx context.Context, limit int32) ([]ListRecentBroadcastsRow, error)
 	ListRegisteredCourseIDsByStudent(ctx context.Context, studentID uuid.UUID) ([]uuid.UUID, error)
 	ListRegisteredCoursesByRegistration(ctx context.Context, registrationID uuid.UUID) ([]RegisteredCourse, error)
 	ListResultAuditLogs(ctx context.Context, resultID uuid.UUID) ([]ResultAuditLog, error)
@@ -483,8 +468,6 @@ type Querier interface {
 	ListRolePromotions(ctx context.Context, arg ListRolePromotionsParams) ([]RolePromotion, error)
 	ListSessionSemesters(ctx context.Context, sessionID uuid.UUID) ([]Semester, error)
 	ListSessions(ctx context.Context, arg ListSessionsParams) ([]Session, error)
-	ListSkillCategories(ctx context.Context) ([]SkillCategory, error)
-	ListSkillListings(ctx context.Context, arg ListSkillListingsParams) ([]ListSkillListingsRow, error)
 	ListStaff(ctx context.Context, arg ListStaffParams) ([]Staff, error)
 	ListStudentAnnouncements(ctx context.Context, arg ListStudentAnnouncementsParams) ([]ListStudentAnnouncementsRow, error)
 	ListStudentAppeals(ctx context.Context, studentID uuid.UUID) ([]ListStudentAppealsRow, error)
@@ -514,7 +497,6 @@ type Querier interface {
 	ListUnacknowledgedStudents(ctx context.Context, announcementID uuid.UUID) ([]ListUnacknowledgedStudentsRow, error)
 	ListUpcomingMeetings(ctx context.Context, meetingDate pgtype.Timestamptz) ([]ListUpcomingMeetingsRow, error)
 	ListUserBookmarks(ctx context.Context, userID uuid.UUID) ([]ListUserBookmarksRow, error)
-	ListUserBroadcasts(ctx context.Context, arg ListUserBroadcastsParams) ([]ListUserBroadcastsRow, error)
 	ListUserConnections(ctx context.Context, arg ListUserConnectionsParams) ([]ListUserConnectionsRow, error)
 	ListUserFeedback(ctx context.Context, userID uuid.UUID) ([]ListUserFeedbackRow, error)
 	ListUserGroups(ctx context.Context, userID uuid.UUID) ([]ListUserGroupsRow, error)
@@ -523,10 +505,7 @@ type Querier interface {
 	ListUserRolePromotions(ctx context.Context, userID uuid.UUID) ([]RolePromotion, error)
 	ListUserRoles(ctx context.Context, userID uuid.UUID) ([]UserRoleAssignment, error)
 	ListUserSessions(ctx context.Context, userID uuid.UUID) ([]ActiveSession, error)
-	ListUserSkillListings(ctx context.Context, userID uuid.UUID) ([]ListUserSkillListingsRow, error)
-	ListUserSkillRatings(ctx context.Context, arg ListUserSkillRatingsParams) ([]ListUserSkillRatingsRow, error)
 	ListUserStudyTasks(ctx context.Context, userID uuid.UUID) ([]ListUserStudyTasksRow, error)
-	ListUserTradeOffers(ctx context.Context, arg ListUserTradeOffersParams) ([]TradeOffer, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
 	ListVerificationRecords(ctx context.Context, arg ListVerificationRecordsParams) ([]VerificationRecord, error)
 	LockAccount(ctx context.Context, userID uuid.UUID) error
@@ -534,6 +513,7 @@ type Querier interface {
 	MarkAnnouncementRead(ctx context.Context, arg MarkAnnouncementReadParams) error
 	MarkHelpArticleHelpful(ctx context.Context, id uuid.UUID) error
 	MarkManualCollected(ctx context.Context, id uuid.UUID) (ManualPurchase, error)
+	MarkManualPrinted(ctx context.Context, id uuid.UUID) (ManualPurchase, error)
 	MarkMessageRead(ctx context.Context, id uuid.UUID) (Message, error)
 	MarkNotificationAsRead(ctx context.Context, arg MarkNotificationAsReadParams) (Notification, error)
 	PinClassNotice(ctx context.Context, arg PinClassNoticeParams) error
@@ -623,7 +603,6 @@ type Querier interface {
 	UpdateSession(ctx context.Context, arg UpdateSessionParams) (Session, error)
 	UpdateSessionActivity(ctx context.Context, sessionToken string) error
 	UpdateSignupApproval(ctx context.Context, arg UpdateSignupApprovalParams) (SignupApproval, error)
-	UpdateSkillListing(ctx context.Context, arg UpdateSkillListingParams) (SkillListing, error)
 	UpdateStaff(ctx context.Context, arg UpdateStaffParams) (Staff, error)
 	UpdateStudentAcademicRecord(ctx context.Context, arg UpdateStudentAcademicRecordParams) (Student, error)
 	UpdateStudentFullProfile(ctx context.Context, arg UpdateStudentFullProfileParams) (Student, error)
@@ -631,7 +610,6 @@ type Querier interface {
 	UpdateStudentOnboardingStatus(ctx context.Context, arg UpdateStudentOnboardingStatusParams) error
 	UpdateStudyTask(ctx context.Context, arg UpdateStudyTaskParams) error
 	UpdateTimetableEntry(ctx context.Context, arg UpdateTimetableEntryParams) (Timetable, error)
-	UpdateTradeOfferStatus(ctx context.Context, arg UpdateTradeOfferStatusParams) (TradeOffer, error)
 	UpdateTranscriptRequest(ctx context.Context, arg UpdateTranscriptRequestParams) (TranscriptRequest, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 	// ==================== LOOKUP QUERIES ====================
@@ -640,7 +618,6 @@ type Querier interface {
 	UpdateVerificationRecord(ctx context.Context, arg UpdateVerificationRecordParams) error
 	// ==================== CAMPUS PROFILES ====================
 	UpsertCampusProfile(ctx context.Context, arg UpsertCampusProfileParams) (CampusProfile, error)
-	UpsertUserReputation(ctx context.Context, arg UpsertUserReputationParams) (UserReputation, error)
 	UsePasswordReset(ctx context.Context, id uuid.UUID) error
 	VerifyAlumni(ctx context.Context, arg VerifyAlumniParams) (AlumniStatus, error)
 	VerifyPayment(ctx context.Context, arg VerifyPaymentParams) (Payment, error)

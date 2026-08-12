@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"time"
 
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/aces/backend/internal/utils"
@@ -92,12 +91,12 @@ func (server *Server) submitAttendanceSession(ctx *gin.Context) {
 		Status: "pending_lecturer_review",
 	})
 	if err != nil {
-		ctx.JSON(http.StatusOK, gin.H{
-			"message":      "attendance session submitted successfully",
-			"session_id":   sessionID,
-			"status":       "pending_lecturer_review",
-			"submitted_at": time.Now().Format(time.RFC3339),
-		})
+		// This used to report success anyway even when the status update
+		// failed (e.g. the now-fixed CHECK constraint rejecting the value) —
+		// the class rep saw "submitted successfully" while the session's
+		// status silently never changed, so it never reached the lecturer's
+		// review queue. Report the real failure instead.
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to submit attendance session: " + err.Error()})
 		return
 	}
 
@@ -245,10 +244,13 @@ func (server *Server) reviewAttendanceSession(ctx *gin.Context) {
 		newStatus = "rejected"
 	}
 
-	_, _ = server.store.UpdateAttendanceSessionStatus(ctx, db.UpdateAttendanceSessionStatusParams{
+	if _, err := server.store.UpdateAttendanceSessionStatus(ctx, db.UpdateAttendanceSessionStatusParams{
 		ID:     sessionID,
 		Status: newStatus,
-	})
+	}); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update attendance session: " + err.Error()})
+		return
+	}
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"status":     "success",

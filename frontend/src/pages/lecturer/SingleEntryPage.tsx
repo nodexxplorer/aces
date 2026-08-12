@@ -20,7 +20,7 @@ interface ClassListItem {
   status: string;
 }
 
-export default function LecturerSingleEntryPage() {
+export function SingleEntryTab() {
   const { user } = useAuth();
   const { success, error: notifyError, warning } = useNotification();
   const [assignments, setAssignments] = useState<LecturerAssignment[]>([]);
@@ -97,6 +97,10 @@ export default function LecturerSingleEntryPage() {
       warning('Missing Info', 'Select an assigned course');
       return;
     }
+    if (!selAssignment.semester_id) {
+      warning('Missing Info', 'This course assignment has no matching semester on record — contact an admin.');
+      return;
+    }
     if (isNaN(ca) || ca < 0 || ca > 30) {
       warning('Invalid Score', 'CA score must be 0–30');
       return;
@@ -116,10 +120,7 @@ export default function LecturerSingleEntryPage() {
         studentId: selectedStudent.student_id || selectedStudent.id,
         courseId: selAssignment.course_id,
         sessionId: selAssignment.session_id,
-        semesterId:
-          (selAssignment as unknown as { semester_id?: string; semesterId?: string }).semester_id ||
-          (selAssignment as unknown as { semester_id?: string; semesterId?: string }).semesterId ||
-          '',
+        semesterId: selAssignment.semester_id || '',
         caScore: ca,
         examScore: exam,
         matricNumber: selectedStudent.matric_number || '',
@@ -138,13 +139,6 @@ export default function LecturerSingleEntryPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Single Entry Grade Upload</h1>
-        <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-          Submit individual Continuous Assessment and Examination scores for enrolled students.
-        </p>
-      </div>
-
       <Card className="max-w-2xl">
         <CardHeader>
           <CardTitle>Single Grade Submission</CardTitle>

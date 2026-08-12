@@ -31,6 +31,28 @@ type promoteUserRequest struct {
 	Reason   *string   `json:"reason"`
 }
 
+// blockedPrivilegedRoleGrant reports whether the caller is not authorized to
+// grant, promote to, or revoke targetDbRole (a raw DB role value). Only a
+// true hod may touch the "hod" or "admin" tiers — "admin" is delegated_admin's
+// raw DB role, its display name never appears in real JWT claims, so this
+// must check the raw "admin"/"hod" values, not the display aliases. Without
+// this, a delegated_admin could grant themselves (or anyone) hod via any of
+// assign/revoke/promote/createUser/updateUser.
+func blockedPrivilegedRoleGrant(ctx *gin.Context, targetDbRole string) bool {
+	if targetDbRole != string(db.UserRoleHod) && targetDbRole != string(db.UserRoleAdmin) {
+		return false
+	}
+	claimsVal, exists := ctx.Get("claims")
+	if !exists {
+		return true
+	}
+	c, ok := claimsVal.(*auth.Claims)
+	if !ok {
+		return true
+	}
+	return !c.HasRole(string(db.UserRoleHod))
+}
+
 func (server *Server) assignUserRole(ctx *gin.Context) {
 	var req assignRoleRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -38,22 +60,12 @@ func (server *Server) assignUserRole(ctx *gin.Context) {
 		return
 	}
 
-	// Prevent a delegated admin (raw DB role "admin" — "delegated_admin" is only
-	// its display-layer alias and never appears in real JWT claims, so this
-	// must check the raw "admin" role) from assigning admin or delegated_admin
-	// roles to others; only a true hod may grant that tier.
-	claimsVal, exists := ctx.Get("claims")
-	if exists {
-		if c, ok := claimsVal.(*auth.Claims); ok && c.HasRole("admin") && !c.HasRole("hod") {
-			targetRole := service.ParseRoleNameReverse(req.Role)
-			if targetRole == string(db.UserRoleAdmin) || targetRole == "delegated_admin" {
-				ctx.JSON(http.StatusForbidden, gin.H{"error": "you cannot assign admin or delegated_admin roles"})
-				return
-			}
-		}
+	dbRole := service.ParseRoleNameReverse(req.Role)
+	if blockedPrivilegedRoleGrant(ctx, dbRole) {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "you cannot assign hod or admin/delegated_admin roles"})
+		return
 	}
 
-	dbRole := service.ParseRoleNameReverse(req.Role)
 	assignedBy := getUserID(ctx)
 	performedByRole := ctx.GetString("role")
 	ipAddress := ctx.ClientIP()
@@ -75,6 +87,11 @@ func (server *Server) revokeUserRole(ctx *gin.Context) {
 	}
 
 	dbRole := service.ParseRoleNameReverse(req.Role)
+	if blockedPrivilegedRoleGrant(ctx, dbRole) {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "you cannot revoke hod or admin/delegated_admin roles"})
+		return
+	}
+
 	revokedBy := getUserID(ctx)
 	performedByRole := ctx.GetString("role")
 	ipAddress := ctx.ClientIP()
@@ -356,6 +373,10 @@ func (server *Server) promoteUser(ctx *gin.Context) {
 		fromRole = &r
 	}
 	toRole := db.UserRole(service.ParseRoleNameReverse(req.ToRole))
+	if blockedPrivilegedRoleGrant(ctx, string(toRole)) {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "you cannot promote a user to hod or admin/delegated_admin"})
+		return
+	}
 
 	ipAddress := ctx.ClientIP()
 	userAgent := ctx.GetHeader("User-Agent")

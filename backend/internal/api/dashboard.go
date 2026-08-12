@@ -140,35 +140,23 @@ func (server *Server) getStudentDashboard(ctx *gin.Context) {
 		},
 	}
 
-	// 2. Attendance overview
-	if student.CurrentSessionID.Valid {
-		sessionUUID := uuid.UUID(student.CurrentSessionID.Bytes)
-		attendanceSheets, err := queries.ListStudentAttendance(ctx, db.ListStudentAttendanceParams{
-			SessionID: sessionUUID,
-			Column2:   userID.String(),
-		})
+	// 2. Attendance overview — sourced from the QR check-in system
+	// (attendance_sessions/attendance_checkins), the same tables the class
+	// rep's session flow and lecturer review queue use. This used to read
+	// attendance_sheets, a table nothing in the app ever writes to (its only
+	// writer, createAttendanceSheet, is registered but never called from any
+	// frontend page), so the summary always showed 0/0 no matter how many
+	// times a student actually checked in.
+	if activeSem, err := queries.GetActiveSemester(ctx); err == nil {
+		summary, err := queries.GetStudentAttendanceSummary(ctx, student.ID, userID, activeSem.ID)
 		if err == nil {
-			totalClasses := 0
-			attended := 0
-			for _, sheet := range attendanceSheets {
-				if sheet.Status == "finalized" {
-					totalClasses++
-					data := sheet.AttendanceData
-					if data != nil {
-						dataStr := string(data)
-						if strings.Contains(dataStr, userID.String()) {
-							attended++
-						}
-					}
-				}
-			}
 			rate := 0.0
-			if totalClasses > 0 {
-				rate = float64(attended) / float64(totalClasses) * 100
+			if summary.TotalClasses > 0 {
+				rate = float64(summary.Attended) / float64(summary.TotalClasses) * 100
 			}
 			resp.Attendance = &attendanceOverview{
-				TotalClasses:   totalClasses,
-				Attended:       attended,
+				TotalClasses:   int(summary.TotalClasses),
+				Attended:       int(summary.Attended),
 				AttendanceRate: rate,
 			}
 		}
@@ -635,6 +623,25 @@ func (server *Server) updateClassRepReportStatus(ctx *gin.Context) {
 
 // ─── Attendance Sessions ─────────────────────────────────────────────────────
 
+// requireAttendanceSessionOwnership reports whether the caller may act on
+// attendance session id — staff always may; a class rep only for a session
+// they themselves created. Writes the response and returns false if not.
+func requireAttendanceSessionOwnership(ctx *gin.Context, queries *db.Queries, id uuid.UUID) bool {
+	if isStaffCaller(ctx) {
+		return true
+	}
+	session, err := queries.GetAttendanceSession(ctx, id)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
+		return false
+	}
+	if session.ClassRepID != getUserID(ctx) {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "you can only manage your own attendance sessions"})
+		return false
+	}
+	return true
+}
+
 func (server *Server) createAttendanceSession(ctx *gin.Context) {
 	userID := getUserID(ctx)
 	if userID == uuid.Nil {
@@ -662,6 +669,19 @@ func (server *Server) createAttendanceSession(ctx *gin.Context) {
 	if !ok {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
 		return
+	}
+
+	if !isStaffCaller(ctx) {
+		course, cerr := queries.GetCourse(ctx, courseID)
+		if cerr != nil {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "course not found"})
+			return
+		}
+		assignment, aerr := queries.GetActiveClassRepAssignment(ctx, userID)
+		if aerr != nil || assignment.Level != course.Level {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "you may only open sessions for your own class level"})
+			return
+		}
 	}
 
 	session, err := queries.CreateAttendanceSession(ctx, db.CreateAttendanceSessionParams{
@@ -692,6 +712,10 @@ func (server *Server) openAttendanceSession(ctx *gin.Context) {
 		return
 	}
 
+	if !requireAttendanceSessionOwnership(ctx, queries, id) {
+		return
+	}
+
 	session, err := queries.UpdateAttendanceSessionStatus(ctx, db.UpdateAttendanceSessionStatusParams{
 		Status: "open",
 		ID:     id,
@@ -714,6 +738,10 @@ func (server *Server) closeAttendanceSession(ctx *gin.Context) {
 	queries, ok := server.store.(*db.Queries)
 	if !ok {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
+		return
+	}
+
+	if !requireAttendanceSessionOwnership(ctx, queries, id) {
 		return
 	}
 
@@ -748,10 +776,21 @@ func (server *Server) checkInStudent(ctx *gin.Context) {
 		return
 	}
 
+	userID := getUserID(ctx)
+	if userID == uuid.Nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
 	// A student caller (as opposed to a class rep/staff marking a roster) may
 	// only ever check themselves in — their student_id is always derived from
-	// their own session, never trusted from the request body, since the
-	// frontend has no reliable way to know its own students.id anyway.
+	// their own session, never trusted from the request body.
+	//
+	// attendance_checkins.student_id has an FK to users(id) (confirmed against
+	// the live schema, and matches how ListAttendanceSessionCheckins joins
+	// back to users), despite the column name — it must hold the user's ID,
+	// not students.id. getStudentIDFromUser returns students.id, so using it
+	// here violated the FK on every single check-in (self and roster alike).
 	var studentID uuid.UUID
 	isSelfCheckIn := false
 	if claimsVal, exists := ctx.Get("claims"); exists {
@@ -759,12 +798,11 @@ func (server *Server) checkInStudent(ctx *gin.Context) {
 			claims.HasRole("student") &&
 			!claims.HasAnyRole([]string{"class_rep", "hod", "admin", "delegated_admin"}) {
 			isSelfCheckIn = true
-			ownStudentID, err := server.getStudentIDFromUser(ctx)
-			if err != nil {
+			if _, err := server.getStudentIDFromUser(ctx); err != nil {
 				ctx.JSON(http.StatusForbidden, gin.H{"error": "student profile not found"})
 				return
 			}
-			studentID = ownStudentID
+			studentID = userID
 		}
 	}
 	if !isSelfCheckIn {
@@ -817,6 +855,10 @@ func (server *Server) listAttendanceSessionCheckins(ctx *gin.Context) {
 	queries, ok := server.store.(*db.Queries)
 	if !ok {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
+		return
+	}
+
+	if !requireAttendanceSessionOwnership(ctx, queries, id) {
 		return
 	}
 
@@ -988,6 +1030,16 @@ func int32Ptr(i int32) *int32 {
 	return &i
 }
 
+// listPendingCourseRegistrations GET /class-rep/pending-registrations
+// Scoped to exactly what the "Course Forms" tab shows and can act on:
+// pending course registration forms for the class rep's level. This used to
+// also merge in signup approvals and unapproved accounts under a generic
+// {name, matric_number, level, type} shape, squashing three shapes into one
+// and dropping the fields (student_name, courses_count, created_at) the
+// frontend actually renders — hence blank names/courses, "N/A" submitted
+// dates, and a level pre-multiplied by 100 showing up multiplied again on
+// the frontend. Those two other item types now live in their own
+// "Student Registrations" tab, see listPendingStudentRegistrations below.
 func (server *Server) listPendingCourseRegistrations(ctx *gin.Context) {
 	userID := getUserID(ctx)
 	if userID == uuid.Nil {
@@ -1008,90 +1060,210 @@ func (server *Server) listPendingCourseRegistrations(ctx *gin.Context) {
 		level = student.Level
 	}
 
-	type pendingStudentItem struct {
-		ID           string `json:"id"`
-		UserID       string `json:"user_id"`
-		Name         string `json:"name"`
-		MatricNumber string `json:"matric_number"`
-		Email        string `json:"email"`
-		Level        int32  `json:"level"`
-		Type         string `json:"type"`
+	regs, err := queries.ListPendingCourseRegistrationsByLevel(ctx, level)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
 	}
 
-	items := []pendingStudentItem{}
+	ctx.JSON(http.StatusOK, regs)
+}
 
-	// 1. Pending signup approvals by level
+type pendingStudentRegistration struct {
+	ID           string `json:"id"`
+	UserID       string `json:"user_id"`
+	FullName     string `json:"full_name"`
+	MatricNumber string `json:"matric_number"`
+	Email        string `json:"email"`
+	Level        int32  `json:"level"`
+	Type         string `json:"type"` // "signup" | "account"
+	CreatedAt    string `json:"created_at,omitempty"`
+}
+
+// listPendingStudentRegistrations GET /class-rep/pending-student-registrations
+// New student accounts awaiting approval, scoped to the class rep's own
+// level: pending signup_approvals rows (type=student) plus any unapproved
+// `users` rows that never got a signup_approvals record (e.g. imported
+// directly by admin). Kept separate from listPendingCourseRegistrations —
+// different data, different approve action (approveStudentRegistration),
+// different permission story.
+func (server *Server) listPendingStudentRegistrations(ctx *gin.Context) {
+	userID := getUserID(ctx)
+	if userID == uuid.Nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
+		return
+	}
+
+	level := int32(400)
+	if assignment, err := queries.GetActiveClassRepAssignment(ctx, userID); err == nil {
+		level = assignment.Level
+	} else if student, serr := queries.GetStudentByUserId(ctx, userID); serr == nil {
+		level = student.Level
+	}
+
+	items := []pendingStudentRegistration{}
+	seen := map[string]bool{}
+
 	approvals, err := queries.ListPendingSignupApprovalsByType(ctx, "student")
 	if err == nil {
 		for _, app := range approvals {
-			if app.Level != nil && *app.Level == level {
-				user, uerr := queries.GetUser(ctx, app.UserID)
-				name := "Student"
-				email := ""
-				if uerr == nil {
-					name = user.FullName
-					email = user.Email
-				}
-				regNo := ""
-				if app.RegNo != nil {
-					regNo = *app.RegNo
-				}
-				items = append(items, pendingStudentItem{
-					ID:           app.ID.String(),
-					UserID:       app.UserID.String(),
-					Name:         name,
-					MatricNumber: regNo,
-					Email:        email,
-					Level:        level,
-					Type:         "User Registration",
-				})
+			if app.Level == nil || *app.Level != level {
+				continue
 			}
+			user, uerr := queries.GetUser(ctx, app.UserID)
+			if uerr != nil {
+				continue
+			}
+			regNo := ""
+			if app.RegNo != nil {
+				regNo = *app.RegNo
+			}
+			items = append(items, pendingStudentRegistration{
+				ID:           app.ID.String(),
+				UserID:       app.UserID.String(),
+				FullName:     user.FullName,
+				MatricNumber: regNo,
+				Email:        user.Email,
+				Level:        level,
+				Type:         "signup",
+				CreatedAt:    app.CreatedAt.Time.Format(time.RFC3339),
+			})
+			seen[app.UserID.String()] = true
 		}
 	}
 
-	// 2. Unapproved student accounts in `users` for this level
 	students, serr := queries.ListStudentsByLevel(ctx, level)
 	if serr == nil {
 		for _, s := range students {
-			user, uerr := queries.GetUser(ctx, s.UserID)
-			if uerr == nil && !user.IsApproved {
-				alreadyAdded := false
-				for _, it := range items {
-					if it.UserID == s.UserID.String() {
-						alreadyAdded = true
-						break
-					}
-				}
-				if !alreadyAdded {
-					items = append(items, pendingStudentItem{
-						ID:           user.ID.String(),
-						UserID:       user.ID.String(),
-						Name:         user.FullName,
-						MatricNumber: s.MatricNumber,
-						Email:        user.Email,
-						Level:        level,
-						Type:         "Account Registration",
-					})
-				}
+			if seen[s.UserID.String()] {
+				continue
 			}
-		}
-	}
-
-	// 3. Pending course forms
-	regs, rerr := queries.ListPendingCourseRegistrationsByLevel(ctx, level)
-	if rerr == nil {
-		for _, r := range regs {
-			items = append(items, pendingStudentItem{
-				ID:           r.ID.String(),
-				UserID:       r.StudentID.String(),
-				Name:         r.StudentName,
-				MatricNumber: r.MatricNumber,
-				Email:        "",
-				Level:        r.Level,
-				Type:         "Course Form",
+			user, uerr := queries.GetUser(ctx, s.UserID)
+			if uerr != nil || user.IsApproved {
+				continue
+			}
+			items = append(items, pendingStudentRegistration{
+				ID:           user.ID.String(),
+				UserID:       user.ID.String(),
+				FullName:     user.FullName,
+				MatricNumber: s.MatricNumber,
+				Email:        user.Email,
+				Level:        level,
+				Type:         "account",
+				CreatedAt:    user.CreatedAt.Time.Format(time.RFC3339),
 			})
 		}
 	}
 
 	ctx.JSON(http.StatusOK, items)
+}
+
+// approveStudentRegistration POST /class-rep/pending-student-registrations/:id/approve
+// A level-scoped variant of approveSignup (approval.go): a class rep may
+// approve a pending account, but only a *student* signup in their *own*
+// level — anything else (lecturer/hod signups, another level's students) is
+// rejected before touching the record. /approvals/:id/approve itself stays
+// hod/admin-only and unscoped; this is a deliberately narrower door.
+func (server *Server) approveStudentRegistration(ctx *gin.Context) {
+	repUserID := getUserID(ctx)
+	if repUserID == uuid.Nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	id, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
+		return
+	}
+
+	repLevel := int32(400)
+	if assignment, aerr := queries.GetActiveClassRepAssignment(ctx, repUserID); aerr == nil {
+		repLevel = assignment.Level
+	} else if student, serr := queries.GetStudentByUserId(ctx, repUserID); serr == nil {
+		repLevel = student.Level
+	}
+
+	now := time.Now()
+
+	// Resolve the target: a signup_approvals row (by its own id or by
+	// user_id) or, failing that, a raw unapproved `users` row.
+	approval, aerr := queries.GetSignupApprovalByUserId(ctx, id)
+	if aerr != nil {
+		approval, aerr = queries.GetSignupApproval(ctx, id)
+	}
+
+	var targetUserID uuid.UUID
+	if aerr == nil {
+		if approval.SignupType != "student" {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "class reps may only approve student registrations"})
+			return
+		}
+		if approval.Level == nil || *approval.Level != repLevel {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "this student is not in your class level"})
+			return
+		}
+		targetUserID = approval.UserID
+	} else {
+		targetUserID = id
+		student, serr := queries.GetStudentByUserId(ctx, targetUserID)
+		if serr != nil {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "registration not found"})
+			return
+		}
+		if student.Level != repLevel {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "this student is not in your class level"})
+			return
+		}
+	}
+
+	if aerr == nil {
+		if _, uerr := queries.UpdateSignupApproval(ctx, db.UpdateSignupApprovalParams{
+			ID:         approval.ID,
+			Status:     "approved",
+			ApprovedBy: pgtype.UUID{Bytes: repUserID, Valid: true},
+			ApprovedAt: pgtype.Timestamptz{Time: now, Valid: true},
+		}); uerr != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
+	}
+
+	if _, uerr := queries.ApproveUserStatus(ctx, db.ApproveUserStatusParams{
+		ID:         targetUserID,
+		IsApproved: true,
+		ApprovedBy: pgtype.UUID{Bytes: repUserID, Valid: true},
+		ApprovedAt: pgtype.Timestamptz{Time: now, Valid: true},
+	}); uerr != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	server.notifyUser(
+		ctx,
+		targetUserID,
+		"general",
+		"system",
+		"high",
+		"Account Approved",
+		"Your account has been approved! You now have full access to ACES Zone.",
+		"/dashboard",
+		"Go to Dashboard",
+		nil,
+		nil,
+	)
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "student registration approved"})
 }

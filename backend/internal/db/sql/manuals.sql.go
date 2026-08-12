@@ -111,7 +111,7 @@ INSERT INTO manual_purchases (
     student_id, manual_id, payment_id, qr_code_data, qr_code_url
 ) VALUES (
     $1, $2, $3, $4, $5
-) RETURNING id, student_id, manual_id, payment_id, qr_code_data, qr_code_url, is_collected, collected_at, purchased_at
+) RETURNING id, student_id, manual_id, payment_id, qr_code_data, qr_code_url, is_collected, collected_at, purchased_at, printed_at
 `
 
 type CreateManualPurchaseParams struct {
@@ -142,6 +142,7 @@ func (q *Queries) CreateManualPurchase(ctx context.Context, arg CreateManualPurc
 		&i.IsCollected,
 		&i.CollectedAt,
 		&i.PurchasedAt,
+		&i.PrintedAt,
 	)
 	return i, err
 }
@@ -254,7 +255,7 @@ func (q *Queries) GetManual(ctx context.Context, id uuid.UUID) (Manual, error) {
 }
 
 const getManualPurchase = `-- name: GetManualPurchase :one
-SELECT id, student_id, manual_id, payment_id, qr_code_data, qr_code_url, is_collected, collected_at, purchased_at FROM manual_purchases
+SELECT id, student_id, manual_id, payment_id, qr_code_data, qr_code_url, is_collected, collected_at, purchased_at, printed_at FROM manual_purchases
 WHERE id = $1 LIMIT 1
 `
 
@@ -271,12 +272,13 @@ func (q *Queries) GetManualPurchase(ctx context.Context, id uuid.UUID) (ManualPu
 		&i.IsCollected,
 		&i.CollectedAt,
 		&i.PurchasedAt,
+		&i.PrintedAt,
 	)
 	return i, err
 }
 
 const listManualPurchasesByManual = `-- name: ListManualPurchasesByManual :many
-SELECT mp.id, mp.student_id, mp.manual_id, mp.payment_id, mp.qr_code_data, mp.qr_code_url, mp.is_collected, mp.collected_at, mp.purchased_at, s.matric_number, u.full_name
+SELECT mp.id, mp.student_id, mp.manual_id, mp.payment_id, mp.qr_code_data, mp.qr_code_url, mp.is_collected, mp.collected_at, mp.purchased_at, mp.printed_at, s.matric_number, u.full_name
 FROM manual_purchases mp
 JOIN students s ON mp.student_id = s.id
 JOIN users u ON s.user_id = u.id
@@ -301,6 +303,7 @@ type ListManualPurchasesByManualRow struct {
 	IsCollected  bool               `json:"is_collected"`
 	CollectedAt  pgtype.Timestamptz `json:"collected_at"`
 	PurchasedAt  pgtype.Timestamptz `json:"purchased_at"`
+	PrintedAt    pgtype.Timestamptz `json:"printed_at"`
 	MatricNumber string             `json:"matric_number"`
 	FullName     string             `json:"full_name"`
 }
@@ -324,6 +327,7 @@ func (q *Queries) ListManualPurchasesByManual(ctx context.Context, arg ListManua
 			&i.IsCollected,
 			&i.CollectedAt,
 			&i.PurchasedAt,
+			&i.PrintedAt,
 			&i.MatricNumber,
 			&i.FullName,
 		); err != nil {
@@ -489,7 +493,7 @@ func (q *Queries) ListPrintQueue(ctx context.Context, arg ListPrintQueueParams) 
 }
 
 const listStudentManualPurchases = `-- name: ListStudentManualPurchases :many
-SELECT mp.id, mp.student_id, mp.manual_id, mp.payment_id, mp.qr_code_data, mp.qr_code_url, mp.is_collected, mp.collected_at, mp.purchased_at, m.title, m.level, m.price
+SELECT mp.id, mp.student_id, mp.manual_id, mp.payment_id, mp.qr_code_data, mp.qr_code_url, mp.is_collected, mp.collected_at, mp.purchased_at, mp.printed_at, m.title, m.level, m.price
 FROM manual_purchases mp
 JOIN manuals m ON mp.manual_id = m.id
 WHERE mp.student_id = $1
@@ -506,6 +510,7 @@ type ListStudentManualPurchasesRow struct {
 	IsCollected bool               `json:"is_collected"`
 	CollectedAt pgtype.Timestamptz `json:"collected_at"`
 	PurchasedAt pgtype.Timestamptz `json:"purchased_at"`
+	PrintedAt   pgtype.Timestamptz `json:"printed_at"`
 	Title       string             `json:"title"`
 	Level       int32              `json:"level"`
 	Price       decimal.Decimal    `json:"price"`
@@ -530,6 +535,7 @@ func (q *Queries) ListStudentManualPurchases(ctx context.Context, studentID uuid
 			&i.IsCollected,
 			&i.CollectedAt,
 			&i.PurchasedAt,
+			&i.PrintedAt,
 			&i.Title,
 			&i.Level,
 			&i.Price,
@@ -598,7 +604,7 @@ const markManualCollected = `-- name: MarkManualCollected :one
 UPDATE manual_purchases
 SET is_collected = true, collected_at = NOW()
 WHERE id = $1
-RETURNING id, student_id, manual_id, payment_id, qr_code_data, qr_code_url, is_collected, collected_at, purchased_at
+RETURNING id, student_id, manual_id, payment_id, qr_code_data, qr_code_url, is_collected, collected_at, purchased_at, printed_at
 `
 
 func (q *Queries) MarkManualCollected(ctx context.Context, id uuid.UUID) (ManualPurchase, error) {
@@ -614,6 +620,32 @@ func (q *Queries) MarkManualCollected(ctx context.Context, id uuid.UUID) (Manual
 		&i.IsCollected,
 		&i.CollectedAt,
 		&i.PurchasedAt,
+		&i.PrintedAt,
+	)
+	return i, err
+}
+
+const markManualPrinted = `-- name: MarkManualPrinted :one
+UPDATE manual_purchases
+SET printed_at = NOW()
+WHERE id = $1
+RETURNING id, student_id, manual_id, payment_id, qr_code_data, qr_code_url, is_collected, collected_at, purchased_at, printed_at
+`
+
+func (q *Queries) MarkManualPrinted(ctx context.Context, id uuid.UUID) (ManualPurchase, error) {
+	row := q.db.QueryRow(ctx, markManualPrinted, id)
+	var i ManualPurchase
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.ManualID,
+		&i.PaymentID,
+		&i.QrCodeData,
+		&i.QrCodeUrl,
+		&i.IsCollected,
+		&i.CollectedAt,
+		&i.PurchasedAt,
+		&i.PrintedAt,
 	)
 	return i, err
 }

@@ -160,7 +160,9 @@ const PaymentVerificationPage = () => {
             <CardHeader>
               <CardTitle>Recent Verifications</CardTitle>
             </CardHeader>
-            <DataTable columns={columns} data={recentVerifications as unknown as Record<string, unknown>[]} />
+            <div className="max-h-[520px] overflow-y-auto">
+              <DataTable columns={columns} data={recentVerifications as unknown as Record<string, unknown>[]} />
+            </div>
           </Card>
         </div>
       </div>

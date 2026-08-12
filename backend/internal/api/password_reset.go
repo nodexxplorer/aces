@@ -31,6 +31,34 @@ type resetWithOTPRequest struct {
 	Password string `json:"password" binding:"required,min=6,max=72"`
 }
 
+// maxOTPAttempts caps guesses against a single issued code before it's
+// locked out — closes the gap where the only throttle was a global
+// per-IP rate limit shared across all of /auth/*, with no counter tied to
+// the account actually being reset.
+const maxOTPAttempts = 5
+
+// checkAndTrackOTP validates otp against the user's active password-reset
+// row, incrementing that row's attempts counter on every wrong guess so a
+// distributed attacker can't just spread guesses across IPs to dodge the
+// per-IP rate limit.
+func (server *Server) checkAndTrackOTP(ctx *gin.Context, queries *db.Queries, user db.User, otp string) (db.PasswordReset, bool) {
+	active, err := queries.GetPasswordResetByUser(ctx, user.ID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid or expired OTP"})
+		return db.PasswordReset{}, false
+	}
+	if active.Attempts >= maxOTPAttempts {
+		ctx.JSON(http.StatusTooManyRequests, gin.H{"error": "too many attempts — request a new code"})
+		return db.PasswordReset{}, false
+	}
+	if active.OtpCode != otp {
+		_ = queries.IncrementResetAttempts(ctx, active.ID)
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid or expired OTP"})
+		return db.PasswordReset{}, false
+	}
+	return active, true
+}
+
 func generateOTP() (string, error) {
 	code := ""
 	for i := 0; i < 6; i++ {
@@ -102,9 +130,8 @@ func (server *Server) verifyPasswordResetOTP(ctx *gin.Context) {
 		return
 	}
 
-	reset, err := queries.GetPasswordResetByCode(ctx, req.OTP)
-	if err != nil || reset.UserID != user.ID {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid or expired OTP"})
+	reset, valid := server.checkAndTrackOTP(ctx, queries, user, req.OTP)
+	if !valid {
 		return
 	}
 
@@ -130,9 +157,8 @@ func (server *Server) resetPasswordWithOTP(ctx *gin.Context) {
 		return
 	}
 
-	reset, err := queries.GetPasswordResetByCode(ctx, req.OTP)
-	if err != nil || reset.UserID != user.ID {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid or expired OTP"})
+	reset, valid := server.checkAndTrackOTP(ctx, queries, user, req.OTP)
+	if !valid {
 		return
 	}
 

@@ -2024,10 +2024,13 @@ func (q *Queries) UpdateJobPost(ctx context.Context, arg UpdateJobPostParams) (J
 	return i, err
 }
 
+// SQLSTATE 42P08 ("inconsistent types deduced for parameter") if $2 isn't
+// cast the same way at every occurrence — same pattern already fixed
+// elsewhere this session (see UpdateLeaveStatus in custom.go).
 const updateMentorshipSessionStatus = `-- name: UpdateMentorshipSessionStatus :one
-UPDATE mentorship_sessions SET status = $2,
-    mentor_confirmed = CASE WHEN $2 = 'completed' THEN true ELSE mentor_confirmed END,
-    mentee_confirmed = CASE WHEN $2 = 'completed' THEN true ELSE mentee_confirmed END
+UPDATE mentorship_sessions SET status = $2::varchar,
+    mentor_confirmed = CASE WHEN $2::varchar = 'completed' THEN true ELSE mentor_confirmed END,
+    mentee_confirmed = CASE WHEN $2::varchar = 'completed' THEN true ELSE mentee_confirmed END
 WHERE id = $1 RETURNING id, mentorship_id, scheduled_at, format, status, notes, mentor_confirmed, mentee_confirmed, created_at
 `
 
@@ -2053,11 +2056,14 @@ func (q *Queries) UpdateMentorshipSessionStatus(ctx context.Context, arg UpdateM
 	return i, err
 }
 
+// SQLSTATE 42P08 ("inconsistent types deduced for parameter") if $2 isn't
+// cast the same way at every occurrence — same pattern already fixed
+// elsewhere this session (see UpdateLeaveStatus in custom.go).
 const updateMentorshipStatus = `-- name: UpdateMentorshipStatus :one
-UPDATE mentorship_requests SET status = $2,
-    responded_at = CASE WHEN $2 IN ('accepted','declined') THEN NOW() ELSE responded_at END,
-    started_at = CASE WHEN $2 = 'active' THEN NOW() ELSE started_at END,
-    ended_at = CASE WHEN $2 = 'completed' THEN NOW() ELSE ended_at END
+UPDATE mentorship_requests SET status = $2::mentorship_status,
+    responded_at = CASE WHEN $2::mentorship_status IN ('accepted','declined') THEN NOW() ELSE responded_at END,
+    started_at = CASE WHEN $2::mentorship_status = 'active' THEN NOW() ELSE started_at END,
+    ended_at = CASE WHEN $2::mentorship_status = 'completed' THEN NOW() ELSE ended_at END
 WHERE id = $1 RETURNING id, student_id, mentor_id, status, topic, message, responded_at, started_at, ended_at, created_at
 `
 

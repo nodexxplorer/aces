@@ -144,7 +144,11 @@ func (server *Server) getGradeAppeal(ctx *gin.Context) {
 		return
 	}
 
-	if !requireOwnershipOrStaff(ctx, server.store, appeal.StudentID) {
+	// appeal.StudentID is actually a users.id (createGradeAppeal stores
+	// getUserID(ctx) directly, never students.id) — requireOwnershipOrStaff
+	// compares against students.id and would always reject the real owner.
+	if !isStaffCaller(ctx) && getUserID(ctx) != appeal.StudentID {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "you can only access your own records"})
 		return
 	}
 
@@ -170,6 +174,11 @@ func (server *Server) updateAppealStatus(ctx *gin.Context) {
 		return
 	}
 
+	if req.RevisedScore != nil && (*req.RevisedScore < 0 || *req.RevisedScore > 100) {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "revised_score must be between 0 and 100"})
+		return
+	}
+
 	queries, ok := server.store.(*db.Queries)
 	if !ok {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
@@ -178,6 +187,24 @@ func (server *Server) updateAppealStatus(ctx *gin.Context) {
 
 	userID := getUserID(ctx)
 	callerIsHOD := isStaffCaller(ctx)
+
+	// Lecturer-course assignment check, matching result.go's pattern — a
+	// lecturer may only resolve appeals for courses they actually teach.
+	if !callerIsHOD {
+		existingAppeal, gerr := queries.GetGradeAppeal(ctx, appealID)
+		if gerr != nil {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "appeal not found"})
+			return
+		}
+		assigned, aerr := server.store.IsLecturerAssignedToCourse(ctx, db.IsLecturerAssignedToCourseParams{
+			LecturerID: userID,
+			CourseID:   existingAppeal.CourseID,
+		})
+		if aerr != nil || !assigned {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "you are not assigned to teach this course"})
+			return
+		}
+	}
 
 	var lecturerResponse *string
 	var lecturerID pgtype.UUID

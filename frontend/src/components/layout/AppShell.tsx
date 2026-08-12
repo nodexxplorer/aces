@@ -16,26 +16,44 @@ const AppShell = () => {
   const isAdmin = pathname.startsWith('/admin');
 
   return (
-    <div className="h-dvh bg-surface-50 dark:bg-surface-950 flex flex-col overflow-hidden">
-      <div className="flex-1 flex w-full min-h-0">
-        <Sidebar
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
-          mobileOpen={mobileSidebarOpen}
-          onMobileClose={() => setMobileSidebarOpen(false)}
-        />
-        <div className="flex flex-col flex-1 min-w-0">
-          <Navbar onMenuClick={() => setMobileSidebarOpen(true)} />
-          <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
-            {isAdmin ? <AdminMobileGuard><Outlet /></AdminMobileGuard> : <Outlet />}
+    <div className="h-dvh bg-surface-50 dark:bg-surface-950 flex flex-col overflow-hidden print:h-auto print:block print:overflow-visible">
+      <div className="flex-1 flex w-full min-h-0 print:block">
+        <div className="print:hidden">
+          <Sidebar
+            collapsed={sidebarCollapsed}
+            onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
+            mobileOpen={mobileSidebarOpen}
+            onMobileClose={() => setMobileSidebarOpen(false)}
+          />
+        </div>
+        <div className="flex flex-col flex-1 min-w-0 print:block">
+          <div className="print:hidden">
+            <Navbar onMenuClick={() => setMobileSidebarOpen(true)} />
+          </div>
+          {/* print:overflow-visible/h-auto so a page's "Print" button (window.print())
+              only outputs <main>'s content at natural height — without this, the
+              scroll container clips to viewport height and everything outside it
+              (sidebar, navbar, footer) still occupies page space in the printout. */}
+          <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto print:p-0 print:overflow-visible print:h-auto">
+            {isAdmin ? (
+              <AdminMobileGuard>
+                <Outlet />
+              </AdminMobileGuard>
+            ) : (
+              <Outlet />
+            )}
           </main>
-          <Footer />
+          <div className="print:hidden">
+            <Footer />
+          </div>
         </div>
       </div>
-      <ChatbotWidget />
-      <OfflineBanner />
-      <ToastContainer />
-      <CookieConsent />
+      <div className="print:hidden">
+        <ChatbotWidget />
+        <OfflineBanner />
+        <ToastContainer />
+        <CookieConsent />
+      </div>
     </div>
   );
 };

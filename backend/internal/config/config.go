@@ -65,6 +65,7 @@ type Config struct {
 	GeminiModel        string
 	AIFallbackEnabled  bool
 	FrontendPublicURL  string
+	ManualQRSecret     string
 }
 
 func (c *Config) IsProduction() bool {
@@ -87,6 +88,9 @@ func Load() *Config {
 
 	if getEnv("ENVIRONMENT", "development") == "production" && getEnv("PAYSTACK_SECRET_KEY", "") == "" {
 		log.Fatal("PAYSTACK_SECRET_KEY environment variable is required in production. See .env.example for reference.")
+	}
+	if getEnv("ENVIRONMENT", "development") == "production" && getEnv("MANUAL_QR_SECRET", "") == "" {
+		log.Fatal("MANUAL_QR_SECRET environment variable is required in production. See .env.example for reference.")
 	}
 
 	return &Config{
@@ -112,6 +116,7 @@ func Load() *Config {
 		GeminiModel:        getEnv("GEMINI_MODEL", "gemini-2.5-flash"),
 		AIFallbackEnabled:  getBool("AI_FALLBACK_ENABLED", true),
 		FrontendPublicURL:  getFirstEnv("FRONTEND_PUBLIC_URL", "http://localhost:5173"),
+		ManualQRSecret:     getEnv("MANUAL_QR_SECRET", "aces-manual-qr-secret-change-in-prod-2026"),
 	}
 }
 

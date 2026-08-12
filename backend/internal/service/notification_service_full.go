@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"fmt"
+	"html"
 	"log"
+	"strings"
 	"time"
 
 	db "github.com/aces/backend/internal/db/sql"
@@ -16,13 +18,15 @@ type NotificationServiceFull struct {
 	queries     *db.Queries
 	wsHub       *ws.Hub
 	emailSender email.EmailSender
+	frontendURL string
 }
 
-func NewNotificationServiceFull(queries *db.Queries, wsHub *ws.Hub, emailSender email.EmailSender) *NotificationServiceFull {
+func NewNotificationServiceFull(queries *db.Queries, wsHub *ws.Hub, emailSender email.EmailSender, frontendURL string) *NotificationServiceFull {
 	return &NotificationServiceFull{
 		queries:     queries,
 		wsHub:       wsHub,
 		emailSender: emailSender,
+		frontendURL: strings.TrimRight(frontendURL, "/"),
 	}
 }
 
@@ -65,7 +69,7 @@ func (s *NotificationServiceFull) CreateAndPush(
 	}
 
 	if s.emailSender != nil && (!hasPrefs || (prefs.EmailEnabled && categoryEmailAllowed(prefs, category))) {
-		go func(uID uuid.UUID, notifTitle, notifMsg string) {
+		go func(uID uuid.UUID, notifTitle, notifMsg, notifActionURL, notifActionLabel string) {
 			bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
@@ -74,26 +78,79 @@ func (s *NotificationServiceFull) CreateAndPush(
 				return
 			}
 
-			body := fmt.Sprintf(
-				"<div style=\"font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #ffffff;\">"+
-					"<div style=\"border-bottom: 2px solid #6366f1; padding-bottom: 12px; margin-bottom: 20px;\">"+
-					"<h2 style=\"color: #4f46e5; margin: 0; font-size: 20px;\">ACES Zone Notification</h2>"+
-					"</div>"+
-					"<h3 style=\"color: #111827; margin-top: 0; font-size: 16px;\">%s</h3>"+
-					"<p style=\"color: #374151; font-size: 14px; line-height: 1.6;\">%s</p>"+
-					"<hr style=\"border: none; border-top: 1px solid #f3f4f6; margin: 24px 0 16px 0;\" />"+
-					"<p style=\"font-size: 12px; color: #9ca3af; text-align: center; margin: 0;\">This is an automated notification from ACES Zone. Please do not reply.</p>"+
-					"</div>",
-				notifTitle, notifMsg,
-			)
+			body := s.buildNotificationEmailHTML(notifTitle, notifMsg, notifActionURL, notifActionLabel)
 
 			if err := s.emailSender.SendEmail([]string{user.Email}, notifTitle, body, true); err != nil {
 				log.Printf("[email-notif] failed to send email to %s: %v", user.Email, err)
 			}
-		}(userID, title, message)
+		}(userID, title, message, actionURL, actionLabel)
 	}
 
 	return notif, nil
+}
+
+// buildNotificationEmailHTML renders the branded HTML shell every outbound
+// notification email uses: logo header, title/message body, an optional CTA
+// button when the notification carries an action link, and a footer. Built
+// as an HTML table layout (not flexbox/grid) because that's what renders
+// consistently across Gmail, Outlook, and other mail clients.
+func (s *NotificationServiceFull) buildNotificationEmailHTML(title, message, actionURL, actionLabel string) string {
+	logoURL := s.frontendURL + "/aces-logo.png"
+
+	resolvedActionURL := actionURL
+	if resolvedActionURL != "" && strings.HasPrefix(resolvedActionURL, "/") {
+		resolvedActionURL = s.frontendURL + resolvedActionURL
+	}
+
+	ctaBlock := ""
+	if resolvedActionURL != "" {
+		label := actionLabel
+		if label == "" {
+			label = "View in ACES Zone"
+		}
+		ctaBlock = fmt.Sprintf(`
+			<tr>
+				<td style="padding: 8px 40px 32px 40px;" align="center">
+					<a href="%s" target="_blank" rel="noopener noreferrer"
+						style="display: inline-block; background-color: #0066CC; color: #ffffff; font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 28px; border-radius: 8px;">
+						%s
+					</a>
+				</td>
+			</tr>`, html.EscapeString(resolvedActionURL), html.EscapeString(label))
+	}
+
+	year := time.Now().Year()
+
+	return fmt.Sprintf(`
+<table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="background-color: #eef2f6; padding: 32px 16px; font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+	<tr>
+		<td align="center">
+			<table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="max-width: 560px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+				<tr>
+					<td style="background: linear-gradient(135deg, #0066CC 0%%, #003d7a 100%%); padding: 28px 40px;" align="center">
+						<img src="%s" alt="ACES Zone" width="44" height="44" style="display: block; margin: 0 auto 10px auto; border-radius: 10px;" />
+						<div style="color: #ffffff; font-size: 18px; font-weight: 700; letter-spacing: 0.3px;">ACES Zone</div>
+						<div style="color: rgba(255,255,255,0.75); font-size: 11px; margin-top: 2px;">Association of Computer Engineering Students &middot; Uniuyo Chapter</div>
+					</td>
+				</tr>
+				<tr>
+					<td style="padding: 32px 40px 8px 40px;">
+						<h1 style="margin: 0 0 12px 0; color: #0f172a; font-size: 18px; font-weight: 700;">%s</h1>
+						<p style="margin: 0; color: #475569; font-size: 14px; line-height: 1.65;">%s</p>
+					</td>
+				</tr>%s
+				<tr>
+					<td style="padding: 20px 40px 28px 40px; border-top: 1px solid #eef2f6;">
+						<p style="margin: 0; color: #94a3b8; font-size: 11px; line-height: 1.6; text-align: center;">
+							This is an automated message from ACES Zone. Please do not reply to this email.<br />
+							&copy; %d ACES Zone &mdash; Association of Computer Engineering Students, Uniuyo Chapter.
+						</p>
+					</td>
+				</tr>
+			</table>
+		</td>
+	</tr>
+</table>`, logoURL, html.EscapeString(title), html.EscapeString(message), ctaBlock, year)
 }
 
 // categoryEmailAllowed checks the per-category email toggle for a notification

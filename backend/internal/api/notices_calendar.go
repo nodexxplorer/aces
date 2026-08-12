@@ -16,12 +16,13 @@ import (
 // ─── Class Notice Board ──────────────────────────────────────────────────────
 
 type createNoticeRequest struct {
-	Title         string  `json:"title" binding:"required"`
-	Content       string  `json:"content" binding:"required"`
-	IsPinned      bool    `json:"is_pinned"`
-	AllowComments *bool   `json:"allow_comments"`
-	AttachmentURL *string `json:"attachment_url"`
-	ExpiresAt     *string `json:"expires_at"`
+	Title         string   `json:"title" binding:"required"`
+	Content       string   `json:"content" binding:"required"`
+	IsPinned      bool     `json:"is_pinned"`
+	AllowComments *bool    `json:"allow_comments"`
+	AttachmentURL *string  `json:"attachment_url"`
+	ExpiresAt     *string  `json:"expires_at"`
+	TargetUserIDs []string `json:"target_user_ids"` // empty/omitted = everyone in the author's level
 }
 
 func (server *Server) createClassNotice(ctx *gin.Context) {
@@ -49,6 +50,45 @@ func (server *Server) createClassNotice(ctx *gin.Context) {
 		expiresAt = pgtype.Timestamptz{Time: t, Valid: true}
 	}
 
+	// A notice authored by a class rep is scoped to their own level; hod/
+	// admin accounts have no student record at all, so their notices stay
+	// campus-wide (level = NULL), matching how the board behaved before
+	// level-scoping existed. class_rep_assignments is the primary source
+	// for a rep's level but is frequently empty in practice (roles are
+	// tracked via user_role_assignments instead) — students.level is the
+	// same fallback every other class-rep handler in this file's package
+	// already relies on.
+	var level *int32
+	var roster []db.Student
+	if assignment, err := queries.GetActiveClassRepAssignment(ctx, userID); err == nil {
+		level = &assignment.Level
+		roster, _ = queries.ListStudentsByLevel(ctx, assignment.Level)
+	} else if student, serr := queries.GetStudentByUserId(ctx, userID); serr == nil {
+		level = &student.Level
+		roster, _ = queries.ListStudentsByLevel(ctx, student.Level)
+	}
+
+	// Reject any target not actually in the author's own level roster —
+	// otherwise a class rep could target an arbitrary user id and leak a
+	// notice meant to be private to their class.
+	targetUserIDs := []string{}
+	if len(req.TargetUserIDs) > 0 {
+		validIDs := make(map[string]bool, len(roster))
+		for _, s := range roster {
+			validIDs[s.UserID.String()] = true
+		}
+		for _, id := range req.TargetUserIDs {
+			if validIDs[id] {
+				targetUserIDs = append(targetUserIDs, id)
+			}
+		}
+	}
+	targetJSON, err := json.Marshal(targetUserIDs)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
 	notice, err := queries.CreateClassNotice(ctx, db.CreateClassNoticeParams{
 		ClassRepID:    userID,
 		Title:         req.Title,
@@ -57,6 +97,8 @@ func (server *Server) createClassNotice(ctx *gin.Context) {
 		AllowComments: req.AllowComments,
 		AttachmentUrl: req.AttachmentURL,
 		ExpiresAt:     expiresAt,
+		Level:         level,
+		TargetUserIds: targetJSON,
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -73,7 +115,20 @@ func (server *Server) listClassNotices(ctx *gin.Context) {
 		return
 	}
 
-	notices, err := queries.ListClassNotices(ctx)
+	userID := getUserID(ctx)
+
+	// Staff with no student record see every level (viewerLevel stays nil);
+	// students — including class reps, who are also students — only see
+	// notices for their own level plus any campus-wide (level = NULL) ones.
+	var viewerLevel *int32
+	if student, err := queries.GetStudentByUserId(ctx, userID); err == nil {
+		viewerLevel = &student.Level
+	}
+
+	notices, err := queries.ListClassNoticesForViewer(ctx, db.ListClassNoticesForViewerParams{
+		ViewerLevel: viewerLevel,
+		ViewerID:    userID.String(),
+	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
@@ -483,6 +538,91 @@ func (server *Server) downloadDepartmentalEventICS(ctx *gin.Context) {
 
 	ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.ics\"", event.ID.String()))
 	ctx.Data(http.StatusOK, "text/calendar; charset=utf-8", icsBytes)
+}
+
+// downloadTimetableEntryICS GET /timetable/:id/ics — a standard .ics file for
+// a single timetable entry. Exam entries carry a fixed date already, so they
+// produce a one-off VEVENT; class entries only carry a day_of_week (their
+// weekly recurring slot) and a start_time/end_time whose date component is a
+// placeholder — those produce a weekly-recurring VEVENT anchored to the next
+// real calendar date matching that weekday, bounded by the entry's semester
+// end date when one is on record.
+func (server *Server) downloadTimetableEntryICS(ctx *gin.Context) {
+	id, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid timetable entry id"})
+		return
+	}
+
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "invalid store"})
+		return
+	}
+
+	entry, err := queries.GetTimetableEntry(ctx, id)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "timetable entry not found"})
+		return
+	}
+
+	course, err := queries.GetCourse(ctx, entry.CourseID)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "course not found"})
+		return
+	}
+	title := fmt.Sprintf("%s - %s", course.Code, course.Title)
+
+	classType := ""
+	if entry.ClassType != nil {
+		classType = *entry.ClassType
+	}
+
+	var startTime, endTime time.Time
+	var recurrence string
+
+	if entry.DayOfWeek != nil {
+		startTime = nextWeekdayAt(time.Now(), int(*entry.DayOfWeek), entry.StartTime.Time)
+		endTime = nextWeekdayAt(time.Now(), int(*entry.DayOfWeek), entry.EndTime.Time)
+		if !endTime.After(startTime) {
+			endTime = endTime.AddDate(0, 0, 7)
+		}
+
+		until := startTime.AddDate(0, 4, 0) // ~one semester, used when no semester end date is on record
+		if entry.SemesterID.Valid {
+			if sem, serr := queries.GetSemester(ctx, uuid.UUID(entry.SemesterID.Bytes)); serr == nil && sem.EndDate.Valid {
+				until = sem.EndDate.Time
+			}
+		}
+		recurrence = fmt.Sprintf("FREQ=WEEKLY;UNTIL=%s", until.UTC().Format("20060102T150405Z"))
+	} else {
+		startTime = entry.StartTime.Time
+		endTime = entry.EndTime.Time
+	}
+
+	icsBytes := utils.GenerateICS(utils.ICSEvent{
+		UID:            entry.ID.String(),
+		Title:          title,
+		Description:    classType,
+		Location:       entry.Venue,
+		Start:          startTime,
+		End:            endTime,
+		RecurrenceRule: recurrence,
+	})
+
+	ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.ics\"", entry.ID.String()))
+	ctx.Data(http.StatusOK, "text/calendar; charset=utf-8", icsBytes)
+}
+
+// nextWeekdayAt returns the next date at-or-after `from` (today counts if it
+// already matches) that falls on `weekday` (1=Monday..5=Friday, matching how
+// timetable.day_of_week is stored), carrying over the hour/minute from
+// `clockTime` — its own date component is a stored placeholder and ignored.
+func nextWeekdayAt(from time.Time, weekday int, clockTime time.Time) time.Time {
+	goTarget := time.Weekday(weekday % 7) // time.Weekday is 0=Sunday..6=Saturday
+	daysAhead := (int(goTarget) - int(from.Weekday()) + 7) % 7
+	target := from.AddDate(0, 0, daysAhead)
+	return time.Date(target.Year(), target.Month(), target.Day(), clockTime.Hour(), clockTime.Minute(), 0, 0, clockTime.Location())
 }
 
 func (server *Server) deleteDepartmentalEvent(ctx *gin.Context) {

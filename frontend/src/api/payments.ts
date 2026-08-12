@@ -26,6 +26,15 @@ export const getMyPaymentByReference = async (reference: string) => {
   return unwrap<Payment>(res);
 };
 
+// Actively re-verifies the reference against Paystack and completes the
+// payment if it succeeded — call this on the post-checkout redirect instead
+// of getMyPaymentByReference, since the webhook alone can't be relied on
+// (unreachable on localhost, occasionally delayed/dropped in production).
+export const confirmMyPaymentByReference = async (reference: string) => {
+  const res = await apiClient.post('/payments/confirm', null, { params: { reference } });
+  return unwrap<Payment>(res);
+};
+
 export const getStudentPaymentSummary = async (studentId: string) => {
   const res = await apiClient.get(`/payments/summary/${studentId}`);
   return unwrap<{ total_paid: number; total_pending: number; amount_paid: number; amount_pending: number }>(res);

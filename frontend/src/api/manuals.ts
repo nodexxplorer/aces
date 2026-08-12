@@ -31,21 +31,6 @@ export interface ManualPurchase {
   qr_code_url?: string;
 }
 
-export interface PrintQueueItem {
-  id: string;
-  purchase_id: string;
-  student_id: string;
-  manual_id: string;
-  status: string;
-  queued_at: string;
-  printed_at?: string;
-  collected_at?: string;
-  manual_title: string;
-  student_name: string;
-  matric_number: string;
-  processed_by?: string;
-}
-
 export interface PracticalEnrollment {
   id: string;
   student_id: string;
@@ -88,10 +73,19 @@ export const deleteManual = async (manualId: string) => {
   await apiClient.delete(`/manuals/${manualId}`);
 };
 
-// Student purchase
-export const purchaseManual = async (manualId: string) => {
-  const res = await apiClient.post('/manuals/purchase', { manual_id: manualId });
+// Student purchase — requires a completed payment first for priced manuals
+// (see checkoutManual below); safe to call directly for free manuals.
+export const purchaseManual = async (manualId: string, paymentId?: string) => {
+  const res = await apiClient.post('/manuals/purchase', { manual_id: manualId, payment_id: paymentId });
   return res.data;
+};
+
+// Student: initialize a Paystack checkout for a priced manual. Redirect the
+// browser to the returned authorization_url; Paystack sends the student back
+// to /payments/confirmation?manual_id=...&reference=... afterward.
+export const checkoutManual = async (manualId: string, email: string) => {
+  const res = await apiClient.post(`/manuals/${manualId}/checkout`, { email });
+  return unwrap<{ authorization_url: string; reference: string; payment_id: string }>(res);
 };
 
 // Student my purchases
@@ -100,9 +94,21 @@ export const getMyPurchases = async () => {
   return unwrap<ManualPurchase[]>(res);
 };
 
-// Student download cover PDF
+// Student download cover PDF (admin/print-collection use — carries a QR code)
 export const downloadCover = async (purchaseId: string) => {
   const res = await apiClient.get(`/manuals/${purchaseId}/cover`, { responseType: 'blob' });
+  return res.data;
+};
+
+// Student download proof-of-purchase receipt (no QR code)
+export const downloadReceipt = async (purchaseId: string) => {
+  const res = await apiClient.get(`/manuals/purchases/${purchaseId}/receipt`, { responseType: 'blob' });
+  return res.data;
+};
+
+// Admin: bulk download every purchaser's cover for a manual as one combined PDF
+export const bulkDownloadCovers = async (manualId: string) => {
+  const res = await apiClient.get(`/manuals/${manualId}/covers/bulk`, { responseType: 'blob' });
   return res.data;
 };
 
@@ -116,22 +122,6 @@ export const verifyManualQR = async (qrData: string) => {
 export const getMyPracticalEnrollments = async () => {
   const res = await apiClient.get('/manuals/practicals');
   return unwrap<PracticalEnrollment[]>(res);
-};
-
-// Admin: print queue
-export const getManualPrintQueue = async (status?: string) => {
-  const res = await apiClient.get('/manuals/print-queue', { params: status ? { status } : {} });
-  return unwrap<PrintQueueItem[]>(res);
-};
-
-export const addToPrintQueue = async (purchaseId: string) => {
-  const res = await apiClient.post('/manuals/print-queue', { purchase_id: purchaseId });
-  return res.data;
-};
-
-export const updatePrintQueueStatus = async (queueId: string, status: string) => {
-  const res = await apiClient.put(`/manuals/print-queue/${queueId}`, { status });
-  return res.data;
 };
 
 export interface ManualAdminPurchase {

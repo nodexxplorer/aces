@@ -61,12 +61,18 @@ const TimetablePage = () => {
               : 'Class lecture schedules and exam timetable'}
           </p>
         </div>
-        <Button variant="outline" leftIcon={<Download className="w-4 h-4" />} onClick={() => window.print()}>
+        <Button
+          className="print:hidden"
+          variant="outline"
+          leftIcon={<Download className="w-4 h-4" />}
+          onClick={() => window.print()}
+        >
           Print Schedule
         </Button>
       </div>
 
       <Tabs
+        className="print:hidden"
         tabs={[
           { id: 'class', label: 'Class Timetable', icon: <BookOpen className="w-4 h-4" /> },
           { id: 'exam', label: 'Exam Timetable', icon: <GraduationCap className="w-4 h-4" /> },

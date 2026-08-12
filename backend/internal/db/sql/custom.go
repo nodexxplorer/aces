@@ -1113,6 +1113,7 @@ func (q *Queries) ListRecentPayments(ctx context.Context, limit int32) ([]Recent
 		JOIN users u ON u.id = st.user_id
 		JOIN students s ON s.id = p.student_id
 		JOIN dues d ON d.id = p.due_id
+		WHERE p.status = 'completed'
 		ORDER BY p.created_at DESC
 		LIMIT $1
 	`, limit)

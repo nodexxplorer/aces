@@ -1063,9 +1063,9 @@ func (q *Queries) UpdateAttendanceSessionCounts(ctx context.Context, id uuid.UUI
 
 const updateAttendanceSessionStatus = `-- name: UpdateAttendanceSessionStatus :one
 UPDATE attendance_sessions
-SET status = $2,
-    started_at = CASE WHEN $2 = 'open' THEN NOW() ELSE started_at END,
-    closed_at = CASE WHEN $2 = 'closed' OR $2 = 'finalized' THEN NOW() ELSE closed_at END
+SET status = $2::varchar,
+    started_at = CASE WHEN $2::varchar = 'open' THEN NOW() ELSE started_at END,
+    closed_at = CASE WHEN $2::varchar IN ('closed', 'finalized') THEN NOW() ELSE closed_at END
 WHERE id = $1
 RETURNING id, course_id, class_rep_id, session_id, semester_id, date, method, venue, status, started_at, closed_at, total_present, total_absent, total_students, created_at
 `

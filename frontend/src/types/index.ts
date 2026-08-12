@@ -273,7 +273,7 @@ export type PaymentType = 'dept_dues' | 'class_dues' | 'manual' | 'materials' | 
 export interface Payment extends BaseEntity {
   student_id: string;
   batch_id?: string;
-  due_id: string;
+  due_id?: string;
   type: PaymentType;
   item_name: string;
   amount: number;

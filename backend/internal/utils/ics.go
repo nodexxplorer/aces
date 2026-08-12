@@ -15,6 +15,11 @@ type ICSEvent struct {
 	Location    string
 	Start       time.Time
 	End         time.Time // zero value means "use Start + 1 hour"
+	// RecurrenceRule, if set, is the raw RFC 5545 RRULE value (e.g.
+	// "FREQ=WEEKLY;UNTIL=20260401T000000Z") emitted as-is — used for
+	// weekly-recurring class timetable entries, left empty for one-off
+	// events.
+	RecurrenceRule string
 }
 
 // escapeICSText escapes text per RFC 5545 §3.3.11 (backslash, semicolon,
@@ -60,6 +65,9 @@ func GenerateICS(e ICSEvent) []byte {
 	}
 	if e.Location != "" {
 		lines = append(lines, fmt.Sprintf("LOCATION:%s", escapeICSText(e.Location)))
+	}
+	if e.RecurrenceRule != "" {
+		lines = append(lines, fmt.Sprintf("RRULE:%s", e.RecurrenceRule))
 	}
 	lines = append(lines, "END:VEVENT", "END:VCALENDAR")
 

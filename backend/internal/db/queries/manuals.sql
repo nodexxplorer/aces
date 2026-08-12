@@ -68,6 +68,12 @@ SET is_collected = true, collected_at = NOW()
 WHERE id = $1
 RETURNING *;
 
+-- name: MarkManualPrinted :one
+UPDATE manual_purchases
+SET printed_at = NOW()
+WHERE id = $1
+RETURNING *;
+
 -- name: CheckManualPurchased :one
 SELECT EXISTS(
     SELECT 1 FROM manual_purchases

@@ -101,13 +101,18 @@ func buildAttendancePDFStream(input AttendancePDFInput, total, present, absent, 
 		centerX = pageW / 2
 	)
 
-	// Watermark
-	gfx.WriteString("q\n")
-	gfx.WriteString("0.85 0.9 0.95 rg\n")
+	// Watermark. Fill color has to be set inside the *text* stream, right
+	// before the text it colors: the final content stream is built as
+	// "all gfx ops, then all text ops" (see the return at the bottom), so a
+	// color set in gfx has no reliable relationship to when the watermark
+	// text actually draws — it was landing however the last unguarded `rg`
+	// in gfx happened to leave the fill color (the header bar's dark navy),
+	// which is why the watermark was rendering bold navy instead of faint.
 	txt.WriteString("BT\n")
+	txt.WriteString("0.92 0.94 0.96 rg\n")
 	pdfCentered(&txt, centerX, 400, 72, "F4", "ACES ZONE")
+	txt.WriteString("0 0 0 rg\n")
 	txt.WriteString("ET\n")
-	gfx.WriteString("Q\n")
 
 	deptName := input.DepartmentName
 	if deptName == "" {
@@ -165,10 +170,19 @@ func buildAttendancePDFStream(input AttendancePDFInput, total, present, absent, 
 	}
 	txt.WriteString("ET\n")
 
-	// Summary block
+	// Summary block. Anchored low on the page (not "right after the last
+	// row") so a short roster doesn't leave the summary/signature section
+	// stranded near the top with a huge empty, watermark-only gap below it —
+	// it only rides up above that anchor when the roster is long enough to
+	// need the room.
+	const summaryAnchorY = 200.0
+	const summaryMinY = 120.0
 	summaryY := y - 20
-	if summaryY < 120 {
-		summaryY = 120
+	if summaryY > summaryAnchorY {
+		summaryY = summaryAnchorY
+	}
+	if summaryY < summaryMinY {
+		summaryY = summaryMinY
 	}
 
 	gfx.WriteString("0.2 w\n")

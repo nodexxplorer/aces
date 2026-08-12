@@ -116,7 +116,7 @@ func (s *AIService) Chat(ctx context.Context, userID uuid.UUID, message string, 
 	}
 
 	count, _ := s.queries().GetTodayInteractionCount(ctx, userID)
-	if count >= 200 {
+	if count >= 500 {
 		return &ChatbotResponse{
 			Reply:      "You've reached the daily limit of 200 AI interactions. Please try again tomorrow.",
 			Confidence: 1.0,
@@ -376,7 +376,7 @@ func (s *AIService) handleWithLLM(ctx context.Context, userID uuid.UUID, message
 		UserID:    userID,
 	})
 
-	systemPrompt := `You are ACES Assistant, the AI helper for ACES Zone — the Electrical and Computer Engineering Students' platform at Akwa Ibom State University.
+	systemPrompt := `You are ACES Assistant, the AI helper for ACES Zone — the Computer Engineering Students' platform at University of Uyo, Nigeria.
 
 Your role is to help students with:
 - Academic matters (grades, courses, registration, timetable)

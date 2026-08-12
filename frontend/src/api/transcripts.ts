@@ -12,7 +12,15 @@ export const getStudentTranscriptRequests = async (studentId: string) => {
 };
 
 export const getPendingTranscriptRequests = async (params?: PaginationParams) => {
-  const res = await apiClient.get('/transcript-requests/pending', { params });
+  // page_id/page_size are binding:"required" server-side with no defaults —
+  // AcademicsHubPage's TranscriptsTab calls this with no arguments at all,
+  // which sent an empty query string and 400'd on every load.
+  const res = await apiClient.get('/transcript-requests/pending', {
+    params: {
+      page_id: params?.page || 1,
+      page_size: Math.min(params?.perPage || 50, 100),
+    },
+  });
   return unwrap<TranscriptRequest[]>(res);
 };
 

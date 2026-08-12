@@ -1,5 +1,4 @@
 import apiClient, { unwrap } from './client';
-import { getErrorMessage } from '../utils/errors';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -105,6 +104,28 @@ export async function listPendingCourseRegistrations(): Promise<PendingCourseReg
   return unwrap<PendingCourseRegistration[]>(res);
 }
 
+// ─── Pending Student Registrations (new accounts, not course forms) ────────
+
+export interface PendingStudentRegistration {
+  id: string;
+  user_id: string;
+  full_name: string;
+  matric_number: string;
+  email: string;
+  level: number;
+  type: 'signup' | 'account';
+  created_at?: string;
+}
+
+export async function listPendingStudentRegistrations(): Promise<PendingStudentRegistration[]> {
+  const res = await apiClient.get('/class-rep/pending-student-registrations');
+  return unwrap<PendingStudentRegistration[]>(res);
+}
+
+export async function approveStudentRegistration(id: string): Promise<void> {
+  await apiClient.post(`/class-rep/pending-student-registrations/${id}/approve`);
+}
+
 export async function approveCourseRegistration(registrationId: string): Promise<void> {
   await apiClient.put(`/course-registrations/${registrationId}`, { status: 'approved' });
 }
@@ -186,7 +207,11 @@ export async function checkInStudent(
 export async function selfCheckIn(sessionId: string): Promise<AttendanceCheckin> {
   const res = await apiClient.post('/class-rep/checkin', {
     session_id: sessionId,
-    method: 'qr_self',
+    // attendance_checkins.method has a DB CHECK constraint allowing only
+    // 'qr' | 'manual' | 'digital_sheet' — 'qr_self' isn't one of them and
+    // every self-check-in 500'd on the insert until this matched the
+    // constraint (self-scanning is still fundamentally a QR check-in).
+    method: 'qr',
     present: true,
   });
   return unwrap<AttendanceCheckin>(res);
@@ -257,35 +282,4 @@ export async function createPerformanceReview(
 export async function listPerformanceReviews(classRepId: string): Promise<PerformanceReview[]> {
   const res = await apiClient.get(`/class-rep/performance?class_rep_id=${classRepId}`);
   return unwrap<PerformanceReview[]>(res);
-}
-
-// ─── Notifications ───────────────────────────────────────────────────────────
-
-export interface SendNotificationResult {
-  student_id: string;
-  status: 'sent' | 'failed';
-  error?: string;
-}
-
-export async function sendClassNotification(
-  studentIds: string[],
-  title: string,
-  message: string,
-): Promise<SendNotificationResult[]> {
-  const results: SendNotificationResult[] = [];
-  const batches = studentIds.map(async (userId) => {
-    try {
-      await apiClient.post('/notifications', {
-        user_id: userId,
-        type: 'class_rep_broadcast',
-        title,
-        message,
-      });
-      results.push({ student_id: userId, status: 'sent' });
-    } catch (e: unknown) {
-      results.push({ student_id: userId, status: 'failed', error: getErrorMessage(e) });
-    }
-  });
-  await Promise.all(batches);
-  return results;
 }

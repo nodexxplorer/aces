@@ -24,23 +24,27 @@ const Dashboard = () => {
     <div className="space-y-6">
       {isPendingApproval && (
         <Alert type="warning" title="Account Pending Approval">
-          Your account is currently waiting for validation by department administrators.
-          Some academic features, such as entering scores or viewing official transcripts, will remain locked until approved.
+          Your account is currently waiting for validation by department administrators. Some academic features, such as
+          entering scores or viewing official transcripts, will remain locked until approved.
         </Alert>
       )}
 
       {isRejected && (
         <Alert type="error" title="Account Rejected">
-          Your account validation request was declined. Please verify your profile info or contact your class representative.
+          Your account validation request was declined. Please verify your profile info or contact your class
+          representative.
         </Alert>
       )}
 
       {/* Render the appropriate dashboard based on active role */}
-      {activeRole === 'student' && <StudentDashboardView />}
+      {(activeRole === 'student' ||
+        activeRole === 'project_coordinator' ||
+        activeRole === 'event_coordinator' ||
+        activeRole === 'alumni_rep') && <StudentDashboardView />}
       {activeRole === 'lecturer' && <LecturerDashboardView />}
       {activeRole === 'class_rep' && <ClassRepDashboardView />}
       {(activeRole === 'class_bursar' || activeRole === 'dept_bursar') && <BursarDashboardView />}
-      {(activeRole === 'hod' || activeRole === 'delegated_admin') && <AdminDashboardView />}
+      {(activeRole === 'hod' || activeRole === 'delegated_admin' || activeRole === 'admin') && <AdminDashboardView />}
       {activeRole === 'alumni' && <AlumniDashboardView />}
     </div>
   );

@@ -114,15 +114,16 @@ type checkDuePaidQuery struct {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 // resolveStudentIDForPaymentRead returns the student ID a caller is allowed to read
-// payment data for: their own ID if they're a student, or the requested path param
-// if they hold a staff/admin role.
+// payment data for: their own ID for any non-staff caller (student, class_rep, etc.),
+// or the requested path param if they hold a staff/admin role. Gating on "not staff"
+// rather than "is exactly student" avoids two bugs: non-student non-staff roles (e.g.
+// class_rep, whose base users.role isn't literally "student") being sent down the
+// path-param branch with a user ID that doesn't match any students.id and getting
+// zero results, and any authenticated non-staff caller being able to read another
+// student's payment history by passing their ID in the URL.
 func (server *Server) resolveStudentIDForPaymentRead(ctx *gin.Context, pathParam string) (uuid.UUID, error) {
-	claimsVal, exists := ctx.Get("claims")
-	if exists {
-		if claims, ok := claimsVal.(*auth.Claims); ok && claims.HasRole("student") &&
-			!claims.HasAnyRole([]string{"hod", "admin", "delegated_admin", "bursar_dept", "bursar_class"}) {
-			return server.getStudentIDFromUser(ctx)
-		}
+	if !isStaffRole(ctx) {
+		return server.getStudentIDFromUser(ctx)
 	}
 	return uuid.Parse(pathParam)
 }
@@ -693,7 +694,7 @@ func (server *Server) createPayment(ctx *gin.Context) {
 
 	params := db.CreatePaymentParams{
 		StudentID:         studentID,
-		DueID:             dueID,
+		DueID:             pgtype.UUID{Bytes: dueID, Valid: true},
 		Type:              due.Type,
 		ItemName:          req.ItemName,
 		Amount:            due.Amount,
@@ -1113,7 +1114,7 @@ func (server *Server) checkoutCart(ctx *gin.Context) {
 		_, err = server.store.CreatePayment(ctx, db.CreatePaymentParams{
 			StudentID:         studentID,
 			BatchID:           pgtype.UUID{Bytes: batchID, Valid: true},
-			DueID:             item.DueID,
+			DueID:             pgtype.UUID{Bytes: item.DueID, Valid: true},
 			Type:              dueType,
 			ItemName:          itemName,
 			Amount:            item.Amount,
@@ -1253,6 +1254,59 @@ func (server *Server) getMyPaymentByReference(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, payment)
+}
+
+// confirmMyPaymentByReference POST /payments/confirm?reference=XXX
+//
+// The Paystack webhook is the authoritative way payments get marked
+// completed, but it can't reach localhost during development and, even in
+// production, can be delayed or occasionally dropped — leaving a payment
+// stuck "pending" even though the student was already sent back from a
+// successful Paystack checkout. This endpoint lets the student's own
+// browser redirect trigger the same completion path: it re-verifies the
+// reference directly against Paystack (never trusting the client's say-so)
+// and applies the exact same completion logic the webhook uses.
+func (server *Server) confirmMyPaymentByReference(ctx *gin.Context) {
+	var q getPaymentByReferenceQuery
+	if err := ctx.ShouldBindQuery(&q); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "reference is required"})
+		return
+	}
+
+	existing, err := server.store.GetPaymentByReference(ctx, &q.Reference)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "payment not found for this reference"})
+		return
+	}
+
+	studentID, err := server.getStudentIDFromUser(ctx)
+	if err != nil || existing.StudentID != studentID {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "payment not found for this reference"})
+		return
+	}
+
+	if string(existing.Status) != "completed" {
+		paystackClient := payment.NewPaystackClient(server.config.PaystackSecretKey, server.config.PaystackPublicKey)
+		psResp, err := paystackClient.VerifyPayment(q.Reference)
+		if err != nil {
+			ctx.JSON(http.StatusBadGateway, gin.H{"error": "could not verify payment with Paystack"})
+			return
+		}
+		if psResp.Data.Status == "success" {
+			if _, err := server.completePaymentsForReference(ctx, q.Reference, psResp.Data.Amount); err != nil {
+				ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
+				return
+			}
+		}
+	}
+
+	updated, err := server.store.GetPaymentByReference(ctx, &q.Reference)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "payment not found for this reference"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, updated)
 }
 
 // listDefaulters GET /payments/defaulters

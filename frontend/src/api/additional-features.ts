@@ -1,5 +1,30 @@
 import apiClient, { unwrap } from './client';
 
+// The backend sends jsonb columns as raw Go []byte, which encoding/json
+// serializes as a base64 string rather than embedding the JSON directly —
+// this handles both that and a plain JSON-array string, matching the same
+// helper already used for announcement targeting fields.
+const parseJSONField = <T>(field: unknown): T[] => {
+  if (!field) return [];
+  if (Array.isArray(field)) return field as T[];
+  if (typeof field === 'string') {
+    try {
+      const parsed = JSON.parse(field);
+      if (Array.isArray(parsed)) return parsed as T[];
+    } catch {
+      // Not valid JSON directly; fall through to try base64-decoding below.
+    }
+    try {
+      const decoded = atob(field);
+      const parsed = JSON.parse(decoded);
+      if (Array.isArray(parsed)) return parsed as T[];
+    } catch {
+      // Not base64-encoded JSON either; give up and return an empty array.
+    }
+  }
+  return [];
+};
+
 // Password Reset
 export const requestPasswordReset = async (email: string, channel?: string) => {
   const res = await apiClient.post('/auth/request-otp', { email, channel: channel || 'email' });
@@ -71,6 +96,15 @@ export interface GradeAppeal {
   student_name?: string;
 }
 
+// evidence_urls is a jsonb column, which the backend sends as raw Go []byte
+// (base64-encoded by encoding/json) rather than an embedded array — without
+// this, `evidence_urls.map(...)` throws (strings have no .map) the moment an
+// appeal with evidence is opened.
+const normalizeAppeal = (a: GradeAppeal): GradeAppeal => ({
+  ...a,
+  evidence_urls: parseJSONField<string>(a.evidence_urls),
+});
+
 export const createGradeAppeal = async (data: {
   course_id: string;
   semester_id: string;
@@ -79,18 +113,18 @@ export const createGradeAppeal = async (data: {
   evidence?: string[];
 }) => {
   const res = await apiClient.post('/grade-appeals', data);
-  return unwrap<GradeAppeal>(res);
+  return normalizeAppeal(unwrap<GradeAppeal>(res));
 };
 
 export const listMyAppeals = async () => {
   const res = await apiClient.get('/grade-appeals/my');
-  return unwrap<GradeAppeal[]>(res);
+  return unwrap<GradeAppeal[]>(res).map(normalizeAppeal);
 };
 
 export const listPendingAppeals = async (status?: string) => {
   const params = status ? { status } : {};
   const res = await apiClient.get('/grade-appeals/pending', { params });
-  return unwrap<GradeAppeal[]>(res);
+  return unwrap<GradeAppeal[]>(res).map(normalizeAppeal);
 };
 
 export const updateAppealStatus = async (
@@ -173,6 +207,8 @@ export interface ClassNotice {
   created_at: string;
   author_name?: string;
   comment_count?: number;
+  level?: number | null;
+  target_user_ids?: string[];
 }
 
 export const createClassNotice = async (data: {
@@ -182,6 +218,10 @@ export const createClassNotice = async (data: {
   allow_comments?: boolean;
   attachment_url?: string;
   expires_at?: string;
+  // Empty/omitted = every student in the author's level. Non-empty must be
+  // user IDs drawn from that same level's roster — the backend silently
+  // drops anything outside it.
+  target_user_ids?: string[];
 }) => {
   const res = await apiClient.post('/class-notices', data);
   return unwrap<ClassNotice>(res);
@@ -189,7 +229,8 @@ export const createClassNotice = async (data: {
 
 export const listClassNotices = async () => {
   const res = await apiClient.get('/class-notices');
-  return unwrap<ClassNotice[]>(res);
+  const notices = unwrap<ClassNotice[]>(res);
+  return notices.map((n) => ({ ...n, target_user_ids: parseJSONField<string>(n.target_user_ids) }));
 };
 
 export const getClassNotice = async (id: string) => {
@@ -246,7 +287,15 @@ export const listDepartmentalEvents = async (start?: string, end?: string) => {
   if (start) params.start = start;
   if (end) params.end = end;
   const res = await apiClient.get('/calendar', { params });
-  return unwrap<CalendarEvent[]>(res);
+  const events = unwrap<CalendarEvent[]>(res);
+  // target_levels/target_audience are jsonb columns — same base64-string
+  // shape as evidence_urls/target_user_ids above, must go through the same
+  // parser or Array.isArray checks downstream silently treat them as unset.
+  return events.map((e) => ({
+    ...e,
+    target_levels: parseJSONField<number>(e.target_levels),
+    target_audience: parseJSONField<string>(e.target_audience),
+  }));
 };
 
 export const deleteDepartmentalEvent = async (id: string) => {

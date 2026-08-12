@@ -2,14 +2,17 @@ package api
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
 	db "github.com/aces/backend/internal/db/sql"
+	"github.com/aces/backend/internal/payment"
 	"github.com/aces/backend/internal/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/shopspring/decimal"
 )
 
 var manualQRSecret = []byte("aces-manual-qr-secret-change-in-prod-2026")
@@ -40,14 +43,6 @@ type purchaseManualRequest struct {
 	PaymentID *string `json:"payment_id" binding:"omitempty,uuid"`
 }
 
-type addToPrintQueueRequest struct {
-	PurchaseID string `json:"purchase_id" binding:"required"`
-}
-
-type updatePrintQueueRequest struct {
-	Status string `json:"status" binding:"required"`
-}
-
 type qrVerifyRequest struct {
 	QRData string `json:"qr_data" binding:"required"`
 }
@@ -68,21 +63,6 @@ type manualPurchaseResponse struct {
 	QRCodeURL    *string `json:"qr_code_url,omitempty"`
 	StudentName  string  `json:"student_name,omitempty"`
 	MatricNumber string  `json:"matric_number,omitempty"`
-}
-
-type printQueueResponse struct {
-	ID           string  `json:"id"`
-	PurchaseID   string  `json:"purchase_id"`
-	StudentID    string  `json:"student_id"`
-	ManualID     string  `json:"manual_id"`
-	Status       string  `json:"status"`
-	QueuedAt     string  `json:"queued_at"`
-	PrintedAt    *string `json:"printed_at,omitempty"`
-	CollectedAt  *string `json:"collected_at,omitempty"`
-	ManualTitle  string  `json:"manual_title"`
-	StudentName  string  `json:"student_name"`
-	MatricNumber string  `json:"matric_number"`
-	ProcessedBy  *string `json:"processed_by,omitempty"`
 }
 
 type practicalEnrollmentResponse struct {
@@ -231,6 +211,111 @@ func (server *Server) deleteManual(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "manual deleted successfully"})
 }
 
+// ─── Checkout Manual (Student) ───
+
+// createManualPayment POST /manuals/:id/checkout
+// Creates a pending payment for a priced manual so it can be run through the
+// existing generic /payments/checkout (Paystack) flow — purchaseManual
+// requires a completed payment before it will create the purchase record,
+// but until now nothing ever created that payment in the first place, so
+// buying any priced manual always failed with "payment required".
+func (server *Server) createManualPayment(ctx *gin.Context) {
+	manualID, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid manual ID"})
+		return
+	}
+
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
+		return
+	}
+
+	studentID, err := server.getStudentIDFromUser(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "internal server error"})
+		return
+	}
+
+	manual, err := queries.GetManual(ctx, manualID)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "manual not found"})
+		return
+	}
+	if manual.Price.IsZero() {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "this manual is free — call purchase directly, no checkout needed"})
+		return
+	}
+
+	purchased, _ := queries.CheckManualPurchased(ctx, db.CheckManualPurchasedParams{
+		StudentID: studentID,
+		ManualID:  manualID,
+	})
+	if purchased {
+		ctx.JSON(http.StatusConflict, gin.H{"error": "manual already purchased"})
+		return
+	}
+
+	var req struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "email is required"})
+		return
+	}
+
+	paymentRecord, err := queries.CreatePayment(ctx, db.CreatePaymentParams{
+		StudentID: studentID,
+		DueID:     pgtype.UUID{Valid: false},
+		Type:      db.PaymentTypeManual,
+		ItemName:  manual.Title,
+		Amount:    manual.Price,
+	})
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	reference := fmt.Sprintf("ACES-MAN-%s-%d", paymentRecord.ID.String()[:8], time.Now().Unix())
+	if _, err := queries.GetDB().Exec(ctx, "UPDATE payments SET paystack_reference = $1 WHERE id = $2", reference, paymentRecord.ID); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	amountKobo := manual.Price.Mul(decimal.NewFromInt(100)).IntPart()
+	paystackClient := payment.NewPaystackClient(server.config.PaystackSecretKey, server.config.PaystackPublicKey)
+	resp, err := paystackClient.InitializePayment(payment.InitPaymentRequest{
+		Email:     req.Email,
+		Amount:    amountKobo,
+		Reference: reference,
+		// manual_id in the callback URL is how the confirmation page knows to
+		// finalize a manual purchase record (not just mark the payment
+		// completed) once Paystack redirects the student back — the generic
+		// /payments/checkout flow has no notion of manuals at all.
+		CallbackURL: fmt.Sprintf("%s/payments/confirmation?manual_id=%s", server.config.FrontendPublicURL, manualID.String()),
+		Metadata: payment.Metadata{
+			"payment_id": paymentRecord.ID.String(),
+			"student_id": studentID.String(),
+			"manual_id":  manualID.String(),
+		},
+	})
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status":  true,
+		"message": "checkout initialized",
+		"data": gin.H{
+			"authorization_url": resp.Data.AuthorizationURL,
+			"reference":         resp.Data.Reference,
+			"payment_id":        paymentRecord.ID,
+		},
+	})
+}
+
 // ─── Purchase Manual (Student) ───
 
 func (server *Server) purchaseManual(ctx *gin.Context) {
@@ -330,13 +415,6 @@ func (server *Server) purchaseManual(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-
-	// Auto-add to print queue
-	_, _ = server.manuals.AddToPrintQueue(ctx, db.CreatePrintQueueItemParams{
-		PurchaseID: purchase.ID,
-		StudentID:  studentID,
-		ManualID:   manualID,
-	})
 
 	// Fetch user name for response
 	user, _ := server.users.GetByID(ctx, userID)
@@ -439,119 +517,6 @@ func (server *Server) markManualCollected(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, purchase)
-}
-
-// ─── Print Queue ───
-
-func (server *Server) addToPrintQueue(ctx *gin.Context) {
-	var req addToPrintQueueRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
-		return
-	}
-
-	purchaseID, err := uuid.Parse(req.PurchaseID)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid purchase_id"})
-		return
-	}
-
-	queries, ok := server.store.(*db.Queries)
-	if !ok {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
-		return
-	}
-
-	// Fetch purchase to get student_id and manual_id
-	purchase, err := queries.GetManualPurchase(ctx, purchaseID)
-	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": "purchase not found"})
-		return
-	}
-
-	queueItem, err := server.manuals.AddToPrintQueue(ctx, db.CreatePrintQueueItemParams{
-		PurchaseID: purchaseID,
-		StudentID:  purchase.StudentID,
-		ManualID:   purchase.ManualID,
-	})
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, queueItem)
-}
-
-func (server *Server) listPrintQueue(ctx *gin.Context) {
-	status := ctx.Query("status")
-	var statusPtr *string
-	if status != "" {
-		statusPtr = &status
-	}
-
-	queue, err := server.manuals.ListPrintQueue(ctx, statusPtr, 200, 0)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-		return
-	}
-
-	var result []printQueueResponse
-	for _, q := range queue {
-		r := printQueueResponse{
-			ID:           q.ID.String(),
-			PurchaseID:   q.PurchaseID.String(),
-			StudentID:    q.StudentID.String(),
-			ManualID:     q.ManualID.String(),
-			Status:       q.Status,
-			QueuedAt:     q.QueuedAt.Time.Format(time.RFC3339),
-			ManualTitle:  q.ManualTitle,
-			StudentName:  q.StudentName,
-			MatricNumber: q.MatricNumber,
-		}
-		if q.PrintedAt.Valid {
-			s := q.PrintedAt.Time.Format(time.RFC3339)
-			r.PrintedAt = &s
-		}
-		if q.CollectedAt.Valid {
-			s := q.CollectedAt.Time.Format(time.RFC3339)
-			r.CollectedAt = &s
-		}
-		if q.ProcessedBy.Valid {
-			s := uuid.UUID(q.ProcessedBy.Bytes).String()
-			r.ProcessedBy = &s
-		}
-		result = append(result, r)
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"data": result})
-}
-
-func (server *Server) updatePrintQueueStatus(ctx *gin.Context) {
-	id, err := uuid.Parse(ctx.Param("id"))
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid ID"})
-		return
-	}
-
-	var req updatePrintQueueRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
-		return
-	}
-
-	processedBy := getUserID(ctx)
-	var processedByPtr *uuid.UUID
-	if processedBy != uuid.Nil {
-		processedByPtr = &processedBy
-	}
-
-	queueItem, err := server.manuals.UpdatePrintQueueStatus(ctx, id, req.Status, processedByPtr)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, queueItem)
 }
 
 // ─── QR Verify (Student scans QR) ───
@@ -741,6 +706,138 @@ func (server *Server) enrollPractical(ctx *gin.Context) {
 
 // ─── Generate Cover PDF (Student downloads personalized cover, Admin can also download) ───
 
+// buildCoverInputForPurchase resolves everything GenerateManualCover needs
+// (student, course, session) for one manual purchase. Shared by the
+// single-purchase and bulk-download handlers so the two can't drift.
+func (server *Server) buildCoverInputForPurchase(ctx *gin.Context, queries *db.Queries, studentID, manualID uuid.UUID, qrCodeData *string) (utils.CoverPageInput, error) {
+	manual, err := queries.GetManual(ctx, manualID)
+	if err != nil {
+		return utils.CoverPageInput{}, fmt.Errorf("manual not found: %w", err)
+	}
+
+	student, err := queries.GetStudent(ctx, studentID)
+	if err != nil {
+		return utils.CoverPageInput{}, fmt.Errorf("student profile not found: %w", err)
+	}
+
+	user, err := server.users.GetByID(ctx, student.UserID)
+	if err != nil {
+		return utils.CoverPageInput{}, fmt.Errorf("user not found: %w", err)
+	}
+
+	courseCode := "N/A"
+	courseTitle := "N/A"
+	if manual.CourseID.Valid {
+		if course, err := queries.GetCourse(ctx, manual.CourseID.Bytes); err == nil {
+			courseCode = course.Code
+			courseTitle = course.Title
+		}
+	}
+
+	sessionName := "2025/2026"
+	semesterName := "Second Semester"
+	if manual.SessionID.Valid {
+		if sess, err := queries.GetSession(ctx, uuid.UUID(manual.SessionID.Bytes)); err == nil {
+			sessionName = sess.Name
+		}
+	}
+
+	return utils.CoverPageInput{
+		StudentName: user.FullName,
+		RegNo:       student.MatricNumber,
+		Department:  "Computer Engineering",
+		Level:       int(manual.Level),
+		CourseCode:  courseCode,
+		CourseTitle: courseTitle,
+		Session:     sessionName,
+		Semester:    semesterName,
+		QRCodeData:  qrCodeData,
+	}, nil
+}
+
+// downloadManualReceipt GET /manuals/purchases/:id/receipt
+// Student-facing proof of purchase — deliberately separate from the cover
+// page (which carries a QR code meant for admin print/collection handling,
+// not something a student needs to see or print themselves).
+func (server *Server) downloadManualReceipt(ctx *gin.Context) {
+	purchaseID, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid purchase ID"})
+		return
+	}
+
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
+		return
+	}
+
+	purchase, err := queries.GetManualPurchase(ctx, purchaseID)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "purchase not found"})
+		return
+	}
+
+	if !isStaffCaller(ctx) {
+		studentID, err := server.getStudentIDFromUser(ctx)
+		if err != nil || purchase.StudentID != studentID {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "not your purchase"})
+			return
+		}
+	}
+
+	manual, err := queries.GetManual(ctx, purchase.ManualID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "manual not found"})
+		return
+	}
+
+	student, err := queries.GetStudent(ctx, purchase.StudentID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "student profile not found"})
+		return
+	}
+
+	user, err := server.users.GetByID(ctx, student.UserID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "user not found"})
+		return
+	}
+
+	amount := manual.Price
+	reference := purchase.ID.String()
+	if purchase.PaymentID.Valid {
+		if p, err := queries.GetPayment(ctx, purchase.PaymentID.Bytes); err == nil {
+			amount = p.Amount
+			if p.PaystackReference != nil && *p.PaystackReference != "" {
+				reference = *p.PaystackReference
+			}
+		}
+	}
+
+	date := "N/A"
+	if purchase.PurchasedAt.Valid {
+		date = purchase.PurchasedAt.Time.Format("2 Jan 2006")
+	}
+
+	pdfBytes, err := utils.GenerateReceipt(utils.ReceiptInput{
+		StudentName: user.FullName,
+		RegNo:       student.MatricNumber,
+		ItemName:    manual.Title,
+		Amount:      amount.StringFixed(2),
+		Reference:   reference,
+		Date:        date,
+	})
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	ctx.Header("Content-Type", "application/pdf")
+	ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename=receipt-%s.pdf", purchaseID))
+	ctx.Data(http.StatusOK, "application/pdf", pdfBytes)
+}
+
 func (server *Server) downloadManualCover(ctx *gin.Context) {
 	purchaseID, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
@@ -769,55 +866,13 @@ func (server *Server) downloadManualCover(ctx *gin.Context) {
 		}
 	}
 
-	manual, err := queries.GetManual(ctx, purchase.ManualID)
+	input, err := server.buildCoverInputForPurchase(ctx, queries, purchase.StudentID, purchase.ManualID, purchase.QrCodeData)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "manual not found"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
-	// Fetch the student who owns the purchase (not necessarily the caller).
-	student, err := queries.GetStudent(ctx, purchase.StudentID)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "student profile not found"})
-		return
-	}
-
-	user, err := server.users.GetByID(ctx, student.UserID)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "user not found"})
-		return
-	}
-
-	courseCode := "N/A"
-	courseTitle := "N/A"
-	if manual.CourseID.Valid {
-		course, err := queries.GetCourse(ctx, manual.CourseID.Bytes)
-		if err == nil {
-			courseCode = course.Code
-			courseTitle = course.Title
-		}
-	}
-
-	// Resolve session and semester names from the manual record
-	sessionName := "2025/2026"
-	semesterName := "Second Semester"
-	if manual.SessionID.Valid {
-		if sess, err := queries.GetSession(ctx, uuid.UUID(manual.SessionID.Bytes)); err == nil {
-			sessionName = sess.Name
-		}
-	}
-
-	pdfBytes, err := utils.GenerateManualCover(utils.CoverPageInput{
-		StudentName: user.FullName,
-		RegNo:       student.MatricNumber,
-		Department:  "Computer Engineering",
-		Level:       int(manual.Level),
-		CourseCode:  courseCode,
-		CourseTitle: courseTitle,
-		Session:     sessionName,
-		Semester:    semesterName,
-		QRCodeData:  purchase.QrCodeData,
-	})
+	pdfBytes, err := utils.GenerateManualCover(input)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
@@ -825,6 +880,78 @@ func (server *Server) downloadManualCover(ctx *gin.Context) {
 
 	ctx.Header("Content-Type", "application/pdf")
 	ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename=manual-cover-%s.pdf", purchaseID))
+	ctx.Data(http.StatusOK, "application/pdf", pdfBytes)
+}
+
+// bulkDownloadManualCovers GET /manuals/:id/covers/bulk
+// Generates one combined multi-page PDF with every purchaser's cover page
+// for the given manual, so staff can print a whole class's covers in one go
+// instead of downloading each purchase's cover individually.
+func (server *Server) bulkDownloadManualCovers(ctx *gin.Context) {
+	manualID, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid manual ID"})
+		return
+	}
+
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
+		return
+	}
+
+	purchases, err := server.manuals.ListPurchasesByManual(ctx, manualID, 500, 0)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	// Once a batch is printed those purchases flip to collected and drop out
+	// of this list — the same is_collected flag the print-queue/collection
+	// flow already uses — so re-running this never regenerates and hands out
+	// duplicate covers for someone already printed. A purchase that needs a
+	// second copy (lost cover, printer jam) is a deliberate reprint via the
+	// single-purchase cover download instead, not this bulk button.
+	pending := make([]db.ListManualPurchasesByManualRow, 0, len(purchases))
+	for _, p := range purchases {
+		if !p.IsCollected {
+			pending = append(pending, p)
+		}
+	}
+	if len(pending) == 0 {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "no unprinted purchases for this manual — everyone already has a printed cover"})
+		return
+	}
+
+	inputs := make([]utils.CoverPageInput, 0, len(pending))
+	printed := make([]uuid.UUID, 0, len(pending))
+	for _, p := range pending {
+		input, err := server.buildCoverInputForPurchase(ctx, queries, p.StudentID, p.ManualID, p.QrCodeData)
+		if err != nil {
+			continue
+		}
+		inputs = append(inputs, input)
+		printed = append(printed, p.ID)
+	}
+	if len(inputs) == 0 {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "could not resolve any purchase covers"})
+		return
+	}
+
+	pdfBytes, err := utils.GenerateManualCoverBatch(inputs)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	for _, purchaseID := range printed {
+		if _, err := queries.MarkManualCollected(ctx, purchaseID); err != nil {
+			log.Printf("[bulk-cover] failed to mark purchase %s collected: %v", purchaseID, err)
+		}
+	}
+
+	ctx.Header("Content-Type", "application/pdf")
+	ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename=manual-covers-%s.pdf", manualID))
 	ctx.Data(http.StatusOK, "application/pdf", pdfBytes)
 }
 

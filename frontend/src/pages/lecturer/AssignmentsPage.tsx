@@ -5,20 +5,27 @@ import Button from '../../components/ui/Button';
 import DataTable from '../../components/data-display/DataTable';
 import { createAssignment, getAssignments, deleteAssignment } from '../../api/assignments';
 import { getCourses } from '../../api/courses';
+import { getSessions, listSessionSemesters } from '../../api/sessions';
+import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
 import { Save, Plus, ArrowLeft, Trash2 } from 'lucide-react';
-import type { Assignment, Course } from '../../types';
+import type { Assignment, Course, Session, SemesterEntry } from '../../types';
 
 const AssignmentsPage = () => {
+  const { user } = useAuth();
   const { success, error: notifyError } = useNotification();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [semesters, setSemesters] = useState<SemesterEntry[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState('');
   const [sessionId, setSessionId] = useState('');
+  const [semesterId, setSemesterId] = useState('');
   const [createMode, setCreateMode] = useState(false);
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [maxScore, setMaxScore] = useState('100');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -29,7 +36,33 @@ const AssignmentsPage = () => {
         if (res.length > 0) setSelectedCourseId(res[0].id);
       })
       .catch(() => notifyError('Error', 'Failed to load courses'));
+
+    getSessions()
+      .then((res) => {
+        setSessions(res);
+        const active = res.find((s) => s.is_active) || res[0];
+        if (active) setSessionId(active.id);
+      })
+      .catch(() => notifyError('Error', 'Failed to load sessions'));
   }, []);
+
+  // Semesters are scoped to a session — reload whenever the session changes,
+  // and auto-pick the active one so the lecturer never has to hunt for a
+  // session/semester UUID by hand.
+  useEffect(() => {
+    if (!sessionId) {
+      setSemesters([]);
+      setSemesterId('');
+      return;
+    }
+    listSessionSemesters(sessionId)
+      .then((res) => {
+        setSemesters(res);
+        const active = res.find((s) => s.is_active) || res[res.length - 1];
+        setSemesterId(active?.id || '');
+      })
+      .catch(() => setSemesters([]));
+  }, [sessionId]);
 
   useEffect(() => {
     if (!selectedCourseId || !sessionId) {
@@ -45,20 +78,27 @@ const AssignmentsPage = () => {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !selectedCourseId || !sessionId) return;
+    if (!title || !selectedCourseId || !sessionId || !semesterId || !dueDate || !user?.id) {
+      notifyError('Missing Fields', 'Select a session/semester and fill in title and due date.');
+      return;
+    }
     setSaving(true);
     try {
       await createAssignment({
         courseId: selectedCourseId,
         sessionId,
+        semesterId,
+        createdBy: user.id,
         title,
         description: desc,
-        dueDate,
+        deadline: new Date(dueDate).toISOString(),
+        maxScore: Number(maxScore) || 100,
       });
       setCreateMode(false);
       setTitle('');
       setDesc('');
       setDueDate('');
+      setMaxScore('100');
       success('Assignment Created', 'Successfully published assignment.');
       getAssignments(selectedCourseId, sessionId).then(setAssignments);
     } catch {
@@ -122,9 +162,9 @@ const AssignmentsPage = () => {
         </Button>
       </div>
 
-      <div className="flex gap-4 max-w-xl">
+      <div className="flex flex-wrap gap-4 max-w-2xl">
         <select
-          className="flex-1 px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg"
+          className="flex-1 min-w-[200px] px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg"
           value={selectedCourseId}
           onChange={(e) => setSelectedCourseId(e.target.value)}
         >
@@ -134,12 +174,30 @@ const AssignmentsPage = () => {
             </option>
           ))}
         </select>
-        <Input
-          label="Session ID"
-          placeholder="e.g. 2025/2026"
+        <select
+          className="flex-1 min-w-[160px] px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg"
           value={sessionId}
           onChange={(e) => setSessionId(e.target.value)}
-        />
+        >
+          {sessions.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+        {semesters.length > 0 && (
+          <select
+            className="flex-1 min-w-[160px] px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg"
+            value={semesterId}
+            onChange={(e) => setSemesterId(e.target.value)}
+          >
+            {semesters.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {createMode ? (
@@ -147,6 +205,11 @@ const AssignmentsPage = () => {
           <Card>
             <CardHeader>
               <CardTitle>Configure New Task</CardTitle>
+              <CardDescription>
+                For {courses.find((c) => c.id === selectedCourseId)?.code} ·{' '}
+                {sessions.find((s) => s.id === sessionId)?.name} ·{' '}
+                {semesters.find((s) => s.id === semesterId)?.name || 'no semester available'}
+              </CardDescription>
             </CardHeader>
             <form onSubmit={handleCreate} className="p-4 pt-0 space-y-4">
               <Input
@@ -156,13 +219,23 @@ const AssignmentsPage = () => {
                 onChange={(e) => setTitle(e.target.value)}
                 required
               />
-              <Input
-                label="Due Date & Time"
-                type="datetime-local"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                required
-              />
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Due Date & Time"
+                  type="datetime-local"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  required
+                />
+                <Input
+                  label="Max Score"
+                  type="number"
+                  min={1}
+                  value={maxScore}
+                  onChange={(e) => setMaxScore(e.target.value)}
+                  required
+                />
+              </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Instructions</label>
                 <textarea
@@ -172,7 +245,13 @@ const AssignmentsPage = () => {
                   onChange={(e) => setDesc(e.target.value)}
                 />
               </div>
-              <Button type="submit" className="w-full" isLoading={saving} leftIcon={<Save className="w-4 h-4" />}>
+              <Button
+                type="submit"
+                className="w-full"
+                isLoading={saving}
+                disabled={!semesterId}
+                leftIcon={<Save className="w-4 h-4" />}
+              >
                 Publish Assignment
               </Button>
             </form>

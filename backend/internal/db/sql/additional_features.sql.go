@@ -15,22 +15,6 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-const acknowledgeBroadcast = `-- name: AcknowledgeBroadcast :exec
-INSERT INTO broadcast_acknowledgments (broadcast_id, user_id)
-VALUES ($1, $2)
-ON CONFLICT DO NOTHING
-`
-
-type AcknowledgeBroadcastParams struct {
-	BroadcastID uuid.UUID `json:"broadcast_id"`
-	UserID      uuid.UUID `json:"user_id"`
-}
-
-func (q *Queries) AcknowledgeBroadcast(ctx context.Context, arg AcknowledgeBroadcastParams) error {
-	_, err := q.db.Exec(ctx, acknowledgeBroadcast, arg.BroadcastID, arg.UserID)
-	return err
-}
-
 const addMeetingAttendee = `-- name: AddMeetingAttendee :exec
 INSERT INTO meeting_attendees (meeting_id, user_id)
 VALUES ($1, $2)
@@ -104,54 +88,10 @@ func (q *Queries) CreateActiveSession(ctx context.Context, arg CreateActiveSessi
 	return i, err
 }
 
-const createBroadcast = `-- name: CreateBroadcast :one
-INSERT INTO emergency_broadcasts (sender_id, title, message, priority, template, channels, target_roles, requires_acknowledgment)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, sender_id, title, message, priority, template, channels, target_roles, requires_acknowledgment, created_at
-`
-
-type CreateBroadcastParams struct {
-	SenderID               uuid.UUID         `json:"sender_id"`
-	Title                  string            `json:"title"`
-	Message                string            `json:"message"`
-	Priority               BroadcastPriority `json:"priority"`
-	Template               *string           `json:"template"`
-	Channels               []byte            `json:"channels"`
-	TargetRoles            []byte            `json:"target_roles"`
-	RequiresAcknowledgment *bool             `json:"requires_acknowledgment"`
-}
-
-func (q *Queries) CreateBroadcast(ctx context.Context, arg CreateBroadcastParams) (EmergencyBroadcast, error) {
-	row := q.db.QueryRow(ctx, createBroadcast,
-		arg.SenderID,
-		arg.Title,
-		arg.Message,
-		arg.Priority,
-		arg.Template,
-		arg.Channels,
-		arg.TargetRoles,
-		arg.RequiresAcknowledgment,
-	)
-	var i EmergencyBroadcast
-	err := row.Scan(
-		&i.ID,
-		&i.SenderID,
-		&i.Title,
-		&i.Message,
-		&i.Priority,
-		&i.Template,
-		&i.Channels,
-		&i.TargetRoles,
-		&i.RequiresAcknowledgment,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
 const createClassNotice = `-- name: CreateClassNotice :one
-INSERT INTO class_notices (class_rep_id, title, content, is_pinned, allow_comments, attachment_url, expires_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, class_rep_id, title, content, is_pinned, pinned_order, allow_comments, attachment_url, expires_at, created_at, updated_at
+INSERT INTO class_notices (class_rep_id, title, content, is_pinned, allow_comments, attachment_url, expires_at, level, target_user_ids)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, class_rep_id, title, content, is_pinned, pinned_order, allow_comments, attachment_url, expires_at, created_at, updated_at, level, target_user_ids
 `
 
 type CreateClassNoticeParams struct {
@@ -162,6 +102,8 @@ type CreateClassNoticeParams struct {
 	AllowComments *bool              `json:"allow_comments"`
 	AttachmentUrl *string            `json:"attachment_url"`
 	ExpiresAt     pgtype.Timestamptz `json:"expires_at"`
+	Level         *int32             `json:"level"`
+	TargetUserIds []byte             `json:"target_user_ids"`
 }
 
 func (q *Queries) CreateClassNotice(ctx context.Context, arg CreateClassNoticeParams) (ClassNotice, error) {
@@ -173,6 +115,8 @@ func (q *Queries) CreateClassNotice(ctx context.Context, arg CreateClassNoticePa
 		arg.AllowComments,
 		arg.AttachmentUrl,
 		arg.ExpiresAt,
+		arg.Level,
+		arg.TargetUserIds,
 	)
 	var i ClassNotice
 	err := row.Scan(
@@ -187,6 +131,8 @@ func (q *Queries) CreateClassNotice(ctx context.Context, arg CreateClassNoticePa
 		&i.ExpiresAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Level,
+		&i.TargetUserIds,
 	)
 	return i, err
 }
@@ -790,57 +736,6 @@ func (q *Queries) GetActiveSessionByToken(ctx context.Context, sessionToken stri
 		&i.ExpiresAt,
 	)
 	return i, err
-}
-
-const getBroadcast = `-- name: GetBroadcast :one
-SELECT eb.id, eb.sender_id, eb.title, eb.message, eb.priority, eb.template, eb.channels, eb.target_roles, eb.requires_acknowledgment, eb.created_at, u.full_name AS sender_name
-FROM emergency_broadcasts eb
-JOIN users u ON u.id = eb.sender_id
-WHERE eb.id = $1
-`
-
-type GetBroadcastRow struct {
-	ID                     uuid.UUID          `json:"id"`
-	SenderID               uuid.UUID          `json:"sender_id"`
-	Title                  string             `json:"title"`
-	Message                string             `json:"message"`
-	Priority               BroadcastPriority  `json:"priority"`
-	Template               *string            `json:"template"`
-	Channels               []byte             `json:"channels"`
-	TargetRoles            []byte             `json:"target_roles"`
-	RequiresAcknowledgment *bool              `json:"requires_acknowledgment"`
-	CreatedAt              pgtype.Timestamptz `json:"created_at"`
-	SenderName             string             `json:"sender_name"`
-}
-
-func (q *Queries) GetBroadcast(ctx context.Context, id uuid.UUID) (GetBroadcastRow, error) {
-	row := q.db.QueryRow(ctx, getBroadcast, id)
-	var i GetBroadcastRow
-	err := row.Scan(
-		&i.ID,
-		&i.SenderID,
-		&i.Title,
-		&i.Message,
-		&i.Priority,
-		&i.Template,
-		&i.Channels,
-		&i.TargetRoles,
-		&i.RequiresAcknowledgment,
-		&i.CreatedAt,
-		&i.SenderName,
-	)
-	return i, err
-}
-
-const getBroadcastAckCount = `-- name: GetBroadcastAckCount :one
-SELECT COUNT(*)::int AS ack_count FROM broadcast_acknowledgments WHERE broadcast_id = $1
-`
-
-func (q *Queries) GetBroadcastAckCount(ctx context.Context, broadcastID uuid.UUID) (int32, error) {
-	row := q.db.QueryRow(ctx, getBroadcastAckCount, broadcastID)
-	var ack_count int32
-	err := row.Scan(&ack_count)
-	return ack_count, err
 }
 
 const getBudgetAlerts = `-- name: GetBudgetAlerts :many
@@ -1524,23 +1419,6 @@ func (q *Queries) GetUpcomingTasks(ctx context.Context, arg GetUpcomingTasksPara
 	return items, nil
 }
 
-const hasUserAcknowledged = `-- name: HasUserAcknowledged :one
-SELECT COUNT(*)::int > 0 AS acknowledged FROM broadcast_acknowledgments
-WHERE broadcast_id = $1 AND user_id = $2
-`
-
-type HasUserAcknowledgedParams struct {
-	BroadcastID uuid.UUID `json:"broadcast_id"`
-	UserID      uuid.UUID `json:"user_id"`
-}
-
-func (q *Queries) HasUserAcknowledged(ctx context.Context, arg HasUserAcknowledgedParams) (bool, error) {
-	row := q.db.QueryRow(ctx, hasUserAcknowledged, arg.BroadcastID, arg.UserID)
-	var acknowledged bool
-	err := row.Scan(&acknowledged)
-	return acknowledged, err
-}
-
 const incrementHelpArticleViews = `-- name: IncrementHelpArticleViews :exec
 UPDATE help_articles SET view_count = view_count + 1 WHERE id = $1
 `
@@ -1579,15 +1457,22 @@ func (q *Queries) IsFeatureEnabledForUser(ctx context.Context, arg IsFeatureEnab
 	return is_enabled, err
 }
 
-const listClassNotices = `-- name: ListClassNotices :many
-SELECT cn.id, cn.class_rep_id, cn.title, cn.content, cn.is_pinned, cn.pinned_order, cn.allow_comments, cn.attachment_url, cn.expires_at, cn.created_at, cn.updated_at, u.full_name AS author_name
+const listClassNoticesForViewer = `-- name: ListClassNoticesForViewer :many
+SELECT cn.id, cn.class_rep_id, cn.title, cn.content, cn.is_pinned, cn.pinned_order, cn.allow_comments, cn.attachment_url, cn.expires_at, cn.created_at, cn.updated_at, cn.level, cn.target_user_ids, u.full_name AS author_name
 FROM class_notices cn
 JOIN users u ON u.id = cn.class_rep_id
 WHERE (cn.expires_at IS NULL OR cn.expires_at > NOW())
+  AND (cn.level IS NULL OR $1::int IS NULL OR cn.level = $1)
+  AND (cn.target_user_ids = '[]'::jsonb OR cn.target_user_ids @> to_jsonb($2::text))
 ORDER BY cn.is_pinned DESC, cn.pinned_order NULLS LAST, cn.created_at DESC
 `
 
-type ListClassNoticesRow struct {
+type ListClassNoticesForViewerParams struct {
+	ViewerLevel *int32 `json:"viewer_level"`
+	ViewerID    string `json:"viewer_id"`
+}
+
+type ListClassNoticesForViewerRow struct {
 	ID            uuid.UUID          `json:"id"`
 	ClassRepID    uuid.UUID          `json:"class_rep_id"`
 	Title         string             `json:"title"`
@@ -1599,18 +1484,20 @@ type ListClassNoticesRow struct {
 	ExpiresAt     pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	Level         *int32             `json:"level"`
+	TargetUserIds []byte             `json:"target_user_ids"`
 	AuthorName    string             `json:"author_name"`
 }
 
-func (q *Queries) ListClassNotices(ctx context.Context) ([]ListClassNoticesRow, error) {
-	rows, err := q.db.Query(ctx, listClassNotices)
+func (q *Queries) ListClassNoticesForViewer(ctx context.Context, arg ListClassNoticesForViewerParams) ([]ListClassNoticesForViewerRow, error) {
+	rows, err := q.db.Query(ctx, listClassNoticesForViewer, arg.ViewerLevel, arg.ViewerID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListClassNoticesRow{}
+	items := []ListClassNoticesForViewerRow{}
 	for rows.Next() {
-		var i ListClassNoticesRow
+		var i ListClassNoticesForViewerRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ClassRepID,
@@ -1623,6 +1510,8 @@ func (q *Queries) ListClassNotices(ctx context.Context) ([]ListClassNoticesRow, 
 			&i.ExpiresAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Level,
+			&i.TargetUserIds,
 			&i.AuthorName,
 		); err != nil {
 			return nil, err
@@ -2162,60 +2051,6 @@ func (q *Queries) ListPendingAppeals(ctx context.Context, status AppealStatus) (
 	return items, nil
 }
 
-const listRecentBroadcasts = `-- name: ListRecentBroadcasts :many
-SELECT eb.id, eb.sender_id, eb.title, eb.message, eb.priority, eb.template, eb.channels, eb.target_roles, eb.requires_acknowledgment, eb.created_at, u.full_name AS sender_name
-FROM emergency_broadcasts eb
-JOIN users u ON u.id = eb.sender_id
-ORDER BY eb.created_at DESC
-LIMIT $1
-`
-
-type ListRecentBroadcastsRow struct {
-	ID                     uuid.UUID          `json:"id"`
-	SenderID               uuid.UUID          `json:"sender_id"`
-	Title                  string             `json:"title"`
-	Message                string             `json:"message"`
-	Priority               BroadcastPriority  `json:"priority"`
-	Template               *string            `json:"template"`
-	Channels               []byte             `json:"channels"`
-	TargetRoles            []byte             `json:"target_roles"`
-	RequiresAcknowledgment *bool              `json:"requires_acknowledgment"`
-	CreatedAt              pgtype.Timestamptz `json:"created_at"`
-	SenderName             string             `json:"sender_name"`
-}
-
-func (q *Queries) ListRecentBroadcasts(ctx context.Context, limit int32) ([]ListRecentBroadcastsRow, error) {
-	rows, err := q.db.Query(ctx, listRecentBroadcasts, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListRecentBroadcastsRow{}
-	for rows.Next() {
-		var i ListRecentBroadcastsRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.SenderID,
-			&i.Title,
-			&i.Message,
-			&i.Priority,
-			&i.Template,
-			&i.Channels,
-			&i.TargetRoles,
-			&i.RequiresAcknowledgment,
-			&i.CreatedAt,
-			&i.SenderName,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listStudentAppeals = `-- name: ListStudentAppeals :many
 SELECT ga.id, ga.student_id, ga.course_id, ga.semester_id, ga.session_id, ga.reason, ga.evidence_urls, ga.status, ga.lecturer_response, ga.lecturer_id, ga.hod_response, ga.hod_id, ga.original_score, ga.revised_score, ga.resolved_at, ga.created_at, ga.updated_at, c.code AS course_code, c.title AS course_title
 FROM grade_appeals ga
@@ -2333,73 +2168,6 @@ func (q *Queries) ListUpcomingMeetings(ctx context.Context, meetingDate pgtype.T
 			&i.MinutesUrl,
 			&i.CreatedAt,
 			&i.OrganizerName,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listUserBroadcasts = `-- name: ListUserBroadcasts :many
-SELECT eb.id, eb.sender_id, eb.title, eb.message, eb.priority, eb.template, eb.channels, eb.target_roles, eb.requires_acknowledgment, eb.created_at, u.full_name AS sender_name,
-       EXISTS(
-           SELECT 1 FROM broadcast_acknowledgments ba
-           WHERE ba.broadcast_id = eb.id AND ba.user_id = $1
-       ) AS acknowledged
-FROM emergency_broadcasts eb
-JOIN users u ON u.id = eb.sender_id
-WHERE eb.target_roles @> to_jsonb($2::text)
-ORDER BY eb.created_at DESC
-LIMIT $3
-`
-
-type ListUserBroadcastsParams struct {
-	UserID  uuid.UUID `json:"user_id"`
-	Column2 string    `json:"column_2"`
-	Limit   int32     `json:"limit"`
-}
-
-type ListUserBroadcastsRow struct {
-	ID                     uuid.UUID          `json:"id"`
-	SenderID               uuid.UUID          `json:"sender_id"`
-	Title                  string             `json:"title"`
-	Message                string             `json:"message"`
-	Priority               BroadcastPriority  `json:"priority"`
-	Template               *string            `json:"template"`
-	Channels               []byte             `json:"channels"`
-	TargetRoles            []byte             `json:"target_roles"`
-	RequiresAcknowledgment *bool              `json:"requires_acknowledgment"`
-	CreatedAt              pgtype.Timestamptz `json:"created_at"`
-	SenderName             string             `json:"sender_name"`
-	Acknowledged           bool               `json:"acknowledged"`
-}
-
-func (q *Queries) ListUserBroadcasts(ctx context.Context, arg ListUserBroadcastsParams) ([]ListUserBroadcastsRow, error) {
-	rows, err := q.db.Query(ctx, listUserBroadcasts, arg.UserID, arg.Column2, arg.Limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListUserBroadcastsRow{}
-	for rows.Next() {
-		var i ListUserBroadcastsRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.SenderID,
-			&i.Title,
-			&i.Message,
-			&i.Priority,
-			&i.Template,
-			&i.Channels,
-			&i.TargetRoles,
-			&i.RequiresAcknowledgment,
-			&i.CreatedAt,
-			&i.SenderName,
-			&i.Acknowledged,
 		); err != nil {
 			return nil, err
 		}
@@ -2868,10 +2636,14 @@ func (q *Queries) UpdateDepartmentalEvent(ctx context.Context, arg UpdateDepartm
 	return err
 }
 
+// Two bugs fixed here: $2 needs an explicit cast at every occurrence or
+// Postgres can't pick one type for it ("text versus expense_status",
+// SQLSTATE 42P08), and expenses has no updated_at column at all — both
+// meant every single expense approval/rejection 500'd outright.
 const updateExpenseStatus = `-- name: UpdateExpenseStatus :exec
 UPDATE expenses
-SET status = $2, approved_by = $3, approved_at = CASE WHEN $2 IN ('approved', 'rejected') THEN NOW() ELSE approved_at END,
-    rejection_reason = $4, updated_at = NOW()
+SET status = $2::expense_status, approved_by = $3, approved_at = CASE WHEN $2::expense_status IN ('approved', 'rejected') THEN NOW() ELSE approved_at END,
+    rejection_reason = $4
 WHERE id = $1
 `
 
@@ -2961,13 +2733,13 @@ func (q *Queries) UpdateGPAScenario(ctx context.Context, arg UpdateGPAScenarioPa
 
 const updateGradeAppealStatus = `-- name: UpdateGradeAppealStatus :exec
 UPDATE grade_appeals
-SET status = $2,
-    lecturer_response = $3,
-    lecturer_id = $4,
-    hod_response = $5,
-    hod_id = $6,
-    revised_score = $7,
-    resolved_at = CASE WHEN $2 IN ('resolved', 'rejected') THEN NOW() ELSE resolved_at END,
+SET status = $2::appeal_status,
+    lecturer_response = COALESCE($3, lecturer_response),
+    lecturer_id = COALESCE($4, lecturer_id),
+    hod_response = COALESCE($5, hod_response),
+    hod_id = COALESCE($6, hod_id),
+    revised_score = COALESCE($7, revised_score),
+    resolved_at = CASE WHEN $2::text IN ('resolved', 'rejected') THEN NOW() ELSE resolved_at END,
     updated_at = NOW()
 WHERE id = $1
 `

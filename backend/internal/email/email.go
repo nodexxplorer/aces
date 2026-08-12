@@ -42,7 +42,11 @@ func (s *SMTPSender) SendEmail(to []string, subject, body string, isHTML bool) e
 	}
 
 	header := make(map[string]string)
-	header["From"] = s.from
+	// Display name only goes in the header, not the envelope-from passed to
+	// client.Mail/smtp.SendMail below — RFC 5321 wants a bare address there.
+	// Without this, clients show the raw "no-reply@aces.zone" address instead
+	// of a recognizable sender name.
+	header["From"] = fmt.Sprintf("ACES Zone <%s>", s.from)
 	header["Subject"] = subject
 	if isHTML {
 		header["MIME-Version"] = "1.0"

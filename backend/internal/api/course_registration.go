@@ -131,7 +131,6 @@ func (server *Server) listStudentCourseRegistrations(ctx *gin.Context) {
 type updateCourseRegistrationRequest struct {
 	TotalUnits int32  `json:"total_units"`
 	Status     string `json:"status" binding:"required"`
-	ApprovedBy string `json:"approved_by" binding:"omitempty,uuid"`
 	ApprovedAt string `json:"approved_at" binding:"omitempty"` // RFC3339
 }
 
@@ -148,20 +147,33 @@ func (server *Server) updateCourseRegistration(ctx *gin.Context) {
 		return
 	}
 
+	if !isStaffCaller(ctx) {
+		existing, gerr := server.store.GetCourseRegistration(ctx, id)
+		if gerr != nil {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "course registration not found"})
+			return
+		}
+		student, serr := server.store.GetStudent(ctx, existing.StudentID)
+		if serr != nil {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "student not found"})
+			return
+		}
+		assignment, aerr := server.store.GetActiveClassRepAssignment(ctx, getUserID(ctx))
+		if aerr != nil || assignment.Level != student.Level {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "this student is not in your class level"})
+			return
+		}
+	}
+
 	arg := db.UpdateCourseRegistrationParams{
 		ID:         id,
 		TotalUnits: req.TotalUnits,
 		Status:     req.Status,
 	}
 
-	if req.ApprovedBy != "" {
-		approvedByID, err := uuid.Parse(req.ApprovedBy)
-		if err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid approved_by id"})
-			return
-		}
-		arg.ApprovedBy = pgtype.UUID{Bytes: approvedByID, Valid: true}
-	}
+	// Always the caller's own ID, never client-supplied, so the audit trail
+	// records who actually authenticated the request.
+	arg.ApprovedBy = pgtype.UUID{Bytes: getUserID(ctx), Valid: true}
 
 	if req.ApprovedAt != "" {
 		parsedDate, err := time.Parse(time.RFC3339, req.ApprovedAt)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -554,4 +555,157 @@ func (q *Queries) ListAllActiveUserIDs(ctx context.Context) ([]uuid.UUID, error)
 		ids = append(ids, id)
 	}
 	return ids, rows.Err()
+}
+
+// ListAllStudentUserIDs returns user IDs for every student, regardless of level.
+func (q *Queries) ListAllStudentUserIDs(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx,
+		`SELECT s.user_id FROM students s
+		 JOIN users u ON u.id = s.user_id
+		 WHERE u.deleted_at IS NULL`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// ListAlumniUserIDs returns user IDs for everyone with an alumni status record.
+func (q *Queries) ListAlumniUserIDs(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx,
+		`SELECT al.user_id FROM alumni_status al
+		 JOIN users u ON u.id = al.user_id
+		 WHERE u.deleted_at IS NULL`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// ListLecturerUserIDs returns user IDs for lecturer/HOD staff, optionally
+// restricted to the given departments (matched against the staff table,
+// the only place a department is recorded).
+func (q *Queries) ListLecturerUserIDs(ctx context.Context, departments []string) ([]uuid.UUID, error) {
+	query := `SELECT st.user_id FROM staff st
+		 JOIN users u ON u.id = st.user_id
+		 WHERE u.deleted_at IS NULL AND u.role IN ('lecturer', 'hod')`
+	args := []interface{}{}
+	if len(departments) > 0 {
+		query += ` AND st.department = ANY($1::text[])`
+		args = append(args, departments)
+	}
+
+	rows, err := q.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// ResolveAnnouncementTargetUserIDs resolves an announcement's targeting
+// fields (target_audience, target_levels, target_departments) into the set
+// of user IDs who should be notified. target_audience entries are matched
+// case-insensitively and may be "all", "student", "alumni", "lecturer"/
+// "staff", or a numeric level (e.g. "100") — mirroring the values the admin
+// announcements UI actually sends.
+func (q *Queries) ResolveAnnouncementTargetUserIDs(ctx context.Context, targetAudience []string, targetLevels []int32, targetDepartments []string) ([]uuid.UUID, error) {
+	seen := make(map[uuid.UUID]struct{})
+	var result []uuid.UUID
+	add := func(ids []uuid.UUID) {
+		for _, id := range ids {
+			if _, ok := seen[id]; !ok {
+				seen[id] = struct{}{}
+				result = append(result, id)
+			}
+		}
+	}
+
+	levels := map[int32]struct{}{}
+	for _, l := range targetLevels {
+		levels[l] = struct{}{}
+	}
+
+	wantAllStudents := len(targetAudience) == 0
+	wantAlumni := false
+	wantLecturers := false
+
+	for _, a := range targetAudience {
+		switch strings.ToLower(strings.TrimSpace(a)) {
+		case "all", "student", "students":
+			wantAllStudents = true
+		case "alumni":
+			wantAlumni = true
+		case "lecturer", "lecturers", "staff":
+			wantLecturers = true
+		default:
+			if lvl, err := strconv.Atoi(a); err == nil {
+				levels[int32(lvl)] = struct{}{}
+			}
+		}
+	}
+
+	if wantAllStudents {
+		ids, err := q.ListAllStudentUserIDs(ctx)
+		if err != nil {
+			return nil, err
+		}
+		add(ids)
+	} else {
+		for lvl := range levels {
+			ids, err := q.ListStudentUserIDsByLevel(ctx, lvl)
+			if err != nil {
+				return nil, err
+			}
+			add(ids)
+		}
+	}
+
+	if wantLecturers {
+		ids, err := q.ListLecturerUserIDs(ctx, targetDepartments)
+		if err != nil {
+			return nil, err
+		}
+		add(ids)
+	}
+
+	if wantAlumni {
+		ids, err := q.ListAlumniUserIDs(ctx)
+		if err != nil {
+			return nil, err
+		}
+		add(ids)
+	}
+
+	return result, nil
 }
