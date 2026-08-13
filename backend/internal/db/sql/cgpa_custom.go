@@ -21,12 +21,21 @@ type StudentResultDetail struct {
 }
 
 func (q *Queries) GetStudentApprovedResultsDetailed(ctx context.Context, studentID uuid.UUID) ([]StudentResultDetail, error) {
+	// Same latest-attempt dedup as GetStudentApprovedResultsWithUnits — a
+	// carryover/repeat course can have more than one approved result row,
+	// and the simulator should seed from the resit, not both attempts.
+	// DISTINCT ON requires its own leading ORDER BY, so the code-order
+	// display sort has to happen in an outer wrapper query.
 	rows, err := q.db.Query(ctx, `
-		SELECT c.id, c.code, c.title, c.unit, r.total_score, r.grade, r.grade_point
-		FROM results r
-		JOIN courses c ON c.id = r.course_id
-		WHERE r.student_id = $1 AND r.status = 'approved'
-		ORDER BY c.code
+		SELECT id, code, title, unit, total_score, grade, grade_point FROM (
+			SELECT DISTINCT ON (c.id) c.id, c.code, c.title, c.unit, r.total_score, r.grade, r.grade_point
+			FROM results r
+			JOIN courses c ON c.id = r.course_id
+			JOIN sessions s ON r.session_id = s.id
+			WHERE r.student_id = $1 AND r.status = 'approved'
+			ORDER BY c.id, s.start_date DESC, r.created_at DESC
+		) latest
+		ORDER BY code
 	`, studentID)
 	if err != nil {
 		return nil, err

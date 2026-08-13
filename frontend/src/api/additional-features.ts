@@ -522,7 +522,15 @@ export interface FeatureFlag {
 
 export const listFeatureFlags = async (): Promise<FeatureFlag[]> => {
   const res = await apiClient.get('/feature-flags');
-  return unwrap<FeatureFlag[]>(res);
+  const flags = unwrap<FeatureFlag[]>(res);
+  // target_roles/target_levels are jsonb columns — same base64-string shape
+  // as evidence_urls/target_user_ids/calendar target_audience, must go
+  // through the same parser or FeatureFlagsPage's .map() throws.
+  return flags.map((f) => ({
+    ...f,
+    target_roles: parseJSONField<string>(f.target_roles),
+    target_levels: parseJSONField<number>(f.target_levels),
+  }));
 };
 
 export const createFeatureFlag = async (data: {

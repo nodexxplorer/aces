@@ -453,6 +453,16 @@ func (server *Server) deleteUser(ctx *gin.Context) {
 		return
 	}
 
+	// A delegated_admin must never be able to delete an hod/admin account —
+	// same tier check used to stop them granting those roles in the first
+	// place (see roles.go); deleting the account is strictly worse.
+	if target, terr := server.store.GetUser(ctx, id); terr == nil {
+		if blockedPrivilegedRoleGrant(ctx, string(target.Role)) {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "you cannot delete an hod or admin/delegated_admin account"})
+			return
+		}
+	}
+
 	// Use hard delete with cascade
 	queries, ok := server.store.(*db.Queries)
 	if ok {

@@ -20,6 +20,8 @@ interface LoginResponse {
     dateOfBirth?: string;
     emergencyContactName?: string;
     emergencyContactPhone?: string;
+    isApproved?: boolean;
+    isActive?: boolean;
   };
   tokens: AuthTokens;
 }
@@ -60,4 +62,8 @@ export const logoutRequest = async () => {
   } catch {
     // best-effort — local token wipe happens regardless
   }
+};
+
+export const changePassword = async (currentPassword: string, newPassword: string) => {
+  await apiClient.post('/auth/change-password', { currentPassword, newPassword });
 };

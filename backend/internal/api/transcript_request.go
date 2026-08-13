@@ -128,11 +128,10 @@ func (server *Server) listPendingTranscriptRequests(ctx *gin.Context) {
 }
 
 type updateTranscriptRequestReq struct {
-	Status      string  `json:"status" binding:"required"`
-	FeePaid     bool    `json:"fee_paid"`
-	PdfUrl      *string `json:"pdf_url"`
-	SentViaEmail bool   `json:"sent_via_email"`
-	ProcessedBy *string `json:"processed_by" binding:"omitempty,uuid"`
+	Status       string  `json:"status" binding:"required"`
+	FeePaid      bool    `json:"fee_paid"`
+	PdfUrl       *string `json:"pdf_url"`
+	SentViaEmail bool    `json:"sent_via_email"`
 }
 
 func (server *Server) updateTranscriptRequest(ctx *gin.Context) {
@@ -148,11 +147,10 @@ func (server *Server) updateTranscriptRequest(ctx *gin.Context) {
 		return
 	}
 
-	var processedBy *uuid.UUID
-	if req.ProcessedBy != nil {
-		id, _ := uuid.Parse(*req.ProcessedBy)
-		processedBy = &id
-	}
+	// Always the caller's own ID, never client-supplied, so the audit trail
+	// records who actually processed the request.
+	processedByID := getUserID(ctx)
+	processedBy := &processedByID
 
 	transcriptReq, err := server.transcripts.Update(ctx, id, service.UpdateTranscriptInput{
 		Status:       req.Status,

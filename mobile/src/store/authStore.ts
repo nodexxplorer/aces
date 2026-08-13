@@ -27,6 +27,8 @@ export interface AuthUser {
   dateOfBirth?: string;
   emergencyContactName?: string;
   emergencyContactPhone?: string;
+  isApproved?: boolean;
+  isActive?: boolean;
 }
 
 const ACCESS_TOKEN_KEY = 'aces_access_token';

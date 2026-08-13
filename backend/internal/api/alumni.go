@@ -864,10 +864,18 @@ func (server *Server) createDonation(ctx *gin.Context) {
 
 	reference := fmt.Sprintf("ACES-GIVE-%s-%d", donorID.String()[:8], time.Now().Unix())
 
+	// Computed once and reused for both the stored amount and the kobo sent
+	// to Paystack, so they can never drift — deriving amountKobo separately
+	// via raw float multiplication (int64(req.Amount * 100)) truncates
+	// toward zero on float64 rounding error and can silently undercharge by
+	// a kobo versus what's recorded as donated (e.g. 1024.09 * 100 ==
+	// 102408.99999999999 in float64).
+	donationAmount := decimal.NewFromFloat(req.Amount)
+
 	donation, err := queries.CreateDonation(ctx, db.CreateDonationParams{
 		DonorID:           donorID,
 		Channel:           db.DonationChannel(req.Channel),
-		Amount:            decimal.NewFromFloat(req.Amount),
+		Amount:            donationAmount,
 		Currency:          currency,
 		Message:           req.Message,
 		IsAnonymous:       req.IsAnonymous,
@@ -885,7 +893,7 @@ func (server *Server) createDonation(ctx *gin.Context) {
 		return
 	}
 
-	amountKobo := int64(req.Amount * 100)
+	amountKobo := donationAmount.Mul(decimal.NewFromInt(100)).IntPart()
 	paystackClient := payment.NewPaystackClient(server.config.PaystackSecretKey, server.config.PaystackPublicKey)
 
 	paystackReq := payment.InitPaymentRequest{

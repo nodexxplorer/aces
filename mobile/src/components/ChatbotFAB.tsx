@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   View,
-  Text,
   TextInput,
   Pressable,
   FlatList,
@@ -13,6 +12,7 @@ import {
   type StyleProp,
   type TextStyle,
 } from 'react-native';
+import Text from './ui/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';

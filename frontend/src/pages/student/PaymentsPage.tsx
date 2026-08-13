@@ -64,7 +64,10 @@ const PaymentsPage = () => {
     if (!user?.id) return;
     setLoading(true);
     Promise.all([
-      getStudentPayments(user.id),
+      getStudentPayments(user.id).catch(() => {
+        notifyError('Error', 'Failed to load payments');
+        return [];
+      }),
       getStudentPaymentSummary(user.id).catch(() => null),
       getMyDues(user?.level).catch(() => []),
     ])

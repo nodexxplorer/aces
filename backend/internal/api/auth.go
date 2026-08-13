@@ -6,6 +6,7 @@ import (
 	"time"
 
 	db "github.com/aces/backend/internal/db/sql"
+	"github.com/aces/backend/internal/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -98,6 +99,12 @@ func (server *Server) setTokenCookies(ctx *gin.Context, pair *tokenPair) {
 	}
 	ctx.SetCookie("aces_access_token", pair.AccessToken, int(server.config.JWTAccessDuration.Seconds()), "/", "", secure, true)
 	ctx.SetCookie("aces_refresh_token", pair.RefreshToken, int(server.config.JWTRefreshDuration.Seconds()), "/", "", secure, true)
+
+	// Non-httpOnly by design — the frontend must be able to read this and
+	// echo it back as the X-CSRF-Token header; see middleware.CSRFProtect.
+	if csrfToken, err := middleware.GenerateCSRFToken(); err == nil {
+		ctx.SetCookie(middleware.CSRFCookieName, csrfToken, int(server.config.JWTRefreshDuration.Seconds()), "/", "", secure, false)
+	}
 }
 
 func (server *Server) clearTokenCookies(ctx *gin.Context) {
@@ -109,6 +116,7 @@ func (server *Server) clearTokenCookies(ctx *gin.Context) {
 	}
 	ctx.SetCookie("aces_access_token", "", -1, "/", "", secure, true)
 	ctx.SetCookie("aces_refresh_token", "", -1, "/", "", secure, true)
+	ctx.SetCookie(middleware.CSRFCookieName, "", -1, "/", "", secure, false)
 }
 
 func (server *Server) getTokenFromRequest(ctx *gin.Context) string {
@@ -196,7 +204,7 @@ func toUserResponse(u db.User, onboardingCompleted bool) userResponse {
 	}
 }
 
-func (server *Server) generateAuthResponse(u db.User, onboardingCompleted bool, allRoles []string) (*authResponse, error) {
+func (server *Server) generateAuthResponse(ctx *gin.Context, u db.User, onboardingCompleted bool, allRoles []string) (*authResponse, error) {
 	if len(allRoles) == 0 {
 		allRoles = []string{string(u.Role)}
 	}
@@ -204,6 +212,14 @@ func (server *Server) generateAuthResponse(u db.User, onboardingCompleted bool, 
 	if err != nil {
 		return nil, err
 	}
+
+	// Tracked by refresh token, not access token — access tokens are
+	// short-lived (60min default) and expire naturally; the refresh token is
+	// the long-lived (7-day default) credential that "revoke session"/logout
+	// actually needs to kill, since a stolen refresh token is what lets an
+	// attacker keep minting fresh access tokens indefinitely.
+	server.createUserSession(ctx, u.ID, pair.RefreshToken, "", ctx.ClientIP(), ctx.GetHeader("User-Agent"), time.Now().Add(server.config.JWTRefreshDuration))
+
 	resp := toUserResponse(u, onboardingCompleted)
 	normalized := make([]string, len(allRoles))
 	for i, r := range allRoles {
@@ -250,7 +266,7 @@ func (server *Server) studentSignup(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := server.generateAuthResponse(result.User, false, []string{string(result.User.Role)})
+	resp, err := server.generateAuthResponse(ctx, result.User, false, []string{string(result.User.Role)})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate tokens"})
 		return
@@ -294,7 +310,7 @@ func (server *Server) lecturerSignup(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := server.generateAuthResponse(result.User, true, []string{string(result.User.Role)})
+	resp, err := server.generateAuthResponse(ctx, result.User, true, []string{string(result.User.Role)})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate tokens"})
 		return
@@ -378,7 +394,7 @@ func (server *Server) login(ctx *gin.Context) {
 		roleNames = []string{string(user.Role)}
 	}
 
-	resp, err := server.generateAuthResponse(*user, onboardingCompleted, roleNames)
+	resp, err := server.generateAuthResponse(ctx, *user, onboardingCompleted, roleNames)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate tokens"})
 		return
@@ -484,6 +500,16 @@ func (server *Server) getMe(ctx *gin.Context) {
 }
 
 func (server *Server) logout(ctx *gin.Context) {
+	// Revoke the tracked session for this refresh token so it disappears
+	// from "active sessions" and — more importantly — can no longer be used
+	// to mint a fresh access token via refreshToken below.
+	if q, ok := server.store.(*db.Queries); ok {
+		if rt := server.getRefreshTokenFromRequest(ctx); rt != "" {
+			if session, err := q.GetActiveSessionByToken(ctx, rt); err == nil {
+				_ = q.DeleteActiveSession(ctx, db.DeleteActiveSessionParams{ID: session.ID, UserID: session.UserID})
+			}
+		}
+	}
 	server.clearTokenCookies(ctx)
 	ctx.JSON(http.StatusOK, gin.H{"message": "logged out successfully"})
 }
@@ -514,6 +540,21 @@ func (server *Server) refreshToken(ctx *gin.Context) {
 		return
 	}
 
+	// The refresh token is cryptographically valid, but a revoked session
+	// (logout, "revoke session", "revoke all sessions") deletes its row here
+	// — without this check, revocation was cosmetic and a copied refresh
+	// token kept minting fresh access tokens until its own 7-day expiry.
+	q, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	session, err := q.GetActiveSessionByToken(ctx, refreshToken)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "session revoked or expired"})
+		return
+	}
+
 	user, err := server.auth.RefreshToken(ctx, userID)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "internal server error"})
@@ -530,6 +571,12 @@ func (server *Server) refreshToken(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate tokens"})
 		return
 	}
+
+	// Rotate: the old refresh token's session row is replaced by one for the
+	// newly-issued refresh token, so a revoked/used-up token can't be reused
+	// and the active-sessions list doesn't accumulate a row per refresh.
+	_ = q.DeleteActiveSession(ctx, db.DeleteActiveSessionParams{ID: session.ID, UserID: session.UserID})
+	server.createUserSession(ctx, user.ID, pair.RefreshToken, "", ctx.ClientIP(), ctx.GetHeader("User-Agent"), time.Now().Add(server.config.JWTRefreshDuration))
 
 	tokenResp := tokenPair{
 		AccessToken:  pair.AccessToken,

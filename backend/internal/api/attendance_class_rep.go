@@ -82,6 +82,15 @@ func (server *Server) submitAttendanceSession(ctx *gin.Context) {
 		return
 	}
 
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
+		return
+	}
+	if !requireAttendanceSessionOwnership(ctx, queries, sessionID) {
+		return
+	}
+
 	var req submitAttendanceSessionRequest
 	_ = ctx.ShouldBindJSON(&req)
 
@@ -235,6 +244,27 @@ func (server *Server) reviewAttendanceSession(ctx *gin.Context) {
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
+	}
+
+	if !isStaffCaller(ctx) {
+		queries, ok := server.store.(*db.Queries)
+		if !ok {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
+			return
+		}
+		session, serr := queries.GetAttendanceSession(ctx, sessionID)
+		if serr != nil {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
+			return
+		}
+		assigned, aerr := server.store.IsLecturerAssignedToCourse(ctx, db.IsLecturerAssignedToCourseParams{
+			LecturerID: getUserID(ctx),
+			CourseID:   session.CourseID,
+		})
+		if aerr != nil || !assigned {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "you are not assigned to teach this course"})
+			return
+		}
 	}
 
 	newStatus := "approved"

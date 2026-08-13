@@ -36,6 +36,37 @@ func (q *Queries) GetAttendanceSession(ctx context.Context, id uuid.UUID) (Atten
 	return i, err
 }
 
+// SumRegisteredCourseUnits totals the credit units of every course on a
+// registration, used to recompute total_units server-side on approval
+// instead of trusting whatever the client sent — the same computation
+// submitRegistration already does at creation time.
+func (q *Queries) SumRegisteredCourseUnits(ctx context.Context, registrationID uuid.UUID) (int32, error) {
+	var total int32
+	err := q.db.QueryRow(ctx, `
+		SELECT COALESCE(SUM(c.unit), 0)::int
+		FROM registered_courses rc
+		JOIN courses c ON c.id = rc.course_id
+		WHERE rc.registration_id = $1
+	`, registrationID).Scan(&total)
+	return total, err
+}
+
+// GetAssignmentGradeByID fetches a single assignment grade by its own ID,
+// used to resolve the parent assignment's course before letting a caller
+// update/delete the grade — GetAssignmentGrade only looks up by
+// (assignment_id, student_id), not by the grade's own ID.
+func (q *Queries) GetAssignmentGradeByID(ctx context.Context, id uuid.UUID) (AssignmentGrade, error) {
+	var i AssignmentGrade
+	err := q.db.QueryRow(ctx, `
+		SELECT id, assignment_id, student_id, score, feedback, is_late, graded_by, graded_at
+		FROM assignment_grades
+		WHERE id = $1
+	`, id).Scan(
+		&i.ID, &i.AssignmentID, &i.StudentID, &i.Score, &i.Feedback, &i.IsLate, &i.GradedBy, &i.GradedAt,
+	)
+	return i, err
+}
+
 type StudentAttendanceSummaryRow struct {
 	TotalClasses int32
 	Attended     int32
@@ -1068,8 +1099,17 @@ type BursarDashboardStats struct {
 func (q *Queries) GetBursarDashboardStats(ctx context.Context) (BursarDashboardStats, error) {
 	var s BursarDashboardStats
 
+	// Revenue is what's owed across all students, not the due line-items
+	// themselves — summing dues.amount alone (as this used to) ignores
+	// student count entirely and is off by orders of magnitude. Mirrors the
+	// per-student cross join ListDefaultersByLevel already uses correctly,
+	// including the same level-scoping (a level-specific due only counts for
+	// students at that level; a NULL-level due applies department-wide).
 	_ = q.db.QueryRow(ctx, `
-		SELECT COALESCE(SUM(d.amount), 0) FROM dues d WHERE d.is_active = true
+		SELECT COALESCE(SUM(d.amount), 0)
+		FROM students s
+		CROSS JOIN dues d
+		WHERE d.is_active = true AND (d.level IS NULL OR d.level = s.level)
 	`).Scan(&s.TotalRevenue)
 
 	_ = q.db.QueryRow(ctx, `
@@ -1318,7 +1358,10 @@ func (q *Queries) GetAnalyticsOverview(ctx context.Context) (*AnalyticsOverview,
 	q.db.QueryRow(ctx, `SELECT COUNT(*) FROM complaints`).Scan(&overview.TotalComplaints)
 	q.db.QueryRow(ctx, `SELECT COUNT(*) FROM complaints WHERE status IN ('open','in_review')`).Scan(&overview.OpenComplaints)
 	q.db.QueryRow(ctx, `SELECT COUNT(*) FROM payments`).Scan(&overview.TotalPayments)
-	q.db.QueryRow(ctx, `SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'verified'`).Scan(&overview.TotalRevenue)
+	// payment_status only has pending/completed/failed/refunded — 'verified'
+	// isn't a member, so this silently failed (Scan's error return was never
+	// checked) and TotalRevenue stayed at Go's zero-value forever.
+	q.db.QueryRow(ctx, `SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'completed'`).Scan(&overview.TotalRevenue)
 	q.db.QueryRow(ctx, `SELECT COUNT(*) FROM payments WHERE status = 'pending'`).Scan(&overview.PendingPayments)
 	q.db.QueryRow(ctx, `SELECT COUNT(*) FROM results`).Scan(&overview.TotalResults)
 	q.db.QueryRow(ctx, `SELECT COUNT(*) FROM backups`).Scan(&overview.TotalBackups)

@@ -29,8 +29,13 @@ func corsMiddleware(allowedOrigins []string) gin.HandlerFunc {
 			trimmedOrigin := strings.TrimSuffix(strings.TrimSpace(origin), "/")
 			matched := false
 			for _, allowed := range allowedOrigins {
+				// No "*" match-anything path, deliberately — this middleware
+				// reflects the caller's Origin with Access-Control-Allow-
+				// Credentials: true, so a wildcard here would mean full
+				// credentialed cross-origin access for every user the moment
+				// ALLOWED_ORIGINS=* was ever set, e.g. mid-debugging.
 				trimmedAllowed := strings.TrimSuffix(strings.TrimSpace(allowed), "/")
-				if trimmedAllowed == "*" || strings.EqualFold(trimmedOrigin, trimmedAllowed) {
+				if strings.EqualFold(trimmedOrigin, trimmedAllowed) {
 					matched = true
 					break
 				}
@@ -180,6 +185,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		router.Use(middleware.RateLimit(100, time.Minute))
 	}
 	router.Use(middleware.BodySizeLimit(10 << 20))
+	router.Use(middleware.CSRFProtect())
 	router.MaxMultipartMemory = 32 << 20
 
 	// Serve uploaded files
@@ -219,7 +225,6 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		authPublic.POST("/reset-with-otp", authRL, server.resetPasswordWithOTP)
 	}
 
-	v1.POST("/signup/onboarding", server.studentOnboarding)
 	v1.POST("/payments/webhook/paystack", server.handlePaystackWebhook)
 
 	api := v1.Group("")
@@ -261,7 +266,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		users.GET("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listUsers)
 		users.GET("/pending-approvals", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listPendingApprovals)
 		users.PATCH("/me", server.updateMe)
-		users.GET("/:id", server.getUser)
+		users.GET("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getUser)
 		users.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateUser)
 		users.POST("/:id/approve", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.approveSignup)
 		users.POST("/:id/reject", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.rejectSignup)
@@ -531,8 +536,8 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		rolesGroup.POST("", middleware.RequireRoles("hod", "admin"), server.createRole)
 		rolesGroup.POST("/assign", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.assignUserRole)
 		rolesGroup.POST("/revoke", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.revokeUserRole)
-		rolesGroup.GET("/user/:id", server.listUserRoles)
-		rolesGroup.GET("/user/:id/names", server.listUserRolesByName)
+		rolesGroup.GET("/user/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listUserRoles)
+		rolesGroup.GET("/user/:id/names", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listUserRolesByName)
 		rolesGroup.GET("/students", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.searchStudentsForRoleManagement)
 		rolesGroup.GET("/logs", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listRoleAssignmentLogs)
 		rolesGroup.GET("/logs/user/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listRoleLogsByUser)
@@ -647,17 +652,20 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 
 		classRep.GET("/timetable", server.getClassRepTimetable)
 
-		// Attendance sessions
-		classRep.POST("/attendance-sessions", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.createAttendanceSession)
-		classRep.PUT("/attendance-sessions/:id/open", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.openAttendanceSession)
-		classRep.PUT("/attendance-sessions/:id/close", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.closeAttendanceSession)
-		classRep.GET("/attendance-sessions/mine", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.listMyAttendanceSessions)
-		classRep.GET("/attendance-sessions/:id/checkins", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.listAttendanceSessionCheckins)
+		// Attendance sessions — class_rep/staff only; "student" is deliberately
+		// excluded here (unlike /checkin below, which is legitimate self-service).
+		// A plain student must never be able to create, open, close, or view the
+		// roster of an attendance session — only the assigned class rep or staff.
+		classRep.POST("/attendance-sessions", middleware.RequireRoles("class_rep", "admin", "delegated_admin", "hod"), server.createAttendanceSession)
+		classRep.PUT("/attendance-sessions/:id/open", middleware.RequireRoles("class_rep", "admin", "delegated_admin", "hod"), server.openAttendanceSession)
+		classRep.PUT("/attendance-sessions/:id/close", middleware.RequireRoles("class_rep", "admin", "delegated_admin", "hod"), server.closeAttendanceSession)
+		classRep.GET("/attendance-sessions/mine", middleware.RequireRoles("class_rep", "admin", "delegated_admin", "hod"), server.listMyAttendanceSessions)
+		classRep.GET("/attendance-sessions/:id/checkins", middleware.RequireRoles("class_rep", "admin", "delegated_admin", "hod"), server.listAttendanceSessionCheckins)
 		classRep.POST("/checkin", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.checkInStudent)
 
 		// Reports
-		classRep.POST("/reports", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.submitClassRepReport)
-		classRep.GET("/reports", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.listClassRepReports)
+		classRep.POST("/reports", middleware.RequireRoles("class_rep", "admin", "delegated_admin", "hod"), server.submitClassRepReport)
+		classRep.GET("/reports", middleware.RequireRoles("class_rep", "admin", "delegated_admin", "hod"), server.listClassRepReports)
 		classRep.GET("/reports/all", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listAllClassRepReports)
 		classRep.PUT("/reports/:id/status", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateClassRepReportStatus)
 

@@ -129,7 +129,6 @@ func (server *Server) listStudentCourseRegistrations(ctx *gin.Context) {
 }
 
 type updateCourseRegistrationRequest struct {
-	TotalUnits int32  `json:"total_units"`
 	Status     string `json:"status" binding:"required"`
 	ApprovedAt string `json:"approved_at" binding:"omitempty"` // RFC3339
 }
@@ -165,9 +164,29 @@ func (server *Server) updateCourseRegistration(ctx *gin.Context) {
 		}
 	}
 
+	// Recomputed server-side from the actual registered courses — the same
+	// computation submitRegistration does at creation time — never trusted
+	// from the client, which previously let the 4-24 unit cap be bypassed
+	// entirely on approval since it only ever held at creation.
+	totalUnits, uerr := server.store.SumRegisteredCourseUnits(ctx, id)
+	if uerr != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	if req.Status != "rejected" {
+		if totalUnits < 4 {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "minimum credit load is 4 units"})
+			return
+		}
+		if totalUnits > 24 {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "maximum credit load is 24 units"})
+			return
+		}
+	}
+
 	arg := db.UpdateCourseRegistrationParams{
 		ID:         id,
-		TotalUnits: req.TotalUnits,
+		TotalUnits: totalUnits,
 		Status:     req.Status,
 	}
 

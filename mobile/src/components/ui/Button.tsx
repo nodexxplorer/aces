@@ -1,4 +1,5 @@
-import { Pressable, Text, ActivityIndicator, StyleSheet, type PressableProps } from 'react-native';
+import { Pressable, ActivityIndicator, StyleSheet, type PressableProps } from 'react-native';
+import Text from './Text';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useTheme } from '../../theme/ThemeProvider';
 import { fontFamily, fontSize, radius, spacing } from '../../theme/typography';

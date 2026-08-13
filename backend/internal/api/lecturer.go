@@ -473,12 +473,11 @@ func (server *Server) getBursarDashboardStats(ctx *gin.Context) {
 // ─── Record Manual Payment (Bursar) ─────────────────────────────────────────
 
 type recordManualPaymentRequest struct {
-	StudentID     string  `json:"student_id"  binding:"required,uuid"`
-	DueID         string  `json:"due_id"      binding:"required,uuid"`
-	Amount        string  `json:"amount"      binding:"required"`
-	BankReference string  `json:"bank_reference"`
-	BankName      string  `json:"bank_name"`
-	Notes         string  `json:"notes"`
+	StudentID     string `json:"student_id"  binding:"required,uuid"`
+	DueID         string `json:"due_id"      binding:"required,uuid"`
+	BankReference string `json:"bank_reference"`
+	BankName      string `json:"bank_name"`
+	Notes         string `json:"notes"`
 }
 
 func (server *Server) recordManualPayment(ctx *gin.Context) {
@@ -503,6 +502,20 @@ func (server *Server) recordManualPayment(ctx *gin.Context) {
 	due, err := server.store.GetDue(ctx, dueID)
 	if err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "due not found"})
+		return
+	}
+
+	// Every other payment-creation path guards against a duplicate record
+	// (cart add, result submission) — this one didn't, so a double-click or
+	// resubmit created two completed, already-verified payment rows for the
+	// same student/due, inflating their paid total.
+	alreadyPaid, err := server.store.CheckDuePaid(ctx, db.CheckDuePaidParams{StudentID: studentID, DueID: dueID})
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	if alreadyPaid {
+		ctx.JSON(http.StatusConflict, gin.H{"error": "this due has already been paid for this student"})
 		return
 	}
 

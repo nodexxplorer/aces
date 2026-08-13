@@ -137,6 +137,11 @@ func (server *Server) getResult(ctx *gin.Context) {
 		if !requireOwnershipOrStaff(ctx, server.store, *result.StudentID) {
 			return
 		}
+	} else if !isStaffCaller(ctx) {
+		// No student to compare ownership against — fail closed rather than
+		// let any authenticated caller through.
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
+		return
 	}
 
 	ctx.JSON(http.StatusOK, result)

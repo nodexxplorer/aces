@@ -8,6 +8,9 @@ node_modules/
 dist/
 web-build/
 expo-env.d.ts
+CLAUDE.md
+AGENTS.md
+.env
 
 # Native
 .kotlin/

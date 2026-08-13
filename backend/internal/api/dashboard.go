@@ -791,6 +791,12 @@ func (server *Server) checkInStudent(ctx *gin.Context) {
 	// back to users), despite the column name — it must hold the user's ID,
 	// not students.id. getStudentIDFromUser returns students.id, so using it
 	// here violated the FK on every single check-in (self and roster alike).
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
+		return
+	}
+
 	var studentID uuid.UUID
 	isSelfCheckIn := false
 	if claimsVal, exists := ctx.Get("claims"); exists {
@@ -798,10 +804,37 @@ func (server *Server) checkInStudent(ctx *gin.Context) {
 			claims.HasRole("student") &&
 			!claims.HasAnyRole([]string{"class_rep", "hod", "admin", "delegated_admin"}) {
 			isSelfCheckIn = true
-			if _, err := server.getStudentIDFromUser(ctx); err != nil {
+			studentRecordID, serr := server.getStudentIDFromUser(ctx)
+			if serr != nil {
 				ctx.JSON(http.StatusForbidden, gin.H{"error": "student profile not found"})
 				return
 			}
+
+			// A student can only pad attendance for courses they're actually
+			// registered for — otherwise self-check-in works for any course
+			// by session ID alone.
+			session, serr := queries.GetAttendanceSession(ctx, sessionID)
+			if serr != nil {
+				ctx.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
+				return
+			}
+			registeredCourseIDs, rerr := queries.ListRegisteredCourseIDsByStudent(ctx, studentRecordID)
+			if rerr != nil {
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+				return
+			}
+			registered := false
+			for _, cid := range registeredCourseIDs {
+				if cid == session.CourseID {
+					registered = true
+					break
+				}
+			}
+			if !registered {
+				ctx.JSON(http.StatusForbidden, gin.H{"error": "you are not registered for this course"})
+				return
+			}
+
 			studentID = userID
 		}
 	}
@@ -820,12 +853,6 @@ func (server *Server) checkInStudent(ctx *gin.Context) {
 	present := true
 	if req.Present != nil {
 		present = *req.Present
-	}
-
-	queries, ok := server.store.(*db.Queries)
-	if !ok {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
-		return
 	}
 
 	checkin, err := queries.CheckInStudent(ctx, db.CheckInStudentParams{

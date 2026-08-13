@@ -1,8 +1,12 @@
+import { useEffect } from 'react';
 import type { ColorValue } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { fontFamily, fontSize } from '../../src/theme/typography';
+import { useUnreadStore } from '../../src/store/unreadStore';
+
+const UNREAD_POLL_INTERVAL_MS = 60000;
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -14,7 +18,18 @@ function TabIcon({ name, color, focused }: { name: IconName; color: ColorValue; 
 }
 
 export default function TabsLayout() {
-  const { theme } = useTheme();
+  const { theme, fontScale } = useTheme();
+  const totalUnreadMessages = useUnreadStore((s) => s.totalUnreadMessages);
+  const refreshUnread = useUnreadStore((s) => s.refresh);
+
+  // The Connect screen pushes its own fetch results in directly when it's
+  // open (see connect/index.tsx); this polling keeps the badge fresh the
+  // rest of the time, when Connect isn't the active screen to do that.
+  useEffect(() => {
+    refreshUnread();
+    const interval = setInterval(refreshUnread, UNREAD_POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [refreshUnread]);
 
   return (
     <Tabs
@@ -26,9 +41,12 @@ export default function TabsLayout() {
           backgroundColor: theme.backgroundElevated,
           borderTopColor: theme.divider,
         },
+        // React Navigation renders tab labels itself, outside our component
+        // tree, so the themed <Text> wrapper can't reach them — the Font
+        // Size setting has to be applied here directly instead.
         tabBarLabelStyle: {
           fontFamily: fontFamily.medium,
-          fontSize: fontSize.xs,
+          fontSize: fontSize.xs * fontScale,
         },
       }}
     >
@@ -65,6 +83,15 @@ export default function TabsLayout() {
         options={{
           title: 'Updates',
           tabBarIcon: ({ color, focused }) => <TabIcon name="notifications" color={color} focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="connect"
+        options={{
+          title: 'Connect',
+          tabBarIcon: ({ color, focused }) => <TabIcon name="chatbubbles" color={color} focused={focused} />,
+          tabBarBadge: totalUnreadMessages > 0 ? totalUnreadMessages : undefined,
+          tabBarBadgeStyle: { backgroundColor: theme.danger },
         }}
       />
       <Tabs.Screen
