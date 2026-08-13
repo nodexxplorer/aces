@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import Tabs from '../../components/ui/Tabs';
 import { PenLine, Database, ClipboardList } from 'lucide-react';
 import { SingleEntryTab } from './SingleEntryPage';
@@ -7,8 +8,19 @@ import { ScoresTab } from './EnterScoresPage';
 
 type Tab = 'single' | 'bulk' | 'scores';
 
+// The sidebar links to three distinct paths (/lecturer/single-entry,
+// /lecturer/bulk-upload, /lecturer/scores) that all render this one page —
+// this maps each back to its matching tab so the link a lecturer clicked
+// actually opens on that tab instead of always defaulting to Single Entry.
+function initialTabFromPath(pathname: string): Tab {
+  if (pathname.endsWith('/bulk-upload')) return 'bulk';
+  if (pathname.endsWith('/scores')) return 'scores';
+  return 'single';
+}
+
 export default function GradesPage() {
-  const [tab, setTab] = useState<Tab>('single');
+  const location = useLocation();
+  const [tab, setTab] = useState<Tab>(() => initialTabFromPath(location.pathname));
 
   return (
     <div className="space-y-6">

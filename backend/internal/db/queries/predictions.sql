@@ -88,7 +88,7 @@ dues_stats AS (
     CROSS JOIN dues d
     WHERE d.level = s.level AND d.is_active = true
     AND NOT EXISTS (
-        SELECT 1 FROM payments p WHERE p.student_id = s.id AND p.due_id = d.id AND p.status = 'verified'
+        SELECT 1 FROM payments p WHERE p.student_id = s.id AND p.due_id = d.id AND p.status = 'completed'
     )
     GROUP BY s.id
 ),
@@ -158,7 +158,7 @@ LIMIT $1;
 WITH monthly_revenue AS (
     SELECT
         DATE_TRUNC('month', created_at) as month,
-        SUM(CASE WHEN status = 'verified' THEN amount ELSE 0 END) as revenue
+        SUM(CASE WHEN status = 'completed' THEN amount ELSE 0 END) as revenue
     FROM payments
     WHERE created_at >= NOW() - INTERVAL '6 months'
     GROUP BY DATE_TRUNC('month', created_at)

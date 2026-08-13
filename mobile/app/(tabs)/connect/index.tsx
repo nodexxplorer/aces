@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Pressable, TextInput, Image } from 'react-native';
+import { View, StyleSheet, FlatList, Pressable, TextInput, Image } from 'react-native';
+import Text from '../../../src/components/ui/Text';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -11,6 +12,7 @@ import Button from '../../../src/components/ui/Button';
 import Badge from '../../../src/components/ui/Badge';
 import { haptics } from '../../../src/utils/haptics';
 import { useAuthStore } from '../../../src/store/authStore';
+import { useUnreadStore } from '../../../src/store/unreadStore';
 import { useWebSocket, getChatSocketUrl } from '../../../src/hooks/useWebSocket';
 import { PROFILE_SCAN_PARAM } from '../../../src/config';
 import {
@@ -133,6 +135,7 @@ export default function ConnectScreen() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const { lastMessage } = useWebSocket(user ? getChatSocketUrl() : undefined);
+  const setUnreadCounts = useUnreadStore((s) => s.setCounts);
 
   const fetchAll = useCallback(async () => {
     const [dir, conns, reqs, ids, counts] = await Promise.allSettled([
@@ -146,8 +149,13 @@ export default function ConnectScreen() {
     if (conns.status === 'fulfilled') setConnections(conns.value);
     if (reqs.status === 'fulfilled') setRequests(reqs.value);
     if (ids.status === 'fulfilled') setConnectedIds(new Set(ids.value));
-    if (counts.status === 'fulfilled') setUnread(counts.value);
-  }, []);
+    if (counts.status === 'fulfilled') {
+      setUnread(counts.value);
+      // Push into the shared store so the tab bar badge updates immediately
+      // instead of waiting for its own next poll — avoids a duplicate fetch.
+      setUnreadCounts(counts.value);
+    }
+  }, [setUnreadCounts]);
 
   useEffect(() => {
     setLoading(true);
@@ -162,13 +170,16 @@ export default function ConnectScreen() {
       const frame = JSON.parse(lastMessage) as { type: string; payload: ChatMessage };
       if (frame.type === 'chat') {
         getUnreadCounts()
-          .then(setUnread)
+          .then((counts) => {
+            setUnread(counts);
+            setUnreadCounts(counts);
+          })
           .catch(() => {});
       }
     } catch {
       // ignore malformed frames
     }
-  }, [lastMessage]);
+  }, [lastMessage, setUnreadCounts]);
 
   const onRefresh = async () => {
     setRefreshing(true);

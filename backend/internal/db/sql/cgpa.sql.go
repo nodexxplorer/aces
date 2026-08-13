@@ -149,11 +149,18 @@ func (q *Queries) GetCgpaRules(ctx context.Context) ([]CgpaRule, error) {
 	return items, nil
 }
 
+// DISTINCT ON (r.course_id) keeps only the latest attempt per course — a
+// carryover/repeat course has no unique constraint stopping a second
+// approved result row for the same course in a later session, and without
+// this dedup both the original failing attempt and the resit were summed
+// into the CGPA together.
 const getStudentApprovedResultsWithUnits = `-- name: GetStudentApprovedResultsWithUnits :many
-SELECT r.grade_point, c.unit, r.session_id, r.semester_id
+SELECT DISTINCT ON (r.course_id) r.grade_point, c.unit, r.session_id, r.semester_id
 FROM results r
 JOIN courses c ON r.course_id = c.id
+JOIN sessions s ON r.session_id = s.id
 WHERE r.student_id = $1 AND r.status = 'approved'
+ORDER BY r.course_id, s.start_date DESC, r.created_at DESC
 `
 
 type GetStudentApprovedResultsWithUnitsRow struct {

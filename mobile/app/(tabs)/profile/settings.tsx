@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Switch, Alert, Linking } from 'react-native';
+import { View, Text as RNText, StyleSheet, Pressable, Switch, Alert, Linking } from 'react-native';
+import Text from '../../../src/components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
@@ -126,14 +127,17 @@ export default function SettingsScreen() {
                     { borderColor: active ? theme.primary : theme.cardBorder, backgroundColor: active ? theme.primaryMuted : 'transparent' },
                   ]}
                 >
-                  <Text
+                  {/* Fixed to each option's own ratio, deliberately not the
+                      live global scale — these four swatches preview what
+                      "Small" vs "Large" etc. looks like side by side. */}
+                  <RNText
                     style={[
                       styles.fontPreview,
                       { color: active ? theme.primary : theme.text, fontSize: 13 * FONT_SCALE_VALUES[key] },
                     ]}
                   >
                     Aa
-                  </Text>
+                  </RNText>
                   <Text style={[styles.chipLabel, { color: active ? theme.primary : theme.text }]}>
                     {FONT_SCALE_LABELS[key]}
                   </Text>
@@ -141,7 +145,7 @@ export default function SettingsScreen() {
               );
             })}
           </View>
-          <Text style={[styles.previewText, { color: theme.textMuted, fontSize: fontSize.sm * FONT_SCALE_VALUES[fontScale] }]}>
+          <Text style={[styles.previewText, { color: theme.textMuted, fontSize: fontSize.sm }]}>
             This is how body text will look across the app.
           </Text>
         </Card>

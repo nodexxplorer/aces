@@ -540,6 +540,7 @@ type Querier interface {
 	SearchCampusProfiles(ctx context.Context, arg SearchCampusProfilesParams) ([]SearchCampusProfilesRow, error)
 	SearchHelpArticles(ctx context.Context, arg SearchHelpArticlesParams) ([]HelpArticle, error)
 	SearchPeople(ctx context.Context, arg SearchPeopleParams) ([]SearchPeopleRow, error)
+	SumRegisteredCourseUnits(ctx context.Context, registrationID uuid.UUID) (int32, error)
 	ToggleFeatureFlag(ctx context.Context, arg ToggleFeatureFlagParams) error
 	UniversalSearch(ctx context.Context, arg UniversalSearchParams) ([]UniversalSearchRow, error)
 	UnpinClassNotice(ctx context.Context, id uuid.UUID) error

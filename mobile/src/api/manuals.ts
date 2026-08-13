@@ -29,3 +29,14 @@ export const getMyPurchases = async () => {
   const res = await apiClient.get('/manuals/my-purchases');
   return unwrap<ManualPurchase[]>(res);
 };
+
+export interface QRVerifyResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+export const verifyManualQR = async (qrData: string) => {
+  const res = await apiClient.post('/manuals/qr-verify', { qr_data: qrData });
+  return unwrap<QRVerifyResult>(res);
+};

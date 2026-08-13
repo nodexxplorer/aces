@@ -101,7 +101,11 @@ func (s *StudentService) CalculateCGPA(ctx context.Context, studentID uuid.UUID)
 	// pgtype.Numeric's zero value has a nil .Int — calling SetInt64 on that
 	// nil *big.Int panicked on every single call to this function, for every
 	// caller (self-service and staff alike). big.NewInt allocates a real one.
-	cgpaNum := pgtype.Numeric{Int: big.NewInt(int64(cgpaVal * 100)), Exp: -2, Valid: true}
+	// cgpaVal is already rounded to 2dp above, but re-multiplying by 100 in
+	// float64 can still land a hair below the intended integer (e.g. 2.30*100
+	// == 229.99999999999997) — int64() truncates toward zero, silently
+	// storing 2.29 instead of 2.30. math.Round fixes that final cast.
+	cgpaNum := pgtype.Numeric{Int: big.NewInt(int64(math.Round(cgpaVal * 100))), Exp: -2, Valid: true}
 
 	academicStanding := db.AcademicStanding(standing)
 

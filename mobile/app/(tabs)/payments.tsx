@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
+import { View, StyleSheet, FlatList } from 'react-native';
+import Text from '../../src/components/ui/Text';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { fontFamily, fontSize, radius, spacing } from '../../src/theme/typography';

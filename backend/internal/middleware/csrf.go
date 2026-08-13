@@ -31,9 +31,10 @@ func GenerateCSRFToken() (string, error) {
 // (refresh) — excluded so a not-yet-issued or stale CSRF cookie can't lock
 // a legitimate client out of authenticating in the first place.
 var csrfExemptPaths = map[string]bool{
-	"/api/v1/auth/login":   true,
-	"/api/v1/auth/signup":  true,
-	"/api/v1/auth/refresh": true,
+	"/api/v1/auth/login":           true,
+	"/api/v1/auth/signup/student":  true,
+	"/api/v1/auth/signup/lecturer": true,
+	"/api/v1/auth/refresh":         true,
 }
 
 // CSRFProtect implements double-submit-cookie CSRF defense: any cookie-

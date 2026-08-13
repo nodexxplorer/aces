@@ -24,6 +24,31 @@ func decimalToNumeric(d decimal.Decimal) pgtype.Numeric {
 	}
 }
 
+// requireAssignmentCourseAccess reports whether the caller may act on
+// assignment id — staff always may; a lecturer only if they're assigned to
+// teach the assignment's course. Writes the response and returns false if
+// not; also returns false (with the response already written) if the
+// assignment doesn't exist.
+func (server *Server) requireAssignmentCourseAccess(ctx *gin.Context, assignmentID uuid.UUID) bool {
+	if isStaffCaller(ctx) {
+		return true
+	}
+	assignment, err := server.store.GetAssignment(ctx, assignmentID)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "assignment not found"})
+		return false
+	}
+	assigned, aerr := server.store.IsLecturerAssignedToCourse(ctx, db.IsLecturerAssignedToCourseParams{
+		LecturerID: getUserID(ctx),
+		CourseID:   assignment.CourseID,
+	})
+	if aerr != nil || !assigned {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "you are not assigned to teach this course"})
+		return false
+	}
+	return true
+}
+
 type createAssignmentRequest struct {
 	CourseID              string   `json:"course_id" binding:"required,uuid"`
 	Title                 string   `json:"title" binding:"required"`
@@ -33,7 +58,6 @@ type createAssignmentRequest struct {
 	AllowedFormats        []byte   `json:"allowed_formats"`
 	FileUrl               *string  `json:"file_url"`
 	UploadedByClassRepID  *string  `json:"uploaded_by_class_rep_id" binding:"omitempty,uuid"`
-	CreatedBy             string   `json:"created_by" binding:"required,uuid"`
 	SessionID             string   `json:"session_id" binding:"required,uuid"`
 	SemesterID            string   `json:"semester_id" binding:"required,uuid"`
 	IsActive              bool     `json:"is_active"`
@@ -47,9 +71,23 @@ func (server *Server) createAssignment(ctx *gin.Context) {
 	}
 
 	courseID, _ := uuid.Parse(req.CourseID)
-	createdBy, _ := uuid.Parse(req.CreatedBy)
 	sessionID, _ := uuid.Parse(req.SessionID)
 	semesterID, _ := uuid.Parse(req.SemesterID)
+
+	// Always the caller's own ID, never client-supplied — an audit-trail
+	// identity field must record who actually authenticated the request.
+	createdBy := getUserID(ctx)
+
+	if !isStaffCaller(ctx) {
+		assigned, aerr := server.store.IsLecturerAssignedToCourse(ctx, db.IsLecturerAssignedToCourseParams{
+			LecturerID: createdBy,
+			CourseID:   courseID,
+		})
+		if aerr != nil || !assigned {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "you are not assigned to teach this course"})
+			return
+		}
+	}
 
 	deadline, err := time.Parse(time.RFC3339, req.Deadline)
 	if err != nil {
@@ -146,6 +184,10 @@ func (server *Server) updateAssignment(ctx *gin.Context) {
 		return
 	}
 
+	if !server.requireAssignmentCourseAccess(ctx, id) {
+		return
+	}
+
 	var req updateAssignmentRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
@@ -185,6 +227,10 @@ func (server *Server) deleteAssignment(ctx *gin.Context) {
 		return
 	}
 
+	if !server.requireAssignmentCourseAccess(ctx, id) {
+		return
+	}
+
 	if err := server.store.DeleteAssignment(ctx, id); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
@@ -219,6 +265,17 @@ func (server *Server) createAssignmentGrade(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "assignment not found"})
 		return
+	}
+
+	if !isStaffCaller(ctx) {
+		assigned, aerr := server.store.IsLecturerAssignedToCourse(ctx, db.IsLecturerAssignedToCourseParams{
+			LecturerID: gradedBy,
+			CourseID:   assignment.CourseID,
+		})
+		if aerr != nil || !assigned {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "you are not assigned to teach this course"})
+			return
+		}
 	}
 
 	if req.Score.LessThan(decimal.Zero) || req.Score.GreaterThan(decimal.NewFromInt(int64(assignment.MaxScore))) {
@@ -316,6 +373,40 @@ func (server *Server) listStudentAssignmentGrades(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, grades)
 }
 
+// requireAssignmentGradeCourseAccess reports whether the caller may act on
+// assignment grade id — staff always may; a lecturer only if they're
+// assigned to teach the parent assignment's course. Writes the response and
+// returns false if not, or if the grade doesn't exist.
+func (server *Server) requireAssignmentGradeCourseAccess(ctx *gin.Context, gradeID uuid.UUID) bool {
+	if isStaffCaller(ctx) {
+		return true
+	}
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
+		return false
+	}
+	grade, err := queries.GetAssignmentGradeByID(ctx, gradeID)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "grade not found"})
+		return false
+	}
+	assignment, err := server.store.GetAssignment(ctx, grade.AssignmentID)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "assignment not found"})
+		return false
+	}
+	assigned, aerr := server.store.IsLecturerAssignedToCourse(ctx, db.IsLecturerAssignedToCourseParams{
+		LecturerID: getUserID(ctx),
+		CourseID:   assignment.CourseID,
+	})
+	if aerr != nil || !assigned {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "you are not assigned to teach this course"})
+		return false
+	}
+	return true
+}
+
 type updateAssignmentGradeRequest struct {
 	Score    decimal.Decimal `json:"score"`
 	Feedback *string         `json:"feedback"`
@@ -326,6 +417,10 @@ func (server *Server) updateAssignmentGrade(ctx *gin.Context) {
 	id, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid grade id"})
+		return
+	}
+
+	if !server.requireAssignmentGradeCourseAccess(ctx, id) {
 		return
 	}
 
@@ -359,6 +454,10 @@ func (server *Server) deleteAssignmentGrade(ctx *gin.Context) {
 	id, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid grade id"})
+		return
+	}
+
+	if !server.requireAssignmentGradeCourseAccess(ctx, id) {
 		return
 	}
 

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import { View, Image, StyleSheet } from 'react-native';
+import Text from './ui/Text';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,

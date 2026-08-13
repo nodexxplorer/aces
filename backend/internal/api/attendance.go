@@ -71,6 +71,25 @@ func encodeAttendanceData(records []AttendanceRecord) (json.RawMessage, error) {
 	return json.RawMessage(raw), nil
 }
 
+// requireAttendanceSheetOwnership reports whether the caller may act on
+// attendance sheet id — staff always may; a class rep only for a sheet they
+// themselves submitted. Writes the response and returns false if not.
+func (server *Server) requireAttendanceSheetOwnership(ctx *gin.Context, id uuid.UUID) bool {
+	if isStaffCaller(ctx) {
+		return true
+	}
+	sheet, err := server.store.GetAttendanceSheet(ctx, id)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "attendance sheet not found"})
+		return false
+	}
+	if sheet.ClassRepID != getUserID(ctx) {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "you can only manage your own attendance sheets"})
+		return false
+	}
+	return true
+}
+
 // ─── Handlers ─────────────────────────────────────────────────────────────────
 
 // createAttendanceSheet POST /attendance
@@ -87,10 +106,17 @@ func (server *Server) createAttendanceSheet(ctx *gin.Context) {
 		return
 	}
 
-	classRepID, err := uuid.Parse(req.ClassRepID)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid class_rep_id"})
-		return
+	// Never trust class_rep_id from the body for a non-staff caller — it's
+	// the audit-trail record of who actually submitted the sheet.
+	var classRepID uuid.UUID
+	if isStaffCaller(ctx) {
+		classRepID, err = uuid.Parse(req.ClassRepID)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid class_rep_id"})
+			return
+		}
+	} else {
+		classRepID = getUserID(ctx)
 	}
 
 	sessionID, err := uuid.Parse(req.SessionID)
@@ -237,6 +263,10 @@ func (server *Server) updateAttendanceSheet(ctx *gin.Context) {
 		return
 	}
 
+	if !server.requireAttendanceSheetOwnership(ctx, id) {
+		return
+	}
+
 	var req updateAttendanceSheetRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
@@ -274,6 +304,10 @@ func (server *Server) finalizeAttendanceSheet(ctx *gin.Context) {
 	id, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid attendance sheet id"})
+		return
+	}
+
+	if !server.requireAttendanceSheetOwnership(ctx, id) {
 		return
 	}
 
@@ -348,6 +382,10 @@ func (server *Server) deleteAttendanceSheet(ctx *gin.Context) {
 	id, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid attendance sheet id"})
+		return
+	}
+
+	if !server.requireAttendanceSheetOwnership(ctx, id) {
 		return
 	}
 

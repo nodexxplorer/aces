@@ -29,11 +29,9 @@ const MyApplicationsPage = lazy(() => import('./pages/student/MyApplicationsPage
 
 // Lecturer
 const LecturerDashboard = lazy(() => import('./pages/lecturer/LecturerDashboard'));
-const ScoreEntryPage = lazy(() => import('./pages/lecturer/ScoreEntryPage'));
-const BulkUploadPage = lazy(() => import('./pages/lecturer/BulkUploadPage'));
+const LecturerGradesPage = lazy(() => import('./pages/lecturer/GradesPage'));
 const AssignmentsPage = lazy(() => import('./pages/lecturer/AssignmentsPage'));
 const LecturerClassListPage = lazy(() => import('./pages/lecturer/ClassListPage'));
-const LecturerSingleEntryPage = lazy(() => import('./pages/lecturer/SingleEntryPage'));
 const LecturerReportsPage = lazy(() => import('./pages/lecturer/LecturerReportsPage'));
 const LecturerAttendanceReviewPage = lazy(() => import('./pages/lecturer/AttendanceReviewPage'));
 const LecturerLeaveRequestsPage = lazy(() => import('./pages/lecturer/LeaveRequestsPage'));
@@ -257,9 +255,27 @@ export const router = createBrowserRouter([
         children: [
           { path: '/dashboard', element: <Dashboard /> },
 
-          // Student-only routes (lecturers cannot access)
+          // Student-only routes (lecturers cannot access). Includes the
+          // delegated student roles (project_coordinator/event_coordinator/
+          // alumni_rep) — they're students with an extra duty layered on,
+          // routed to the student dashboard/nav, so they need the same base
+          // page access a student gets or the Sidebar links Dashboard.tsx
+          // shows them would all dead-end back here.
           {
-            element: <RoleRoute roles={['student', 'class_rep', 'dept_bursar', 'class_bursar', 'alumni']} />,
+            element: (
+              <RoleRoute
+                roles={[
+                  'student',
+                  'class_rep',
+                  'dept_bursar',
+                  'class_bursar',
+                  'alumni',
+                  'project_coordinator',
+                  'event_coordinator',
+                  'alumni_rep',
+                ]}
+              />
+            ),
             children: [
               { path: '/results', element: <ResultsPage /> },
               { path: '/results/:id', element: <ResultDetailPage /> },
@@ -305,9 +321,9 @@ export const router = createBrowserRouter([
             element: <RoleRoute roles={['lecturer', 'hod', 'delegated_admin']} />,
             children: [
               { path: '/lecturer', element: <LecturerDashboard /> },
-              { path: '/lecturer/scores', element: <ScoreEntryPage /> },
-              { path: '/lecturer/single-entry', element: <LecturerSingleEntryPage /> },
-              { path: '/lecturer/bulk-upload', element: <BulkUploadPage /> },
+              { path: '/lecturer/scores', element: <LecturerGradesPage /> },
+              { path: '/lecturer/single-entry', element: <LecturerGradesPage /> },
+              { path: '/lecturer/bulk-upload', element: <LecturerGradesPage /> },
               { path: '/lecturer/assignments', element: <AssignmentsPage /> },
               { path: '/lecturer/class-list', element: <LecturerClassListPage /> },
               { path: '/lecturer/reports', element: <LecturerReportsPage /> },

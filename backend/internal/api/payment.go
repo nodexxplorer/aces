@@ -805,6 +805,17 @@ func (server *Server) updatePaymentStatus(ctx *gin.Context) {
 		return
 	}
 
+	// This is a manual status override with no Paystack cross-check — unlike
+	// verifyPayment, which stamps verified_by/verified_at correctly. Stamp
+	// the same fields here so the override leaves an audit trail too,
+	// matching the pattern recordManualPayment already uses.
+	if queries, ok := server.store.(*db.Queries); ok {
+		_, _ = queries.GetDB().Exec(ctx, `
+			UPDATE payments SET recorded_by = $2, verified_by = $2, verified_at = NOW()
+			WHERE id = $1
+		`, payment.ID, getUserID(ctx))
+	}
+
 	if student, err := server.store.GetStudent(ctx, payment.StudentID); err == nil {
 		eType := "payment"
 		eID := payment.ID

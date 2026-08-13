@@ -15,8 +15,6 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-var manualQRSecret = []byte("aces-manual-qr-secret-change-in-prod-2026")
-
 type createManualRequest struct {
 	Title         string   `json:"title" binding:"required"`
 	Description   *string  `json:"description"`
@@ -396,7 +394,7 @@ func (server *Server) purchaseManual(ctx *gin.Context) {
 		StudentID: studentID,
 		RegNo:     student.MatricNumber,
 		ManualID:  manualID,
-	}, manualQRSecret)
+	}, []byte(server.config.ManualQRSecret))
 	qrCodeImageURL, _ := utils.GenerateQRCodeImage(qrPayload)
 
 	var paymentID pgtype.UUID
@@ -534,7 +532,7 @@ func (server *Server) verifyManualQR(ctx *gin.Context) {
 		return
 	}
 
-	payload, err := utils.VerifyManualQRPayload(req.QRData, manualQRSecret)
+	payload, err := utils.VerifyManualQRPayload(req.QRData, []byte(server.config.ManualQRSecret))
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid_qr", "message": err.Error()})
 		return
