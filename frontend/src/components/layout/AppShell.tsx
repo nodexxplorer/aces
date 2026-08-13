@@ -3,7 +3,6 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 import Footer from './Footer';
-import { ToastContainer } from '../feedback/Toast';
 import CookieConsent from '../feedback/CookieConsent';
 import AdminMobileGuard from './AdminMobileGuard';
 import OfflineBanner from '../feedback/OfflineBanner';
@@ -51,7 +50,6 @@ const AppShell = () => {
       <div className="print:hidden">
         <ChatbotWidget />
         <OfflineBanner />
-        <ToastContainer />
         <CookieConsent />
       </div>
     </div>
