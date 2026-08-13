@@ -1,6 +1,5 @@
 import { Outlet } from 'react-router-dom';
 import ThemeToggle from '../ui/ThemeToggle';
-import { ToastContainer } from '../feedback/Toast';
 import CookieConsent from '../feedback/CookieConsent';
 
 const PublicLayout = () => {
@@ -13,7 +12,6 @@ const PublicLayout = () => {
         <Outlet />
       </div>
       <ThemeToggle />
-      <ToastContainer />
       <CookieConsent />
     </div>
   );
