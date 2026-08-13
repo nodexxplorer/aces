@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -58,9 +59,25 @@ func CSRFProtect() gin.HandlerFunc {
 			return
 		}
 
+		// A Bearer Authorization header means this request authenticates
+		// itself explicitly — a cross-site page cannot forge that header the
+		// way it can silently trigger a browser to attach a cookie, so it's
+		// not CSRF-able regardless of method. This is the mobile app's only
+		// auth mechanism, but /auth/login and /auth/signup/* still set the
+		// same cookies for the web app on every response regardless of which
+		// client called them, so a mobile client ends up carrying a stray,
+		// unused aces_access_token cookie too — checking Authorization first
+		// stops that stray cookie from tripping the check below.
+		if authHeader := c.GetHeader("Authorization"); authHeader != "" {
+			if parts := strings.SplitN(authHeader, " ", 2); len(parts) == 2 && strings.EqualFold(parts[0], "bearer") {
+				c.Next()
+				return
+			}
+		}
+
 		accessCookie, err := c.Cookie("aces_access_token")
 		if err != nil || accessCookie == "" {
-			// No session cookie in play — auth (if any) is via bearer header.
+			// No session cookie in play either — nothing to protect.
 			c.Next()
 			return
 		}

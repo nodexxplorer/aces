@@ -127,6 +127,30 @@ export default function DashboardScreen() {
           />
         </Animated.View>
 
+        <Animated.View entering={FadeInDown.duration(400).delay(140)}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Quick Links</Text>
+          </View>
+          <View style={styles.quickLinksRow}>
+            <QuickLink
+              icon="cash-outline"
+              label="Payments"
+              onPress={() => router.push('/(tabs)/payments')}
+            />
+            <QuickLink
+              icon="calendar-outline"
+              label="Timetable"
+              onPress={() => router.push('/(tabs)/timetable')}
+            />
+            <QuickLink
+              icon="notifications-outline"
+              label="Updates"
+              onPress={() => router.push('/(tabs)/communication')}
+              badge={unread > 0 ? unread : undefined}
+            />
+          </View>
+        </Animated.View>
+
         {data?.next_class && (
           <Animated.View entering={FadeInDown.duration(400).delay(180)}>
             <Card style={styles.nextClassCard}>
@@ -213,6 +237,36 @@ export default function DashboardScreen() {
         )}
       </Screen>
     </View>
+  );
+}
+
+function QuickLink({
+  icon,
+  label,
+  onPress,
+  badge,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  badge?: number;
+}) {
+  const { theme } = useTheme();
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.quickLink, pressed && { opacity: 0.7 }]}
+      onPress={onPress}
+    >
+      <View style={[styles.quickLinkIconWrap, { backgroundColor: theme.primaryMuted }]}>
+        <Ionicons name={icon} size={20} color={theme.primary} />
+        {!!badge && (
+          <View style={styles.bellBadge}>
+            <Text style={styles.bellBadgeText}>{badge > 9 ? '9+' : badge}</Text>
+          </View>
+        )}
+      </View>
+      <Text style={[styles.quickLinkLabel, { color: theme.text }]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -347,6 +401,27 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+  },
+  quickLinksRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  quickLink: {
+    flex: 1,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  quickLinkIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickLinkLabel: {
+    fontFamily: fontFamily.medium,
     fontSize: fontSize.xs,
   },
   sectionHeaderRow: {
