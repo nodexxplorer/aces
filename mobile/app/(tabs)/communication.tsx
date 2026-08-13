@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList, Pressable } from 'react-native';
+import { View, StyleSheet, FlatList, Pressable, TextInput } from 'react-native';
 import Text from '../../src/components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -12,8 +12,13 @@ import {
   listMyNotifications,
   listAnnouncementsFeed,
   markNotificationRead,
+  listClassNotices,
+  listNoticeComments,
+  createNoticeComment,
   type NotificationItem,
   type AnnouncementFeedItem,
+  type ClassNotice,
+  type NoticeComment,
 } from '../../src/api/communication';
 
 function timeAgo(iso: string) {
@@ -28,16 +33,28 @@ function timeAgo(iso: string) {
 
 export default function CommunicationScreen() {
   const { theme } = useTheme();
-  const [tab, setTab] = useState<'notifications' | 'announcements'>('notifications');
+  const [tab, setTab] = useState<'notifications' | 'announcements' | 'notices'>('notifications');
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [announcements, setAnnouncements] = useState<AnnouncementFeedItem[]>([]);
+  const [notices, setNotices] = useState<ClassNotice[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  const [expandedNoticeId, setExpandedNoticeId] = useState<string | null>(null);
+  const [commentsMap, setCommentsMap] = useState<Record<string, NoticeComment[]>>({});
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
+
   const fetchAll = useCallback(async () => {
-    const [notifs, ann] = await Promise.allSettled([listMyNotifications(), listAnnouncementsFeed()]);
+    const [notifs, ann, notic] = await Promise.allSettled([
+      listMyNotifications(),
+      listAnnouncementsFeed(),
+      listClassNotices(),
+    ]);
     if (notifs.status === 'fulfilled') setNotifications(notifs.value);
     if (ann.status === 'fulfilled') setAnnouncements(ann.value);
+    if (notic.status === 'fulfilled') setNotices(notic.value);
   }, []);
 
   useEffect(() => {
@@ -61,12 +78,42 @@ export default function CommunicationScreen() {
     }
   };
 
+  const handleToggleNotice = (noticeId: string) => {
+    const opening = expandedNoticeId !== noticeId;
+    setExpandedNoticeId(opening ? noticeId : null);
+    setCommentText('');
+    if (opening && !commentsMap[noticeId]) {
+      setLoadingComments(true);
+      listNoticeComments(noticeId)
+        .then((comments) => setCommentsMap((prev) => ({ ...prev, [noticeId]: comments })))
+        .catch(() => {})
+        .finally(() => setLoadingComments(false));
+    }
+  };
+
+  const handleSubmitComment = async (noticeId: string) => {
+    if (!commentText.trim()) return;
+    setSubmittingComment(true);
+    try {
+      const newComment = await createNoticeComment(noticeId, commentText.trim());
+      setCommentsMap((prev) => ({ ...prev, [noticeId]: [...(prev[noticeId] ?? []), newComment] }));
+      setCommentText('');
+    } catch {
+      // input keeps its text on failure so the student can retry
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  const pinnedNotices = notices.filter((n) => n.is_pinned);
+  const regularNotices = notices.filter((n) => !n.is_pinned);
+
   return (
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
       <Text style={[styles.header, { color: theme.text }]}>Communication</Text>
 
       <View style={[styles.tabRow, { borderColor: theme.divider }]}>
-        {(['notifications', 'announcements'] as const).map((t) => (
+        {(['notifications', 'announcements', 'notices'] as const).map((t) => (
           <Text
             key={t}
             onPress={() => setTab(t)}
@@ -76,7 +123,7 @@ export default function CommunicationScreen() {
               tab === t && { borderBottomColor: theme.primary, borderBottomWidth: 2 },
             ]}
           >
-            {t === 'notifications' ? 'Notifications' : 'Announcements'}
+            {t === 'notifications' ? 'Notifications' : t === 'announcements' ? 'Announcements' : 'Notice Board'}
           </Text>
         ))}
       </View>
@@ -126,7 +173,7 @@ export default function CommunicationScreen() {
             </Animated.View>
           )}
         />
-      ) : (
+      ) : tab === 'announcements' ? (
         <FlatList
           data={announcements}
           scrollEnabled={false}
@@ -161,9 +208,125 @@ export default function CommunicationScreen() {
             </Animated.View>
           )}
         />
+      ) : (
+        <View style={{ gap: spacing.lg }}>
+          {!loading && notices.length === 0 && (
+            <Card>
+              <Text style={{ color: theme.textMuted, fontFamily: fontFamily.regular, fontSize: fontSize.sm }}>
+                No notices posted yet.
+              </Text>
+            </Card>
+          )}
+
+          {pinnedNotices.length > 0 && (
+            <View style={{ gap: spacing.sm }}>
+              <View style={styles.noticeSectionHeader}>
+                <Ionicons name="pin" size={14} color={theme.warning} />
+                <Text style={[styles.noticeSectionLabel, { color: theme.warning }]}>PINNED</Text>
+              </View>
+              {pinnedNotices.map((n) => renderNotice(n))}
+            </View>
+          )}
+
+          {regularNotices.length > 0 && (
+            <View style={{ gap: spacing.sm }}>
+              {pinnedNotices.length > 0 && (
+                <View style={styles.noticeSectionHeader}>
+                  <Ionicons name="megaphone" size={14} color={theme.textFaint} />
+                  <Text style={[styles.noticeSectionLabel, { color: theme.textFaint }]}>RECENT</Text>
+                </View>
+              )}
+              {regularNotices.map((n) => renderNotice(n))}
+            </View>
+          )}
+        </View>
       )}
     </Screen>
   );
+
+  function renderNotice(notice: ClassNotice) {
+    const isExpanded = expandedNoticeId === notice.id;
+    const comments = commentsMap[notice.id] ?? [];
+
+    return (
+      <Card
+        key={notice.id}
+        style={[notice.is_pinned && { borderLeftWidth: 3, borderLeftColor: theme.warning }]}
+      >
+        <Pressable onPress={() => handleToggleNotice(notice.id)}>
+          <View style={styles.announcementHeader}>
+            <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>
+              {notice.title}
+            </Text>
+            <Ionicons name="chatbubble-outline" size={14} color={theme.textFaint} />
+          </View>
+          <Text
+            style={[styles.itemBody, { color: theme.textMuted }]}
+            numberOfLines={isExpanded ? undefined : 2}
+          >
+            {notice.content}
+          </Text>
+          <View style={styles.noticeMetaRow}>
+            {notice.author_name && (
+              <Text style={[styles.itemMeta, { color: theme.textMuted, fontFamily: fontFamily.medium }]}>
+                {notice.author_name}
+              </Text>
+            )}
+            <Text style={[styles.itemMeta, { color: theme.textFaint }]}>{timeAgo(notice.created_at)}</Text>
+            <View style={styles.noticeMetaItem}>
+              <Ionicons name="chatbubble-outline" size={11} color={theme.textFaint} />
+              <Text style={[styles.itemMeta, { color: theme.textFaint }]}>{notice.comment_count ?? 0}</Text>
+            </View>
+          </View>
+        </Pressable>
+
+        {isExpanded && (
+          <View style={[styles.commentsBlock, { borderTopColor: theme.divider }]}>
+            {loadingComments && !commentsMap[notice.id] ? (
+              <Text style={{ color: theme.textFaint, fontFamily: fontFamily.regular, fontSize: fontSize.xs }}>
+                Loading comments...
+              </Text>
+            ) : comments.length === 0 ? (
+              <Text style={{ color: theme.textFaint, fontFamily: fontFamily.regular, fontSize: fontSize.xs }}>
+                No comments yet. Be the first to comment.
+              </Text>
+            ) : (
+              comments.map((c) => (
+                <View key={c.id} style={[styles.commentBubble, { backgroundColor: theme.background }]}>
+                  <View style={styles.noticeMetaItem}>
+                    <Text style={[styles.commentAuthor, { color: theme.text }]}>{c.author_name}</Text>
+                    <Text style={[styles.itemMeta, { color: theme.textFaint }]}>{timeAgo(c.created_at)}</Text>
+                  </View>
+                  <Text style={[styles.itemBody, { color: theme.textMuted, marginTop: 2 }]}>{c.content}</Text>
+                </View>
+              ))
+            )}
+
+            <View style={styles.commentInputRow}>
+              <TextInput
+                value={commentText}
+                onChangeText={setCommentText}
+                placeholder="Write a comment..."
+                placeholderTextColor={theme.textFaint}
+                style={[styles.commentInput, { backgroundColor: theme.background, color: theme.text }]}
+                onSubmitEditing={() => handleSubmitComment(notice.id)}
+              />
+              <Pressable
+                onPress={() => handleSubmitComment(notice.id)}
+                disabled={!commentText.trim() || submittingComment}
+                style={[
+                  styles.commentSendButton,
+                  { backgroundColor: theme.primary, opacity: !commentText.trim() || submittingComment ? 0.5 : 1 },
+                ]}
+              >
+                <Ionicons name="send" size={14} color={theme.onPrimary} />
+              </Pressable>
+            </View>
+          </View>
+        )}
+      </Card>
+    );
+  }
 }
 
 const styles = StyleSheet.create({
@@ -212,6 +375,62 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
+  },
+  noticeSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  noticeSectionLabel: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xs,
+    letterSpacing: 0.5,
+  },
+  noticeMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: spacing.xs,
+  },
+  noticeMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs / 2,
+  },
+  commentsBlock: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: spacing.sm,
+  },
+  commentBubble: {
+    borderRadius: radius.md,
+    padding: spacing.sm,
+  },
+  commentAuthor: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+  },
+  commentInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  commentInput: {
+    flex: 1,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+  },
+  commentSendButton: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   announcementFooter: {
     flexDirection: 'row',

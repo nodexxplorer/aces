@@ -22,7 +22,13 @@ function RootNavigator() {
   const { isAuthenticated, user } = useAuthStore();
   const biometricEnabled = useSettingsStore((s) => s.biometricEnabled);
 
-  const needsApproval = isAuthenticated && user?.isApproved === false;
+  // Mirrors web's global onboarding redirect (router.tsx): a freshly
+  // signed-up student who hasn't completed onboarding is routed here before
+  // anything else, waiting-screen included — the info onboarding collects
+  // (DOB, admission mode, emergency contact) is part of what the HOD reviews
+  // during approval, so it has to come first.
+  const needsOnboarding = isAuthenticated && user?.onboardingCompleted === false;
+  const needsApproval = isAuthenticated && !needsOnboarding && user?.isApproved === false;
 
   const [unlocked, setUnlocked] = useState(false);
   useEffect(() => {
@@ -49,8 +55,11 @@ function RootNavigator() {
     <>
       <StatusBar style={theme.statusBar} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.background } }}>
-        <Stack.Protected guard={isAuthenticated && !needsApproval}>
+        <Stack.Protected guard={isAuthenticated && !needsOnboarding && !needsApproval}>
           <Stack.Screen name="(tabs)" />
+        </Stack.Protected>
+        <Stack.Protected guard={needsOnboarding}>
+          <Stack.Screen name="onboarding" />
         </Stack.Protected>
         <Stack.Protected guard={needsApproval}>
           <Stack.Screen name="waiting" />

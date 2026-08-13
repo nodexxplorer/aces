@@ -47,3 +47,37 @@ export const listAnnouncementsFeed = async () => {
   const res = await apiClient.get('/announcements/feed', { params: { limit: 30, offset: 0 } });
   return unwrap<AnnouncementFeedItem[]>(res);
 };
+
+export interface ClassNotice {
+  id: string;
+  title: string;
+  content: string;
+  is_pinned: boolean;
+  attachment_url?: string;
+  expires_at?: string;
+  created_at: string;
+  author_name?: string;
+  comment_count?: number;
+}
+
+export interface NoticeComment {
+  id: string;
+  content: string;
+  author_name: string;
+  created_at: string;
+}
+
+export const listClassNotices = async () => {
+  const res = await apiClient.get('/class-notices');
+  return unwrap<ClassNotice[]>(res);
+};
+
+export const listNoticeComments = async (noticeId: string) => {
+  const res = await apiClient.get(`/class-notices/${noticeId}/comments`);
+  return unwrap<NoticeComment[]>(res);
+};
+
+export const createNoticeComment = async (noticeId: string, content: string) => {
+  const res = await apiClient.post(`/class-notices/${noticeId}/comments`, { content });
+  return unwrap<NoticeComment>(res);
+};

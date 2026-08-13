@@ -67,3 +67,31 @@ export const logoutRequest = async () => {
 export const changePassword = async (currentPassword: string, newPassword: string) => {
   await apiClient.post('/auth/change-password', { currentPassword, newPassword });
 };
+
+export interface OnboardingPayload {
+  phone: string;
+  middleName?: string;
+  dateOfBirth: string; // YYYY-MM-DD
+  admissionMode: 'UTME' | 'Direct Entry';
+  yearAdmitted: string;
+  emergencyContact: string;
+  emergencyContactPhone: string;
+  homeAddress?: string;
+  profilePhotoUrl?: string;
+}
+
+export const submitOnboarding = async (payload: OnboardingPayload) => {
+  await apiClient.post('/auth/onboarding', {
+    phone: payload.phone,
+    bio: '',
+    avatar: payload.profilePhotoUrl || '',
+    middle_name: payload.middleName || '',
+    date_of_birth: payload.dateOfBirth,
+    admission_mode: payload.admissionMode,
+    year_admitted: payload.yearAdmitted,
+    emergency_contact: payload.emergencyContact,
+    emergency_contact_phone: payload.emergencyContactPhone,
+    home_address: payload.homeAddress || '',
+    profile_photo_url: payload.profilePhotoUrl || '',
+  });
+};
