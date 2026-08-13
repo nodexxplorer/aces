@@ -10,24 +10,39 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import {
-  User, Phone, Image, CheckCircle, ArrowRight, ArrowLeft,
-  Calendar, BookOpen, MapPin, AlertCircle
+  User,
+  Phone,
+  Image,
+  CheckCircle,
+  ArrowRight,
+  ArrowLeft,
+  Calendar,
+  BookOpen,
+  MapPin,
+  AlertCircle,
 } from 'lucide-react';
 import { isValidPhone } from '../../utils/validators';
+import { getErrorMessage } from '../../utils/errors';
 import apiClient from '../../api/client';
 
 const onboardingSchema = z.object({
   middleName: z.string().optional(),
-  dateOfBirth: z.string().min(1, 'Date of birth is required').refine((val) => {
-    const dob = new Date(val);
-    const age = (Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
-    return age >= 16;
-  }, 'You must be at least 16 years old'),
+  dateOfBirth: z
+    .string()
+    .min(1, 'Date of birth is required')
+    .refine((val) => {
+      const dob = new Date(val);
+      const age = (Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+      return age >= 16;
+    }, 'You must be at least 16 years old'),
   admissionMode: z.string().min(1, 'Admission mode is required'),
-  yearAdmitted: z.string().min(1, 'Year admitted is required').refine((val) => {
-    const year = parseInt(val);
-    return year >= 1900 && year <= new Date().getFullYear();
-  }, 'Enter a valid year'),
+  yearAdmitted: z
+    .string()
+    .min(1, 'Year admitted is required')
+    .refine((val) => {
+      const year = parseInt(val);
+      return year >= 1900 && year <= new Date().getFullYear();
+    }, 'Enter a valid year'),
   phone: z.string().refine(isValidPhone, { message: 'Enter a valid Nigerian phone number' }),
   profilePhotoUrl: z.string().url('Enter a valid URL').or(z.literal('')),
   emergencyContact: z.string().min(3, 'Emergency contact name is required'),
@@ -39,9 +54,10 @@ type OnboardingValues = z.infer<typeof onboardingSchema>;
 
 const StudentOnboardingPage = () => {
   const { updateUser } = useAuth();
-  const { success } = useNotification();
+  const { success, error } = useNotification();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
   const totalSteps = 4;
 
   const {
@@ -80,6 +96,7 @@ const StudentOnboardingPage = () => {
   const prevStep = () => setStep((s) => Math.max(s - 1, 1));
 
   const onSubmit = async (data: OnboardingValues) => {
+    setSubmitting(true);
     try {
       await apiClient.post('/auth/onboarding', {
         phone: data.phone,
@@ -102,8 +119,10 @@ const StudentOnboardingPage = () => {
       });
       success('Profile Set Up Complete', 'Welcome aboard! Your registration is now pending verification.');
       navigate('/dashboard');
-    } catch {
-      // handled by interceptor
+    } catch (err) {
+      error('Could Not Complete Setup', getErrorMessage(err));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -121,7 +140,9 @@ const StudentOnboardingPage = () => {
             <User className="w-6 h-6" />
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight">Set Up Your Profile</CardTitle>
-          <CardDescription>Step {step} of {totalSteps} — Complete your details</CardDescription>
+          <CardDescription>
+            Step {step} of {totalSteps} — Complete your details
+          </CardDescription>
 
           {/* Progress bar */}
           <div className="w-full mt-3">
@@ -194,7 +215,12 @@ const StudentOnboardingPage = () => {
                   {...register('profilePhotoUrl')}
                 />
 
-                <Button type="button" className="w-full mt-4" onClick={nextStep} rightIcon={<ArrowRight className="w-4 h-4" />}>
+                <Button
+                  type="button"
+                  className="w-full mt-4"
+                  onClick={nextStep}
+                  rightIcon={<ArrowRight className="w-4 h-4" />}
+                >
                   Continue
                 </Button>
               </motion.div>
@@ -237,7 +263,9 @@ const StudentOnboardingPage = () => {
                       <span className="text-sm text-surface-700 dark:text-surface-300">Direct Entry</span>
                     </label>
                   </div>
-                  {errors.admissionMode && <p className="text-xs text-danger-500 mt-1">{errors.admissionMode.message}</p>}
+                  {errors.admissionMode && (
+                    <p className="text-xs text-danger-500 mt-1">{errors.admissionMode.message}</p>
+                  )}
                 </div>
 
                 <Input
@@ -250,10 +278,21 @@ const StudentOnboardingPage = () => {
                 />
 
                 <div className="flex gap-4 mt-4">
-                  <Button type="button" variant="outline" className="flex-1" onClick={prevStep} leftIcon={<ArrowLeft className="w-4 h-4" />}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={prevStep}
+                    leftIcon={<ArrowLeft className="w-4 h-4" />}
+                  >
                     Back
                   </Button>
-                  <Button type="button" className="flex-1" onClick={nextStep} rightIcon={<ArrowRight className="w-4 h-4" />}>
+                  <Button
+                    type="button"
+                    className="flex-1"
+                    onClick={nextStep}
+                    rightIcon={<ArrowRight className="w-4 h-4" />}
+                  >
                     Continue
                   </Button>
                 </div>
@@ -282,7 +321,9 @@ const StudentOnboardingPage = () => {
                 />
 
                 <div className="border-t border-surface-200 dark:border-surface-700 pt-4">
-                  <h4 className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">Emergency Contact</h4>
+                  <h4 className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">
+                    Emergency Contact
+                  </h4>
 
                   <Input
                     label="Contact Name"
@@ -318,15 +359,28 @@ const StudentOnboardingPage = () => {
                   </div>
                   {errors.homeAddress && <p className="text-xs text-danger-500 mt-1">{errors.homeAddress.message}</p>}
                   {watchedValues.homeAddress && (
-                    <p className="text-xs text-surface-400 mt-1 text-right">{(watchedValues.homeAddress || '').length}/200</p>
+                    <p className="text-xs text-surface-400 mt-1 text-right">
+                      {(watchedValues.homeAddress || '').length}/200
+                    </p>
                   )}
                 </div>
 
                 <div className="flex gap-4 mt-4">
-                  <Button type="button" variant="outline" className="flex-1" onClick={prevStep} leftIcon={<ArrowLeft className="w-4 h-4" />}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={prevStep}
+                    leftIcon={<ArrowLeft className="w-4 h-4" />}
+                  >
                     Back
                   </Button>
-                  <Button type="button" className="flex-1" onClick={nextStep} rightIcon={<ArrowRight className="w-4 h-4" />}>
+                  <Button
+                    type="button"
+                    className="flex-1"
+                    onClick={nextStep}
+                    rightIcon={<ArrowRight className="w-4 h-4" />}
+                  >
                     Review
                   </Button>
                 </div>
@@ -356,7 +410,10 @@ const StudentOnboardingPage = () => {
                     )}
                     <div>
                       <p className="text-xs text-surface-400 font-medium">Date of Birth</p>
-                      <p className="text-surface-900 dark:text-white">{watchedValues.dateOfBirth || '—'} {watchedValues.dateOfBirth ? `(${getAge(watchedValues.dateOfBirth)})` : ''}</p>
+                      <p className="text-surface-900 dark:text-white">
+                        {watchedValues.dateOfBirth || '—'}{' '}
+                        {watchedValues.dateOfBirth ? `(${getAge(watchedValues.dateOfBirth)})` : ''}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs text-surface-400 font-medium">Admission Mode</p>
@@ -395,10 +452,21 @@ const StudentOnboardingPage = () => {
                 </div>
 
                 <div className="flex gap-4 mt-4">
-                  <Button type="button" variant="outline" className="flex-1" onClick={prevStep} leftIcon={<ArrowLeft className="w-4 h-4" />}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={prevStep}
+                    leftIcon={<ArrowLeft className="w-4 h-4" />}
+                  >
                     Back
                   </Button>
-                  <Button type="submit" className="flex-1" leftIcon={<CheckCircle className="w-4 h-4" />}>
+                  <Button
+                    type="submit"
+                    className="flex-1"
+                    leftIcon={<CheckCircle className="w-4 h-4" />}
+                    isLoading={submitting}
+                  >
                     Complete Setup
                   </Button>
                 </div>
