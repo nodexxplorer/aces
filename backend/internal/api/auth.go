@@ -83,9 +83,19 @@ type tokenPair struct {
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`
 	ExpiresAt    string `json:"expiresAt"`
+	// CsrfToken is echoed here in addition to the aces_csrf_token cookie set
+	// by setTokenCookies. The frontend and backend can live on unrelated
+	// domains (e.g. Vercel + Render), where document.cookie can never read a
+	// cookie set by a cross-origin response — so the frontend holds this
+	// value in memory instead and echoes it back as X-CSRF-Token. See
+	// middleware.CSRFProtect.
+	CsrfToken string `json:"csrfToken,omitempty"`
 }
 
-func (server *Server) setTokenCookies(ctx *gin.Context, pair *tokenPair) {
+// setTokenCookies sets the auth + CSRF cookies and returns the generated
+// CSRF token so callers can also echo it into the JSON response body — see
+// the CsrfToken field on tokenPair for why the body copy is needed.
+func (server *Server) setTokenCookies(ctx *gin.Context, pair *tokenPair) string {
 	secure := server.config.IsProduction() || ctx.GetHeader("X-Forwarded-Proto") == "https"
 
 	// SameSite=None cookies are silently dropped by browsers unless Secure is
@@ -100,11 +110,16 @@ func (server *Server) setTokenCookies(ctx *gin.Context, pair *tokenPair) {
 	ctx.SetCookie("aces_access_token", pair.AccessToken, int(server.config.JWTAccessDuration.Seconds()), "/", "", secure, true)
 	ctx.SetCookie("aces_refresh_token", pair.RefreshToken, int(server.config.JWTRefreshDuration.Seconds()), "/", "", secure, true)
 
-	// Non-httpOnly by design — the frontend must be able to read this and
-	// echo it back as the X-CSRF-Token header; see middleware.CSRFProtect.
-	if csrfToken, err := middleware.GenerateCSRFToken(); err == nil {
-		ctx.SetCookie(middleware.CSRFCookieName, csrfToken, int(server.config.JWTRefreshDuration.Seconds()), "/", "", secure, false)
+	// Non-httpOnly by design — same-origin deployments can read this and
+	// echo it back as the X-CSRF-Token header directly; see
+	// middleware.CSRFProtect. Cross-origin deployments can't read it (see
+	// tokenPair.CsrfToken), so it's also returned below for that case.
+	csrfToken, err := middleware.GenerateCSRFToken()
+	if err != nil {
+		return ""
 	}
+	ctx.SetCookie(middleware.CSRFCookieName, csrfToken, int(server.config.JWTRefreshDuration.Seconds()), "/", "", secure, false)
+	return csrfToken
 }
 
 func (server *Server) clearTokenCookies(ctx *gin.Context) {
@@ -272,7 +287,7 @@ func (server *Server) studentSignup(ctx *gin.Context) {
 		return
 	}
 
-	server.setTokenCookies(ctx, &resp.Tokens)
+	resp.Tokens.CsrfToken = server.setTokenCookies(ctx, &resp.Tokens)
 	_ = result.Student
 
 	// Welcome notification for new student
@@ -316,7 +331,7 @@ func (server *Server) lecturerSignup(ctx *gin.Context) {
 		return
 	}
 
-	server.setTokenCookies(ctx, &resp.Tokens)
+	resp.Tokens.CsrfToken = server.setTokenCookies(ctx, &resp.Tokens)
 	_ = result.Staff
 
 	// Welcome notification for new lecturer
@@ -400,7 +415,7 @@ func (server *Server) login(ctx *gin.Context) {
 		return
 	}
 
-	server.setTokenCookies(ctx, &resp.Tokens)
+	resp.Tokens.CsrfToken = server.setTokenCookies(ctx, &resp.Tokens)
 
 	// Fire-and-forget: notify the user of successful login
 	server.notifyUser(
@@ -583,6 +598,6 @@ func (server *Server) refreshToken(ctx *gin.Context) {
 		RefreshToken: pair.RefreshToken,
 		ExpiresAt:    pair.ExpiresAt,
 	}
-	server.setTokenCookies(ctx, &tokenResp)
+	tokenResp.CsrfToken = server.setTokenCookies(ctx, &tokenResp)
 	ctx.JSON(http.StatusOK, gin.H{"data": tokenResp})
 }

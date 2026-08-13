@@ -13,19 +13,24 @@ const apiClient = axios.create({
   withCredentials: true,
 });
 
-function readCookie(name: string): string | null {
-  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
-  return match ? decodeURIComponent(match[1]) : null;
+// Double-submit CSRF defense: login/signup/refresh return a csrfToken in
+// their JSON body (see tokenPair.CsrfToken on the backend) which we hold in
+// memory and echo back as X-CSRF-Token on state-changing requests. The
+// backend also sets this same value as a non-httpOnly cookie, but frontend
+// and backend live on unrelated domains (Vercel + Render) — document.cookie
+// can only ever see cookies set by the current page's own origin, never one
+// set by a cross-origin API response — so reading it from the cookie jar
+// would always come up empty. Holding the value from the response body
+// sidesteps that entirely.
+let csrfToken: string | null = null;
+
+export function setCsrfToken(token: string | null | undefined) {
+  csrfToken = token ?? null;
 }
 
-// Double-submit CSRF defense: the backend issues a non-httpOnly
-// aces_csrf_token cookie alongside the session cookies. A cross-site page
-// can make the browser send our cookies automatically, but it can't read
-// this one to copy into the header, so the backend rejects the forgery.
 apiClient.interceptors.request.use((config) => {
-  const token = readCookie('aces_csrf_token');
-  if (token) {
-    config.headers['X-CSRF-Token'] = token;
+  if (csrfToken) {
+    config.headers['X-CSRF-Token'] = csrfToken;
   }
   return config;
 });
@@ -66,7 +71,9 @@ function refreshAccessToken(): Promise<void> {
   if (!refreshPromise) {
     refreshPromise = axios
       .post(`${API_BASE_URL}${API_PREFIX}/auth/refresh`, {}, { withCredentials: true })
-      .then(() => undefined)
+      .then((response) => {
+        setCsrfToken(response.data?.data?.csrfToken);
+      })
       .finally(() => {
         refreshPromise = null;
       });
@@ -78,7 +85,18 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // The in-memory CSRF token (see setCsrfToken above) doesn't survive a
+    // page reload — only `user`/`isAuthenticated` are persisted, not
+    // `tokens` (see authStore's partialize) — even though the session
+    // cookie itself is still valid. The first mutating request after a
+    // reload then 403s with this exact message. Route it through the same
+    // refresh-and-retry path as an expired access token: refreshing also
+    // mints a fresh CSRF token, so the retried request succeeds without the
+    // user ever seeing the failure.
+    const csrfError =
+      error.response?.status === 403 &&
+      (error.response?.data?.error === 'missing csrf token' || error.response?.data?.error === 'invalid csrf token');
+    if ((error.response?.status === 401 || csrfError) && !originalRequest._retry) {
       const url = originalRequest.url || '';
       const isAuthEndpoint =
         url.includes('/auth/login') || url.includes('/auth/signup') || url.includes('/auth/refresh');
@@ -93,6 +111,7 @@ apiClient.interceptors.response.use(
           // /login and immediately bounces back to /dashboard, which fires
           // the same failing requests again: a redirect loop that never
           // reaches the login form.
+          setCsrfToken(null);
           useAuthStore.getState().logout();
           window.location.href = '/login';
         }

@@ -103,6 +103,7 @@ export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
   expiresAt: string;
+  csrfToken?: string;
 }
 
 export interface LoginPayload {
