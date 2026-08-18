@@ -78,7 +78,16 @@ func (s *NotificationServiceFull) CreateAndPush(
 				return
 			}
 
-			body := s.buildNotificationEmailHTML(notifTitle, notifMsg, notifActionURL, notifActionLabel)
+			unsubscribeToken, err := s.queries.GetOrCreateNotificationUnsubscribeToken(bgCtx, uID)
+			if err != nil {
+				log.Printf("[email-notif] failed to get unsubscribe token for %s: %v", user.Email, err)
+			}
+			unsubscribeURL := ""
+			if unsubscribeToken != "" {
+				unsubscribeURL = s.frontendURL + "/notifications/unsubscribe/" + unsubscribeToken
+			}
+
+			body := s.buildNotificationEmailHTML(notifTitle, notifMsg, notifActionURL, notifActionLabel, unsubscribeURL)
 
 			if err := s.emailSender.SendEmail([]string{user.Email}, notifTitle, body, true); err != nil {
 				log.Printf("[email-notif] failed to send email to %s: %v", user.Email, err)
@@ -94,7 +103,7 @@ func (s *NotificationServiceFull) CreateAndPush(
 // button when the notification carries an action link, and a footer. Built
 // as an HTML table layout (not flexbox/grid) because that's what renders
 // consistently across Gmail, Outlook, and other mail clients.
-func (s *NotificationServiceFull) buildNotificationEmailHTML(title, message, actionURL, actionLabel string) string {
+func (s *NotificationServiceFull) buildNotificationEmailHTML(title, message, actionURL, actionLabel, unsubscribeURL string) string {
 	logoURL := s.frontendURL + "/aces-logo.png"
 
 	resolvedActionURL := actionURL
@@ -121,6 +130,11 @@ func (s *NotificationServiceFull) buildNotificationEmailHTML(title, message, act
 
 	year := time.Now().Year()
 
+	unsubscribeBlock := ""
+	if unsubscribeURL != "" {
+		unsubscribeBlock = fmt.Sprintf(`<br /><a href="%s" target="_blank" rel="noopener noreferrer" style="color: #94a3b8; text-decoration: underline;">Unsubscribe from email notifications</a>`, html.EscapeString(unsubscribeURL))
+	}
+
 	return fmt.Sprintf(`
 <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="background-color: #eef2f6; padding: 32px 16px; font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
 	<tr>
@@ -143,14 +157,14 @@ func (s *NotificationServiceFull) buildNotificationEmailHTML(title, message, act
 					<td style="padding: 20px 40px 28px 40px; border-top: 1px solid #eef2f6;">
 						<p style="margin: 0; color: #94a3b8; font-size: 11px; line-height: 1.6; text-align: center;">
 							This is an automated message from ACES Zone. Please do not reply to this email.<br />
-							&copy; %d ACES Zone &mdash; Association of Computer Engineering Students, Uniuyo Chapter.
+							&copy; %d ACES Zone &mdash; Association of Computer Engineering Students, Uniuyo Chapter.%s
 						</p>
 					</td>
 				</tr>
 			</table>
 		</td>
 	</tr>
-</table>`, logoURL, html.EscapeString(title), html.EscapeString(message), ctaBlock, year)
+</table>`, logoURL, html.EscapeString(title), html.EscapeString(message), ctaBlock, year, unsubscribeBlock)
 }
 
 // categoryEmailAllowed checks the per-category email toggle for a notification

@@ -4,6 +4,7 @@ import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Tabs from '../../components/ui/Tabs';
 import { getTimetable, type ListTimetableParams } from '../../api/timetable';
+import CalendarSyncModal from '../../components/features/CalendarSyncModal';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
 import { Download, MapPin, User, Clock, BookOpen, GraduationCap, CalendarDays } from 'lucide-react';
@@ -61,14 +62,12 @@ const TimetablePage = () => {
               : 'Class lecture schedules and exam timetable'}
           </p>
         </div>
-        <Button
-          className="print:hidden"
-          variant="outline"
-          leftIcon={<Download className="w-4 h-4" />}
-          onClick={() => window.print()}
-        >
-          Print Schedule
-        </Button>
+        <div className="flex items-center gap-2 print:hidden">
+          <CalendarSyncModal />
+          <Button variant="outline" leftIcon={<Download className="w-4 h-4" />} onClick={() => window.print()}>
+            Print Schedule
+          </Button>
+        </div>
       </div>
 
       <Tabs

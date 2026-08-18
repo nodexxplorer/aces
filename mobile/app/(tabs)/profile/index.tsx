@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, StyleSheet, Pressable, Image } from 'react-native';
 import Text from '../../../src/components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import QRCode from 'react-native-qrcode-svg';
 import { useTheme } from '../../../src/theme/ThemeProvider';
@@ -17,6 +17,59 @@ import { WEB_ORIGIN, PROFILE_SCAN_PARAM } from '../../../src/config';
 
 function initials(firstName?: string, lastName?: string) {
   return `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`.toUpperCase() || '?';
+}
+
+// Mirrors frontend/src/utils/constants.ts's ROLE_LABELS — only the roles
+// reachable on mobile need an entry here.
+const ROLE_LABELS: Record<string, string> = {
+  student: 'Student',
+  class_rep: 'Class Rep',
+  class_bursar: 'Class Bursar',
+  dept_bursar: 'Dept Bursar',
+  project_coordinator: 'Project Coordinator',
+  event_coordinator: 'Event Coordinator',
+  alumni_rep: 'Alumni Representative',
+};
+
+function RoleSwitcher() {
+  const { theme } = useTheme();
+  const user = useAuthStore((s) => s.user);
+  const switchRole = useAuthStore((s) => s.switchRole);
+
+  if (!user || user.roles.length < 2) return null;
+
+  return (
+    <Card style={{ gap: spacing.sm }}>
+      <Text style={[styles.switcherLabel, { color: theme.textFaint }]}>ACTIVE ROLE</Text>
+      <View style={styles.switcherRow}>
+        {user.roles.map((role) => {
+          const active = role === user.activeRole;
+          return (
+            <Pressable
+              key={role}
+              onPress={() => {
+                if (!active) {
+                  haptics.select();
+                  switchRole(role);
+                }
+              }}
+              style={[
+                styles.roleChip,
+                {
+                  backgroundColor: active ? theme.primary : theme.primaryMuted,
+                  borderColor: active ? theme.primary : 'transparent',
+                },
+              ]}
+            >
+              <Text style={[styles.roleChipText, { color: active ? theme.onPrimary : theme.primary }]}>
+                {ROLE_LABELS[role] ?? role}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </Card>
+  );
 }
 
 function InfoRow({
@@ -106,6 +159,10 @@ export default function ProfileScreen() {
         </Card>
       </Animated.View>
 
+      <Animated.View entering={FadeInDown.duration(400).delay(15)}>
+        <RoleSwitcher />
+      </Animated.View>
+
       {user?.id && (
         <Animated.View entering={FadeInDown.duration(400).delay(30)}>
           <Card style={styles.qrCard}>
@@ -135,6 +192,28 @@ export default function ProfileScreen() {
 
       <Animated.View entering={FadeInDown.duration(400).delay(120)}>
         <Card padded={false}>
+          {user?.activeRole === 'class_rep' && (
+            <>
+              <MenuRow
+                icon="megaphone-outline"
+                label="Class Rep Tools"
+                tone="primary"
+                onPress={() => router.push('/class-rep' as Href)}
+              />
+              <View style={[styles.menuDivider, { backgroundColor: theme.divider }]} />
+            </>
+          )}
+          {(user?.activeRole === 'class_bursar' || user?.activeRole === 'dept_bursar') && (
+            <>
+              <MenuRow
+                icon="cash-outline"
+                label="Bursar Tools"
+                tone="primary"
+                onPress={() => router.push('/bursar' as Href)}
+              />
+              <View style={[styles.menuDivider, { backgroundColor: theme.divider }]} />
+            </>
+          )}
           <MenuRow icon="cash-outline" label="Payments & Dues" onPress={() => router.push('/profile/payments')} />
           <View style={[styles.menuDivider, { backgroundColor: theme.divider }]} />
           <MenuRow icon="create-outline" label="Edit Profile" onPress={() => router.push('/profile/edit')} />
@@ -210,6 +289,26 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     textAlign: 'center',
     paddingHorizontal: spacing.lg,
+  },
+  switcherLabel: {
+    fontFamily: fontFamily.semibold,
+    fontSize: 10,
+    letterSpacing: 0.5,
+  },
+  switcherRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  roleChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.full,
+    borderWidth: 1,
+  },
+  roleChipText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
   },
   infoRow: {
     flexDirection: 'row',

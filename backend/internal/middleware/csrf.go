@@ -28,14 +28,25 @@ func GenerateCSRFToken() (string, error) {
 }
 
 // csrfExemptPaths are endpoints reachable before a session cookie exists
-// (login/signup), or that only rotate tokens rather than mutate user data
-// (refresh) — excluded so a not-yet-issued or stale CSRF cookie can't lock
-// a legitimate client out of authenticating in the first place.
+// (login/signup), that only rotate tokens rather than mutate user data
+// (refresh), or that act on an email address supplied in the request body
+// rather than an authenticated session (the forgot-password flow) —
+// excluded so a not-yet-issued or stale CSRF cookie can't lock a legitimate
+// client out. This isn't just a login-page concern: a still-logged-in
+// browser whose CSRF cookie happened to get cleared (independently of its
+// still-valid access-token cookie) would otherwise 403 with "missing csrf
+// token" the moment it tried any of these, same as it would trying to
+// log out — but unlike logout, none of these three touch an authenticated
+// user's own protected state, so CSRF protection doesn't apply to them in
+// the first place.
 var csrfExemptPaths = map[string]bool{
 	"/api/v1/auth/login":           true,
 	"/api/v1/auth/signup/student":  true,
 	"/api/v1/auth/signup/lecturer": true,
 	"/api/v1/auth/refresh":         true,
+	"/api/v1/auth/request-otp":     true,
+	"/api/v1/auth/verify-otp":      true,
+	"/api/v1/auth/reset-with-otp":  true,
 }
 
 // CSRFProtect implements double-submit-cookie CSRF defense: any cookie-

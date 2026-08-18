@@ -35,9 +35,19 @@ type geminiContent struct {
 	Parts []geminiPart `json:"parts"`
 }
 
+// geminiThinkingConfig disables Gemini 2.5's default "thinking" pass for
+// requests where it's pure overhead — its invisible reasoning tokens count
+// against MaxOutputTokens, and for a short one-shot task like the birthday
+// message below, thinking consumed the entire budget before any visible
+// output, truncating the reply to a couple of words every time.
+type geminiThinkingConfig struct {
+	ThinkingBudget int `json:"thinkingBudget"`
+}
+
 type geminiGenerationConfig struct {
-	Temperature     float64 `json:"temperature,omitempty"`
-	MaxOutputTokens int     `json:"maxOutputTokens,omitempty"`
+	Temperature     float64               `json:"temperature,omitempty"`
+	MaxOutputTokens int                   `json:"maxOutputTokens,omitempty"`
+	ThinkingConfig  *geminiThinkingConfig `json:"thinkingConfig,omitempty"`
 }
 
 type geminiRequest struct {
@@ -51,6 +61,7 @@ type geminiResponse struct {
 		Content struct {
 			Parts []geminiPart `json:"parts"`
 		} `json:"content"`
+		FinishReason string `json:"finishReason"`
 	} `json:"candidates"`
 	Error *struct {
 		Message string `json:"message"`
@@ -463,6 +474,174 @@ Rules:
 		Confidence: 0.85,
 		ModelUsed:  fmt.Sprintf("llm_%s", s.config.GeminiModel),
 	}
+}
+
+// GenerateBirthdayMessage asks Gemini for a one-off, warm birthday message
+// for a named student — a single-shot call with no chat history/session,
+// unlike handleWithLLM. Returns ok=false (never an error) whenever a
+// message can't be produced for any reason — no API key configured, a
+// failed/timed-out request, or an empty reply — so the caller can silently
+// fall back to a static message; a birthday greeting should never fail to
+// send just because the LLM had a bad moment.
+func (s *AIService) GenerateBirthdayMessage(ctx context.Context, firstName string) (string, bool) {
+	if s.config.GeminiApiKey == "" {
+		return "", false
+	}
+
+	prompt := fmt.Sprintf(
+		"Write one short, warm, upbeat birthday message (1-2 sentences, under 220 characters) for a university student named %s, from their department's ACES Zone platform. Vary the wording and tone each time you're asked this — don't fall back to a generic template. No hashtags. You may use up to one emoji. Reply with ONLY the message text, nothing else.",
+		firstName,
+	)
+
+	payload := geminiRequest{
+		Contents: []geminiContent{{Role: "user", Parts: []geminiPart{{Text: prompt}}}},
+		GenerationConfig: &geminiGenerationConfig{
+			Temperature:     1.0,
+			MaxOutputTokens: 120,
+			ThinkingConfig:  &geminiThinkingConfig{ThinkingBudget: 0},
+		},
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return "", false
+	}
+
+	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", s.config.GeminiModel, s.config.GeminiApiKey)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		return "", false
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return "", false
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", false
+	}
+
+	var chatResp geminiResponse
+	if err := json.Unmarshal(respBody, &chatResp); err != nil {
+		return "", false
+	}
+	if resp.StatusCode != http.StatusOK {
+		if chatResp.Error != nil {
+			log.Printf("[ai-service] birthday message generation failed (%d): %s", resp.StatusCode, chatResp.Error.Message)
+		}
+		return "", false
+	}
+	if len(chatResp.Candidates) == 0 || len(chatResp.Candidates[0].Content.Parts) == 0 {
+		return "", false
+	}
+	// MAX_TOKENS means the reply got cut off mid-sentence (this is exactly
+	// how the thinking-budget issue above first surfaced — a truncated
+	// two-word reply). A birthday message that stops halfway looks broken,
+	// so treat anything but a clean STOP as a failure and fall back.
+	if reason := chatResp.Candidates[0].FinishReason; reason != "" && reason != "STOP" {
+		log.Printf("[ai-service] birthday message generation stopped early (%s), falling back", reason)
+		return "", false
+	}
+
+	reply := strings.TrimSpace(chatResp.Candidates[0].Content.Parts[0].Text)
+	if len(reply) < 15 {
+		return "", false
+	}
+	return reply, true
+}
+
+// GenerateStudyPlan asks Gemini for a proactive week-by-week study
+// schedule from a student's actual courses and upcoming task due dates —
+// distinct from the reactive Q&A chatbot above. Same failure posture as
+// GenerateBirthdayMessage: no API key, a non-STOP finish reason (cut off
+// mid-plan), or a suspiciously short reply all return ok=false rather than
+// showing a broken partial plan.
+func (s *AIService) GenerateStudyPlan(ctx context.Context, courses []string, tasks []string) (string, bool) {
+	if s.config.GeminiApiKey == "" {
+		return "", false
+	}
+
+	coursesText := "(none registered this semester)"
+	if len(courses) > 0 {
+		coursesText = strings.Join(courses, "\n")
+	}
+	tasksText := "(no tasks logged yet)"
+	if len(tasks) > 0 {
+		tasksText = strings.Join(tasks, "\n")
+	}
+
+	prompt := fmt.Sprintf(
+		`You are helping a university student plan their studying. Here is their current semester:
+
+Registered courses:
+%s
+
+Upcoming tasks/deadlines (title and due date):
+%s
+
+Write a realistic, encouraging week-by-week study plan covering the next 2-3 weeks that balances all the courses above and prioritizes the listed deadlines. Use short markdown headings per week and brief bullet points under each — no long paragraphs. Keep the whole plan under 350 words. Reply with ONLY the plan itself, no preamble like "Here is your plan".`,
+		coursesText, tasksText,
+	)
+
+	payload := geminiRequest{
+		Contents: []geminiContent{{Role: "user", Parts: []geminiPart{{Text: prompt}}}},
+		GenerationConfig: &geminiGenerationConfig{
+			Temperature:     0.8,
+			MaxOutputTokens: 700,
+			ThinkingConfig:  &geminiThinkingConfig{ThinkingBudget: 0},
+		},
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return "", false
+	}
+
+	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", s.config.GeminiModel, s.config.GeminiApiKey)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		return "", false
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return "", false
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", false
+	}
+
+	var chatResp geminiResponse
+	if err := json.Unmarshal(respBody, &chatResp); err != nil {
+		return "", false
+	}
+	if resp.StatusCode != http.StatusOK {
+		if chatResp.Error != nil {
+			log.Printf("[ai-service] study plan generation failed (%d): %s", resp.StatusCode, chatResp.Error.Message)
+		}
+		return "", false
+	}
+	if len(chatResp.Candidates) == 0 || len(chatResp.Candidates[0].Content.Parts) == 0 {
+		return "", false
+	}
+	if reason := chatResp.Candidates[0].FinishReason; reason != "" && reason != "STOP" {
+		log.Printf("[ai-service] study plan generation stopped early (%s), falling back", reason)
+		return "", false
+	}
+
+	reply := strings.TrimSpace(chatResp.Candidates[0].Content.Parts[0].Text)
+	if len(reply) < 40 {
+		return "", false
+	}
+	return reply, true
 }
 
 func (s *AIService) Feedback(ctx context.Context, userID, interactionID uuid.UUID, feedback string, accurate *bool) error {

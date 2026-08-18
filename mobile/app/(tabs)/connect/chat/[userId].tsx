@@ -16,6 +16,7 @@ import { useTheme } from '../../../../src/theme/ThemeProvider';
 import { fontFamily, fontSize, radius, spacing } from '../../../../src/theme/typography';
 import { haptics } from '../../../../src/utils/haptics';
 import { useAuthStore } from '../../../../src/store/authStore';
+import { useUnreadStore } from '../../../../src/store/unreadStore';
 import { useWebSocket, getChatSocketUrl } from '../../../../src/hooks/useWebSocket';
 import { getConversation, sendChatMessage, markMessageRead, type ChatMessage } from '../../../../src/api/connect';
 
@@ -56,10 +57,12 @@ export default function ChatScreen() {
     try {
       const data = await getConversation(userId);
       setMessages(data);
-      for (const msg of data) {
-        if (!msg.is_read && msg.sender_id === userId) {
-          markMessageRead(msg.id).catch(() => {});
-        }
+      const unreadFromThem = data.filter((msg) => !msg.is_read && msg.sender_id === userId);
+      for (const msg of unreadFromThem) {
+        markMessageRead(msg.id).catch(() => {});
+      }
+      if (unreadFromThem.length > 0) {
+        useUnreadStore.getState().decrement(unreadFromThem.length);
       }
     } finally {
       setLoading(false);

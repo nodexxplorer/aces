@@ -20,6 +20,25 @@ import {
   type ClassNotice,
   type NoticeComment,
 } from '../../src/api/communication';
+import { listDepartmentalEvents, type CalendarEvent } from '../../src/api/calendar';
+
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  academic: 'Academic',
+  social: 'Social',
+  deadline: 'Deadline',
+  holiday: 'Holiday',
+  exam: 'Exam',
+  meeting: 'Meeting',
+  other: 'Other',
+};
+
+function formatEventDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-NG', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+function formatEventTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('en-NG', { hour: 'numeric', minute: '2-digit' });
+}
 
 function timeAgo(iso: string) {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -33,10 +52,11 @@ function timeAgo(iso: string) {
 
 export default function CommunicationScreen() {
   const { theme } = useTheme();
-  const [tab, setTab] = useState<'notifications' | 'announcements' | 'notices'>('notifications');
+  const [tab, setTab] = useState<'notifications' | 'announcements' | 'notices' | 'calendar'>('notifications');
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [announcements, setAnnouncements] = useState<AnnouncementFeedItem[]>([]);
   const [notices, setNotices] = useState<ClassNotice[]>([]);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -47,14 +67,20 @@ export default function CommunicationScreen() {
   const [submittingComment, setSubmittingComment] = useState(false);
 
   const fetchAll = useCallback(async () => {
-    const [notifs, ann, notic] = await Promise.allSettled([
+    const [notifs, ann, notic, evts] = await Promise.allSettled([
       listMyNotifications(),
       listAnnouncementsFeed(),
       listClassNotices(),
+      listDepartmentalEvents(new Date().toISOString()),
     ]);
     if (notifs.status === 'fulfilled') setNotifications(notifs.value);
     if (ann.status === 'fulfilled') setAnnouncements(ann.value);
     if (notic.status === 'fulfilled') setNotices(notic.value);
+    if (evts.status === 'fulfilled') {
+      setEvents(
+        [...evts.value].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()),
+      );
+    }
   }, []);
 
   useEffect(() => {
@@ -113,7 +139,7 @@ export default function CommunicationScreen() {
       <Text style={[styles.header, { color: theme.text }]}>Communication</Text>
 
       <View style={[styles.tabRow, { borderColor: theme.divider }]}>
-        {(['notifications', 'announcements', 'notices'] as const).map((t) => (
+        {(['notifications', 'announcements', 'notices', 'calendar'] as const).map((t) => (
           <Text
             key={t}
             onPress={() => setTab(t)}
@@ -123,7 +149,13 @@ export default function CommunicationScreen() {
               tab === t && { borderBottomColor: theme.primary, borderBottomWidth: 2 },
             ]}
           >
-            {t === 'notifications' ? 'Notifications' : t === 'announcements' ? 'Announcements' : 'Notice Board'}
+            {t === 'notifications'
+              ? 'Notifications'
+              : t === 'announcements'
+                ? 'Announcements'
+                : t === 'notices'
+                  ? 'Notice Board'
+                  : 'Calendar'}
           </Text>
         ))}
       </View>
@@ -208,7 +240,7 @@ export default function CommunicationScreen() {
             </Animated.View>
           )}
         />
-      ) : (
+      ) : tab === 'notices' ? (
         <View style={{ gap: spacing.lg }}>
           {!loading && notices.length === 0 && (
             <Card>
@@ -240,6 +272,57 @@ export default function CommunicationScreen() {
             </View>
           )}
         </View>
+      ) : (
+        <FlatList
+          data={events}
+          scrollEnabled={false}
+          keyExtractor={(e) => e.id}
+          ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+          ListEmptyComponent={
+            !loading ? (
+              <Card>
+                <Text style={{ color: theme.textMuted, fontFamily: fontFamily.regular, fontSize: fontSize.sm }}>
+                  No upcoming events.
+                </Text>
+              </Card>
+            ) : null
+          }
+          renderItem={({ item, index }) => (
+            <Animated.View entering={FadeInDown.duration(350).delay(index * 40)}>
+              <Card style={[styles.eventCard, { borderLeftColor: item.color || theme.primary }]}>
+                <View style={styles.announcementHeader}>
+                  <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                  <Badge label={EVENT_TYPE_LABELS[item.event_type] ?? item.event_type} tone="neutral" />
+                </View>
+                {item.description ? (
+                  <Text style={[styles.itemBody, { color: theme.textMuted }]} numberOfLines={2}>
+                    {item.description}
+                  </Text>
+                ) : null}
+                <View style={styles.noticeMetaRow}>
+                  <View style={styles.noticeMetaItem}>
+                    <Ionicons name="calendar-outline" size={12} color={theme.textFaint} />
+                    <Text style={[styles.itemMeta, { color: theme.textFaint }]}>{formatEventDate(item.start_time)}</Text>
+                  </View>
+                  {!item.is_all_day && (
+                    <View style={styles.noticeMetaItem}>
+                      <Ionicons name="time-outline" size={12} color={theme.textFaint} />
+                      <Text style={[styles.itemMeta, { color: theme.textFaint }]}>{formatEventTime(item.start_time)}</Text>
+                    </View>
+                  )}
+                  {item.venue ? (
+                    <View style={styles.noticeMetaItem}>
+                      <Ionicons name="location-outline" size={12} color={theme.textFaint} />
+                      <Text style={[styles.itemMeta, { color: theme.textFaint }]}>{item.venue}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              </Card>
+            </Animated.View>
+          )}
+        />
       )}
     </Screen>
   );
@@ -431,6 +514,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  eventCard: {
+    borderLeftWidth: 3,
   },
   announcementFooter: {
     flexDirection: 'row',

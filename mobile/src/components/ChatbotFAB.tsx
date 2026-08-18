@@ -154,7 +154,7 @@ export default function ChatbotFAB() {
       </Animated.View>
 
       <Modal visible={open} animationType="slide" onRequestClose={() => setOpen(false)}>
-        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={[styles.flex, { backgroundColor: theme.background }]}>
             <View style={[styles.header, { paddingTop: insets.top + spacing.sm, backgroundColor: theme.primary }]}>
               <View style={styles.headerLeft}>
@@ -266,7 +266,8 @@ export default function ChatbotFAB() {
                 placeholder="Ask me anything..."
                 placeholderTextColor={theme.textFaint}
                 style={[styles.input, { backgroundColor: theme.card, borderColor: theme.cardBorder, color: theme.text }]}
-                onSubmitEditing={() => send(input)}
+                multiline
+                textAlignVertical="top"
               />
               <Pressable
                 onPress={() => send(input)}
@@ -435,8 +436,9 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
+    maxHeight: 100,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.full,
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     fontFamily: fontFamily.regular,

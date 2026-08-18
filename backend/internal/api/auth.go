@@ -43,35 +43,35 @@ type refreshRequest struct {
 }
 
 type userResponse struct {
-	ID                  string   `json:"id"`
-	Email               string   `json:"email"`
-	FirstName           string   `json:"firstName"`
-	LastName            string   `json:"lastName"`
-	FullName            string   `json:"fullName"`
-	MiddleName          *string  `json:"middleName,omitempty"`
-	Phone               *string  `json:"phone,omitempty"`
-	Avatar              *string  `json:"avatar,omitempty"`
-	Roles               []string `json:"roles"`
-	ActiveRole          string   `json:"activeRole"`
-	Role                string   `json:"role"`
-	IsApproved          bool     `json:"isApproved"`
-	IsActive            bool     `json:"isActive"`
-	ApprovalStatus      string   `json:"approvalStatus"`
-	OnboardingCompleted bool     `json:"onboardingCompleted"`
-	CreatedAt           string   `json:"createdAt"`
-	UpdatedAt           string   `json:"updatedAt,omitempty"`
-	MatricNumber     *string `json:"matricNumber,omitempty"`
-	Level            *int    `json:"level,omitempty"`
-	EntryYear        *int32  `json:"entryYear,omitempty"`
-	AdmissionMode    *string `json:"admissionMode,omitempty"`
-	YearAdmitted     *int32  `json:"yearAdmitted,omitempty"`
-	CGPA             *float64 `json:"cgpa,omitempty"`
-	AcademicStanding *string `json:"academicStanding,omitempty"`
-	DateOfBirth          *string `json:"dateOfBirth,omitempty"`
-	EmergencyContactName *string `json:"emergencyContactName,omitempty"`
-	EmergencyContactPhone *string `json:"emergencyContactPhone,omitempty"`
-	HomeAddress          *string `json:"homeAddress,omitempty"`
-	AllRoles          []string `json:"allRoles,omitempty"`
+	ID                    string   `json:"id"`
+	Email                 string   `json:"email"`
+	FirstName             string   `json:"firstName"`
+	LastName              string   `json:"lastName"`
+	FullName              string   `json:"fullName"`
+	MiddleName            *string  `json:"middleName,omitempty"`
+	Phone                 *string  `json:"phone,omitempty"`
+	Avatar                *string  `json:"avatar,omitempty"`
+	Roles                 []string `json:"roles"`
+	ActiveRole            string   `json:"activeRole"`
+	Role                  string   `json:"role"`
+	IsApproved            bool     `json:"isApproved"`
+	IsActive              bool     `json:"isActive"`
+	ApprovalStatus        string   `json:"approvalStatus"`
+	OnboardingCompleted   bool     `json:"onboardingCompleted"`
+	CreatedAt             string   `json:"createdAt"`
+	UpdatedAt             string   `json:"updatedAt,omitempty"`
+	MatricNumber          *string  `json:"matricNumber,omitempty"`
+	Level                 *int     `json:"level,omitempty"`
+	EntryYear             *int32   `json:"entryYear,omitempty"`
+	AdmissionMode         *string  `json:"admissionMode,omitempty"`
+	YearAdmitted          *int32   `json:"yearAdmitted,omitempty"`
+	CGPA                  *float64 `json:"cgpa,omitempty"`
+	AcademicStanding      *string  `json:"academicStanding,omitempty"`
+	DateOfBirth           *string  `json:"dateOfBirth,omitempty"`
+	EmergencyContactName  *string  `json:"emergencyContactName,omitempty"`
+	EmergencyContactPhone *string  `json:"emergencyContactPhone,omitempty"`
+	HomeAddress           *string  `json:"homeAddress,omitempty"`
+	AllRoles              []string `json:"allRoles,omitempty"`
 }
 
 type authResponse struct {
@@ -155,6 +155,34 @@ func (server *Server) getRefreshTokenFromRequest(ctx *gin.Context) string {
 	return ""
 }
 
+// mobileBlockedRoles are roles that must never authenticate through the
+// mobile app — it's built for students and their delegated student duties
+// (class_rep, bursar, etc.), not staff. roleNames arrives here as raw DB
+// enum values (see the comment on generateAuthResponse for why the JWT
+// deliberately isn't normalized), so this checks the raw forms too.
+var mobileBlockedRoles = map[string]bool{
+	"lecturer": true,
+	"hod":      true,
+	"admin":    true,
+}
+
+// isMobileClient reports whether the caller is the mobile app, which
+// identifies itself with this header on every request (see
+// mobile/src/api/client.ts) — the web app never sends it, so a lecturer/
+// hod/admin can still sign in there as usual.
+func isMobileClient(ctx *gin.Context) bool {
+	return ctx.GetHeader("X-Client-Platform") == "mobile"
+}
+
+func hasBlockedMobileRole(roleNames []string) bool {
+	for _, r := range roleNames {
+		if mobileBlockedRoles[r] {
+			return true
+		}
+	}
+	return false
+}
+
 func normalizeRoleName(role string) string {
 	if role == "admin" {
 		return "delegated_admin"
@@ -223,6 +251,15 @@ func (server *Server) generateAuthResponse(ctx *gin.Context, u db.User, onboardi
 	if len(allRoles) == 0 {
 		allRoles = []string{string(u.Role)}
 	}
+	// The JWT intentionally carries the raw DB enum role names ("bursar_dept",
+	// "admin"), not the normalized display forms ("dept_bursar",
+	// "delegated_admin") — every middleware.RequireRoles(...) gate in
+	// server.go (34+ call sites) checks against the raw names exclusively, so
+	// minting the token with normalized names would silently break every one
+	// of those routes for bursar_dept/bursar_class/admin users. Where a
+	// normalized form genuinely needs checking (e.g. isStaffRole in
+	// payment.go), fix that check site to accept both forms instead of
+	// changing what the token carries.
 	pair, err := server.tokenManager.GeneratePair(u.ID, string(u.Role), u.Email, allRoles)
 	if err != nil {
 		return nil, err
@@ -309,6 +346,11 @@ func (server *Server) studentSignup(ctx *gin.Context) {
 }
 
 func (server *Server) lecturerSignup(ctx *gin.Context) {
+	if isMobileClient(ctx) {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "The ACES Zone mobile app is for students and class representatives. Please sign up on the website instead."})
+		return
+	}
+
 	var req lecturerSignupRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
@@ -407,6 +449,11 @@ func (server *Server) login(ctx *gin.Context) {
 	roleNames, _ := server.roles.ListUserRolesByName(ctx, user.ID)
 	if len(roleNames) == 0 {
 		roleNames = []string{string(user.Role)}
+	}
+
+	if isMobileClient(ctx) && hasBlockedMobileRole(roleNames) {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "The ACES Zone mobile app is for students and class representatives. Please sign in on the website instead."})
+		return
 	}
 
 	resp, err := server.generateAuthResponse(ctx, *user, onboardingCompleted, roleNames)
@@ -581,6 +628,16 @@ func (server *Server) refreshToken(ctx *gin.Context) {
 		roleNames = []string{string(user.Role)}
 	}
 
+	// A lecturer/hod/admin session that existed before this check was added
+	// (or was somehow issued another way) shouldn't be able to keep itself
+	// alive via refresh either — same rule as login.
+	if isMobileClient(ctx) && hasBlockedMobileRole(roleNames) {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "The ACES Zone mobile app is for students and class representatives. Please sign in on the website instead."})
+		return
+	}
+
+	// Raw DB enum role names, matching login — see the comment in
+	// generateAuthResponse for why these must NOT be normalized here.
 	pair, err := server.tokenManager.GeneratePair(user.ID, string(user.Role), user.Email, roleNames)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate tokens"})

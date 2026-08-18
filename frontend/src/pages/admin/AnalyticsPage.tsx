@@ -2,19 +2,46 @@ import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { useNotification } from '../../hooks/useNotification';
+import { getAnalyticsOverview, getRecentActivity, type AnalyticsOverview } from '../../api/analytics';
+import { generateReport, listReports, type GeneratedReport, type ReportType } from '../../api/reports';
+import apiClient from '../../api/client';
 import {
-  getAnalyticsOverview,
-  getRecentActivity,
-  type AnalyticsOverview,
-} from '../../api/analytics';
-import {
-  TrendingUp, Users, BookOpen, MessageSquare, DollarSign, FileText,
-  Loader2, RefreshCw, AlertTriangle, BarChart3, Activity, ShieldCheck,
+  TrendingUp,
+  Users,
+  BookOpen,
+  MessageSquare,
+  DollarSign,
+  FileText,
+  Loader2,
+  RefreshCw,
+  AlertTriangle,
+  BarChart3,
+  Activity,
+  ShieldCheck,
+  Download,
 } from 'lucide-react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
 } from 'recharts';
+
+const reportTypeLabels: Record<ReportType, string> = {
+  grade_distribution: 'Grade Distribution',
+  revenue_forecast: 'Revenue Forecast',
+  at_risk_students: 'At-Risk Students',
+};
+
+// /uploads is a static file mount on the bare server, not under /api/v1 —
+// strip the prefix apiClient's baseURL carries.
+const uploadsBase = (apiClient.defaults.baseURL || '').replace(/\/api\/v1\/?$/, '');
 
 type RecentActivityItem = {
   id?: string | number;
@@ -24,33 +51,58 @@ type RecentActivityItem = {
 
 const PIE_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
 
+const reportTypes: ReportType[] = ['grade_distribution', 'revenue_forecast', 'at_risk_students'];
+
 const AnalyticsPage = () => {
-  useNotification();
+  const { success, error: notifyError } = useNotification();
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
   const [recentActivity, setRecentActivity] = useState<RecentActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [analyticsError, setAnalyticsError] = useState(false);
 
+  const [reports, setReports] = useState<GeneratedReport[]>([]);
+  const [reportsLoading, setReportsLoading] = useState(true);
+  const [generating, setGenerating] = useState<ReportType | null>(null);
+
   useEffect(() => {
     fetchData();
+    fetchReports();
   }, []);
+
+  const fetchReports = () => {
+    setReportsLoading(true);
+    listReports()
+      .then((data) => setReports(Array.isArray(data) ? data : []))
+      .catch(() => setReports([]))
+      .finally(() => setReportsLoading(false));
+  };
+
+  const handleGenerate = async (type: ReportType) => {
+    setGenerating(type);
+    try {
+      await generateReport(type);
+      success('Report Generated', `${reportTypeLabels[type]} report is ready to download`);
+      fetchReports();
+    } catch {
+      notifyError('Generation Failed', `Could not generate the ${reportTypeLabels[type]} report`);
+    } finally {
+      setGenerating(null);
+    }
+  };
 
   const fetchData = async () => {
     try {
       setLoading(true);
       setAnalyticsError(false);
-      const [ov, act] = await Promise.allSettled([
-        getAnalyticsOverview(),
-        getRecentActivity(),
-      ]);
+      const [ov, act] = await Promise.allSettled([getAnalyticsOverview(), getRecentActivity()]);
       if (ov.status === 'fulfilled') setOverview(ov.value);
       else setAnalyticsError(true);
       if (act.status === 'fulfilled') {
         const items = act.value as unknown;
         setRecentActivity(
           Array.isArray(items)
-            ? items as RecentActivityItem[]
-            : (items as { items?: RecentActivityItem[] })?.items || []
+            ? (items as RecentActivityItem[])
+            : (items as { items?: RecentActivityItem[] })?.items || [],
         );
       }
     } catch {
@@ -60,16 +112,60 @@ const AnalyticsPage = () => {
     }
   };
 
-  const kpiCards = overview ? [
-    { label: 'Students', value: overview.total_students, icon: Users, color: 'text-primary-600', bg: 'bg-primary-50' },
-    { label: 'Courses', value: overview.total_courses, icon: BookOpen, color: 'text-success-600', bg: 'bg-success-50' },
-    { label: 'Revenue', value: `₦${overview.total_revenue.toLocaleString()}`, icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { label: 'Active Complaints', value: overview.open_complaints, icon: MessageSquare, color: 'text-warning-600', bg: 'bg-warning-50' },
-    { label: 'Results', value: overview.total_results, icon: FileText, color: 'text-info-600', bg: 'bg-info-50' },
-    { label: 'Pending Payments', value: overview.pending_payments, icon: AlertTriangle, color: 'text-danger-600', bg: 'bg-danger-50' },
-    { label: 'Active Users', value: overview.active_users, icon: ShieldCheck, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-    { label: 'Backups', value: overview.total_backups, icon: Activity, color: 'text-purple-600', bg: 'bg-purple-50' },
-  ] : [];
+  const kpiCards = overview
+    ? [
+        {
+          label: 'Students',
+          value: overview.total_students,
+          icon: Users,
+          color: 'text-primary-600',
+          bg: 'bg-primary-50',
+        },
+        {
+          label: 'Courses',
+          value: overview.total_courses,
+          icon: BookOpen,
+          color: 'text-success-600',
+          bg: 'bg-success-50',
+        },
+        {
+          label: 'Revenue',
+          value: `₦${overview.total_revenue.toLocaleString()}`,
+          icon: DollarSign,
+          color: 'text-emerald-600',
+          bg: 'bg-emerald-50',
+        },
+        {
+          label: 'Active Complaints',
+          value: overview.open_complaints,
+          icon: MessageSquare,
+          color: 'text-warning-600',
+          bg: 'bg-warning-50',
+        },
+        { label: 'Results', value: overview.total_results, icon: FileText, color: 'text-info-600', bg: 'bg-info-50' },
+        {
+          label: 'Pending Payments',
+          value: overview.pending_payments,
+          icon: AlertTriangle,
+          color: 'text-danger-600',
+          bg: 'bg-danger-50',
+        },
+        {
+          label: 'Active Users',
+          value: overview.active_users,
+          icon: ShieldCheck,
+          color: 'text-indigo-600',
+          bg: 'bg-indigo-50',
+        },
+        {
+          label: 'Backups',
+          value: overview.total_backups,
+          icon: Activity,
+          color: 'text-purple-600',
+          bg: 'bg-purple-50',
+        },
+      ]
+    : [];
 
   return (
     <div className="space-y-6">
@@ -85,6 +181,68 @@ const AnalyticsPage = () => {
         </Button>
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="w-5 h-5 text-primary-500" />
+            Exportable Reports
+          </CardTitle>
+          <CardDescription>Generate a PDF snapshot of a report type, or re-download a past one</CardDescription>
+        </CardHeader>
+        <div className="p-4 pt-0 space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {reportTypes.map((type) => (
+              <Button
+                key={type}
+                size="sm"
+                variant="outline"
+                isLoading={generating === type}
+                disabled={generating !== null}
+                onClick={() => handleGenerate(type)}
+              >
+                Generate {reportTypeLabels[type]}
+              </Button>
+            ))}
+          </div>
+
+          {reportsLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="w-5 h-5 animate-spin text-primary-500" />
+            </div>
+          ) : reports.length === 0 ? (
+            <p className="text-sm text-surface-400 text-center py-4">No reports generated yet</p>
+          ) : (
+            <div className="space-y-2">
+              {reports.map((r) => (
+                <div
+                  key={r.id}
+                  className="flex items-center justify-between gap-3 p-3 rounded-lg border border-surface-150 dark:border-surface-700"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-surface-800 dark:text-surface-200 truncate">{r.title}</p>
+                    <p className="text-[11px] text-surface-500">
+                      {new Date(r.created_at).toLocaleString()} · {r.row_count} rows · {r.status}
+                    </p>
+                  </div>
+                  {r.status === 'completed' && r.file_url && (
+                    <a
+                      href={`${uploadsBase}/uploads/${r.file_url}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="shrink-0"
+                    >
+                      <Button size="sm" variant="outline" leftIcon={<Download className="w-3.5 h-3.5" />}>
+                        Download
+                      </Button>
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Card>
+
       {loading ? (
         <div className="flex items-center justify-center p-12">
           <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
@@ -93,8 +251,12 @@ const AnalyticsPage = () => {
       ) : analyticsError ? (
         <Card className="p-8 text-center">
           <AlertTriangle className="w-12 h-12 mx-auto text-warning-400 mb-3" />
-          <p className="text-sm text-surface-600 dark:text-surface-400">Failed to load analytics. The database may be unavailable.</p>
-          <Button variant="outline" className="mt-4" leftIcon={<RefreshCw className="w-4 h-4" />} onClick={fetchData}>Retry</Button>
+          <p className="text-sm text-surface-600 dark:text-surface-400">
+            Failed to load analytics. The database may be unavailable.
+          </p>
+          <Button variant="outline" className="mt-4" leftIcon={<RefreshCw className="w-4 h-4" />} onClick={fetchData}>
+            Retry
+          </Button>
         </Card>
       ) : (
         <>
@@ -193,8 +355,12 @@ const AnalyticsPage = () => {
                       return (
                         <div key={cs.status}>
                           <div className="flex justify-between text-sm mb-1">
-                            <span className="capitalize font-medium text-surface-700 dark:text-surface-300">{cs.status.replace('_', ' ')}</span>
-                            <span className="text-surface-500">{cs.count} ({pct}%)</span>
+                            <span className="capitalize font-medium text-surface-700 dark:text-surface-300">
+                              {cs.status.replace('_', ' ')}
+                            </span>
+                            <span className="text-surface-500">
+                              {cs.count} ({pct}%)
+                            </span>
                           </div>
                           <div className="w-full h-2 rounded-full bg-surface-100 dark:bg-surface-800">
                             <div

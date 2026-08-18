@@ -26,7 +26,7 @@ type createDueRequest struct {
 	Level       *int32  `json:"level"`
 	SessionID   *string `json:"session_id"   binding:"omitempty,uuid"`
 	SemesterID  *string `json:"semester_id"  binding:"omitempty,uuid"`
-	Deadline    *string `json:"deadline"`    // RFC3339
+	Deadline    *string `json:"deadline"` // RFC3339
 }
 
 type updateDueRequest struct {
@@ -35,7 +35,7 @@ type updateDueRequest struct {
 	Type        string  `json:"type"         binding:"required,oneof=dept_dues class_dues manual materials transcript_fee other"`
 	Amount      string  `json:"amount"       binding:"required"`
 	Level       *int32  `json:"level"`
-	Deadline    *string `json:"deadline"`    // RFC3339
+	Deadline    *string `json:"deadline"` // RFC3339
 	IsActive    bool    `json:"is_active"`
 }
 
@@ -76,7 +76,7 @@ type listStudentBatchesQuery struct {
 
 type updateBatchStatusRequest struct {
 	Status     string  `json:"status"      binding:"required,oneof=pending completed failed refunded"`
-	PaidAt     *string `json:"paid_at"`    // RFC3339
+	PaidAt     *string `json:"paid_at"` // RFC3339
 	ReceiptUrl *string `json:"receipt_url"`
 }
 
@@ -121,8 +121,23 @@ type checkDuePaidQuery struct {
 // path-param branch with a user ID that doesn't match any students.id and getting
 // zero results, and any authenticated non-staff caller being able to read another
 // student's payment history by passing their ID in the URL.
+//
+// A caller who *also* holds a staff role (e.g. a student who is additionally a
+// dept_bursar) needs one more check: the self-service frontend page
+// (getStudentPayments in frontend/src/api/payments.ts) always puts the
+// caller's own *user* ID in the URL, not a students.id — fine for a plain
+// student (self-resolved above), but a staff-role holder used to skip
+// straight to trusting that URL value as if it were an arbitrary target
+// student's students.id, which it never is on this code path. The query then
+// matched zero rows for someone with real payment history. Comparing the
+// path param against the caller's own user ID first — before falling back to
+// "trust it, this must be staff looking up someone else" — fixes that
+// without touching role-checking at all.
 func (server *Server) resolveStudentIDForPaymentRead(ctx *gin.Context, pathParam string) (uuid.UUID, error) {
 	if !isStaffRole(ctx) {
+		return server.getStudentIDFromUser(ctx)
+	}
+	if parsed, err := uuid.Parse(pathParam); err == nil && parsed == getUserID(ctx) {
 		return server.getStudentIDFromUser(ctx)
 	}
 	return uuid.Parse(pathParam)
@@ -1034,7 +1049,7 @@ func (server *Server) initializeCheckout(ctx *gin.Context) {
 	} else {
 		reference = fmt.Sprintf("ACES-%s-%d", paymentRecord.ID.String()[:8], time.Now().Unix())
 		// Update reference in DB using raw query via GetDB
-		if q, ok := server.store.(interface { GetDB() db.DBTX }); ok {
+		if q, ok := server.store.(interface{ GetDB() db.DBTX }); ok {
 			_, err = q.GetDB().Exec(ctx, "UPDATE payments SET paystack_reference = $1 WHERE id = $2", reference, paymentRecord.ID)
 			if err != nil {
 				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})

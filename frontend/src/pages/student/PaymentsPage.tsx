@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import StatusBadge from '../../components/data-display/StatusBadge';
+import DataTable, { type Column } from '../../components/data-display/DataTable';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import {
   getStudentPayments,
@@ -20,9 +21,28 @@ import { useCartStore } from '../../stores/cartStore';
 import type { CartItem } from '../../api/payments';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
-import { CreditCard, Download, ShoppingCart, Trash2, Plus, Loader2, Receipt } from 'lucide-react';
-import type { Payment, DuePayment } from '../../types';
+import { CreditCard, Download, ShoppingCart, Trash2, Plus, Loader2, Receipt, Search } from 'lucide-react';
+import type { Payment, DuePayment, PaymentStatus, PaymentType } from '../../types';
 import { getErrorMessage } from '../../utils/errors';
+
+const STATUS_OPTIONS: (PaymentStatus | 'all')[] = ['all', 'pending', 'completed', 'failed', 'refunded'];
+const TYPE_OPTIONS: (PaymentType | 'all')[] = [
+  'all',
+  'dept_dues',
+  'class_dues',
+  'manual',
+  'materials',
+  'transcript_fee',
+  'other',
+];
+const TYPE_LABELS: Record<string, string> = {
+  dept_dues: 'Department Dues',
+  class_dues: 'Class Dues',
+  manual: 'Manual/Book Purchase',
+  materials: 'Course Materials',
+  transcript_fee: 'Transcript Fee',
+  other: 'Other',
+};
 
 const PaymentsPage = () => {
   const { user } = useAuth();
@@ -43,6 +63,9 @@ const PaymentsPage = () => {
   const [cartBusyId, setCartBusyId] = useState<string | null>(null);
   const [paidDueIds, setPaidDueIds] = useState<Set<string>>(new Set());
   const [manualCheckoutBusy, setManualCheckoutBusy] = useState(false);
+  const [txSearch, setTxSearch] = useState('');
+  const [txStatusFilter, setTxStatusFilter] = useState<PaymentStatus | 'all'>('all');
+  const [txTypeFilter, setTxTypeFilter] = useState<PaymentType | 'all'>('all');
 
   const manualCartItems = useCartStore((s) => s.items);
   const removeManualItem = useCartStore((s) => s.removeItem);
@@ -227,6 +250,65 @@ const PaymentsPage = () => {
   const duesCartTotal = cart.reduce((sum, item) => sum + Number(item.amount), 0);
   const combinedCartTotal = duesCartTotal + manualCartTotal();
 
+  // Mirrors the search + status/type filter + sortable table design from the
+  // now-retired standalone student payment-history page.
+  const filteredPayments = useMemo(() => {
+    const q = txSearch.trim().toLowerCase();
+    return payments.filter((p) => {
+      const matchesStatus = txStatusFilter === 'all' || p.status === txStatusFilter;
+      const matchesType = txTypeFilter === 'all' || p.type === txTypeFilter;
+      const matchesSearch =
+        !q ||
+        (p.paystack_reference || '').toLowerCase().includes(q) ||
+        (p.item_name || '').toLowerCase().includes(q) ||
+        (p.due_name || '').toLowerCase().includes(q);
+      return matchesStatus && matchesType && matchesSearch;
+    });
+  }, [payments, txSearch, txStatusFilter, txTypeFilter]);
+
+  // Payment.amount is a Go decimal.Decimal, which serializes as a JSON
+  // string — always go through Number() before arithmetic, never sum the
+  // raw field (see the same note that was in the retired history page).
+  const totalPaidInView = filteredPayments
+    .filter((p) => p.status === 'completed')
+    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+  const transactionColumns: Column<Payment>[] = [
+    {
+      key: 'created_at',
+      label: 'Date',
+      sortable: true,
+      render: (_v, row) => formatDate((row as unknown as { created_at?: string }).created_at || ''),
+    },
+    {
+      key: 'item_name',
+      label: 'Purpose',
+      render: (v, row) => (v as string) || row.due_name || TYPE_LABELS[row.type] || row.type,
+    },
+    { key: 'type', label: 'Type', render: (v) => TYPE_LABELS[v as string] ?? (v as string) },
+    { key: 'amount', label: 'Amount', sortable: true, render: (v) => formatCurrency(v as number) },
+    { key: 'paystack_reference', label: 'Reference', render: (v) => (v as string) || 'N/A' },
+    { key: 'status', label: 'Status', render: (v) => <StatusBadge status={v as string} /> },
+    {
+      key: 'id',
+      label: 'Action',
+      render: (_v, row) =>
+        row.status === 'completed' ? (
+          <Button variant="outline" size="xs" leftIcon={<Download className="w-3.5 h-3.5" />}>
+            Receipt
+          </Button>
+        ) : (
+          <Button
+            size="xs"
+            leftIcon={<CreditCard className="w-3.5 h-3.5" />}
+            onClick={() => handleCheckout(row.id, row.item_name)}
+          >
+            Pay Now
+          </Button>
+        ),
+    },
+  ];
+
   const tabs = [
     { key: 'transactions' as const, label: 'Transactions', icon: Receipt },
     { key: 'cart' as const, label: `Cart (${totalCartCount})`, icon: ShoppingCart },
@@ -294,69 +376,73 @@ const PaymentsPage = () => {
           <span className="ml-2 text-sm text-surface-500">Loading payments...</span>
         </div>
       ) : tab === 'transactions' ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Transactions Log</CardTitle>
-            <CardDescription>Records of all dues payments and transaction audits</CardDescription>
-          </CardHeader>
-          {payments.length === 0 ? (
-            <div className="text-center py-12 text-sm text-surface-400">No transactions yet</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-surface-200 dark:border-surface-700">
-                    <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">
-                      PURPOSE
-                    </th>
-                    <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">AMOUNT</th>
-                    <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">
-                      REFERENCE
-                    </th>
-                    <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">DATE</th>
-                    <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">STATUS</th>
-                    <th className="text-right px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">
-                      ACTION
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {payments.map((p) => (
-                    <tr
-                      key={p.id}
-                      className="border-b border-surface-100 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors"
-                    >
-                      <td className="px-4 py-3 font-medium text-surface-900 dark:text-white">{p.item_name}</td>
-                      <td className="px-4 py-3 text-surface-700 dark:text-surface-300">{formatCurrency(p.amount)}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-surface-500">{p.paystack_reference || 'N/A'}</td>
-                      <td className="px-4 py-3 text-xs text-surface-500">
-                        {formatDate((p as unknown as { created_at?: string }).created_at || '')}
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={p.status} />
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {p.status === 'completed' ? (
-                          <Button variant="outline" size="xs" leftIcon={<Download className="w-3.5 h-3.5" />}>
-                            Receipt
-                          </Button>
-                        ) : (
-                          <Button
-                            size="xs"
-                            leftIcon={<CreditCard className="w-3.5 h-3.5" />}
-                            onClick={() => handleCheckout(p.id, p.item_name)}
-                          >
-                            Pay Now
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white dark:bg-surface-900 p-4 rounded-xl border border-surface-200 dark:border-surface-800">
+              <p className="text-xs text-surface-500">Showing</p>
+              <p className="text-2xl font-bold text-surface-900 dark:text-white">{filteredPayments.length}</p>
             </div>
-          )}
-        </Card>
+            <div className="bg-white dark:bg-surface-900 p-4 rounded-xl border border-surface-200 dark:border-surface-800">
+              <p className="text-xs text-surface-500">Completed (in view)</p>
+              <p className="text-2xl font-bold text-success-600">
+                {filteredPayments.filter((p) => p.status === 'completed').length}
+              </p>
+            </div>
+            <div className="bg-white dark:bg-surface-900 p-4 rounded-xl border border-surface-200 dark:border-surface-800">
+              <p className="text-xs text-surface-500">Total Paid (in view)</p>
+              <p className="text-2xl font-bold text-primary-600">{formatCurrency(totalPaidInView)}</p>
+            </div>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Transactions Log</CardTitle>
+              <CardDescription>Search and filter your dues payments and transaction records</CardDescription>
+            </CardHeader>
+            <div className="p-4 pt-0 flex flex-col md:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
+                <input
+                  type="text"
+                  placeholder="Search reference or purpose..."
+                  value={txSearch}
+                  onChange={(e) => setTxSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-sm border rounded-lg dark:bg-surface-800 dark:border-surface-700"
+                />
+              </div>
+              <select
+                value={txStatusFilter}
+                onChange={(e) => setTxStatusFilter(e.target.value as PaymentStatus | 'all')}
+                className="px-3 py-2 text-sm border rounded-lg dark:bg-surface-800 dark:border-surface-700"
+              >
+                {STATUS_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s === 'all' ? 'All Statuses' : s.charAt(0).toUpperCase() + s.slice(1)}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={txTypeFilter}
+                onChange={(e) => setTxTypeFilter(e.target.value as PaymentType | 'all')}
+                className="px-3 py-2 text-sm border rounded-lg dark:bg-surface-800 dark:border-surface-700"
+              >
+                {TYPE_OPTIONS.map((t) => (
+                  <option key={t} value={t}>
+                    {t === 'all' ? 'All Types' : TYPE_LABELS[t]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <DataTable
+              columns={transactionColumns}
+              data={filteredPayments}
+              isLoading={loading}
+              emptyTitle="No transactions yet"
+              emptyDescription="Your payment history will appear here once you make a payment."
+              pageSize={15}
+            />
+          </Card>
+        </div>
       ) : (
         /* Cart Tab */
         <div className="space-y-6">

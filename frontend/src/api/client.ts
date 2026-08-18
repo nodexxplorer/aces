@@ -85,6 +85,24 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+
+    // The backend's connection to its database has shown highly variable
+    // latency in practice — some requests take 15-45+ seconds even though
+    // they eventually complete successfully server-side, well past this
+    // client's 15s timeout. A user then sees "no data" for something that
+    // was never actually missing, just slow. GETs are safe to retry
+    // (idempotent), so give a timed-out/network-failed GET up to two more
+    // tries before surfacing an error — each retry opens a fresh
+    // connection, which often lands outside whatever caused the stall.
+    const isTimeoutOrNetworkError =
+      !error.response && (error.code === 'ECONNABORTED' || error.message === 'Network Error');
+    if (isTimeoutOrNetworkError && originalRequest?.method?.toLowerCase() === 'get') {
+      originalRequest._timeoutRetryCount = (originalRequest._timeoutRetryCount ?? 0) + 1;
+      if (originalRequest._timeoutRetryCount <= 2) {
+        return apiClient(originalRequest);
+      }
+    }
+
     // The in-memory CSRF token (see setCsrfToken above) doesn't survive a
     // page reload — only `user`/`isAuthenticated` are persisted, not
     // `tokens` (see authStore's partialize) — even though the session

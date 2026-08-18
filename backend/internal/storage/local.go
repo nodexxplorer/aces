@@ -48,7 +48,7 @@ func (s *LocalStorage) SaveFile(fileHeader *multipart.FileHeader, subDir string)
 
 	allowedTypes := map[string]bool{
 		"image/jpeg": true, "image/png": true, "image/gif": true, "image/webp": true,
-		"application/pdf": true,
+		"application/pdf":    true,
 		"application/msword": true, "application/vnd.openxmlformats-officedocument.wordprocessingml.document": true,
 		"application/vnd.ms-excel": true, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": true,
 		"application/vnd.ms-powerpoint": true, "application/vnd.openxmlformats-officedocument.presentationml.presentation": true,
@@ -87,6 +87,26 @@ func (s *LocalStorage) SaveFile(fileHeader *multipart.FileHeader, subDir string)
 
 	if _, err := io.Copy(out, file); err != nil {
 		return "", fmt.Errorf("failed to copy file content: %w", err)
+	}
+
+	return filepath.Join(subDir, uniqueName), nil
+}
+
+// SaveBytes writes server-generated content (e.g. a PDF report) directly
+// to disk — unlike SaveFile, there's no user-uploaded multipart.FileHeader
+// to validate here, since the caller controls the content and extension
+// itself.
+func (s *LocalStorage) SaveBytes(data []byte, subDir, ext string) (string, error) {
+	targetDir := filepath.Join(s.basePath, subDir)
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create upload sub-directory: %w", err)
+	}
+
+	uniqueName := fmt.Sprintf("%s_%d%s", uuid.New().String(), time.Now().Unix(), ext)
+	targetPath := filepath.Join(targetDir, uniqueName)
+
+	if err := os.WriteFile(targetPath, data, 0644); err != nil {
+		return "", fmt.Errorf("failed to write file: %w", err)
 	}
 
 	return filepath.Join(subDir, uniqueName), nil

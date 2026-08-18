@@ -43,6 +43,7 @@ interface AuthState {
   login: (user: AuthUser, tokens: AuthTokens) => Promise<void>;
   setTokens: (tokens: AuthTokens) => Promise<void>;
   setUser: (user: AuthUser) => void;
+  switchRole: (role: string) => void;
   logout: () => Promise<void>;
   hydrate: () => Promise<void>;
 }
@@ -75,6 +76,19 @@ export const useAuthStore = create<AuthState>((set) => ({
   setUser: (user) => {
     setItem(USER_KEY, JSON.stringify(user)).catch(() => {});
     set({ user });
+  },
+
+  // Mirrors the web app's RoleSwitcher (frontend/src/components/ui/RoleSwitcher.tsx)
+  // — a user can hold multiple roles (e.g. student + class_rep) simultaneously;
+  // this only changes which one is "active" client-side, same as web. No
+  // backend call needed since /auth/me already returns the full roles list.
+  switchRole: (role) => {
+    set((state) => {
+      if (!state.user || !state.user.roles.includes(role)) return state;
+      const nextUser = { ...state.user, activeRole: role };
+      setItem(USER_KEY, JSON.stringify(nextUser)).catch(() => {});
+      return { user: nextUser };
+    });
   },
 
   logout: async () => {

@@ -46,6 +46,8 @@ func main() {
 
 	server := api.NewServer(store, connPool, cfg)
 
+	go server.RunBirthdayScheduler(ctx)
+
 	srv := &http.Server{
 		Addr:         cfg.ServerAddress,
 		Handler:      server.Router(),

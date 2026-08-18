@@ -44,6 +44,31 @@ import type { Course } from '../../types';
 import { parseProfileScanUserId } from '../../utils/qr-scanner';
 import { getErrorMessage } from '../../utils/errors';
 
+// timetable.day_of_week is 1=Monday..7=Sunday (see TimetablePage.tsx's
+// numToDay for the same convention on the student-facing timetable).
+const dayNames: Record<number, string> = {
+  1: 'Mon',
+  2: 'Tue',
+  3: 'Wed',
+  4: 'Thu',
+  5: 'Fri',
+  6: 'Sat',
+  7: 'Sun',
+};
+
+// start_time/end_time come back as raw TIMESTAMPTZ text (e.g.
+// "2026-08-17 08:00:00+00") — only the time-of-day is meaningful.
+function formatClockTime(raw: string): string {
+  const match = raw.match(/(\d{2}):(\d{2})/);
+  return match ? `${match[1]}:${match[2]}` : raw;
+}
+
+function describeSchedule(entry: TimetableEntry): string {
+  const day = entry.day_of_week != null ? dayNames[entry.day_of_week] : null;
+  const time = formatClockTime(entry.start_time);
+  return day ? `${day} ${time}` : time;
+}
+
 type StatusType = 'present' | 'absent' | 'late' | 'excused';
 
 const AttendancePage = () => {
@@ -96,7 +121,7 @@ const AttendancePage = () => {
             course_title: c.title,
             lecturer_name: 'Department Lecturer',
             venue: 'Main Hall',
-            day_of_week: 'Semester Course',
+            day_of_week: null,
             start_time: '08:00',
             end_time: '10:00',
             card_status: 'upcoming',
@@ -398,7 +423,7 @@ const AttendancePage = () => {
               <Select
                 options={timetable.map((t) => ({
                   value: t.course_id,
-                  label: `${t.course_code} - ${t.course_title} (${t.day_of_week} ${t.start_time})`,
+                  label: `${t.course_code} - ${t.course_title} (${describeSchedule(t)})`,
                 }))}
                 value={selectedCourseId}
                 onChange={(e) => setSelectedCourseId(e.target.value)}

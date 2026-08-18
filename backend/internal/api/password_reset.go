@@ -3,6 +3,7 @@ package api
 import (
 	"crypto/rand"
 	"fmt"
+	"log"
 	"math/big"
 	"net/http"
 	"strings"
@@ -14,6 +15,42 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+// passwordResetOTPEmailHTML renders a minimal branded email carrying the raw
+// OTP digits — deliberately simpler than notification_service_full.go's
+// buildNotificationEmailHTML (no CTA button, no unsubscribe footer): this is
+// a security-critical transactional message sent before the user has a
+// session or any notification preferences to speak of, not a notification.
+func passwordResetOTPEmailHTML(otp string) string {
+	return fmt.Sprintf(`
+<table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="background-color: #eef2f6; padding: 32px 16px; font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+	<tr>
+		<td align="center">
+			<table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="max-width: 480px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+				<tr>
+					<td style="background: linear-gradient(135deg, #0066CC 0%%, #003d7a 100%%); padding: 28px 40px;" align="center">
+						<div style="color: #ffffff; font-size: 18px; font-weight: 700; letter-spacing: 0.3px;">ACES Zone</div>
+					</td>
+				</tr>
+				<tr>
+					<td style="padding: 32px 40px;" align="center">
+						<h1 style="margin: 0 0 8px 0; color: #0f172a; font-size: 18px; font-weight: 700;">Reset Your Password</h1>
+						<p style="margin: 0 0 24px 0; color: #475569; font-size: 14px; line-height: 1.6;">
+							Use this code to reset your password. It expires in 15 minutes.
+						</p>
+						<div style="font-family: 'Courier New', monospace; font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #0066CC; background-color: #eef2f6; border-radius: 12px; padding: 16px 24px; display: inline-block;">
+							%s
+						</div>
+						<p style="margin: 24px 0 0 0; color: #94a3b8; font-size: 12px; line-height: 1.6;">
+							If you didn't request this, you can safely ignore this email.
+						</p>
+					</td>
+				</tr>
+			</table>
+		</td>
+	</tr>
+</table>`, otp)
+}
 
 type otpRequest struct {
 	Email   string `json:"email" binding:"required,email"`
@@ -107,6 +144,18 @@ func (server *Server) requestPasswordReset(ctx *gin.Context) {
 		OtpCode:   otp,
 		ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(15 * time.Minute), Valid: true},
 	})
+
+	// SMS isn't wired to any provider yet, so only the email channel can
+	// actually be delivered right now — silently a no-op otherwise, same
+	// as it's always been for that channel.
+	if channel == db.ResetChannelEmail && server.emailSender != nil {
+		go func(to, otpCode string) {
+			body := passwordResetOTPEmailHTML(otpCode)
+			if err := server.emailSender.SendEmail([]string{to}, "Your ACES Zone password reset code", body, true); err != nil {
+				log.Printf("[password-reset] failed to send OTP email to %s: %v", to, err)
+			}
+		}(user.Email, otp)
+	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "if the email exists, an OTP has been sent"})
 }

@@ -193,6 +193,11 @@ export const getUpcomingTasks = async () => {
   return unwrap<StudyTask[]>(res);
 };
 
+export const getAIStudyPlan = async () => {
+  const res = await apiClient.get('/study-tasks/ai-plan');
+  return unwrap<{ plan: string }>(res);
+};
+
 // Class Notices
 export interface ClassNotice {
   id: string;

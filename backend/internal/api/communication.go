@@ -231,4 +231,73 @@ func (server *Server) updateMyNotificationPreferences(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, prefs)
 }
 
+// unsubscribeFromEmails GET /notifications/unsubscribe/:token
+// Public — no auth. Reached directly from the "Unsubscribe" link embedded
+// in every outbound notification email, so the token itself is the only
+// credential (same pattern as the calendar feed token).
+func (server *Server) unsubscribeFromEmails(ctx *gin.Context) {
+	token := ctx.Param("token")
+	if token == "" {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	userID, err := queries.GetUserIDByUnsubscribeToken(ctx, token)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "this unsubscribe link is invalid or has expired"})
+		return
+	}
+
+	// UpsertNotificationPreferences treats every nil field as "reset to
+	// default", not "leave unchanged" — so the user's other saved
+	// preferences (push categories, quiet hours, etc.) have to be carried
+	// forward explicitly here rather than just flipping email_enabled alone,
+	// or this would silently wipe out the rest of their settings.
+	params := db.UpsertNotificationPreferencesParams{UserID: userID}
+	if existing, prefErr := server.notificationsFull.GetPreferences(ctx, userID); prefErr == nil {
+		params = notificationPreferencesToUpsertParams(existing)
+	}
+	emailEnabled := false
+	params.EmailEnabled = &emailEnabled
+
+	if _, err := server.notificationsFull.UpdatePreferences(ctx, params); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "You've been unsubscribed from email notifications."})
+}
+
+func notificationPreferencesToUpsertParams(p db.NotificationPreference) db.UpsertNotificationPreferencesParams {
+	return db.UpsertNotificationPreferencesParams{
+		UserID:          p.UserID,
+		EmailEnabled:    &p.EmailEnabled,
+		PushEnabled:     &p.PushEnabled,
+		InAppEnabled:    &p.InAppEnabled,
+		EmailAuth:       &p.EmailAuth,
+		EmailResults:    &p.EmailResults,
+		EmailDues:       &p.EmailDues,
+		EmailMessages:   &p.EmailMessages,
+		EmailConnect:    &p.EmailConnect,
+		EmailSkills:     &p.EmailSkills,
+		EmailAlumni:     &p.EmailAlumni,
+		EmailSystem:     &p.EmailSystem,
+		PushAuth:        &p.PushAuth,
+		PushResults:     &p.PushResults,
+		PushDues:        &p.PushDues,
+		PushMessages:    &p.PushMessages,
+		PushConnect:     &p.PushConnect,
+		PushSkills:      &p.PushSkills,
+		PushAlumni:      &p.PushAlumni,
+		PushSystem:      &p.PushSystem,
+		QuietHoursStart: p.QuietHoursStart,
+		QuietHoursEnd:   p.QuietHoursEnd,
+	}
+}
 

@@ -6,6 +6,7 @@ package db
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -207,6 +208,26 @@ type Querier interface {
 	GetRegisteredStudentsForAttendance(ctx context.Context, courseID uuid.UUID, semesterID uuid.UUID) ([]RegisteredStudentForAttendanceRow, error)
 	GetClassRepTimetableEntries(ctx context.Context, level int32, semesterID uuid.UUID) ([]ClassRepTimetableEntryRow, error)
 	GetPendingAttendanceReviews(ctx context.Context, lecturerUserID uuid.UUID) ([]PendingAttendanceReviewRow, error)
+	GetStudentCourseAttendanceOverview(ctx context.Context, studentID uuid.UUID, semesterID uuid.UUID, semStart time.Time, semEnd time.Time) ([]StudentCourseAttendanceOverviewRow, error)
+	GetStudentCourseAttendanceSessions(ctx context.Context, courseID uuid.UUID, studentUserID uuid.UUID, semStart time.Time, semEnd time.Time) ([]StudentCourseAttendanceSessionRow, error)
+	GetLecturerCourseAttendanceOverview(ctx context.Context, lecturerUserID uuid.UUID, semesterID uuid.UUID, semStart time.Time, semEnd time.Time) ([]LecturerCourseAttendanceOverviewRow, error)
+	GetUserByCalendarFeedToken(ctx context.Context, token string) (CalendarFeedUserRow, error)
+	SetUserCalendarFeedToken(ctx context.Context, userID uuid.UUID, token string) error
+	GetUserCalendarFeedToken(ctx context.Context, userID uuid.UUID) (*string, error)
+	GetUserIDByUnsubscribeToken(ctx context.Context, token string) (uuid.UUID, error)
+	GetOrCreateNotificationUnsubscribeToken(ctx context.Context, userID uuid.UUID) (string, error)
+	UpsertCRFSignatureAsset(ctx context.Context, kind, filePath string, pageNumber int32, xPt, yPt, widthPt float64, uploadedBy uuid.UUID) (CRFSignatureAsset, error)
+	ListCRFSignatureAssets(ctx context.Context) ([]CRFSignatureAsset, error)
+	GetCRFSubmissionForUserSemester(ctx context.Context, userID, semesterID uuid.UUID) (CRFSigningSubmission, error)
+	CreateCRFSigningSubmission(ctx context.Context, userID, semesterID uuid.UUID, originalFilePath, signedFilePath string) (CRFSigningSubmission, error)
+	GetCRFSigningSubmission(ctx context.Context, id uuid.UUID) (CRFSigningSubmission, error)
+	ListTodaysBirthdays(ctx context.Context) ([]BirthdayGreetingRow, error)
+	MarkBirthdayGreeted(ctx context.Context, userID uuid.UUID) error
+	GetStudentRegisteredCourseDetails(ctx context.Context, studentID uuid.UUID, semesterID uuid.UUID) ([]RegisteredCourseDetailRow, error)
+	CreateReport(ctx context.Context, title, reportType, format string, generatedBy uuid.UUID) (Report, error)
+	CompleteReport(ctx context.Context, id uuid.UUID, fileURL string, rowCount int32) error
+	FailReport(ctx context.Context, id uuid.UUID) error
+	ListReports(ctx context.Context, limit int32) ([]Report, error)
 	DeleteCourseSubcategory(ctx context.Context, id uuid.UUID) error
 	DeleteDepartmentalEvent(ctx context.Context, id uuid.UUID) error
 	DeleteDue(ctx context.Context, id uuid.UUID) error

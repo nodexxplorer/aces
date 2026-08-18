@@ -598,6 +598,10 @@ export interface MentorshipRequest extends BaseEntity {
   student?: User;
 }
 
+// GET /alumni/mentorship/my returns a different shape depending on the
+// caller: an alumni mentor's inbox includes student_name (who's asking),
+// a student's sent-requests list includes mentor_name (who they asked) —
+// both optional here since only one is ever present per response.
 export interface MentorshipRequestItem {
   id: string;
   student_id: string;
@@ -605,7 +609,8 @@ export interface MentorshipRequestItem {
   topic: string;
   status: string;
   message?: string;
-  student_name: string;
+  student_name?: string;
+  mentor_name?: string;
   created_at: string;
 }
 

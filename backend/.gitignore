@@ -55,6 +55,10 @@ yarn-error.log*
 /main
 /seed_admin
 
+# Local file storage (course materials, generated reports, uploads) — runtime
+# output, not source.
+/uploads/
+
 # Project-specific ignored paths and secrets
 .vault_secrets
 .vault_secrets.json

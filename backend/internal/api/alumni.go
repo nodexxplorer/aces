@@ -312,6 +312,21 @@ func (server *Server) updateMentorshipStatus(ctx *gin.Context) {
 		return
 	}
 
+	// Only the mentor a request was addressed to (or staff) may accept/
+	// decline it — without this, any alumni could resolve any other
+	// mentor's pending requests by guessing the request ID.
+	if !isStaffCaller(ctx) {
+		existing, gerr := server.store.GetMentorshipRequest(ctx, id)
+		if gerr != nil {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "mentorship request not found"})
+			return
+		}
+		if existing.MentorID != getUserID(ctx) {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "you can only respond to requests addressed to you"})
+			return
+		}
+	}
+
 	request, err := server.alumni.UpdateMentorshipStatus(ctx, id, req.Status)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -676,22 +691,46 @@ func (server *Server) listMentors(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, mentors)
 }
 
+// listMyMentorshipRequests GET /alumni/mentorship/my — the caller's own
+// mentorship requests, from whichever side of the relationship they're on.
+// ListMyMentorshipRequests (despite the name) only ever scopes by
+// mentor_id, and the mirror-image ListStudentMentorships only scopes by
+// student_id — this dispatches on the caller's role so the frontend's
+// single getMyMentorshipRequests() call (already written, matching the
+// existing api/alumni.ts) works for both a student's "requests I've sent"
+// and an alumni's "requests sent to me" without needing two endpoints.
 func (server *Server) listMyMentorshipRequests(ctx *gin.Context) {
 	userID := getUserID(ctx)
 
-	queries, ok := server.store.(*db.Queries)
-	if !ok {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
+	isMentorSide := false
+	if claimsVal, exists := ctx.Get("claims"); exists {
+		if claims, ok := claimsVal.(*auth.Claims); ok {
+			isMentorSide = claims.HasRole("alumni")
+		}
+	}
+
+	if isMentorSide {
+		queries, ok := server.store.(*db.Queries)
+		if !ok {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
+			return
+		}
+		items, err := queries.ListMyMentorshipRequests(ctx, userID)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
+		ctx.JSON(http.StatusOK, items)
 		return
 	}
 
-	items, err := queries.ListMyMentorshipRequests(ctx, userID)
+	requests, err := server.alumni.ListStudentMentorships(ctx, userID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, items)
+	ctx.JSON(http.StatusOK, requests)
 }
 
 func (server *Server) updateMyAlumniProfile(ctx *gin.Context) {

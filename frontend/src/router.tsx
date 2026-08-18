@@ -10,6 +10,7 @@ const ForgotPasswordPage = lazy(() => import('./pages/auth/PasswordResetOTPPage'
 const StudentSignupPage = lazy(() => import('./pages/auth/StudentSignupPage'));
 const LecturerSignupPage = lazy(() => import('./pages/auth/LecturerSignupPage'));
 const StudentOnboardingPage = lazy(() => import('./pages/onboarding/StudentOnboardingPage'));
+const StudentAttendancePage = lazy(() => import('./pages/student/AttendancePage'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 
 // Student
@@ -49,6 +50,7 @@ const BursarDashboard = lazy(() => import('./pages/bursar/BursarDashboard'));
 const DuesPage = lazy(() => import('./pages/bursar/DuesPage'));
 const PaymentVerificationPage = lazy(() => import('./pages/bursar/PaymentVerificationPage'));
 const DefaultersPage = lazy(() => import('./pages/bursar/DefaultersPage'));
+const PaymentHistoryPage = lazy(() => import('./pages/bursar/PaymentHistoryPage'));
 
 // Admin
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
@@ -70,6 +72,8 @@ const ResultsManagementPage = lazy(() => import('./pages/admin/ResultsManagement
 const CGPASettingsPage = lazy(() => import('./pages/admin/CGPASettingsPage'));
 const SettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
 const AISettingsPage = lazy(() => import('./pages/settings/AISettingsPage'));
+const CRFSigningSettingsPage = lazy(() => import('./pages/admin/CRFSigningSettingsPage'));
+const CourseFormSigningPage = lazy(() => import('./pages/student/CourseFormSigningPage'));
 const StudentDetailPage = lazy(() => import('./pages/admin/StudentDetailPage'));
 const ManualDetailPage = lazy(() => import('./pages/admin/ManualDetailPage'));
 const AdminJobModerationPage = lazy(() => import('./pages/admin/AdminJobModerationPage'));
@@ -81,6 +85,7 @@ const LecturerManagementPage = lazy(() => import('./pages/admin/LecturerManageme
 
 // AI Predictions
 const GPAHubPage = lazy(() => import('./pages/student/GPAHubPage'));
+const FindMentorPage = lazy(() => import('./pages/student/FindMentorPage'));
 const AtRiskDashboard = lazy(() => import('./pages/admin/AtRiskDashboard'));
 const GradeDistributionPage = lazy(() => import('./pages/admin/GradeDistributionPage'));
 const RevenueForecastPage = lazy(() => import('./pages/admin/RevenueForecastPage'));
@@ -89,7 +94,6 @@ const RevenueForecastPage = lazy(() => import('./pages/admin/RevenueForecastPage
 const StudyPlannerPage = lazy(() => import('./pages/student/StudyPlannerPage'));
 const GradeAppealsPage = lazy(() => import('./pages/student/GradeAppealsPage'));
 const ClassNoticeBoardPage = lazy(() => import('./pages/shared/ClassNoticeBoardPage'));
-const CalendarPage = lazy(() => import('./pages/admin/CalendarPage'));
 const ExpensesPage = lazy(() => import('./pages/admin/ExpensesPage'));
 
 // New high-impact features
@@ -117,6 +121,7 @@ const AlumniNetworkPage = lazy(() => import('./pages/alumni/AlumniNetworkPage'))
 const GiveBackPage = lazy(() => import('./pages/alumni/GiveBackPage'));
 const AlumniEventsPage = lazy(() => import('./pages/alumni/AlumniEventsPage'));
 const AlumniProfilePage = lazy(() => import('./pages/alumni/AlumniProfilePage'));
+const MentorshipRequestsPage = lazy(() => import('./pages/alumni/MentorshipRequestsPage'));
 const DonationConfirmationPage = lazy(() => import('./pages/alumni/DonationConfirmationPage'));
 
 // Shared
@@ -128,6 +133,7 @@ const ForbiddenPage = lazy(() => import('./pages/shared/ForbiddenPage'));
 const ServerErrorPage = lazy(() => import('./pages/shared/ServerErrorPage'));
 const ApprovalRejectedPage = lazy(() => import('./pages/shared/ApprovalRejectedPage'));
 const PrivacyPolicyPage = lazy(() => import('./pages/shared/PrivacyPolicyPage'));
+const UnsubscribePage = lazy(() => import('./pages/shared/UnsubscribePage'));
 // const AIBlueprintPage = lazy(() => import('./pages/shared/AIBlueprintPage'));
 
 /* ── Layouts ─────────────────────────────────── */
@@ -281,11 +287,14 @@ export const router = createBrowserRouter([
               { path: '/results/:id', element: <ResultDetailPage /> },
               { path: '/gpa-prediction', element: <Navigate to="/gpa" replace /> },
               { path: '/payments', element: <PaymentsPage /> },
+              { path: '/payments/history', element: <Navigate to="/payments" replace /> },
+              { path: '/course-form-signing', element: <CourseFormSigningPage /> },
               { path: '/payments/confirmation', element: <PaymentConfirmationPage /> },
               { path: '/transcripts', element: <TranscriptsPage /> },
               { path: '/courses', element: <CoursesPage /> },
               { path: '/courses/register', element: <Navigate to="/courses?tab=register" replace /> },
               { path: '/timetable', element: <TimetablePage /> },
+              { path: '/attendance', element: <StudentAttendancePage /> },
               { path: '/manuals', element: <ManualsPage /> },
               { path: '/manuals/my', element: <Navigate to="/manuals?tab=my" replace /> },
               { path: '/practicals', element: <PracticalDetailsPage /> },
@@ -294,6 +303,7 @@ export const router = createBrowserRouter([
               { path: '/study-planner', element: <StudyPlannerPage /> },
               { path: '/gpa-calculator', element: <Navigate to="/gpa" replace /> },
               { path: '/gpa', element: <GPAHubPage /> },
+              { path: '/find-mentor', element: <FindMentorPage /> },
               { path: '/grade-appeals', element: <GradeAppealsPage /> },
               { path: '/support', element: <SupportPage /> },
               { path: '/help-center', element: <SupportPage /> },
@@ -307,7 +317,7 @@ export const router = createBrowserRouter([
           { path: '/profile', element: <ProfilePage /> },
           { path: '/notices', element: <Navigate to="/communication" replace /> },
           { path: '/scan', element: <QRScanPage /> },
-          { path: '/calendar', element: <CalendarPage /> },
+          { path: '/calendar', element: <Navigate to="/communication?tab=calendar" replace /> },
           { path: '/notice-board', element: <ClassNoticeBoardPage /> },
 
           { path: '/waiting', element: <WaitingDashboardPage /> },
@@ -354,6 +364,7 @@ export const router = createBrowserRouter([
               { path: '/bursar/dues', element: <DuesPage /> },
               { path: '/bursar/verify', element: <PaymentVerificationPage /> },
               { path: '/bursar/defaulters', element: <DefaultersPage /> },
+              { path: '/bursar/history', element: <PaymentHistoryPage /> },
             ],
           },
 
@@ -392,6 +403,7 @@ export const router = createBrowserRouter([
               { path: '/admin/manuals/:id', element: <ManualDetailPage /> },
               { path: '/admin/job-moderation', element: <AdminJobModerationPage /> },
               { path: '/admin/lecturers', element: <LecturerManagementPage /> },
+              { path: '/admin/crf-signing', element: <CRFSigningSettingsPage /> },
             ],
           },
 
@@ -405,6 +417,7 @@ export const router = createBrowserRouter([
               { path: '/alumni', element: <AlumniDashboard /> },
               { path: '/alumni/profile', element: <AlumniProfilePage /> },
               { path: '/alumni/jobs', element: <AlumniJobsPage /> },
+              { path: '/alumni/mentorship', element: <MentorshipRequestsPage /> },
               { path: '/alumni/my-jobs', element: <Navigate to="/alumni/jobs" replace /> },
               { path: '/alumni/network', element: <AlumniNetworkPage /> },
               { path: '/alumni/give-back', element: <GiveBackPage /> },
@@ -450,6 +463,14 @@ export const router = createBrowserRouter([
     element: (
       <SuspenseWrapper>
         <PrivacyPolicyPage />
+      </SuspenseWrapper>
+    ),
+  },
+  {
+    path: '/notifications/unsubscribe/:token',
+    element: (
+      <SuspenseWrapper>
+        <UnsubscribePage />
       </SuspenseWrapper>
     ),
   },
