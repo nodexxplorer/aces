@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -290,11 +289,12 @@ func (server *Server) reviewAttendanceSession(ctx *gin.Context) {
 	})
 }
 
-// getStudentAttendanceOverview GET /student/attendance
+// getStudentAttendanceOverview GET /attendance/my-overview
+// Returns the caller's overall attendance rate plus a per-course breakdown
+// for every course they're registered for in the active semester.
 func (server *Server) getStudentAttendanceOverview(ctx *gin.Context) {
 	userID := getUserID(ctx)
 
-	// Fetch student by userID
 	student, err := server.store.GetStudentByUserId(ctx, userID)
 	if err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "student record not found"})
@@ -307,50 +307,138 @@ func (server *Server) getStudentAttendanceOverview(ctx *gin.Context) {
 		return
 	}
 
-	// Fetch student attendance sheets. session_id filters attendance_sheets,
-	// a sessions.id FK — not the semester's own id, so use activeSem.SessionID.
-	sheets, err := server.store.ListStudentAttendance(ctx, db.ListStudentAttendanceParams{
-		SessionID: activeSem.SessionID,
-		Column2:   student.ID.String(),
-	})
+	courseRows, err := server.store.GetStudentCourseAttendanceOverview(
+		ctx, student.ID, activeSem.ID, activeSem.StartDate.Time, activeSem.EndDate.Time,
+	)
 	if err != nil {
-		sheets = []db.AttendanceSheet{}
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch attendance overview"})
+		return
 	}
 
-	studentIDStr := student.ID.String()
-	totalSessions := len(sheets)
-	presentCount := 0
-	for _, sheet := range sheets {
-		var records []AttendanceRecord
-		if err := json.Unmarshal(sheet.AttendanceData, &records); err != nil {
-			continue
+	courses := make([]gin.H, 0, len(courseRows))
+	totalSessions := int32(0)
+	presentCount := int32(0)
+	for _, c := range courseRows {
+		rate := 0.0
+		if c.TotalSessions > 0 {
+			rate = float64(c.PresentCount) / float64(c.TotalSessions) * 100
 		}
-		for _, rec := range records {
-			if rec.StudentID == studentIDStr && rec.Present {
-				presentCount++
-				break
-			}
-		}
+		courses = append(courses, gin.H{
+			"course_id":       c.CourseID,
+			"course_code":     c.CourseCode,
+			"course_title":    c.CourseTitle,
+			"total_sessions":  c.TotalSessions,
+			"present":         c.PresentCount,
+			"absent":          c.TotalSessions - c.PresentCount,
+			"attendance_rate": rate,
+		})
+		totalSessions += c.TotalSessions
+		presentCount += c.PresentCount
 	}
-	absentCount := totalSessions - presentCount
 
-	attendanceRate := 0.0
+	overallRate := 100.0
 	if totalSessions > 0 {
-		attendanceRate = float64(presentCount) / float64(totalSessions) * 100
-	} else {
-		attendanceRate = 100.0 // Default full score when no missed classes recorded
+		overallRate = float64(presentCount) / float64(totalSessions) * 100
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"summary": gin.H{
 			"total_sessions":  totalSessions,
 			"present":         presentCount,
-			"absent":          absentCount,
-			"late":            0,
-			"excused":         0,
-			"attendance_rate": attendanceRate,
+			"absent":          totalSessions - presentCount,
+			"attendance_rate": overallRate,
 		},
+		"courses":    courses,
 		"student_id": student.ID,
 		"semester":   activeSem,
+	})
+}
+
+// getStudentCourseAttendanceDetail GET /attendance/my-courses/:course_id
+// Returns the session-by-session breakdown for one course, for the caller.
+func (server *Server) getStudentCourseAttendanceDetail(ctx *gin.Context) {
+	courseID, err := uuid.Parse(ctx.Param("course_id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid course_id"})
+		return
+	}
+
+	userID := getUserID(ctx)
+	student, err := server.store.GetStudentByUserId(ctx, userID)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "student record not found"})
+		return
+	}
+
+	activeSem, err := server.store.GetActiveSemester(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "no active semester configured"})
+		return
+	}
+
+	// Confirm the caller is actually registered for this course this
+	// semester before returning any session data for it — never trust the
+	// course_id path param on its own.
+	courseRows, err := server.store.GetStudentCourseAttendanceOverview(
+		ctx, student.ID, activeSem.ID, activeSem.StartDate.Time, activeSem.EndDate.Time,
+	)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to verify course registration"})
+		return
+	}
+	registered := false
+	var courseCode, courseTitle string
+	for _, c := range courseRows {
+		if c.CourseID == courseID {
+			registered = true
+			courseCode = c.CourseCode
+			courseTitle = c.CourseTitle
+			break
+		}
+	}
+	if !registered {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "you are not registered for this course this semester"})
+		return
+	}
+
+	sessions, err := server.store.GetStudentCourseAttendanceSessions(
+		ctx, courseID, userID, activeSem.StartDate.Time, activeSem.EndDate.Time,
+	)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch attendance sessions"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"course_id":    courseID,
+		"course_code":  courseCode,
+		"course_title": courseTitle,
+		"sessions":     sessions,
+	})
+}
+
+// getLecturerCourseAttendanceOverview GET /lecturers/attendance/overview
+// Returns, for every course the caller teaches, the class size, sessions
+// held, and average attendance rate for the active semester.
+func (server *Server) getLecturerCourseAttendanceOverview(ctx *gin.Context) {
+	userID := getUserID(ctx)
+
+	activeSem, err := server.store.GetActiveSemester(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "no active semester configured"})
+		return
+	}
+
+	courses, err := server.store.GetLecturerCourseAttendanceOverview(
+		ctx, userID, activeSem.ID, activeSem.StartDate.Time, activeSem.EndDate.Time,
+	)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch attendance overview"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"courses":  courses,
+		"semester": activeSem,
 	})
 }

@@ -14,7 +14,10 @@ const communicationTabs = [
 ];
 
 export default function StudentCommunicationPage() {
-  const [activeTab, setActiveTab] = useState('notifications');
+  const initialTab = new URLSearchParams(window.location.search).get('tab');
+  const [activeTab, setActiveTab] = useState(
+    communicationTabs.some((t) => t.id === initialTab) ? (initialTab as string) : 'notifications',
+  );
 
   return (
     <div className="min-h-screen bg-surface-50 dark:bg-surface-950">

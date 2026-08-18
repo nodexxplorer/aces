@@ -4,13 +4,13 @@ WITH student_grades AS (
         r.student_id,
         c.code as course_code,
         c.unit as credits,
-        (COALESCE(r.assignment_score, 0) * 0.4 + COALESCE(r.lab_score, 0) * 0.2 + COALESCE(r.exam_score, 0) * 0.4) as total_score,
+        COALESCE(r.total_score, 0) as total_score,
         CASE
-            WHEN (COALESCE(r.assignment_score, 0) * 0.4 + COALESCE(r.lab_score, 0) * 0.2 + COALESCE(r.exam_score, 0) * 0.4) >= 70 THEN 5.0
-            WHEN (COALESCE(r.assignment_score, 0) * 0.4 + COALESCE(r.lab_score, 0) * 0.2 + COALESCE(r.exam_score, 0) * 0.4) >= 60 THEN 4.0
-            WHEN (COALESCE(r.assignment_score, 0) * 0.4 + COALESCE(r.lab_score, 0) * 0.2 + COALESCE(r.exam_score, 0) * 0.4) >= 50 THEN 3.0
-            WHEN (COALESCE(r.assignment_score, 0) * 0.4 + COALESCE(r.lab_score, 0) * 0.2 + COALESCE(r.exam_score, 0) * 0.4) >= 45 THEN 2.0
-            WHEN (COALESCE(r.assignment_score, 0) * 0.4 + COALESCE(r.lab_score, 0) * 0.2 + COALESCE(r.exam_score, 0) * 0.4) >= 40 THEN 1.0
+            WHEN COALESCE(r.total_score, 0) >= 70 THEN 5.0
+            WHEN COALESCE(r.total_score, 0) >= 60 THEN 4.0
+            WHEN COALESCE(r.total_score, 0) >= 50 THEN 3.0
+            WHEN COALESCE(r.total_score, 0) >= 45 THEN 2.0
+            WHEN COALESCE(r.total_score, 0) >= 40 THEN 1.0
             ELSE 0.0
         END as grade_points
     FROM results r
@@ -50,11 +50,11 @@ AND ases.created_at >= NOW() - INTERVAL '30 days';
 SELECT
     CASE
         WHEN COUNT(*) = 0 THEN 0.0
-        ELSE (COUNT(CASE WHEN (COALESCE(r.assignment_score, 0) * 0.4 + COALESCE(r.lab_score, 0) * 0.2 + COALESCE(r.exam_score, 0) * 0.4) >= 40 THEN 1 END)::float / NULLIF(COUNT(*), 0)) * 100
+        ELSE (COUNT(CASE WHEN COALESCE(r.total_score, 0) >= 40 THEN 1 END)::float / NULLIF(COUNT(*), 0)) * 100
     END as pass_rate,
     COUNT(*) as total_students,
-    COUNT(CASE WHEN (COALESCE(r.assignment_score, 0) * 0.4 + COALESCE(r.lab_score, 0) * 0.2 + COALESCE(r.exam_score, 0) * 0.4) < 40 THEN 1 END) as at_risk_count,
-    COALESCE(AVG(r.assignment_score * 0.4 + COALESCE(r.lab_score, 0) * 0.2 + r.exam_score * 0.4), 0) as avg_score
+    COUNT(CASE WHEN COALESCE(r.total_score, 0) < 40 THEN 1 END) as at_risk_count,
+    COALESCE(AVG(COALESCE(r.total_score, 0)), 0) as avg_score
 FROM results r
 WHERE r.course_id = $1;
 
@@ -77,7 +77,7 @@ fail_stats AS (
         COUNT(*)::int as failing_count
     FROM results r
     WHERE r.exam_score IS NOT NULL
-    AND (COALESCE(r.assignment_score, 0) * 0.4 + COALESCE(r.lab_score, 0) * 0.2 + COALESCE(r.exam_score, 0) * 0.4) < 40
+    AND COALESCE(r.total_score, 0) < 40
     GROUP BY r.student_id
 ),
 dues_stats AS (
@@ -190,7 +190,7 @@ WITH graded AS (
         c.id as course_id,
         c.code as course_code,
         c.title as course_name,
-        (COALESCE(r.assignment_score, 0) * 0.4 + COALESCE(r.lab_score, 0) * 0.2 + COALESCE(r.exam_score, 0) * 0.4) as total_score
+        COALESCE(r.total_score, 0) as total_score
     FROM results r
     JOIN courses c ON c.id = r.course_id
     WHERE r.exam_score IS NOT NULL

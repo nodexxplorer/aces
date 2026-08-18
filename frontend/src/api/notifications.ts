@@ -107,6 +107,13 @@ export const updatePreferences = async (prefs: Partial<NotificationPreferences>)
   return unwrap<NotificationPreferences>(res);
 };
 
+// Public — no auth required. The token from the "Unsubscribe" link in a
+// notification email is the only credential.
+export const unsubscribeFromEmails = async (token: string): Promise<{ message: string }> => {
+  const res = await apiClient.get(`/notifications/unsubscribe/${token}`);
+  return unwrap<{ message: string }>(res);
+};
+
 export const createNotification = async (payload: {
   user_id: string;
   title: string;

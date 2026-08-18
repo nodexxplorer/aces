@@ -8,6 +8,7 @@ import {
   BookOpen,
   CreditCard,
   FileText,
+  FileSignature,
   HelpCircle,
   Calendar,
   User,
@@ -139,6 +140,12 @@ const menuItems: MenuItem[] = [
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   },
   {
+    label: 'My Attendance',
+    path: '/attendance',
+    icon: ClipboardCheck,
+    roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
+  },
+  {
     label: 'Manuals',
     path: '/manuals',
     icon: BookOpen,
@@ -191,6 +198,12 @@ const menuItems: MenuItem[] = [
     icon: CreditCard,
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   },
+  {
+    label: 'Course Form Signing',
+    path: '/course-form-signing',
+    icon: FileSignature,
+    roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
+  },
 
   { label: 'Connect', path: '/connect', icon: Users },
   // { label: 'Skills & Trade', path: '/skills', icon: TrendingUp },
@@ -202,6 +215,12 @@ const menuItems: MenuItem[] = [
     roles: ['student', 'alumni', 'hod', 'delegated_admin'],
   },
   { label: 'Job Board', path: '/alumni/jobs', icon: Briefcase, roles: ['alumni', 'hod', 'delegated_admin'] },
+  {
+    label: 'Mentorship Requests',
+    path: '/alumni/mentorship',
+    icon: Users,
+    roles: ['alumni', 'hod', 'delegated_admin'],
+  },
   { label: 'Give Back', path: '/alumni/give-back', icon: DollarSign, roles: ['alumni', 'hod', 'delegated_admin'] },
 
   { label: 'Lecturer Portal', path: '/lecturer', icon: LayoutDashboard, roles: ['lecturer'] },
@@ -231,6 +250,7 @@ const menuItems: MenuItem[] = [
   },
   { label: 'Verify Payments', path: '/bursar/verify', icon: DollarSign, roles: ['class_bursar', 'dept_bursar'] },
   { label: 'Defaulters List', path: '/bursar/defaulters', icon: ShieldAlert, roles: ['class_bursar', 'dept_bursar'] },
+  { label: 'Payment History', path: '/bursar/history', icon: Clock, roles: ['class_bursar', 'dept_bursar'] },
 
   { label: 'Admin Portal', path: '/admin', icon: LayoutDashboard, roles: ['hod', 'delegated_admin', 'admin'] },
   {
@@ -295,6 +315,7 @@ const menuItems: MenuItem[] = [
   // { label: 'Expenses', path: '/admin/expenses', icon: DollarSign, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Operations', path: '/admin/system', icon: Wrench, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Settings', path: '/admin/settings', icon: Settings, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'CRF Signing', path: '/admin/crf-signing', icon: FileSignature, roles: ['hod', 'delegated_admin', 'admin'] },
 
   // { label: 'AI Blueprint', path: '/ai-blueprint', icon: Brain, roles: ['hod', 'delegated_admin', 'admin'] },
 
@@ -314,6 +335,7 @@ const mobileSections: NavSection[] = [
       { label: 'Transcripts', path: '/transcripts', icon: FileText },
       { label: 'Practicals & Lab', path: '/practicals', icon: ClipboardList },
       { label: 'Timetable', path: '/timetable', icon: Calendar },
+      { label: 'My Attendance', path: '/attendance', icon: ClipboardCheck },
       { label: 'Manuals', path: '/manuals', icon: BookOpen },
       { label: 'Complaints', path: '/complaints', icon: HelpCircle },
       { label: 'Job Board', path: '/student/jobs', icon: Briefcase },
@@ -326,8 +348,8 @@ const mobileSections: NavSection[] = [
     key: 'community',
     items: [
       { label: 'Connect', path: '/connect', icon: Users },
-      { label: 'Calendar', path: '/calendar', icon: Calendar },
       { label: 'Communication', path: '/communication', icon: Bell },
+      { label: 'Find a Mentor', path: '/find-mentor', icon: GraduationCap },
 
       // { label: 'Notice Board', path: '/notice-board', icon: Pin },
     ],
@@ -379,6 +401,7 @@ const mobileSections: NavSection[] = [
       { label: 'Dues Management', path: '/bursar/dues', icon: DollarSign },
       { label: 'Verify Payments', path: '/bursar/verify', icon: DollarSign },
       { label: 'Defaulters List', path: '/bursar/defaulters', icon: ShieldAlert },
+      { label: 'Payment History', path: '/bursar/history', icon: Clock },
     ],
   },
 ];

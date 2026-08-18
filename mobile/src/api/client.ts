@@ -6,7 +6,11 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8080/a
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,
-  headers: { 'Content-Type': 'application/json' },
+  // Identifies every request as coming from the mobile app — the backend
+  // uses this to reject login/refresh for lecturer/hod/admin accounts,
+  // which this app isn't built for (see isMobileClient in auth.go). The
+  // web app never sends this header, so it's unaffected.
+  headers: { 'Content-Type': 'application/json', 'X-Client-Platform': 'mobile' },
 });
 
 // The web app relies on an httpOnly cookie; there's no such thing on native,
@@ -48,6 +52,23 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+
+    // Mirrors frontend/src/api/client.ts — the backend's connection to its
+    // database has shown highly variable latency (some requests take
+    // 15-45+ seconds even though they eventually complete successfully
+    // server-side), well past this client's 15s timeout. A timed-out GET
+    // then looks like "no data" rather than "still loading". GETs are
+    // idempotent, so retry up to twice — each attempt opens a fresh
+    // connection, which often lands outside whatever caused the stall.
+    const isTimeoutOrNetworkError =
+      !error.response && (error.code === 'ECONNABORTED' || error.message === 'Network Error');
+    if (isTimeoutOrNetworkError && originalRequest?.method?.toLowerCase() === 'get') {
+      originalRequest._timeoutRetryCount = (originalRequest._timeoutRetryCount ?? 0) + 1;
+      if (originalRequest._timeoutRetryCount <= 2) {
+        return apiClient(originalRequest);
+      }
+    }
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       const url = originalRequest.url ?? '';
       const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/refresh');

@@ -18,6 +18,7 @@ import {
 } from '../../../src/store/settingsStore';
 import { isBiometricAvailable, authenticateWithBiometrics, getBiometricLabel } from '../../../src/utils/biometrics';
 import { haptics } from '../../../src/utils/haptics';
+import { getPreferences, updatePreferences, type NotificationPreferences } from '../../../src/api/notifications';
 
 const THEME_OPTIONS: { key: ThemeMode; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: 'system', label: 'System', icon: 'phone-portrait-outline' },
@@ -46,10 +47,38 @@ export default function SettingsScreen() {
   const [bioLabel, setBioLabel] = useState('Biometric Login');
   const [bioBusy, setBioBusy] = useState(false);
 
+  const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences | null>(null);
+  const [notifBusyField, setNotifBusyField] = useState<string | null>(null);
+
   useEffect(() => {
     isBiometricAvailable().then(setBioAvailable);
     getBiometricLabel().then(setBioLabel);
+    getPreferences()
+      .then(setNotifPrefs)
+      .catch(() => {});
   }, []);
+
+  const handleToggleNotifChannel = async (field: 'email_enabled' | 'push_enabled' | 'in_app_enabled', value: boolean) => {
+    if (!notifPrefs) return;
+    const previous = notifPrefs;
+    // The backend's upsert treats an omitted field as "reset to default",
+    // not "leave unchanged" — so the full current preferences object has to
+    // be sent, not just the one field being flipped, or the rest of the
+    // user's saved settings (push categories, quiet hours, etc.) would be
+    // silently wiped back to defaults.
+    const next = { ...notifPrefs, [field]: value };
+    setNotifPrefs(next);
+    setNotifBusyField(field);
+    try {
+      const updated = await updatePreferences(next);
+      setNotifPrefs(updated);
+    } catch {
+      setNotifPrefs(previous);
+      haptics.error();
+    } finally {
+      setNotifBusyField(null);
+    }
+  };
 
   const handleToggleBiometric = async (value: boolean) => {
     if (!value) {
@@ -187,6 +216,61 @@ export default function SettingsScreen() {
           </Pressable>
         </Card>
       </Animated.View>
+
+      {notifPrefs && (
+        <Animated.View entering={FadeInDown.duration(350).delay(110)}>
+          <SectionTitle>Notifications</SectionTitle>
+          <Card padded={false}>
+            <View style={styles.switchRow}>
+              <View style={[styles.rowIconWrap, { backgroundColor: theme.primaryMuted }]}>
+                <Ionicons name="notifications-outline" size={18} color={theme.primary} />
+              </View>
+              <View style={styles.flex}>
+                <Text style={[styles.rowLabel, { color: theme.text }]}>In-App Notifications</Text>
+                <Text style={[styles.rowHint, { color: theme.textFaint }]}>Show notifications inside the app</Text>
+              </View>
+              <Switch
+                value={notifPrefs.in_app_enabled}
+                onValueChange={(v) => handleToggleNotifChannel('in_app_enabled', v)}
+                disabled={notifBusyField === 'in_app_enabled'}
+                trackColor={{ true: theme.primary }}
+              />
+            </View>
+            <View style={[styles.menuDivider, { backgroundColor: theme.divider }]} />
+            <View style={styles.switchRow}>
+              <View style={[styles.rowIconWrap, { backgroundColor: theme.primaryMuted }]}>
+                <Ionicons name="mail-outline" size={18} color={theme.primary} />
+              </View>
+              <View style={styles.flex}>
+                <Text style={[styles.rowLabel, { color: theme.text }]}>Email Notifications</Text>
+                <Text style={[styles.rowHint, { color: theme.textFaint }]}>Receive notifications by email</Text>
+              </View>
+              <Switch
+                value={notifPrefs.email_enabled}
+                onValueChange={(v) => handleToggleNotifChannel('email_enabled', v)}
+                disabled={notifBusyField === 'email_enabled'}
+                trackColor={{ true: theme.primary }}
+              />
+            </View>
+            <View style={[styles.menuDivider, { backgroundColor: theme.divider }]} />
+            <View style={styles.switchRow}>
+              <View style={[styles.rowIconWrap, { backgroundColor: theme.primaryMuted }]}>
+                <Ionicons name="phone-portrait-outline" size={18} color={theme.primary} />
+              </View>
+              <View style={styles.flex}>
+                <Text style={[styles.rowLabel, { color: theme.text }]}>Push Notifications</Text>
+                <Text style={[styles.rowHint, { color: theme.textFaint }]}>Receive push alerts on this device</Text>
+              </View>
+              <Switch
+                value={notifPrefs.push_enabled}
+                onValueChange={(v) => handleToggleNotifChannel('push_enabled', v)}
+                disabled={notifBusyField === 'push_enabled'}
+                trackColor={{ true: theme.primary }}
+              />
+            </View>
+          </Card>
+        </Animated.View>
+      )}
 
       <Animated.View entering={FadeInDown.duration(350).delay(120)}>
         <SectionTitle>About</SectionTitle>

@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, CheckCircle, Clock, AlertTriangle, Circle, Calendar } from 'lucide-react';
+import { Plus, Trash2, CheckCircle, Clock, AlertTriangle, Circle, Calendar, Sparkles, X } from 'lucide-react';
 import {
   createStudyTask,
   listMyStudyTasks,
   updateStudyTask,
   deleteStudyTask,
+  getAIStudyPlan,
   type StudyTask,
 } from '../../api/additional-features';
+import CalendarSyncModal from '../../components/features/CalendarSyncModal';
 
 type Priority = 'high' | 'medium' | 'low';
 type Status = 'pending' | 'in_progress' | 'completed';
@@ -43,6 +45,23 @@ export default function StudyPlannerPage() {
   const [newDescription, setNewDescription] = useState('');
   const [newPriority, setNewPriority] = useState<Priority>('medium');
   const [newDueDate, setNewDueDate] = useState('');
+
+  const [aiPlan, setAiPlan] = useState<string | null>(null);
+  const [aiPlanLoading, setAiPlanLoading] = useState(false);
+  const [aiPlanError, setAiPlanError] = useState('');
+
+  const handleGeneratePlan = async () => {
+    setAiPlanLoading(true);
+    setAiPlanError('');
+    try {
+      const res = await getAIStudyPlan();
+      setAiPlan(res.plan);
+    } catch {
+      setAiPlanError("Couldn't generate a study plan right now — please try again shortly.");
+    } finally {
+      setAiPlanLoading(false);
+    }
+  };
 
   const fetchTasks = async () => {
     try {
@@ -144,14 +163,52 @@ export default function StudyPlannerPage() {
             Organize your study tasks, set priorities, and track your progress.
           </p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-xl font-medium transition-colors flex items-center gap-2 shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          New Task
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <CalendarSyncModal />
+          <button
+            onClick={handleGeneratePlan}
+            disabled={aiPlanLoading}
+            className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 hover:border-primary-300 dark:hover:border-primary-700 text-surface-700 dark:text-surface-300 px-4 py-2 rounded-xl font-medium transition-colors flex items-center gap-2 shrink-0 disabled:opacity-60"
+          >
+            <Sparkles className="w-4 h-4 text-primary-500" />
+            {aiPlanLoading ? 'Generating...' : 'AI Study Plan'}
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-xl font-medium transition-colors flex items-center gap-2 shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            New Task
+          </button>
+        </div>
       </div>
+
+      {aiPlanError && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          {aiPlanError}
+        </div>
+      )}
+
+      {aiPlan && (
+        <div className="bg-white dark:bg-surface-900 rounded-2xl border border-primary-200 dark:border-primary-800 shadow-sm p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-surface-900 dark:text-white flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary-500" />
+              Your AI Study Plan
+            </h3>
+            <button
+              onClick={() => setAiPlan(null)}
+              className="text-surface-400 hover:text-surface-600 dark:hover:text-surface-300"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <pre className="whitespace-pre-wrap font-sans text-sm text-surface-700 dark:text-surface-300 leading-relaxed">
+            {aiPlan}
+          </pre>
+        </div>
+      )}
 
       <div className="flex gap-2 overflow-x-auto pb-1">
         {filterTabs.map((tab) => (

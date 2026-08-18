@@ -169,6 +169,14 @@ export default function PasswordResetOTPPage() {
                 {loading ? 'Sending...' : 'Send OTP'}
                 {!loading && <ArrowRight className="w-5 h-5" />}
               </button>
+
+              <button
+                type="button"
+                onClick={() => navigate('/login')}
+                className="w-full mt-3 text-primary-500 hover:text-primary-600 py-2 text-sm font-medium transition-colors"
+              >
+                Back to Login
+              </button>
             </form>
           </>
         )}

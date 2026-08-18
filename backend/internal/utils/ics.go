@@ -73,3 +73,47 @@ func GenerateICS(e ICSEvent) []byte {
 
 	return []byte(strings.Join(lines, "\r\n") + "\r\n")
 }
+
+// GenerateICSFeed renders a multi-VEVENT calendar file body — used for a
+// standing subscription feed (Google/Apple/Outlook "subscribe by URL"),
+// as opposed to GenerateICS's single-event "Add to Calendar" download.
+// Stable UIDs on each event let clients update events in place on repeated
+// fetches instead of duplicating them.
+func GenerateICSFeed(calName string, events []ICSEvent) []byte {
+	lines := []string{
+		"BEGIN:VCALENDAR",
+		"VERSION:2.0",
+		"PRODID:-//ACES Zone//Calendar Feed//EN",
+		"CALSCALE:GREGORIAN",
+		fmt.Sprintf("X-WR-CALNAME:%s", escapeICSText(calName)),
+	}
+
+	stamp := formatICSTime(time.Now())
+	for _, e := range events {
+		end := e.End
+		if end.IsZero() {
+			end = e.Start.Add(1 * time.Hour)
+		}
+		lines = append(lines,
+			"BEGIN:VEVENT",
+			fmt.Sprintf("UID:%s@aces.zone", e.UID),
+			fmt.Sprintf("DTSTAMP:%s", stamp),
+			fmt.Sprintf("DTSTART:%s", formatICSTime(e.Start)),
+			fmt.Sprintf("DTEND:%s", formatICSTime(end)),
+			fmt.Sprintf("SUMMARY:%s", escapeICSText(e.Title)),
+		)
+		if e.Description != "" {
+			lines = append(lines, fmt.Sprintf("DESCRIPTION:%s", escapeICSText(e.Description)))
+		}
+		if e.Location != "" {
+			lines = append(lines, fmt.Sprintf("LOCATION:%s", escapeICSText(e.Location)))
+		}
+		if e.RecurrenceRule != "" {
+			lines = append(lines, fmt.Sprintf("RRULE:%s", e.RecurrenceRule))
+		}
+		lines = append(lines, "END:VEVENT")
+	}
+	lines = append(lines, "END:VCALENDAR")
+
+	return []byte(strings.Join(lines, "\r\n") + "\r\n")
+}

@@ -11,6 +11,10 @@ import Card from '../../src/components/ui/Card';
 import Button from '../../src/components/ui/Button';
 import { getStudentDashboard, type StudentDashboard } from '../../src/api/dashboard';
 
+// Always the plain student view, regardless of active role — a class rep
+// switched into class_rep mode takes attendance from its own dedicated
+// screen (app/class-rep/attendance.tsx, reached via the Class Rep Tools
+// hub), not by this shared tab changing its content underneath them.
 export default function AttendanceScreen() {
   const { theme } = useTheme();
   const router = useRouter();

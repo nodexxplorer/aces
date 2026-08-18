@@ -9,9 +9,8 @@ import { fontFamily, fontSize, radius, spacing } from '../../src/theme/typograph
 import Button from '../../src/components/ui/Button';
 import { haptics } from '../../src/utils/haptics';
 
-// Swap this file for the real building footage whenever it's ready — same
-// path, same filename, no code changes needed elsewhere.
-const introVideo = require('../../assets/videos/necb building.mp4');
+
+const introVideo = require('../../assets/videos/acesvideo.mp4');
 
 export default function IntroScreen() {
   const router = useRouter();

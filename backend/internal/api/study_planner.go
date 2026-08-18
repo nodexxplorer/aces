@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -271,6 +272,65 @@ func (server *Server) deleteStudyTask(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "task deleted"})
+}
+
+// getAIStudyPlan GET /study-tasks/ai-plan — a proactive, generated
+// week-by-week study schedule built from the caller's actual registered
+// courses and open tasks. Distinct from the reactive AI chatbot.
+func (server *Server) getAIStudyPlan(ctx *gin.Context) {
+	userID := getUserID(ctx)
+
+	student, err := server.store.GetStudentByUserId(ctx, userID)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "student record not found"})
+		return
+	}
+
+	activeSem, err := server.store.GetActiveSemester(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "no active semester configured"})
+		return
+	}
+
+	courseRows, err := server.store.GetStudentRegisteredCourseDetails(ctx, student.ID, activeSem.ID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch registered courses"})
+		return
+	}
+	courses := make([]string, 0, len(courseRows))
+	for _, c := range courseRows {
+		courses = append(courses, fmt.Sprintf("%s: %s (%d units)", c.CourseCode, c.CourseName, c.Unit))
+	}
+
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})
+		return
+	}
+	taskRows, err := queries.ListUserStudyTasks(ctx, userID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch study tasks"})
+		return
+	}
+	tasks := make([]string, 0, len(taskRows))
+	for _, t := range taskRows {
+		if t.Status == "completed" || t.Status == "cancelled" {
+			continue
+		}
+		due := "no due date"
+		if t.DueDate.Valid {
+			due = t.DueDate.Time.Format("Mon Jan 2")
+		}
+		tasks = append(tasks, fmt.Sprintf("%s — due %s", t.Title, due))
+	}
+
+	plan, ok := server.ai.GenerateStudyPlan(ctx, courses, tasks)
+	if !ok {
+		ctx.JSON(http.StatusServiceUnavailable, gin.H{"error": "could not generate a study plan right now — please try again shortly"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"plan": plan})
 }
 
 func (server *Server) getUpcomingTasks(ctx *gin.Context) {

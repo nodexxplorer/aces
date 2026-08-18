@@ -21,6 +21,7 @@ import {
   Loader2,
   PenLine,
   ArrowUpRight,
+  History,
 } from 'lucide-react';
 
 const BursarDashboard = () => {
@@ -354,8 +355,19 @@ const BursarDashboard = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle>Recent Transactions</CardTitle>
-              <CardDescription>{data?.recent_payments?.length ?? 0} recent payment(s)</CardDescription>
+              <div className="flex items-center justify-between w-full">
+                <div>
+                  <CardTitle>Recent Transactions</CardTitle>
+                  <CardDescription>{data?.recent_payments?.length ?? 0} recent payment(s)</CardDescription>
+                </div>
+                <a
+                  href="/bursar/history"
+                  className="text-xs font-medium text-primary-500 hover:text-primary-600 flex items-center gap-1 shrink-0"
+                >
+                  View Full History
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </a>
+              </div>
             </CardHeader>
             {loading ? (
               <div className="flex items-center justify-center py-12">
@@ -429,6 +441,19 @@ const BursarDashboard = () => {
                   <span className="text-sm font-medium text-surface-700 dark:text-surface-300">Verify Payments</span>
                 </div>
                 <ArrowUpRight className="w-4 h-4 text-surface-400 group-hover:text-primary-500 transition-colors" />
+              </a>
+
+              <a
+                href="/bursar/history"
+                className="flex items-center justify-between p-3 rounded-lg border border-surface-200 dark:border-surface-700/50 hover:bg-surface-50 dark:hover:bg-surface-700/30 transition-colors group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-info-500/10 dark:bg-info-500/20 text-info-500">
+                    <History className="w-4 h-4" />
+                  </div>
+                  <span className="text-sm font-medium text-surface-700 dark:text-surface-300">Payment History</span>
+                </div>
+                <ArrowUpRight className="w-4 h-4 text-surface-400 group-hover:text-info-500 transition-colors" />
               </a>
 
               <button

@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, FlatList, Pressable, TextInput, Image } from 'react-native';
 import Text from '../../../src/components/ui/Text';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useTheme } from '../../../src/theme/ThemeProvider';
@@ -157,10 +157,24 @@ export default function ConnectScreen() {
     }
   }, [setUnreadCounts]);
 
-  useEffect(() => {
-    setLoading(true);
-    fetchAll().finally(() => setLoading(false));
-  }, [fetchAll]);
+  // useFocusEffect (not a plain mount-only useEffect) so unread counts and
+  // the connections list refresh every time this screen regains focus —
+  // including coming back from a chat conversation, where markMessageRead
+  // already fired but this screen's own `unread` state and the tab-bar
+  // badge (useUnreadStore) had no other trigger to catch up until the next
+  // websocket message or 60s poll.
+  const hasLoadedOnce = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (!hasLoadedOnce.current) {
+        hasLoadedOnce.current = true;
+        setLoading(true);
+        fetchAll().finally(() => setLoading(false));
+      } else {
+        fetchAll();
+      }
+    }, [fetchAll]),
+  );
 
   // A message arriving anywhere in the app while Connect itself is on screen
   // should update badges live, same as the web version.

@@ -74,29 +74,30 @@ type Server struct {
 	tokenManager *auth.TokenManager
 	config       *config.Config
 
-	auth          *service.AuthService
-	users         *service.UserService
-	students      *service.StudentService
-	courses       *service.CourseService
-	results       *service.ResultService
-	sessions      *service.SessionService
-	semesters     *service.SemesterService
-	complaints    *service.ComplaintService
-	announcements *service.AnnouncementService
+	auth              *service.AuthService
+	users             *service.UserService
+	students          *service.StudentService
+	courses           *service.CourseService
+	results           *service.ResultService
+	sessions          *service.SessionService
+	semesters         *service.SemesterService
+	complaints        *service.ComplaintService
+	announcements     *service.AnnouncementService
 	notifications     *service.NotificationService
 	notificationsFull *service.NotificationServiceFull
 	transcripts       *service.TranscriptService
-	analytics     *service.AnalyticsService
-	cgpa          *service.CGPAService
-	timetables    *service.TimetableService
-	roles         *service.RoleService
-	manuals       *service.ManualService
-	campusConnect *service.CampusConnectService
-	alumni        *service.AlumniService
-	ai            *service.AIService
-	wsHub         *ws.Hub
-	storage       *storage.LocalStorage
-	redisCache    *cache.RedisCache
+	analytics         *service.AnalyticsService
+	cgpa              *service.CGPAService
+	timetables        *service.TimetableService
+	roles             *service.RoleService
+	manuals           *service.ManualService
+	campusConnect     *service.CampusConnectService
+	alumni            *service.AlumniService
+	ai                *service.AIService
+	wsHub             *ws.Hub
+	storage           *storage.LocalStorage
+	redisCache        *cache.RedisCache
+	emailSender       email.EmailSender
 }
 
 func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Server {
@@ -130,16 +131,17 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		announcements:     service.NewAnnouncementService(store),
 		notifications:     service.NewNotificationService(store),
 		notificationsFull: service.NewNotificationServiceFull(db.New(dbPool), hub, emailSender, cfg.FrontendPublicURL),
-		transcripts:   service.NewTranscriptService(store),
-		analytics:     service.NewAnalyticsService(store),
-		cgpa:          service.NewCGPAService(store),
-		timetables:    service.NewTimetableService(store),
-		roles:         service.NewRoleService(store),
-		manuals:       service.NewManualService(store),
-		campusConnect: service.NewCampusConnectService(store),
-		alumni:        service.NewAlumniService(store),
-		ai:            service.NewAIService(store, cfg),
-		wsHub:         hub,
+		transcripts:       service.NewTranscriptService(store),
+		analytics:         service.NewAnalyticsService(store),
+		cgpa:              service.NewCGPAService(store),
+		timetables:        service.NewTimetableService(store),
+		roles:             service.NewRoleService(store),
+		manuals:           service.NewManualService(store),
+		campusConnect:     service.NewCampusConnectService(store),
+		alumni:            service.NewAlumniService(store),
+		ai:                service.NewAIService(store, cfg),
+		wsHub:             hub,
+		emailSender:       emailSender,
 	}
 
 	// Initialize local storage
@@ -226,6 +228,16 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 	}
 
 	v1.POST("/payments/webhook/paystack", server.handlePaystackWebhook)
+
+	// Public — calendar clients (Google/Apple/Outlook "subscribe by URL")
+	// fetch subscription URLs with no auth headers, so this can't sit
+	// behind JWTAuth; the token in the path is the only credential.
+	v1.GET("/calendar/feed/:token", server.getCalendarFeed)
+
+	// Public — the "Unsubscribe" link in outbound notification emails is
+	// opened directly from a mail client with no auth headers, so the
+	// token in the path is the only credential.
+	v1.GET("/notifications/unsubscribe/:token", server.unsubscribeFromEmails)
 
 	api := v1.Group("")
 	api.Use(middleware.JWTAuth(tm))
@@ -324,6 +336,12 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 
 	api.POST("/students", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createStudent)
 
+	calendarSync := api.Group("/calendar")
+	{
+		calendarSync.GET("/token", server.getCalendarToken)
+		calendarSync.POST("/token/regenerate", server.regenerateCalendarToken)
+	}
+
 	attendance := api.Group("/attendance")
 	{
 		attendance.POST("", middleware.RequireRoles("class_rep", "hod", "delegated_admin"), server.createAttendanceSheet)
@@ -334,6 +352,8 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		attendance.GET("/course", middleware.RequireRoles("lecturer", "hod", "admin", "delegated_admin", "class_rep"), server.listCourseAttendanceSheets)
 		attendance.GET("/student", server.listStudentAttendance)
 		attendance.GET("/summary", server.getAttendanceSummary)
+		attendance.GET("/my-overview", middleware.RequireRoles("student"), server.getStudentAttendanceOverview)
+		attendance.GET("/my-courses/:course_id", middleware.RequireRoles("student"), server.getStudentCourseAttendanceDetail)
 		attendance.GET("/:id", server.getAttendanceSheet)
 		attendance.PUT("/:id", middleware.RequireRoles("class_rep", "hod", "delegated_admin"), server.updateAttendanceSheet)
 		attendance.POST("/:id/finalize", middleware.RequireRoles("class_rep", "hod", "delegated_admin"), server.finalizeAttendanceSheet)
@@ -415,8 +435,6 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		carryovers.GET("/student/:student_id", server.listStudentCarryoverCourses)
 		carryovers.GET("/student/:student_id/detailed", server.listStudentCarryoverCoursesDetailed)
 	}
-
-
 
 	notifications := api.Group("/notifications")
 	{
@@ -590,8 +608,6 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		connect.GET("/directory", server.getStudentDirectory)
 	}
 
-
-
 	// ── Backups ──
 	backups := api.Group("/backups")
 	{
@@ -611,6 +627,9 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		alumniGroup.GET("/my-stats", server.getAlumniMyStats)
 		alumniGroup.GET("/directory", server.searchAlumniDirectory)
 		alumniGroup.GET("/mentors", server.listMentors)
+		alumniGroup.POST("/mentorship/requests", middleware.RequireRoles("student", "class_rep", "project_coordinator", "event_coordinator", "alumni_rep"), server.requestMentorship)
+		alumniGroup.GET("/mentorship/my", server.listMyMentorshipRequests)
+		alumniGroup.PUT("/mentorship/requests/:id", middleware.RequireRoles("alumni", "hod", "admin", "delegated_admin"), server.updateMentorshipStatus)
 		alumniGroup.POST("/status", server.createAlumniStatus)
 		alumniGroup.GET("/status/:id", server.getAlumniStatus)
 		alumniGroup.GET("", server.listAlumni)
@@ -646,6 +665,8 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 	{
 		classRep.GET("/class-list", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.getClassRepClassList)
 		classRep.GET("/pending-registrations", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.listPendingCourseRegistrations)
+		classRep.GET("/pending-student-registrations", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.listPendingStudentRegistrations)
+		classRep.POST("/pending-student-registrations/:id/approve", middleware.RequireRoles("class_rep", "admin", "delegated_admin", "hod"), server.approveStudentRegistration)
 		classRep.POST("/appoint", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.appointClassRep)
 		classRep.GET("/list", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listClassReps)
 		classRep.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deactivateClassRep)
@@ -679,6 +700,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 	{
 		lecturers.GET("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listLecturers)
 		lecturers.GET("/attendance/pending", middleware.RequireRoles("lecturer", "hod", "admin"), server.getLecturerPendingAttendanceReviews)
+		lecturers.GET("/attendance/overview", middleware.RequireRoles("lecturer", "hod", "admin"), server.getLecturerCourseAttendanceOverview)
 		lecturers.GET("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin", "lecturer"), server.getLecturerProfile)
 		lecturers.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateLecturerProfile)
 		lecturers.POST("/assign-course", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.assignCourseToLecturer)
@@ -725,6 +747,32 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		predictions.POST("/store", middleware.RequireRoles("hod", "delegated_admin", "admin"), server.storeAIPrediction)
 	}
 
+	// ── Exportable Reports ──
+	reports := api.Group("/reports")
+	reports.Use(middleware.RequireRoles("hod", "delegated_admin", "admin"))
+	{
+		reports.POST("", server.generateReport)
+		reports.GET("", server.listReports)
+	}
+
+	// ── CRF signing: auto-stamp a pre-authorized signature onto students'
+	// uploaded course registration forms. Standalone document-signing
+	// utility, unrelated to the course-registration data elsewhere in the app.
+	crfSignatures := api.Group("/crf-signatures")
+	crfSignatures.Use(middleware.RequireRoles("hod", "delegated_admin", "admin"))
+	{
+		crfSignatures.POST("/test-stamp", server.testStampCRF)
+		crfSignatures.POST("/:kind", server.uploadCRFSignatureAsset)
+		crfSignatures.GET("", server.listCRFSignatureAssets)
+	}
+
+	crfSigning := api.Group("/crf-signing")
+	{
+		crfSigning.POST("/upload", server.submitCRFForSigning)
+		crfSigning.GET("/mine", server.getMyCRFSubmission)
+		crfSigning.GET("/:id/download", server.downloadCRFSubmission)
+	}
+
 	// ── Security: Sessions ──
 	sessionsAPI := api.Group("/sessions/security")
 	{
@@ -749,6 +797,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		studyTasks.POST("", server.createStudyTask)
 		studyTasks.GET("", server.listMyStudyTasks)
 		studyTasks.GET("/upcoming", server.getUpcomingTasks)
+		studyTasks.GET("/ai-plan", server.getAIStudyPlan)
 		studyTasks.GET("/:id", server.getStudyTask)
 		studyTasks.PUT("/:id", server.updateStudyTask)
 		studyTasks.DELETE("/:id", server.deleteStudyTask)
