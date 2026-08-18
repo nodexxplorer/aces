@@ -104,7 +104,13 @@ export default function ClassRepAttendance() {
       }
       setEntries(list);
 
-      const active = sessions.status === 'fulfilled' ? (sessions.value.find((s) => s.status === 'open' || s.status === 'closed') ?? null) : null;
+      // listMyAttendanceSessions() returns every session this rep has ever
+      // created, with no date filtering — only 'open' counts as "resume
+      // this", matching web's AttendancePage.tsx exactly. Including 'closed'
+      // here was the bug: any old closed-but-unsubmitted session (even a
+      // stale one from testing) would permanently take over this screen,
+      // with no way back to course selection, QR, or the scanner.
+      const active = sessions.status === 'fulfilled' ? (sessions.value.find((s) => s.status === 'open') ?? null) : null;
       setSession(active);
       if (active) {
         const [rosterRes, checkinsRes] = await Promise.all([
