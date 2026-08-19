@@ -7,30 +7,24 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"os"
+	"time"
 
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
-// SignatureStamp describes one image to overlay onto an existing PDF page.
-// X/Y are the point coordinates (PDF origin: bottom-left of the page) of the
-// image's lower-left corner; Width is the desired rendered width in points —
-// height follows the image's own aspect ratio, computed from its actual
-// pixel dimensions so the stored Width is honored exactly regardless of the
-// source image's resolution.
 type SignatureStamp struct {
-	ImagePath string
-	Page      int
-	X, Y      float64
-	Width     float64
+	ImagePath    string
+	Page         int
+	X, Y         float64
+	Width        float64
+	MaxHeight    float64
+	ShowDate     bool
+	DateX, DateY float64
+	DateFontSize float64
 }
 
-// StampSignatures overlays each stamp's image onto its page of an existing
-// PDF (read from pdfBytes) and returns the resulting PDF bytes. Every
-// student's uploaded course form gets the exact same calibrated stamps —
-// see crf_signature_assets, whose page/x/y/width columns feed this function,
-// calibrated once and reused because every CRF uses the same template.
 func StampSignatures(pdfBytes []byte, stamps []SignatureStamp) ([]byte, error) {
 	pageWatermarks := map[int][]*model.Watermark{}
 
@@ -47,13 +41,16 @@ func StampSignatures(pdfBytes []byte, stamps []SignatureStamp) ([]byte, error) {
 		if cfg.Width <= 0 {
 			return nil, fmt.Errorf("signature image %s has zero width", s.ImagePath)
 		}
-		// pdfcpu's "abs" scale factor is a multiplier of the image's own
-		// pixel width, not a literal point value — back-solve for the
-		// multiplier that renders at exactly the calibrated Width.
-		scale := s.Width / float64(cfg.Width)
 
-		// rotation:0 overrides pdfcpu's default diagonal watermark placement
-		// (DiagonalLLToUR) — a signature has to sit flat, not at an angle.
+		scale := s.Width / float64(cfg.Width)
+		if s.MaxHeight > 0 && cfg.Height > 0 {
+			scaleByHeight := s.MaxHeight / float64(cfg.Height)
+			if scaleByHeight < scale {
+				scale = scaleByHeight
+			}
+		}
+
+		
 		desc := fmt.Sprintf("position:bl, offset:%.2f %.2f, scalefactor:%.6f abs, opacity:1, rotation:0", s.X, s.Y, scale)
 		wm, err := api.ImageWatermarkForReader(bytes.NewReader(imgBytes), desc, true, false, types.POINTS)
 		if err != nil {
@@ -65,6 +62,24 @@ func StampSignatures(pdfBytes []byte, stamps []SignatureStamp) ([]byte, error) {
 			page = 1
 		}
 		pageWatermarks[page] = append(pageWatermarks[page], wm)
+
+		if s.ShowDate {
+			fontSize := s.DateFontSize
+			if fontSize <= 0 {
+				fontSize = 10
+			}
+			dateText := time.Now().Format("02/01/2006")
+			// scalefactor:1 abs neutralizes pdfcpu's default text-watermark
+			// scaling (Scale: 0.5, relative to the page — meant for a big
+			// diagonal "SAMPLE"-style stamp) which otherwise multiplies on
+			// top of the points font size and renders it enormous.
+			dateDesc := fmt.Sprintf("position:bl, offset:%.2f %.2f, points:%.0f, scalefactor:1 abs, rotation:0, color:0 0 0", s.DateX, s.DateY, fontSize)
+			dateWM, err := api.TextWatermark(dateText, dateDesc, true, false, types.POINTS)
+			if err != nil {
+				return nil, fmt.Errorf("build date watermark: %w", err)
+			}
+			pageWatermarks[page] = append(pageWatermarks[page], dateWM)
+		}
 	}
 
 	var out bytes.Buffer

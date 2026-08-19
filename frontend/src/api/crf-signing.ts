@@ -10,6 +10,11 @@ export interface CRFSignatureAsset {
   x_pt: number;
   y_pt: number;
   width_pt: number;
+  max_height_pt: number;
+  show_date: boolean;
+  date_x_pt: number | null;
+  date_y_pt: number | null;
+  date_font_size: number;
   uploaded_by: string;
   uploaded_at: string;
 }
@@ -29,6 +34,11 @@ export interface CRFPlacement {
   x_pt: number;
   y_pt: number;
   width_pt: number;
+  max_height_pt: number;
+  show_date: boolean;
+  date_x_pt: number | null;
+  date_y_pt: number | null;
+  date_font_size: number;
 }
 
 // ─── HOD/admin: signature asset management ─────────────────────────────────
@@ -38,13 +48,18 @@ export const listCRFSignatureAssets = async () => {
   return unwrap<CRFSignatureAsset[]>(res);
 };
 
-export const uploadCRFSignatureAsset = async (kind: CRFSignatureKind, file: File, placement: CRFPlacement) => {
+export const uploadCRFSignatureAsset = async (kind: CRFSignatureKind, file: File | null, placement: CRFPlacement) => {
   const formData = new FormData();
-  formData.append('file', file);
+  if (file) formData.append('file', file);
   formData.append('page_number', String(placement.page_number));
   formData.append('x_pt', String(placement.x_pt));
   formData.append('y_pt', String(placement.y_pt));
   formData.append('width_pt', String(placement.width_pt));
+  formData.append('max_height_pt', String(placement.max_height_pt));
+  formData.append('show_date', String(placement.show_date));
+  if (placement.date_x_pt != null) formData.append('date_x_pt', String(placement.date_x_pt));
+  if (placement.date_y_pt != null) formData.append('date_y_pt', String(placement.date_y_pt));
+  formData.append('date_font_size', String(placement.date_font_size));
 
   const res = await apiClient.post(`/crf-signatures/${kind}`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
@@ -52,8 +67,10 @@ export const uploadCRFSignatureAsset = async (kind: CRFSignatureKind, file: File
   return unwrap<CRFSignatureAsset>(res);
 };
 
-// Returns the stamped PDF as a Blob for inline preview/download — used to
-// check calibration before it goes live for students.
+export const deleteCRFSignatureAsset = async (kind: CRFSignatureKind) => {
+  await apiClient.delete(`/crf-signatures/${kind}`);
+};
+
 export const testStampCRF = async (file: File): Promise<Blob> => {
   const formData = new FormData();
   formData.append('file', file);

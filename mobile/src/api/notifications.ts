@@ -37,3 +37,11 @@ export const updatePreferences = async (prefs: Partial<NotificationPreferences>)
   const res = await apiClient.put('/notifications/preferences', prefs);
   return unwrap<NotificationPreferences>(res);
 };
+
+// Saves this device's Expo push token so the backend can deliver real OS
+// notifications (not just the in-app/WebSocket ones) when this user isn't
+// actively looking at the app.
+export const registerPushToken = async (pushToken: string) => {
+  const res = await apiClient.put('/notifications/push-token', { push_token: pushToken });
+  return unwrap<NotificationPreferences>(res);
+};

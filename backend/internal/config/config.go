@@ -60,6 +60,10 @@ type Config struct {
 	SMTPPassword       string
 	SMTPFrom           string
 	SMTPMock           bool
+	PushMock           bool
+	VAPIDPublicKey     string
+	VAPIDPrivateKey    string
+	VAPIDSubject       string
 	Environment        string
 	GeminiApiKey       string
 	GeminiModel        string
@@ -111,6 +115,10 @@ func Load() *Config {
 		SMTPPassword:       getEnv("SMTP_PASSWORD", ""),
 		SMTPFrom:           getEnv("SMTP_FROM", "no-reply@aces.zone"),
 		SMTPMock:           getBool("SMTP_MOCK", true),
+		PushMock:           getBool("PUSH_MOCK", true),
+		VAPIDPublicKey:     getEnv("VAPID_PUBLIC_KEY", ""),
+		VAPIDPrivateKey:    getEnv("VAPID_PRIVATE_KEY", ""),
+		VAPIDSubject:       getEnv("VAPID_SUBJECT", "mailto:no-reply@aces.zone"),
 		Environment:        getEnv("ENVIRONMENT", "development"),
 		GeminiApiKey:       getEnv("GEMINI_API_KEY", ""),
 		GeminiModel:        getEnv("GEMINI_MODEL", "gemini-2.5-flash"),

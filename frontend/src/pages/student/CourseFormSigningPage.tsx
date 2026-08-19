@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import { FileSignature, Download, CheckCircle2 } from 'lucide-react';
+import { FileSignature, Download, CheckCircle2, Info } from 'lucide-react';
 import { useNotification } from '../../hooks/useNotification';
 import { getErrorMessage } from '../../utils/errors';
 import {
@@ -52,6 +52,20 @@ export default function CourseFormSigningPage() {
           </p>
         </div>
       </div>
+
+      <Card className="border-primary-200 dark:border-primary-800 bg-primary-50/50 dark:bg-primary-950/20">
+        <div className="flex gap-3">
+          <Info className="w-5 h-5 text-primary-500 shrink-0 mt-0.5" />
+          <div className="text-sm text-surface-700 dark:text-surface-300">
+            <p className="font-semibold text-surface-900 dark:text-white">Current semester only</p>
+            <p className="mt-1 text-surface-600 dark:text-surface-400">
+              This service signs course registration forms for the present semester only. Forms from previous semesters
+              are not eligible for automatic signing. Please take those directly to the Head of Department's office for
+              a physical signature.
+            </p>
+          </div>
+        </div>
+      </Card>
 
       {loading ? (
         <div className="animate-pulse text-sm text-surface-400">Loading...</div>
