@@ -40,14 +40,7 @@ export default function BiometricLock({ onUnlock }: { onUnlock: () => void }) {
   useEffect(() => {
     getBiometricLabel().then(setLabel);
 
-    // This mounts the instant the app leaves the foreground (app/_layout.tsx
-    // flips `unlocked` to false as soon as AppState reports 'background'),
-    // not when the user comes back. Calling attempt() unconditionally here
-    // would try to show the OS biometric prompt while the app is still
-    // backgrounded, which fails immediately and silently — so by the time
-    // the user actually returns, the screen already looks like a failed
-    // attempt instead of prompting fresh. Only auto-prompt once the app is
-    // actually active.
+  
     if (AppState.currentState === 'active') {
       attempt();
     } else {

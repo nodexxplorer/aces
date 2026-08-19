@@ -231,6 +231,35 @@ func (server *Server) updateMyNotificationPreferences(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, prefs)
 }
 
+// updateMyPushToken PUT /notifications/push-token
+// Saves this device's Expo push token so CreateAndPush can actually deliver
+// a native OS notification to it, not just the in-app/WebSocket ones.
+func (server *Server) updateMyPushToken(ctx *gin.Context) {
+	userID := getUserID(ctx)
+
+	var req struct {
+		PushToken string `json:"push_token" binding:"required"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "push_token is required"})
+		return
+	}
+
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	prefs, err := queries.SetUserPushToken(ctx, userID, req.PushToken)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, prefs)
+}
+
 // unsubscribeFromEmails GET /notifications/unsubscribe/:token
 // Public — no auth. Reached directly from the "Unsubscribe" link embedded
 // in every outbound notification email, so the token itself is the only

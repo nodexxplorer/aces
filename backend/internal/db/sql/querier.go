@@ -216,8 +216,10 @@ type Querier interface {
 	GetUserCalendarFeedToken(ctx context.Context, userID uuid.UUID) (*string, error)
 	GetUserIDByUnsubscribeToken(ctx context.Context, token string) (uuid.UUID, error)
 	GetOrCreateNotificationUnsubscribeToken(ctx context.Context, userID uuid.UUID) (string, error)
-	UpsertCRFSignatureAsset(ctx context.Context, kind, filePath string, pageNumber int32, xPt, yPt, widthPt float64, uploadedBy uuid.UUID) (CRFSignatureAsset, error)
+	SetUserPushToken(ctx context.Context, userID uuid.UUID, token string) (NotificationPreference, error)
+	UpsertCRFSignatureAsset(ctx context.Context, arg UpsertCRFSignatureAssetParams) (CRFSignatureAsset, error)
 	ListCRFSignatureAssets(ctx context.Context) ([]CRFSignatureAsset, error)
+	DeleteCRFSignatureAsset(ctx context.Context, kind string) error
 	GetCRFSubmissionForUserSemester(ctx context.Context, userID, semesterID uuid.UUID) (CRFSigningSubmission, error)
 	CreateCRFSigningSubmission(ctx context.Context, userID, semesterID uuid.UUID, originalFilePath, signedFilePath string) (CRFSigningSubmission, error)
 	GetCRFSigningSubmission(ctx context.Context, id uuid.UUID) (CRFSigningSubmission, error)

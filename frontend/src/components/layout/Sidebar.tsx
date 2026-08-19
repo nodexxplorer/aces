@@ -333,6 +333,7 @@ const mobileSections: NavSection[] = [
       { label: 'GPA Tools', path: '/gpa', icon: TrendingUp },
       { label: 'Courses', path: '/courses', icon: BookMarked },
       { label: 'Transcripts', path: '/transcripts', icon: FileText },
+      { label: 'Course Form Signing', path: '/course-form-signing', icon: FileSignature },
       { label: 'Practicals & Lab', path: '/practicals', icon: ClipboardList },
       { label: 'Timetable', path: '/timetable', icon: Calendar },
       { label: 'My Attendance', path: '/attendance', icon: ClipboardCheck },

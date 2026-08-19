@@ -10,6 +10,7 @@ import (
 
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/aces/backend/internal/email"
+	"github.com/aces/backend/internal/push"
 	"github.com/aces/backend/internal/ws"
 	"github.com/google/uuid"
 )
@@ -18,14 +19,16 @@ type NotificationServiceFull struct {
 	queries     *db.Queries
 	wsHub       *ws.Hub
 	emailSender email.EmailSender
+	pushSender  push.PushSender
 	frontendURL string
 }
 
-func NewNotificationServiceFull(queries *db.Queries, wsHub *ws.Hub, emailSender email.EmailSender, frontendURL string) *NotificationServiceFull {
+func NewNotificationServiceFull(queries *db.Queries, wsHub *ws.Hub, emailSender email.EmailSender, pushSender push.PushSender, frontendURL string) *NotificationServiceFull {
 	return &NotificationServiceFull{
 		queries:     queries,
 		wsHub:       wsHub,
 		emailSender: emailSender,
+		pushSender:  pushSender,
 		frontendURL: strings.TrimRight(frontendURL, "/"),
 	}
 }
@@ -95,14 +98,20 @@ func (s *NotificationServiceFull) CreateAndPush(
 		}(userID, title, message, actionURL, actionLabel)
 	}
 
+	if s.pushSender != nil && hasPrefs && prefs.PushEnabled && categoryPushAllowed(prefs, category) && prefs.PushToken != nil && *prefs.PushToken != "" {
+		go func(token, notifTitle, notifMsg, notifActionURL string) {
+			var data map[string]interface{}
+			if notifActionURL != "" {
+				data = map[string]interface{}{"action_url": notifActionURL}
+			}
+			if err := s.pushSender.SendPush(token, notifTitle, notifMsg, data); err != nil {
+				log.Printf("[push-notif] failed to send push: %v", err)
+			}
+		}(*prefs.PushToken, title, message, actionURL)
+	}
+
 	return notif, nil
 }
-
-// buildNotificationEmailHTML renders the branded HTML shell every outbound
-// notification email uses: logo header, title/message body, an optional CTA
-// button when the notification carries an action link, and a footer. Built
-// as an HTML table layout (not flexbox/grid) because that's what renders
-// consistently across Gmail, Outlook, and other mail clients.
 func (s *NotificationServiceFull) buildNotificationEmailHTML(title, message, actionURL, actionLabel, unsubscribeURL string) string {
 	logoURL := s.frontendURL + "/aces-logo.png"
 
@@ -167,8 +176,6 @@ func (s *NotificationServiceFull) buildNotificationEmailHTML(title, message, act
 </table>`, logoURL, html.EscapeString(title), html.EscapeString(message), ctaBlock, year, unsubscribeBlock)
 }
 
-// categoryEmailAllowed checks the per-category email toggle for a notification
-// category, defaulting to allowed for categories with no dedicated preference.
 func categoryEmailAllowed(prefs db.NotificationPreference, category string) bool {
 	switch category {
 	case "auth":
@@ -187,6 +194,29 @@ func categoryEmailAllowed(prefs db.NotificationPreference, category string) bool
 		return prefs.EmailAlumni
 	case "system":
 		return prefs.EmailSystem
+	default:
+		return true
+	}
+}
+
+func categoryPushAllowed(prefs db.NotificationPreference, category string) bool {
+	switch category {
+	case "auth":
+		return prefs.PushAuth
+	case "results":
+		return prefs.PushResults
+	case "dues":
+		return prefs.PushDues
+	case "messages":
+		return prefs.PushMessages
+	case "connect":
+		return prefs.PushConnect
+	case "skills":
+		return prefs.PushSkills
+	case "alumni":
+		return prefs.PushAlumni
+	case "system":
+		return prefs.PushSystem
 	default:
 		return true
 	}
@@ -224,8 +254,6 @@ func (s *NotificationServiceFull) UpdatePreferences(ctx context.Context, arg db.
 	return s.queries.UpsertNotificationPreferences(ctx, arg)
 }
 
-// BroadcastNotification creates notifications for multiple users based on targeting criteria
-// and pushes each via WebSocket. Returns the number of notifications created.
 func (s *NotificationServiceFull) BroadcastNotification(
 	ctx context.Context,
 	title, message, category, priority string,

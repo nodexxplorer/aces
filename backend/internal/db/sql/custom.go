@@ -16,14 +16,10 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// GetDB returns the underlying DBTX database connection/transaction.
 func (q *Queries) GetDB() DBTX {
 	return q.db
 }
 
-// GetAttendanceSession fetches a single attendance session by ID, used to
-// verify ownership (session.ClassRepID) before letting a caller open/close
-// it or view its checkins.
 func (q *Queries) GetAttendanceSession(ctx context.Context, id uuid.UUID) (AttendanceSession, error) {
 	var i AttendanceSession
 	err := q.db.QueryRow(ctx, `
@@ -40,10 +36,6 @@ func (q *Queries) GetAttendanceSession(ctx context.Context, id uuid.UUID) (Atten
 	return i, err
 }
 
-// SumRegisteredCourseUnits totals the credit units of every course on a
-// registration, used to recompute total_units server-side on approval
-// instead of trusting whatever the client sent — the same computation
-// submitRegistration already does at creation time.
 func (q *Queries) SumRegisteredCourseUnits(ctx context.Context, registrationID uuid.UUID) (int32, error) {
 	var total int32
 	err := q.db.QueryRow(ctx, `
@@ -55,10 +47,6 @@ func (q *Queries) SumRegisteredCourseUnits(ctx context.Context, registrationID u
 	return total, err
 }
 
-// GetAssignmentGradeByID fetches a single assignment grade by its own ID,
-// used to resolve the parent assignment's course before letting a caller
-// update/delete the grade — GetAssignmentGrade only looks up by
-// (assignment_id, student_id), not by the grade's own ID.
 func (q *Queries) GetAssignmentGradeByID(ctx context.Context, id uuid.UUID) (AssignmentGrade, error) {
 	var i AssignmentGrade
 	err := q.db.QueryRow(ctx, `
@@ -76,14 +64,6 @@ type StudentAttendanceSummaryRow struct {
 	Attended     int32
 }
 
-// GetStudentAttendanceSummary computes a student's attendance rate for a
-// semester from the QR check-in system (attendance_sessions/checkins) —
-// total classes held for the student's registered courses that semester,
-// vs. how many the student was marked present for.
-//
-// studentID is students.id (to match course_registrations); userID is
-// users.id (attendance_checkins.student_id is actually a users.id FK
-// despite the column name — see checkInStudent in dashboard.go).
 func (q *Queries) GetStudentAttendanceSummary(ctx context.Context, studentID, userID, semesterID uuid.UUID) (StudentAttendanceSummaryRow, error) {
 	var i StudentAttendanceSummaryRow
 	err := q.db.QueryRow(ctx, `
@@ -1743,16 +1723,6 @@ type ClassRepTimetableEntryRow struct {
 	AttendanceStatus    *string    `json:"attendance_status"`
 }
 
-// GetClassRepTimetableEntries returns timetable entries for the class rep's
-// level. semesterID is accepted for the caller's convenience but not
-// filtered on — timetable.semester_id is essentially never populated by
-// however entries actually get created (real rows have it NULL), so an
-// equality filter on it would silently return zero rows; same reason
-// ListTimetableByType (the query the student Timetable page uses) doesn't
-// filter on it either. Also fixed: this used to LEFT JOIN a "lecturers"
-// table that doesn't exist in the schema (timetable.lecturer_id references
-// users(id) directly) — every call errored before reaching the semester
-// issue at all.
 func (q *Queries) GetClassRepTimetableEntries(ctx context.Context, level int32, semesterID uuid.UUID) ([]ClassRepTimetableEntryRow, error) {
 	rows, err := q.db.Query(ctx, `
 		SELECT 
@@ -1820,11 +1790,6 @@ type PendingAttendanceReviewRow struct {
 	SubmittedAt    time.Time `json:"submitted_at"`
 }
 
-// GetPendingAttendanceReviews returns attendance sessions pending review for a lecturer.
-// Filters to courses the lecturer is tied to, either as the course's primary
-// lecturer_id or via the many-to-many lecturer_course_assignments table (same
-// dual-check as IsLecturerOrPrimaryForCourse) — without this, every lecturer
-// saw every course's pending reviews.
 func (q *Queries) GetPendingAttendanceReviews(ctx context.Context, lecturerUserID uuid.UUID) ([]PendingAttendanceReviewRow, error) {
 	rows, err := q.db.Query(ctx, `
 		SELECT
@@ -2008,10 +1973,6 @@ func (q *Queries) GetAIInteraction(ctx context.Context, id uuid.UUID) (AiInterac
 	return i, err
 }
 
-// attendanceSessionCountedStatuses excludes sessions still in progress
-// (draft/open — nothing has been finalized yet) and ones a lecturer
-// rejected as inaccurate. Everything else (closed, pending_lecturer_review,
-// approved, changes_requested) counts toward a student's attendance total.
 const attendanceSessionCountedStatusesSQL = `asess.status NOT IN ('draft', 'open', 'rejected')`
 
 type StudentCourseAttendanceOverviewRow struct {
@@ -2022,17 +1983,6 @@ type StudentCourseAttendanceOverviewRow struct {
 	PresentCount  int32     `json:"present_count"`
 }
 
-// GetStudentCourseAttendanceOverview returns one row per course the student
-// is registered for in the given semester, with attendance totals computed
-// from attendance_sessions/attendance_checkins restricted to that semester's
-// date range (attendance_sessions.semester_id is never populated by
-// createAttendanceSession, so a semester_id FK match would silently return
-// nothing — see internal/api/dashboard.go's createAttendanceSession).
-//
-// attendance_checkins.student_id actually stores users.id despite the
-// column name (see internal/api/dashboard.go's checkInStudent), so the join
-// goes through students.user_id rather than course_registrations'
-// students.id.
 func (q *Queries) GetStudentCourseAttendanceOverview(ctx context.Context, studentID uuid.UUID, semesterID uuid.UUID, semStart time.Time, semEnd time.Time) ([]StudentCourseAttendanceOverviewRow, error) {
 	rows, err := q.db.Query(ctx, `
 		SELECT
@@ -2080,11 +2030,6 @@ type StudentCourseAttendanceSessionRow struct {
 	Remark    *string   `json:"remark"`
 }
 
-// GetStudentCourseAttendanceSessions returns the session-by-session
-// breakdown for one course/student pair, used for the drill-down view
-// behind GetStudentCourseAttendanceOverview's per-course totals. A session
-// with no matching checkin row (student never checked in, class rep never
-// marked them) counts as absent via COALESCE, not as "no record".
 func (q *Queries) GetStudentCourseAttendanceSessions(ctx context.Context, courseID uuid.UUID, studentUserID uuid.UUID, semStart time.Time, semEnd time.Time) ([]StudentCourseAttendanceSessionRow, error) {
 	rows, err := q.db.Query(ctx, `
 		SELECT
@@ -2127,13 +2072,6 @@ type LecturerCourseAttendanceOverviewRow struct {
 	AvgAttendanceRate float64   `json:"avg_attendance_rate"`
 }
 
-// GetLecturerCourseAttendanceOverview returns one row per course this
-// lecturer owns (same dual ownership check as GetPendingAttendanceReviews:
-// either the course's primary lecturer_id or a lecturer_course_assignments
-// row), with class size from the semester's course roster and average
-// attendance rate computed from the total_present/total_students counters
-// attendance_sessions already maintains via UpdateAttendanceSessionCounts —
-// no need to re-touch attendance_checkins here.
 func (q *Queries) GetLecturerCourseAttendanceOverview(ctx context.Context, lecturerUserID uuid.UUID, semesterID uuid.UUID, semStart time.Time, semEnd time.Time) ([]LecturerCourseAttendanceOverviewRow, error) {
 	rows, err := q.db.Query(ctx, `
 		SELECT
@@ -2192,10 +2130,6 @@ type CalendarFeedUserRow struct {
 	FullName string    `json:"full_name"`
 }
 
-// GetUserByCalendarFeedToken is the sole lookup behind the public,
-// unauthenticated GET /calendar/feed/:token — the token itself is the only
-// credential, since calendar clients fetch subscription URLs with no auth
-// headers at all.
 func (q *Queries) GetUserByCalendarFeedToken(ctx context.Context, token string) (CalendarFeedUserRow, error) {
 	row := q.db.QueryRow(ctx, `SELECT id, role::text, full_name FROM users WHERE calendar_feed_token = $1`, token)
 	var r CalendarFeedUserRow
@@ -2203,38 +2137,24 @@ func (q *Queries) GetUserByCalendarFeedToken(ctx context.Context, token string) 
 	return r, err
 }
 
-// SetUserCalendarFeedToken overwrites the user's calendar feed token —
-// called both to lazily issue a first token and to regenerate one,
-// immediately invalidating whatever URL was built from the old value.
 func (q *Queries) SetUserCalendarFeedToken(ctx context.Context, userID uuid.UUID, token string) error {
 	_, err := q.db.Exec(ctx, `UPDATE users SET calendar_feed_token = $2 WHERE id = $1`, userID, token)
 	return err
 }
 
-// GetUserCalendarFeedToken returns the caller's current token, if any.
-// GetUser (sqlc-generated) selects an explicit column list that predates
-// calendar_feed_token, so this needs its own narrow lookup rather than
-// reusing it.
+
 func (q *Queries) GetUserCalendarFeedToken(ctx context.Context, userID uuid.UUID) (*string, error) {
 	var token *string
 	err := q.db.QueryRow(ctx, `SELECT calendar_feed_token FROM users WHERE id = $1`, userID).Scan(&token)
 	return token, err
 }
 
-// GetUserIDByUnsubscribeToken is the sole lookup behind the public,
-// unauthenticated GET /notifications/unsubscribe/:token — the "Unsubscribe"
-// link embedded in every outbound notification email opens this with no
-// auth headers, so the token itself is the only credential (same pattern as
-// the calendar feed token above).
 func (q *Queries) GetUserIDByUnsubscribeToken(ctx context.Context, token string) (uuid.UUID, error) {
 	var userID uuid.UUID
 	err := q.db.QueryRow(ctx, `SELECT user_id FROM notification_preferences WHERE unsubscribe_token = $1`, token).Scan(&userID)
 	return userID, err
 }
 
-// GetOrCreateNotificationUnsubscribeToken returns the user's unsubscribe
-// token, lazily generating one (and their notification_preferences row, if
-// this is their very first outbound email) on first use.
 func (q *Queries) GetOrCreateNotificationUnsubscribeToken(ctx context.Context, userID uuid.UUID) (string, error) {
 	var token *string
 	err := q.db.QueryRow(ctx, `SELECT unsubscribe_token FROM notification_preferences WHERE user_id = $1`, userID).Scan(&token)
@@ -2267,10 +2187,6 @@ type BirthdayGreetingRow struct {
 	FirstName string    `json:"first_name"`
 }
 
-// ListTodaysBirthdays returns active students whose date_of_birth falls on
-// today's month/day and who haven't already been greeted this calendar
-// year (see last_birthday_greeted_year, checked against EXTRACT(YEAR FROM
-// CURRENT_DATE) so it's correct regardless of what year they were born).
 func (q *Queries) ListTodaysBirthdays(ctx context.Context) ([]BirthdayGreetingRow, error) {
 	rows, err := q.db.Query(ctx, `
 		SELECT id, email, first_name
@@ -2298,21 +2214,12 @@ func (q *Queries) ListTodaysBirthdays(ctx context.Context) ([]BirthdayGreetingRo
 	return results, rows.Err()
 }
 
-// MarkBirthdayGreeted records that a student's birthday greeting for the
-// current year has been sent, so ListTodaysBirthdays won't return them
-// again if the scheduler wakes up more than once today.
 func (q *Queries) MarkBirthdayGreeted(ctx context.Context, userID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, `UPDATE users SET last_birthday_greeted_year = EXTRACT(YEAR FROM CURRENT_DATE)::int WHERE id = $1`, userID)
 	return err
 }
 
-// ==================== EXPORTABLE REPORTS ====================
-// The reports table (migration 000011) had zero queries or handlers behind
-// it before this — a scaffolded report-generation/history feature nobody
-// finished wiring up.
 
-// Report reuses the sqlc-generated model (models.go) already produced from
-// the reports table's own schema — no need to duplicate it here.
 
 func (q *Queries) CreateReport(ctx context.Context, title, reportType, format string, generatedBy uuid.UUID) (Report, error) {
 	var r Report
@@ -2368,10 +2275,7 @@ type RegisteredCourseDetailRow struct {
 	Unit       int32  `json:"unit"`
 }
 
-// GetStudentRegisteredCourseDetails returns code/title/unit for every
-// course a student is registered for in the given semester — unlike
-// ListRegisteredCourseIDsByStudent (IDs only, all-time), this is scoped to
-// one semester and carries the details the AI study planner prompt needs.
+
 func (q *Queries) GetStudentRegisteredCourseDetails(ctx context.Context, studentID uuid.UUID, semesterID uuid.UUID) ([]RegisteredCourseDetailRow, error) {
 	rows, err := q.db.Query(ctx, `
 		SELECT c.code, c.title, c.unit
@@ -2397,53 +2301,90 @@ func (q *Queries) GetStudentRegisteredCourseDetails(ctx context.Context, student
 	return results, rows.Err()
 }
 
-// ─── CRF signing ────────────────────────────────────────────────────────────
-// Auto-signing student-uploaded course registration forms with a pre-
-// authorized staff signature image, stamped at a calibrated position — a
-// standalone document-signing utility, unrelated to the app's own course-
-// registration data.
+// ─── CRF signing 
+
 
 type CRFSignatureAsset struct {
-	ID         uuid.UUID `json:"id"`
-	Kind       string    `json:"kind"`
-	FilePath   string    `json:"file_path"`
-	PageNumber int32     `json:"page_number"`
-	XPt        float64   `json:"x_pt"`
-	YPt        float64   `json:"y_pt"`
-	WidthPt    float64   `json:"width_pt"`
-	UploadedBy uuid.UUID `json:"uploaded_by"`
-	UploadedAt time.Time `json:"uploaded_at"`
+	ID           uuid.UUID `json:"id"`
+	Kind         string    `json:"kind"`
+	FilePath     string    `json:"file_path"`
+	PageNumber   int32     `json:"page_number"`
+	XPt          float64   `json:"x_pt"`
+	YPt          float64   `json:"y_pt"`
+	WidthPt      float64   `json:"width_pt"`
+	MaxHeightPt  float64   `json:"max_height_pt"`
+	ShowDate     bool      `json:"show_date"`
+	DateXPt      *float64  `json:"date_x_pt"`
+	DateYPt      *float64  `json:"date_y_pt"`
+	DateFontSize float64   `json:"date_font_size"`
+	UploadedBy   uuid.UUID `json:"uploaded_by"`
+	UploadedAt   time.Time `json:"uploaded_at"`
 }
 
-// UpsertCRFSignatureAsset replaces the signature image and/or placement for
-// a kind ('hod' | 'exam_officer') — calibration is global, reused for every
-// student, so there's only ever one row per kind.
-func (q *Queries) UpsertCRFSignatureAsset(ctx context.Context, kind, filePath string, pageNumber int32, xPt, yPt, widthPt float64, uploadedBy uuid.UUID) (CRFSignatureAsset, error) {
+type UpsertCRFSignatureAssetParams struct {
+	Kind         string
+	FilePath     string
+	PageNumber   int32
+	XPt          float64
+	YPt          float64
+	WidthPt      float64
+	MaxHeightPt  float64
+	ShowDate     bool
+	DateXPt      *float64
+	DateYPt      *float64
+	DateFontSize float64
+	UploadedBy   uuid.UUID
+}
+
+var crfSignatureAssetColumns = `id, kind, file_path, page_number, x_pt, y_pt, width_pt, max_height_pt,
+	show_date, date_x_pt, date_y_pt, date_font_size, uploaded_by, uploaded_at`
+
+func scanCRFSignatureAsset(row pgx.Row) (CRFSignatureAsset, error) {
+	var a CRFSignatureAsset
+	err := row.Scan(
+		&a.ID, &a.Kind, &a.FilePath, &a.PageNumber, &a.XPt, &a.YPt, &a.WidthPt, &a.MaxHeightPt,
+		&a.ShowDate, &a.DateXPt, &a.DateYPt, &a.DateFontSize, &a.UploadedBy, &a.UploadedAt,
+	)
+	return a, err
+}
+
+
+func (q *Queries) UpsertCRFSignatureAsset(ctx context.Context, arg UpsertCRFSignatureAssetParams) (CRFSignatureAsset, error) {
 	row := q.db.QueryRow(ctx, `
-		INSERT INTO crf_signature_assets (kind, file_path, page_number, x_pt, y_pt, width_pt, uploaded_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO crf_signature_assets (
+			kind, file_path, page_number, x_pt, y_pt, width_pt, max_height_pt,
+			show_date, date_x_pt, date_y_pt, date_font_size, uploaded_by
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		ON CONFLICT (kind) DO UPDATE SET
 			file_path = EXCLUDED.file_path,
 			page_number = EXCLUDED.page_number,
 			x_pt = EXCLUDED.x_pt,
 			y_pt = EXCLUDED.y_pt,
 			width_pt = EXCLUDED.width_pt,
+			max_height_pt = EXCLUDED.max_height_pt,
+			show_date = EXCLUDED.show_date,
+			date_x_pt = EXCLUDED.date_x_pt,
+			date_y_pt = EXCLUDED.date_y_pt,
+			date_font_size = EXCLUDED.date_font_size,
 			uploaded_by = EXCLUDED.uploaded_by,
 			uploaded_at = NOW()
-		RETURNING id, kind, file_path, page_number, x_pt, y_pt, width_pt, uploaded_by, uploaded_at
-	`, kind, filePath, pageNumber, xPt, yPt, widthPt, uploadedBy)
+		RETURNING `+crfSignatureAssetColumns,
+		arg.Kind, arg.FilePath, arg.PageNumber, arg.XPt, arg.YPt, arg.WidthPt, arg.MaxHeightPt,
+		arg.ShowDate, arg.DateXPt, arg.DateYPt, arg.DateFontSize, arg.UploadedBy,
+	)
+	return scanCRFSignatureAsset(row)
+}
 
-	var a CRFSignatureAsset
-	err := row.Scan(&a.ID, &a.Kind, &a.FilePath, &a.PageNumber, &a.XPt, &a.YPt, &a.WidthPt, &a.UploadedBy, &a.UploadedAt)
-	return a, err
+// GetCRFSignatureAsset returns pgx.ErrNoRows if this kind hasn't been
+// configured yet.
+func (q *Queries) GetCRFSignatureAsset(ctx context.Context, kind string) (CRFSignatureAsset, error) {
+	row := q.db.QueryRow(ctx, `SELECT `+crfSignatureAssetColumns+` FROM crf_signature_assets WHERE kind = $1`, kind)
+	return scanCRFSignatureAsset(row)
 }
 
 func (q *Queries) ListCRFSignatureAssets(ctx context.Context) ([]CRFSignatureAsset, error) {
-	rows, err := q.db.Query(ctx, `
-		SELECT id, kind, file_path, page_number, x_pt, y_pt, width_pt, uploaded_by, uploaded_at
-		FROM crf_signature_assets
-		ORDER BY kind
-	`)
+	rows, err := q.db.Query(ctx, `SELECT `+crfSignatureAssetColumns+` FROM crf_signature_assets ORDER BY kind`)
 	if err != nil {
 		return nil, err
 	}
@@ -2451,13 +2392,21 @@ func (q *Queries) ListCRFSignatureAssets(ctx context.Context) ([]CRFSignatureAss
 
 	var results []CRFSignatureAsset
 	for rows.Next() {
-		var a CRFSignatureAsset
-		if err := rows.Scan(&a.ID, &a.Kind, &a.FilePath, &a.PageNumber, &a.XPt, &a.YPt, &a.WidthPt, &a.UploadedBy, &a.UploadedAt); err != nil {
+		a, err := scanCRFSignatureAsset(rows)
+		if err != nil {
 			return nil, err
 		}
 		results = append(results, a)
 	}
 	return results, rows.Err()
+}
+
+// DeleteCRFSignatureAsset removes a kind's configured signature entirely —
+// students uploading a CRF afterward get it back with only whichever
+// signature(s) are still configured.
+func (q *Queries) DeleteCRFSignatureAsset(ctx context.Context, kind string) error {
+	_, err := q.db.Exec(ctx, `DELETE FROM crf_signature_assets WHERE kind = $1`, kind)
+	return err
 }
 
 type CRFSigningSubmission struct {

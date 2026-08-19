@@ -46,6 +46,13 @@
         {
           "faceIDPermission": "Allow $(PRODUCT_NAME) to use Face ID to unlock the app."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-foreground.png",
+          "color": "#0066CC"
+        }
       ]
     ],
     "experiments": {

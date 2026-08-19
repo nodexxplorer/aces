@@ -13,21 +13,14 @@ import (
 	"github.com/google/uuid"
 )
 
-// ─── CRF signing ────────────────────────────────────────────────────────────
-// A standalone document-signing utility: an HOD/admin uploads and calibrates
-// two signature images (HOD, Exam Officer); any student can then upload
-// their own course registration form PDF, once per semester, and get back a
-// copy with both signatures stamped on at the calibrated position. This has
-// no connection to the app's own course-registration data — it only reads
-// and stamps an already-generated PDF.
+// ─── CRF signing 
 
 var crfSignatureKinds = map[string]bool{"hod": true, "exam_officer": true}
 
-var signatureImageExts = map[string]bool{".png": true, ".jpg": true, ".jpeg": true, ".webp": true}
 
-// uploadCRFSignatureAsset POST /crf-signatures/:kind
-// hod/admin/delegated_admin only. Uploads or replaces the signature image
-// for the given kind, plus its calibrated placement on the page.
+var signatureImageExts = map[string]bool{".png": true, ".jpg": true, ".jpeg": true}
+
+
 func (server *Server) uploadCRFSignatureAsset(ctx *gin.Context) {
 	kind := ctx.Param("kind")
 	if !crfSignatureKinds[kind] {
@@ -41,23 +34,16 @@ func (server *Server) uploadCRFSignatureAsset(ctx *gin.Context) {
 		return
 	}
 
-	file, header, err := ctx.Request.FormFile("file")
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "signature image is required"})
-		return
-	}
-	defer file.Close()
-
-	if !signatureImageExts[strings.ToLower(filepath.Ext(header.Filename))] {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "signature must be a PNG, JPEG, or WEBP image"})
-		return
-	}
-
 	var req struct {
-		PageNumber int32   `form:"page_number"`
-		X          float64 `form:"x_pt" binding:"required"`
-		Y          float64 `form:"y_pt" binding:"required"`
-		Width      float64 `form:"width_pt" binding:"required"`
+		PageNumber   int32    `form:"page_number"`
+		X            float64  `form:"x_pt" binding:"required"`
+		Y            float64  `form:"y_pt" binding:"required"`
+		Width        float64  `form:"width_pt" binding:"required"`
+		MaxHeight    float64  `form:"max_height_pt"`
+		ShowDate     bool     `form:"show_date"`
+		DateX        *float64 `form:"date_x_pt"`
+		DateY        *float64 `form:"date_y_pt"`
+		DateFontSize float64  `form:"date_font_size"`
 	}
 	if err := ctx.ShouldBind(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "x_pt, y_pt, and width_pt are required"})
@@ -66,20 +52,89 @@ func (server *Server) uploadCRFSignatureAsset(ctx *gin.Context) {
 	if req.PageNumber <= 0 {
 		req.PageNumber = 1
 	}
-
-	savedPath, err := server.storage.SaveFile(header, "crf-signatures")
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+	if req.DateFontSize <= 0 {
+		req.DateFontSize = 10
 	}
 
-	asset, err := queries.UpsertCRFSignatureAsset(ctx, kind, savedPath, req.PageNumber, req.X, req.Y, req.Width, getUserID(ctx))
+	savedPath := ""
+	file, header, err := ctx.Request.FormFile("file")
+	if err == nil {
+		defer file.Close()
+
+		if !signatureImageExts[strings.ToLower(filepath.Ext(header.Filename))] {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "signature must be a PNG or JPEG image"})
+			return
+		}
+
+		rawBytes, err := io.ReadAll(file)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
+
+		
+		extracted, err := utils.ExtractSignature(rawBytes)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "could not process this image — is it a valid PNG or JPEG?"})
+			return
+		}
+
+		savedPath, err = server.storage.SaveBytes(extracted, "crf-signatures", ".png")
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
+	} else {
+		existing, existErr := queries.GetCRFSignatureAsset(ctx, kind)
+		if existErr != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "a signature image is required the first time you configure this"})
+			return
+		}
+		savedPath = existing.FilePath
+	}
+
+	asset, err := queries.UpsertCRFSignatureAsset(ctx, db.UpsertCRFSignatureAssetParams{
+		Kind:         kind,
+		FilePath:     savedPath,
+		PageNumber:   req.PageNumber,
+		XPt:          req.X,
+		YPt:          req.Y,
+		WidthPt:      req.Width,
+		MaxHeightPt:  req.MaxHeight,
+		ShowDate:     req.ShowDate,
+		DateXPt:      req.DateX,
+		DateYPt:      req.DateY,
+		DateFontSize: req.DateFontSize,
+		UploadedBy:   getUserID(ctx),
+	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
 	ctx.JSON(http.StatusOK, asset)
+}
+
+
+func (server *Server) deleteCRFSignatureAsset(ctx *gin.Context) {
+	kind := ctx.Param("kind")
+	if !crfSignatureKinds[kind] {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid signature kind"})
+		return
+	}
+
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	if err := queries.DeleteCRFSignatureAsset(ctx, kind); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "signature removed"})
 }
 
 // listCRFSignatureAssets GET /crf-signatures
@@ -100,12 +155,7 @@ func (server *Server) listCRFSignatureAssets(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, assets)
 }
 
-// testStampCRF POST /crf-signatures/test-stamp
-// hod/admin/delegated_admin only. Applies whatever signature assets are
-// currently configured to a sample PDF and returns the stamped result
-// directly — used to preview calibration before it goes live for students.
-// Does not touch crf_signing_submissions, so it never counts against any
-// student's one-per-semester slot.
+
 func (server *Server) testStampCRF(ctx *gin.Context) {
 	queries, ok := server.store.(*db.Queries)
 	if !ok {
@@ -140,9 +190,7 @@ func (server *Server) testStampCRF(ctx *gin.Context) {
 	ctx.Data(http.StatusOK, "application/pdf", stamped)
 }
 
-// submitCRFForSigning POST /crf-signing/upload
-// Any authenticated student — one submission per semester, enforced by the
-// unique(user_id, semester_id) constraint on crf_signing_submissions.
+
 func (server *Server) submitCRFForSigning(ctx *gin.Context) {
 	userID := getUserID(ctx)
 	if userID == uuid.Nil {
@@ -191,9 +239,7 @@ func (server *Server) submitCRFForSigning(ctx *gin.Context) {
 		return
 	}
 
-	// SaveFile opens its own fresh reader via header.Open() rather than
-	// reusing `file`, so consuming `file` above into pdfBytes doesn't affect
-	// this — safe to save the original after already having read it.
+
 	originalPath, err := server.storage.SaveFile(header, "crf-signing/original")
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -215,8 +261,7 @@ func (server *Server) submitCRFForSigning(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, submission)
 }
 
-// getMyCRFSubmission GET /crf-signing/mine
-// Returns the caller's submission for the active semester, if any.
+
 func (server *Server) getMyCRFSubmission(ctx *gin.Context) {
 	userID := getUserID(ctx)
 	queries, ok := server.store.(*db.Queries)
@@ -269,8 +314,6 @@ func (server *Server) downloadCRFSubmission(ctx *gin.Context) {
 	ctx.Redirect(http.StatusFound, fmt.Sprintf("/uploads/%s", submission.SignedFilePath))
 }
 
-// stampCRFPDF loads the currently configured signature assets and stamps
-// them all onto pdfBytes.
 func (server *Server) stampCRFPDF(ctx *gin.Context, queries *db.Queries, pdfBytes []byte) ([]byte, error) {
 	assets, err := queries.ListCRFSignatureAssets(ctx)
 	if err != nil {
@@ -282,13 +325,21 @@ func (server *Server) stampCRFPDF(ctx *gin.Context, queries *db.Queries, pdfByte
 
 	stamps := make([]utils.SignatureStamp, 0, len(assets))
 	for _, a := range assets {
-		stamps = append(stamps, utils.SignatureStamp{
+		stamp := utils.SignatureStamp{
 			ImagePath: server.storage.GetFullPath(a.FilePath),
 			Page:      int(a.PageNumber),
 			X:         a.XPt,
 			Y:         a.YPt,
 			Width:     a.WidthPt,
-		})
+			MaxHeight: a.MaxHeightPt,
+		}
+		if a.ShowDate && a.DateXPt != nil && a.DateYPt != nil {
+			stamp.ShowDate = true
+			stamp.DateX = *a.DateXPt
+			stamp.DateY = *a.DateYPt
+			stamp.DateFontSize = a.DateFontSize
+		}
+		stamps = append(stamps, stamp)
 	}
 
 	stamped, err := utils.StampSignatures(pdfBytes, stamps)

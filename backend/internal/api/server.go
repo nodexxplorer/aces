@@ -12,6 +12,7 @@ import (
 	"github.com/aces/backend/internal/config"
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/aces/backend/internal/email"
+	"github.com/aces/backend/internal/push"
 	"github.com/aces/backend/internal/middleware"
 	"github.com/aces/backend/internal/service"
 	"github.com/aces/backend/internal/storage"
@@ -113,6 +114,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		cfg.SMTPFrom,
 		cfg.SMTPMock,
 	)
+	pushSender := push.NewExpoPushSender(cfg.PushMock)
 
 	server := &Server{
 		store:        store,
@@ -130,7 +132,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		complaints:        service.NewComplaintService(store),
 		announcements:     service.NewAnnouncementService(store),
 		notifications:     service.NewNotificationService(store),
-		notificationsFull: service.NewNotificationServiceFull(db.New(dbPool), hub, emailSender, cfg.FrontendPublicURL),
+		notificationsFull: service.NewNotificationServiceFull(db.New(dbPool), hub, emailSender, pushSender, cfg.FrontendPublicURL),
 		transcripts:       service.NewTranscriptService(store),
 		analytics:         service.NewAnalyticsService(store),
 		cgpa:              service.NewCGPAService(store),
@@ -446,6 +448,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		notifications.DELETE("/:id", server.deleteNotification)
 		notifications.GET("/preferences", server.getMyNotificationPreferences)
 		notifications.PUT("/preferences", server.updateMyNotificationPreferences)
+		notifications.PUT("/push-token", server.updateMyPushToken)
 		notifications.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin", "class_rep"), server.createNotification)
 	}
 
@@ -764,6 +767,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		crfSignatures.POST("/test-stamp", server.testStampCRF)
 		crfSignatures.POST("/:kind", server.uploadCRFSignatureAsset)
 		crfSignatures.GET("", server.listCRFSignatureAssets)
+		crfSignatures.DELETE("/:kind", server.deleteCRFSignatureAsset)
 	}
 
 	crfSigning := api.Group("/crf-signing")

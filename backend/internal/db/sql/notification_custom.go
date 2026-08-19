@@ -64,6 +64,8 @@ type NotificationPreference struct {
 	PushSystem     bool               `json:"push_system"`
 	QuietHoursStart *string           `json:"quiet_hours_start"`
 	QuietHoursEnd   *string           `json:"quiet_hours_end"`
+	PushToken      *string            `json:"-"`
+	WebPushSubscription *string       `json:"-"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
@@ -326,7 +328,7 @@ func (q *Queries) GetNotificationPreferences(ctx context.Context, userID uuid.UU
 		email_skills, email_alumni, email_system,
 		push_auth, push_results, push_dues, push_messages, push_connect,
 		push_skills, push_alumni, push_system,
-		quiet_hours_start::text, quiet_hours_end::text, updated_at
+		quiet_hours_start::text, quiet_hours_end::text, push_token, updated_at
 		FROM notification_preferences WHERE user_id = $1`
 
 	row := q.db.QueryRow(ctx, query, userID)
@@ -337,7 +339,32 @@ func (q *Queries) GetNotificationPreferences(ctx context.Context, userID uuid.UU
 		&p.EmailSkills, &p.EmailAlumni, &p.EmailSystem,
 		&p.PushAuth, &p.PushResults, &p.PushDues, &p.PushMessages, &p.PushConnect,
 		&p.PushSkills, &p.PushAlumni, &p.PushSystem,
-		&p.QuietHoursStart, &p.QuietHoursEnd, &p.UpdatedAt,
+		&p.QuietHoursStart, &p.QuietHoursEnd, &p.PushToken, &p.UpdatedAt,
+	)
+	return p, err
+}
+
+func (q *Queries) SetUserPushToken(ctx context.Context, userID uuid.UUID, token string) (NotificationPreference, error) {
+	row := q.db.QueryRow(ctx, `
+		INSERT INTO notification_preferences (user_id, push_token)
+		VALUES ($1, $2)
+		ON CONFLICT (user_id) DO UPDATE SET push_token = $2, updated_at = NOW()
+		RETURNING id, user_id, email_enabled, push_enabled, in_app_enabled,
+			email_auth, email_results, email_dues, email_messages, email_connect,
+			email_skills, email_alumni, email_system,
+			push_auth, push_results, push_dues, push_messages, push_connect,
+			push_skills, push_alumni, push_system,
+			quiet_hours_start::text, quiet_hours_end::text, push_token, updated_at
+	`, userID, token)
+
+	var p NotificationPreference
+	err := row.Scan(
+		&p.ID, &p.UserID, &p.EmailEnabled, &p.PushEnabled, &p.InAppEnabled,
+		&p.EmailAuth, &p.EmailResults, &p.EmailDues, &p.EmailMessages, &p.EmailConnect,
+		&p.EmailSkills, &p.EmailAlumni, &p.EmailSystem,
+		&p.PushAuth, &p.PushResults, &p.PushDues, &p.PushMessages, &p.PushConnect,
+		&p.PushSkills, &p.PushAlumni, &p.PushSystem,
+		&p.QuietHoursStart, &p.QuietHoursEnd, &p.PushToken, &p.UpdatedAt,
 	)
 	return p, err
 }
@@ -459,7 +486,7 @@ func (q *Queries) UpsertNotificationPreferences(ctx context.Context, arg UpsertN
 		email_skills, email_alumni, email_system,
 		push_auth, push_results, push_dues, push_messages, push_connect,
 		push_skills, push_alumni, push_system,
-		quiet_hours_start::text, quiet_hours_end::text, updated_at`
+		quiet_hours_start::text, quiet_hours_end::text, push_token, updated_at`
 
 	row := q.db.QueryRow(ctx, query,
 		arg.UserID, emailEnabled, pushEnabled, inAppEnabled,
@@ -477,7 +504,7 @@ func (q *Queries) UpsertNotificationPreferences(ctx context.Context, arg UpsertN
 		&p.EmailSkills, &p.EmailAlumni, &p.EmailSystem,
 		&p.PushAuth, &p.PushResults, &p.PushDues, &p.PushMessages, &p.PushConnect,
 		&p.PushSkills, &p.PushAlumni, &p.PushSystem,
-		&p.QuietHoursStart, &p.QuietHoursEnd, &p.UpdatedAt,
+		&p.QuietHoursStart, &p.QuietHoursEnd, &p.PushToken, &p.UpdatedAt,
 	)
 	return p, err
 }
@@ -603,9 +630,7 @@ func (q *Queries) ListAlumniUserIDs(ctx context.Context) ([]uuid.UUID, error) {
 	return ids, rows.Err()
 }
 
-// ListLecturerUserIDs returns user IDs for lecturer/HOD staff, optionally
-// restricted to the given departments (matched against the staff table,
-// the only place a department is recorded).
+
 func (q *Queries) ListLecturerUserIDs(ctx context.Context, departments []string) ([]uuid.UUID, error) {
 	query := `SELECT st.user_id FROM staff st
 		 JOIN users u ON u.id = st.user_id
@@ -633,12 +658,7 @@ func (q *Queries) ListLecturerUserIDs(ctx context.Context, departments []string)
 	return ids, rows.Err()
 }
 
-// ResolveAnnouncementTargetUserIDs resolves an announcement's targeting
-// fields (target_audience, target_levels, target_departments) into the set
-// of user IDs who should be notified. target_audience entries are matched
-// case-insensitively and may be "all", "student", "alumni", "lecturer"/
-// "staff", or a numeric level (e.g. "100") — mirroring the values the admin
-// announcements UI actually sends.
+
 func (q *Queries) ResolveAnnouncementTargetUserIDs(ctx context.Context, targetAudience []string, targetLevels []int32, targetDepartments []string) ([]uuid.UUID, error) {
 	seen := make(map[uuid.UUID]struct{})
 	var result []uuid.UUID
