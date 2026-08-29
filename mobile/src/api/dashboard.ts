@@ -14,17 +14,6 @@ export interface PaymentSummary {
   dues_outstanding: number;
 }
 
-export interface NextClassInfo {
-  course_code: string;
-  course_title: string;
-  start_time: string;
-  end_time: string;
-  venue: string;
-  day_of_week: string;
-  time_until: string;
-  class_type: string | null;
-}
-
 export interface AnnouncementItem {
   id: string;
   title: string;
@@ -51,12 +40,9 @@ export interface StudentDashboard {
   student: StudentInfo | null;
   attendance: { total_classes: number; attended: number; attendance_rate: number } | null;
   payments: PaymentSummary | null;
-  next_class: NextClassInfo | null;
-  today_classes: NextClassInfo[];
   announcements: AnnouncementItem[];
   recent_grades: RecentGradeItem[];
   notifications: NotifSummary | null;
-  carryovers: number;
 }
 
 export const getStudentDashboard = async () => {

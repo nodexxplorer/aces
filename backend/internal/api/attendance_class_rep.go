@@ -10,37 +10,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// getClassRepTimetable GET /class-rep/timetable
-func (server *Server) getClassRepTimetable(ctx *gin.Context) {
-	userID := getUserID(ctx)
-
-	// Get active class rep assignment to find level
-	assignment, err := server.store.GetActiveClassRepAssignment(ctx, userID)
-	level := int32(400) // default fallback level
-	if err == nil {
-		level = assignment.Level
-	}
-
-	// Get active semester
-	activeSem, err := server.store.GetActiveSemester(ctx)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "no active semester configured"})
-		return
-	}
-
-	entries, err := server.store.GetClassRepTimetableEntries(ctx, level, activeSem.ID)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch timetable entries"})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{
-		"semester": activeSem,
-		"level":    level,
-		"entries":  entries,
-	})
-}
-
 // getRegisteredStudentsForAttendance GET /attendance/registered-students/:course_id
 func (server *Server) getRegisteredStudentsForAttendance(ctx *gin.Context) {
 	courseID, err := uuid.Parse(ctx.Param("course_id"))
@@ -122,7 +91,7 @@ func (server *Server) submitAttendanceSession(ctx *gin.Context) {
 				ctx,
 				lecturerUser.ID,
 				"attendance_pending_review",
-				"academic",
+				"system",
 				"high",
 				"Attendance Awaiting Review",
 				fmt.Sprintf("%s | Submitted by Class Rep %s for review.", course.Code, repUser.FullName),
@@ -223,6 +192,22 @@ func (server *Server) getLecturerPendingAttendanceReviews(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{
 		"reviews": reviews,
 		"total":   len(reviews),
+	})
+}
+
+// getLecturerAttendanceHistory GET /lecturer/attendance/history
+func (server *Server) getLecturerAttendanceHistory(ctx *gin.Context) {
+	userID := getUserID(ctx)
+
+	history, err := server.store.GetLecturerAttendanceHistory(ctx, userID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch attendance history"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"history": history,
+		"total":   len(history),
 	})
 }
 

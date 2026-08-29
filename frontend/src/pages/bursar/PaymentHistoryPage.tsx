@@ -14,7 +14,6 @@ const TYPE_OPTIONS: (PaymentType | 'all')[] = [
   'all',
   'dept_dues',
   'class_dues',
-  'manual',
   'materials',
   'transcript_fee',
   'other',
@@ -23,7 +22,6 @@ const TYPE_OPTIONS: (PaymentType | 'all')[] = [
 const TYPE_LABELS: Record<string, string> = {
   dept_dues: 'Department Dues',
   class_dues: 'Class Dues',
-  manual: 'Manual/Book Purchase',
   materials: 'Course Materials',
   transcript_fee: 'Transcript Fee',
   other: 'Other',

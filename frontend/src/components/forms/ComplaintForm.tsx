@@ -39,7 +39,6 @@ const ComplaintForm = ({ onSubmit, isLoading }: ComplaintFormProps) => {
           options={[
             { value: 'academic', label: 'Academic / Grading' },
             { value: 'payment', label: 'Payment / Dues' },
-            { value: 'manual', label: 'Course Manuals' },
             { value: 'facility', label: 'Facility / Technical' },
           ]}
           value={category}

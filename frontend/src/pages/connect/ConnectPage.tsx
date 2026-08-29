@@ -6,6 +6,7 @@ import Badge from '../../components/ui/Badge';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
 import { getErrorMessage } from '../../utils/errors';
+import { getMediaUrl } from '../../api/client';
 import { Users, UserPlus, Check, X, MessageCircle, Send, ArrowLeft, Search, Loader2, ScanLine } from 'lucide-react';
 import {
   getDirectory,
@@ -75,7 +76,11 @@ function QuickConnectBanner({ userId, myId, onDismiss }: { userId: string; myId:
           <div className="flex-1 flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
               {target.avatar_url ? (
-                <img src={target.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                <img
+                  src={getMediaUrl(target.avatar_url) ?? undefined}
+                  alt=""
+                  className="w-full h-full rounded-full object-cover"
+                />
               ) : (
                 getInitials(target.full_name.split(' ')[0] || 'U', target.full_name.split(' ')[1] || '')
               )}
@@ -185,7 +190,11 @@ function DiscoverTab({ myId }: { myId: string }) {
             >
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
                 {user.avatar_url ? (
-                  <img src={user.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                  <img
+                    src={getMediaUrl(user.avatar_url) ?? undefined}
+                    alt=""
+                    className="w-full h-full rounded-full object-cover"
+                  />
                 ) : (
                   getInitials(user.full_name.split(' ')[0] || 'U', user.full_name.split(' ')[1] || '')
                 )}
@@ -256,7 +265,11 @@ function RequestsTab({ onAccepted }: { myId: string; onAccepted: () => void }) {
           >
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
               {req.avatar_url ? (
-                <img src={req.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                <img
+                  src={getMediaUrl(req.avatar_url) ?? undefined}
+                  alt=""
+                  className="w-full h-full rounded-full object-cover"
+                />
               ) : (
                 getInitials(req.full_name.split(' ')[0] || 'U', req.full_name.split(' ')[1] || '')
               )}
@@ -357,7 +370,11 @@ function ConnectionsTab({ myId, onChat }: { myId: string; onChat: (userId: strin
                 <div className="relative">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
                     {conn.avatar_url ? (
-                      <img src={conn.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                      <img
+                        src={getMediaUrl(conn.avatar_url) ?? undefined}
+                        alt=""
+                        className="w-full h-full rounded-full object-cover"
+                      />
                     ) : (
                       getInitials(conn.full_name.split(' ')[0] || 'U', conn.full_name.split(' ')[1] || '')
                     )}

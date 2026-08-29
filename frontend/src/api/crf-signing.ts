@@ -104,3 +104,55 @@ export const getCRFDownloadUrl = (id: string) => {
   const base = apiClient.defaults.baseURL || '/api/v1';
   return `${base}/crf-signing/${id}/download`;
 };
+
+// ─── CRF backlog: paid catch-up submissions for old/unsigned course forms ──
+
+export interface CRFBacklogPrice {
+  amount_per_backlog: number;
+  updated_by: string | null;
+  updated_at: string;
+}
+
+export interface CRFBacklogRequest {
+  id: string;
+  user_id: string;
+  requested_count: number;
+  amount: number;
+  payment_id: string | null;
+  status: 'pending_payment' | 'paid';
+  forms_submitted: number;
+  created_at: string;
+  paid_at: string | null;
+}
+
+export const getCRFBacklogPrice = async () => {
+  const res = await apiClient.get('/crf-backlog/price');
+  return unwrap<CRFBacklogPrice>(res);
+};
+
+export const updateCRFBacklogPrice = async (amount: number) => {
+  const res = await apiClient.put('/crf-backlog/price', { amount });
+  return unwrap<CRFBacklogPrice>(res);
+};
+
+export const createCRFBacklogRequest = async (count: number) => {
+  const res = await apiClient.post('/crf-backlog/request', { count });
+  return unwrap<{ backlog_request: CRFBacklogRequest; payment: { id: string } }>(res);
+};
+
+export const getMyCRFBacklogStatus = async () => {
+  const res = await apiClient.get('/crf-backlog/mine');
+  const body = res.data?.data ?? res.data;
+  return (body ?? null) as CRFBacklogRequest | null;
+};
+
+export const submitCRFBacklogForm = async (file: File, semesterId: string) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('semester_id', semesterId);
+
+  const res = await apiClient.post('/crf-backlog/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return unwrap<CRFSigningSubmission>(res);
+};

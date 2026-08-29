@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useRBAC } from '../../hooks/useRBAC';
 import { useAuth } from '../../hooks/useAuth';
+import { getMediaUrl } from '../../api/client';
 import { cn } from '../../utils/cn';
 import {
   LayoutDashboard,
   BookOpen,
   CreditCard,
-  FileText,
   FileSignature,
   HelpCircle,
   Calendar,
@@ -20,10 +20,8 @@ import {
   Briefcase,
   GraduationCap,
   DollarSign,
-  Database,
   TrendingUp,
   ClipboardList,
-  ListTodo,
   ClipboardCheck,
   ChevronLeft,
   ChevronDown,
@@ -33,11 +31,7 @@ import {
   Clock,
   Megaphone,
   Wrench,
-  AlertTriangle,
   Bell,
-  PenLine,
-  FolderOpen,
-  Download,
   FileClock,
 } from 'lucide-react';
 import type { UserRole } from '../../types';
@@ -110,33 +104,9 @@ const menuItems: MenuItem[] = [
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   },
   {
-    label: 'Grade Appeals',
-    path: '/grade-appeals',
-    icon: AlertTriangle,
-    roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
-  },
-  {
-    label: 'Courses',
+    label: 'Courses Registration',
     path: '/courses',
     icon: BookMarked,
-    roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
-  },
-  {
-    label: 'Transcripts',
-    path: '/transcripts',
-    icon: FileText,
-    roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
-  },
-  {
-    label: 'Practicals & Lab',
-    path: '/practicals',
-    icon: ClipboardList,
-    roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
-  },
-  {
-    label: 'Timetable',
-    path: '/timetable',
-    icon: Calendar,
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   },
   {
@@ -146,32 +116,10 @@ const menuItems: MenuItem[] = [
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   },
   {
-    label: 'Manuals',
-    path: '/manuals',
-    icon: BookOpen,
-    roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
-  },
-  {
     label: 'Complaints',
     path: '/complaints',
     icon: HelpCircle,
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
-  },
-  {
-    label: 'Calendar',
-    path: '/calendar',
-    icon: Calendar,
-    roles: [
-      'student',
-      'lecturer',
-      'class_rep',
-      'class_bursar',
-      'dept_bursar',
-      'alumni',
-      'hod',
-      'delegated_admin',
-      'admin',
-    ],
   },
   // {
   //   label: 'Notice Board',
@@ -179,18 +127,6 @@ const menuItems: MenuItem[] = [
   //   icon: Pin,
   //   roles: ['student', 'lecturer', 'class_rep', 'class_bursar', 'dept_bursar', 'alumni', 'hod', 'delegated_admin'],
   // },
-  {
-    label: 'Job Board',
-    path: '/student/jobs',
-    icon: Briefcase,
-    roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
-  },
-  {
-    label: 'My Applications',
-    path: '/student/applications',
-    icon: FileText,
-    roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
-  },
 
   {
     label: 'Payments & Dues',
@@ -208,35 +144,31 @@ const menuItems: MenuItem[] = [
   { label: 'Connect', path: '/connect', icon: Users },
   // { label: 'Skills & Trade', path: '/skills', icon: TrendingUp },
 
-  {
-    label: 'Alumni Portal',
-    path: '/alumni',
-    icon: GraduationCap,
-    roles: ['student', 'alumni', 'hod', 'delegated_admin'],
-  },
-  { label: 'Job Board', path: '/alumni/jobs', icon: Briefcase, roles: ['alumni', 'hod', 'delegated_admin'] },
-  {
-    label: 'Mentorship Requests',
-    path: '/alumni/mentorship',
-    icon: Users,
-    roles: ['alumni', 'hod', 'delegated_admin'],
-  },
-  { label: 'Give Back', path: '/alumni/give-back', icon: DollarSign, roles: ['alumni', 'hod', 'delegated_admin'] },
+  // {
+  //   label: 'Alumni Portal',
+  //   path: '/alumni',
+  //   icon: GraduationCap,
+  //   roles: ['student', 'alumni', 'hod', 'delegated_admin'],
+  // },
+  // { label: 'Job Board', path: '/alumni/jobs', icon: Briefcase, roles: ['alumni', 'hod', 'delegated_admin'] },
+  // {
+  //   label: 'Mentorship Requests',
+  //   path: '/alumni/mentorship',
+  //   icon: Users,
+  //   roles: ['alumni', 'hod', 'delegated_admin'],
+  // },
+  // { label: 'Give Back', path: '/alumni/give-back', icon: DollarSign, roles: ['alumni', 'hod', 'delegated_admin'] },
 
   { label: 'Lecturer Portal', path: '/lecturer', icon: LayoutDashboard, roles: ['lecturer'] },
-  { label: 'Single Entry', path: '/lecturer/single-entry', icon: PenLine, roles: ['lecturer'] },
-  { label: 'Enter Scores', path: '/lecturer/scores', icon: ClipboardList, roles: ['lecturer'] },
-  { label: 'Bulk Upload', path: '/lecturer/bulk-upload', icon: Database, roles: ['lecturer'] },
-  { label: 'Manage Assignments', path: '/lecturer/assignments', icon: ListTodo, roles: ['lecturer'] },
+  // { label: 'Grade Entry', path: '/lecturer/scores', icon: ClipboardList, roles: ['lecturer'] },
+  // { label: 'Manage Assignments', path: '/lecturer/assignments', icon: ListTodo, roles: ['lecturer'] },
   { label: 'Class List', path: '/lecturer/class-list', icon: Users, roles: ['lecturer'] },
   { label: 'Review Attendance', path: '/lecturer/attendance-review', icon: ClipboardCheck, roles: ['lecturer'] },
-  { label: 'Course Materials', path: '/lecturer/materials', icon: FolderOpen, roles: ['lecturer'] },
+  // { label: 'Course Materials', path: '/lecturer/materials', icon: FolderOpen, roles: ['lecturer'] },
   { label: 'Leave Requests', path: '/lecturer/leave', icon: FileClock, roles: ['lecturer'] },
 
   { label: 'Class Rep Portal', path: '/class-rep', icon: LayoutDashboard, roles: ['class_rep'] },
-  { label: 'Semester Timetable', path: '/timetable', icon: Calendar, roles: ['class_rep'] },
   { label: 'Track Attendance', path: '/class-rep/attendance', icon: ClipboardList, roles: ['class_rep'] },
-  { label: 'Submit Assignments', path: '/class-rep/assignments', icon: ListTodo, roles: ['class_rep'] },
   { label: 'Pending Registrations', path: '/class-rep/pending', icon: ShieldAlert, roles: ['class_rep'] },
   { label: 'Class List', path: '/class-rep/class-list', icon: Users, roles: ['class_rep'] },
   { label: 'Notify Classmates', path: '/class-rep/notify', icon: Megaphone, roles: ['class_rep'] },
@@ -284,14 +216,6 @@ const menuItems: MenuItem[] = [
   { label: 'Announcements', path: '/admin/announcements', icon: Megaphone, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Academics', path: '/admin/academics', icon: GraduationCap, roles: ['hod', 'delegated_admin', 'admin'] },
   // { label: 'Complaints', path: '/admin/complaints', icon: HelpCircle, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Timetable', path: '/admin/timetable', icon: Clock, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Manuals', path: '/admin/manuals', icon: BookOpen, roles: ['hod', 'delegated_admin', 'admin'] },
-  {
-    label: 'Bulk Cover Download',
-    path: '/admin/manuals/covers/bulk',
-    icon: Download,
-    roles: ['hod', 'delegated_admin', 'admin'],
-  },
   { label: 'Alumni Mgmt', path: '/admin/alumni', icon: GraduationCap, roles: ['hod', 'delegated_admin', 'admin'] },
   {
     label: 'Job Moderation',
@@ -299,23 +223,16 @@ const menuItems: MenuItem[] = [
     icon: Briefcase,
     roles: ['hod', 'delegated_admin', 'admin'],
   },
-  {
-    label: 'Document Verification',
-    path: '/admin/documents',
-    icon: FileText,
-    roles: ['hod', 'delegated_admin', 'admin'],
-  },
   { label: 'At-Risk Students', path: '/admin/at-risk', icon: ShieldAlert, roles: ['hod', 'delegated_admin', 'admin'] },
   {
-    label: 'Grade Distribution',
-    path: '/admin/grade-distribution',
-    icon: BarChart3,
+    label: 'CRF Signatures',
+    path: '/admin/crf-signing',
+    icon: FileSignature,
     roles: ['hod', 'delegated_admin', 'admin'],
   },
   // { label: 'Expenses', path: '/admin/expenses', icon: DollarSign, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Operations', path: '/admin/system', icon: Wrench, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Operations and Issues', path: '/admin/system', icon: Wrench, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Settings', path: '/admin/settings', icon: Settings, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'CRF Signing', path: '/admin/crf-signing', icon: FileSignature, roles: ['hod', 'delegated_admin', 'admin'] },
 
   // { label: 'AI Blueprint', path: '/ai-blueprint', icon: Brain, roles: ['hod', 'delegated_admin', 'admin'] },
 
@@ -331,16 +248,11 @@ const mobileSections: NavSection[] = [
     items: [
       { label: 'My Results', path: '/results', icon: Award },
       { label: 'GPA Tools', path: '/gpa', icon: TrendingUp },
-      { label: 'Courses', path: '/courses', icon: BookMarked },
-      { label: 'Transcripts', path: '/transcripts', icon: FileText },
+      { label: 'Study Planner', path: '/study-planner', icon: ClipboardList },
+      { label: 'Courses Registration', path: '/courses', icon: BookMarked },
       { label: 'Course Form Signing', path: '/course-form-signing', icon: FileSignature },
-      { label: 'Practicals & Lab', path: '/practicals', icon: ClipboardList },
-      { label: 'Timetable', path: '/timetable', icon: Calendar },
       { label: 'My Attendance', path: '/attendance', icon: ClipboardCheck },
-      { label: 'Manuals', path: '/manuals', icon: BookOpen },
       { label: 'Complaints', path: '/complaints', icon: HelpCircle },
-      { label: 'Job Board', path: '/student/jobs', icon: Briefcase },
-      { label: 'My Applications', path: '/student/applications', icon: FileText },
     ],
   },
   {
@@ -350,7 +262,7 @@ const mobileSections: NavSection[] = [
     items: [
       { label: 'Connect', path: '/connect', icon: Users },
       { label: 'Communication', path: '/communication', icon: Bell },
-      { label: 'Find a Mentor', path: '/find-mentor', icon: GraduationCap },
+      // { label: 'Find a Mentor', path: '/find-mentor', icon: GraduationCap },
 
       // { label: 'Notice Board', path: '/notice-board', icon: Pin },
     ],
@@ -362,13 +274,77 @@ const mobileSections: NavSection[] = [
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
     items: [{ label: 'Payments & Dues', path: '/payments', icon: CreditCard }],
   },
+  // {
+  //   title: 'ALUMNI',
+  //   icon: '\u{1F393}',
+  //   key: 'alumni',
+  //   locked: true,
+  //   lockMessage: 'Available for graduates (Year 5+)',
+  //   items: [{ label: 'Alumni Portal', path: '/alumni', icon: GraduationCap }],
+  // },
   {
-    title: 'ALUMNI',
-    icon: '\u{1F393}',
-    key: 'alumni',
-    locked: true,
-    lockMessage: 'Available for graduates (Year 5+)',
-    items: [{ label: 'Alumni Portal', path: '/alumni', icon: GraduationCap }],
+    title: 'OVERVIEW',
+    icon: '\u{1F4CA}',
+    key: 'admin_overview',
+    roles: ['hod', 'delegated_admin', 'admin'],
+    items: [
+      { label: 'Admin Portal', path: '/admin', icon: LayoutDashboard },
+      { label: 'Analytics', path: '/admin/analytics', icon: BarChart3 },
+      { label: 'Revenue Forecast', path: '/admin/revenue-forecast', icon: TrendingUp },
+      // { label: 'At-Risk Students', path: '/admin/at-risk', icon: ShieldAlert },
+    ],
+  },
+  {
+    title: 'ACADEMICS',
+    icon: '\u{1F4DA}',
+    key: 'admin_academics',
+    roles: ['hod', 'delegated_admin', 'admin'],
+    items: [
+      // { label: 'Academics', path: '/admin/academics', icon: GraduationCap },
+      { label: 'Course Hub', path: '/admin/course-hub', icon: BookOpen },
+      { label: 'Sessions', path: '/admin/sessions', icon: Calendar },
+      { label: 'Results Management', path: '/admin/results/manage', icon: ClipboardList },
+      { label: 'CRF Signatures', path: '/admin/crf-signing', icon: FileSignature },
+    ],
+  },
+  {
+    title: 'USERS & ROLES',
+    icon: '\u{1F465}',
+    key: 'admin_users',
+    roles: ['hod', 'delegated_admin', 'admin'],
+    items: [
+      { label: 'User Directory', path: '/admin/users', icon: Users },
+      { label: 'Lecturer Management', path: '/admin/lecturers', icon: FileClock },
+      { label: 'User Roles and Permissions', path: '/admin/user-roles', icon: ShieldAlert },
+    ],
+  },
+  {
+    title: 'FINANCE',
+    icon: '\u{1F4B3}',
+    key: 'admin_finance',
+    roles: ['hod', 'delegated_admin', 'admin'],
+    items: [{ label: 'Dues Management', path: '/bursar/dues', icon: DollarSign }],
+  },
+  // {
+  //   title: 'ALUMNI',
+  //   icon: '\u{1F393}',
+  //   key: 'admin_alumni',
+  //   roles: ['hod', 'delegated_admin', 'admin'],
+  //   items: [
+  //     { label: 'Alumni Portal', path: '/alumni', icon: GraduationCap },
+  //     { label: 'Job Board', path: '/alumni/jobs', icon: Briefcase },
+  //     { label: 'Job Moderation', path: '/admin/job-moderation', icon: Briefcase },
+  //     { label: 'Mentorship Requests', path: '/alumni/mentorship', icon: Users },
+  //     { label: 'Give Back', path: '/alumni/give-back', icon: DollarSign },
+  //     { label: 'Alumni Mgmt', path: '/admin/alumni', icon: GraduationCap },
+  //   ],
+  // },
+  {
+    title: 'COMMUNICATIONS',
+    icon: '\u{1F4E2}',
+    key: 'admin_comms',
+    roles: ['hod', 'delegated_admin', 'admin'],
+    items: [{ label: 'Announcements', path: '/admin/announcements', icon: Megaphone }],
   },
   {
     title: 'SYSTEM',
@@ -376,7 +352,8 @@ const mobileSections: NavSection[] = [
     key: 'system',
     roles: ['hod', 'delegated_admin', 'admin'],
     items: [
-      // { label: 'AI Blueprint', path: '/ai-blueprint', icon: Brain },
+      { label: 'Operations and Issues', path: '/admin/system', icon: Wrench },
+      { label: 'Settings', path: '/admin/settings', icon: Settings },
     ],
   },
   {
@@ -410,7 +387,7 @@ const mobileSections: NavSection[] = [
 const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: SidebarProps) => {
   const { activeRole } = useRBAC();
   const { user, logout } = useAuth();
-  const [expandedSections, setExpandedSections] = useState<string[]>(['academics']);
+  const [expandedSections, setExpandedSections] = useState<string[]>(['academics', 'admin_overview']);
 
   const isPendingApproval =
     user &&
@@ -429,6 +406,64 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
   });
 
   const isAlumni = user?.roles.includes('alumni');
+
+  // Desktop grouping — only Student and Admin currently have enough items to
+  // warrant sections; other roles (lecturer, class_rep, bursar) keep the
+  // plain flat list below.
+  const isStudentLike = ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'].includes(activeRole);
+  const isAdminLike = ['hod', 'delegated_admin', 'admin'].includes(activeRole);
+  const desktopSections = isStudentLike
+    ? mobileSections.filter((s) => ['academics', 'community', 'finance', 'alumni'].includes(s.key))
+    : isAdminLike
+      ? mobileSections.filter((s) => s.key.startsWith('admin_') || s.key === 'system')
+      : null;
+  const dashboardItem = menuItems.find((i) => i.path === '/dashboard')!;
+  const profileItem = menuItems.find((i) => i.path === '/profile')!;
+
+  const renderDesktopItem = (item: MenuItem) => {
+    const Icon = item.icon;
+    return (
+      <NavLink
+        key={item.path}
+        to={item.path}
+        className={({ isActive }) =>
+          cn(
+            'flex items-center justify-center mx-1.5 p-2.5 rounded-xl transition-all duration-150',
+            !collapsed && 'md:gap-3 md:px-3 md:py-2.5 md:mx-2 md:text-sm md:font-medium md:justify-start',
+            isActive
+              ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/20 dark:text-primary-400'
+              : 'text-surface-600 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800 hover:text-surface-900 dark:hover:text-surface-100',
+          )
+        }
+        title={item.label}
+      >
+        <Icon className="w-5 h-5 shrink-0" />
+        {!collapsed && <span className="hidden md:inline">{item.label}</span>}
+      </NavLink>
+    );
+  };
+
+  const renderDesktopSection = (section: NavSection) => {
+    const showLocked = section.locked && !isAlumni;
+    return (
+      <div key={section.key} className="mt-4 first:mt-0">
+        {!collapsed ? (
+          <p className="hidden md:block px-5 mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-surface-400 dark:text-surface-600">
+            {section.title}
+          </p>
+        ) : (
+          <div className="mx-4 my-2 border-t border-surface-200 dark:border-surface-800" />
+        )}
+        {showLocked
+          ? !collapsed && (
+              <p className="hidden md:block px-5 py-1 text-xs text-surface-400 dark:text-surface-500 italic">
+                {section.lockMessage}
+              </p>
+            )
+          : section.items.map((item) => renderDesktopItem(item))}
+      </div>
+    );
+  };
 
   return (
     <>
@@ -469,7 +504,11 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-sm font-semibold shrink-0">
                 {user.avatar ? (
-                  <img src={user.avatar} alt="" className="w-full h-full rounded-full object-cover" />
+                  <img
+                    src={getMediaUrl(user.avatar) ?? undefined}
+                    alt=""
+                    className="w-full h-full rounded-full object-cover"
+                  />
                 ) : (
                   `${(user.firstName || '').charAt(0)}${(user.lastName || '').charAt(0)}`
                 )}
@@ -653,28 +692,15 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
           </div>
         </div>
         <nav className="flex-1 overflow-y-auto py-4 space-y-1 scrollbar-thin">
-          {filteredItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center justify-center mx-1.5 p-2.5 rounded-xl transition-all duration-150',
-                    !collapsed && 'md:gap-3 md:px-3 md:py-2.5 md:mx-2 md:text-sm md:font-medium md:justify-start',
-                    isActive
-                      ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/20 dark:text-primary-400'
-                      : 'text-surface-600 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800 hover:text-surface-900 dark:hover:text-surface-100',
-                  )
-                }
-                title={item.label}
-              >
-                <Icon className="w-5 h-5 shrink-0" />
-                {!collapsed && <span className="hidden md:inline">{item.label}</span>}
-              </NavLink>
-            );
-          })}
+          {desktopSections ? (
+            <>
+              {isStudentLike && renderDesktopItem(dashboardItem)}
+              {desktopSections.map((section) => renderDesktopSection(section))}
+              {renderDesktopItem(profileItem)}
+            </>
+          ) : (
+            filteredItems.map((item) => renderDesktopItem(item))
+          )}
         </nav>
         <div className={cn('border-t border-surface-200 dark:border-surface-800', 'p-1.5', !collapsed && 'md:p-4')}>
           <button

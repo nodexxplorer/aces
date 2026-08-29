@@ -1,3 +1,150 @@
+# Archived: Calendar (frontend + mobile only)
+
+Scope: explicitly limited to the frontend and mobile UI for the departmental-events calendar and the ICS calendar-feed subscription flow. The Go backend (calendar feed token issuance, `getCalendarFeed`, departmental-event CRUD, ICS generation) and the database were deliberately left untouched.
+
+## Restoration checklist
+
+1. Recreate deleted files from the snippets below.
+2. Re-apply the removed snippets to files that otherwise stayed.
+3. Re-add the sidebar nav entry, router redirect, and the Communication-page/screen tab wiring.
+4. No backend or migration changes are needed to restore this — the API was never removed.
+
+## Deleted files
+
+### `frontend/src/api/calendar.ts`
+```ts
+import apiClient from './client';
+
+// A standing subscription feed (Timetable + Study Task due dates merged
+// into one .ics) that Google/Apple/Outlook Calendar can "subscribe by
+// URL" to — distinct from the one-off departmental-event .ics downloads
+// in api/additional-features.ts.
+
+export const getMyCalendarToken = async () => {
+  const { data } = await apiClient.get<{ token: string }>('/calendar/token');
+  return data.token;
+};
+
+export const regenerateMyCalendarToken = async () => {
+  const { data } = await apiClient.post<{ token: string }>('/calendar/token/regenerate');
+  return data.token;
+};
+
+export const getCalendarFeedUrl = (token: string) => {
+  const base = apiClient.defaults.baseURL || '/api/v1';
+  return `${base}/calendar/feed/${token}`;
+};
+```
+
+### `frontend/src/components/features/CalendarSyncModal.tsx`
+```tsx
+import { useState } from 'react';
+import Modal from '../ui/Modal';
+import Button from '../ui/Button';
+import Input from '../ui/Input';
+import { useNotification } from '../../hooks/useNotification';
+import { CalendarPlus, Copy, RefreshCw } from 'lucide-react';
+import { getMyCalendarToken, regenerateMyCalendarToken, getCalendarFeedUrl } from '../../api/calendar';
+
+const CalendarSyncModal = () => {
+  const { success, error: notifyError } = useNotification();
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+  const [feedUrl, setFeedUrl] = useState('');
+
+  const openModal = async () => {
+    setOpen(true);
+    setLoading(true);
+    try {
+      const token = await getMyCalendarToken();
+      setFeedUrl(getCalendarFeedUrl(token));
+    } catch {
+      notifyError('Error', 'Failed to load your calendar link');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(feedUrl);
+      success('Copied', 'Calendar link copied to clipboard');
+    } catch {
+      notifyError('Error', 'Could not copy — select and copy the link manually');
+    }
+  };
+
+  const regenerate = async () => {
+    if (!confirm('This breaks the old link — anywhere you already subscribed with it will stop updating. Continue?')) {
+      return;
+    }
+    setRegenerating(true);
+    try {
+      const token = await regenerateMyCalendarToken();
+      setFeedUrl(getCalendarFeedUrl(token));
+      success('Link Regenerated', 'Update your calendar subscription with the new link');
+    } catch {
+      notifyError('Error', 'Failed to regenerate calendar link');
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
+  return (
+    <>
+      <Button variant="outline" leftIcon={<CalendarPlus className="w-4 h-4" />} onClick={openModal}>
+        Sync to Google Calendar
+      </Button>
+
+      <Modal isOpen={open} onClose={() => setOpen(false)} title="Sync to Google Calendar" size="md">
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-500" />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm text-surface-600 dark:text-surface-400">
+              This link keeps your class schedule and task due dates synced to any calendar app. In Google Calendar:{' '}
+              <strong>Other calendars → + → From URL</strong>, then paste the link below.
+            </p>
+
+            <div className="flex gap-2">
+              <Input readOnly value={feedUrl} onFocus={(e) => e.target.select()} className="flex-1" />
+              <Button variant="outline" onClick={copyLink} leftIcon={<Copy className="w-4 h-4" />}>
+                Copy
+              </Button>
+            </div>
+
+            <div className="flex items-start gap-2 bg-warning-50 dark:bg-warning-500/10 rounded-lg p-3">
+              <p className="text-xs text-warning-700 dark:text-warning-500">
+                Anyone with this link can see your schedule and tasks. Keep it private, and regenerate it below if it's
+                ever shared by accident. Calendar apps typically refresh a subscribed link every few hours, not
+                instantly.
+              </p>
+            </div>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              isLoading={regenerating}
+              leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+              onClick={regenerate}
+            >
+              Regenerate Link
+            </Button>
+          </div>
+        )}
+      </Modal>
+    </>
+  );
+};
+
+export default CalendarSyncModal;
+```
+
+### `frontend/src/pages/admin/CalendarPage.tsx`
+```tsx
 import { useState, useEffect } from 'react';
 import {
   Calendar,
@@ -767,3 +914,769 @@ export default function CalendarPage() {
     </div>
   );
 }
+```
+
+### `mobile/src/api/calendar.ts`
+```ts
+import apiClient, { unwrap } from './client';
+
+export interface CalendarEvent {
+  id: string;
+  creator_id: string;
+  title: string;
+  description?: string;
+  event_type: string;
+  start_time: string;
+  end_time?: string;
+  venue?: string;
+  is_all_day: boolean;
+  color: string;
+  created_at: string;
+  creator_name?: string;
+}
+
+export const listDepartmentalEvents = async (start?: string, end?: string) => {
+  const res = await apiClient.get('/calendar', { params: { start, end } });
+  return unwrap<CalendarEvent[]>(res);
+};
+```
+
+### `mobile/src/utils/calendar.ts`
+```ts
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import { Alert, Platform } from 'react-native';
+import apiClient from '../api/client';
+
+// Fetches a backend-generated .ics file and hands it to the OS share sheet —
+// on iOS/Android that's "Add to Calendar" / "Open with <calendar app>",
+// which works for Google Calendar, Apple Calendar, Outlook, etc. without any
+// Google/Microsoft login or API integration on our side.
+async function shareICS(url: string, filename: string) {
+  if (Platform.OS === 'web') {
+    Alert.alert('Not Supported', 'Adding to calendar from the web preview is not supported — use the mobile app.');
+    return;
+  }
+
+  const res = await apiClient.get<string>(url, { responseType: 'text' });
+
+  const file = new File(Paths.cache, filename);
+  file.create({ overwrite: true });
+  file.write(res.data);
+
+  const available = await Sharing.isAvailableAsync();
+  if (!available) {
+    Alert.alert('Not Supported', "Your device doesn't support sharing files.");
+    return;
+  }
+  await Sharing.shareAsync(file.uri, { mimeType: 'text/calendar', dialogTitle: 'Add to Calendar', UTI: 'com.apple.ical.ics' });
+}
+
+export async function addDepartmentalEventToCalendar(eventId: string) {
+  await shareICS(`/calendar/${eventId}/ics`, `event-${eventId}.ics`);
+}
+```
+
+
+### Removed from `frontend/src/api/additional-features.ts` (lines 195-275 originally; `parseJSONField` at the top of this file is SHARED with Class Notices and Feature Flags and was NOT removed)
+
+```ts
+// Calendar Events
+export interface CalendarEvent {
+  id: string;
+  creator_id: string;
+  title: string;
+  description?: string;
+  event_type: string;
+  start_time: string;
+  end_time?: string;
+  venue?: string;
+  target_levels?: number[];
+  target_audience?: string[];
+  is_all_day: boolean;
+  color: string;
+  created_at: string;
+  creator_name?: string;
+}
+
+export const createDepartmentalEvent = async (data: {
+  title: string;
+  description?: string;
+  event_type: string;
+  start_time: string;
+  end_time?: string;
+  venue?: string;
+  target_levels?: number[];
+  target_audience?: string[];
+  is_all_day?: boolean;
+  color?: string;
+}) => {
+  const res = await apiClient.post('/calendar', data);
+  return unwrap<CalendarEvent>(res);
+};
+
+export const listDepartmentalEvents = async (start?: string, end?: string) => {
+  const params: Record<string, string> = {};
+  if (start) params.start = start;
+  if (end) params.end = end;
+  const res = await apiClient.get('/calendar', { params });
+  const events = unwrap<CalendarEvent[]>(res);
+  // target_levels/target_audience are jsonb columns — same base64-string
+  // shape as evidence_urls/target_user_ids above, must go through the same
+  // parser or Array.isArray checks downstream silently treat them as unset.
+  return events.map((e) => ({
+    ...e,
+    target_levels: parseJSONField<number>(e.target_levels),
+    target_audience: parseJSONField<string>(e.target_audience),
+  }));
+};
+
+export const deleteDepartmentalEvent = async (id: string) => {
+  const res = await apiClient.delete(`/calendar/${id}`);
+  return unwrap<{ message: string }>(res);
+};
+
+export const updateDepartmentalEvent = async (
+  id: string,
+  data: {
+    title: string;
+    description?: string;
+    event_type: string;
+    start_time: string;
+    end_time?: string;
+    venue?: string;
+    target_levels?: number[];
+    target_audience?: string[];
+    is_all_day?: boolean;
+    color?: string;
+  },
+) => {
+  const res = await apiClient.put(`/calendar/${id}`, data);
+  return unwrap<{ data: string }>(res);
+};
+
+// A direct .ics download link — any phone/desktop calendar app can import
+// this via "Add to Calendar".
+export const getEventICSDownloadUrl = (id: string) => {
+  const base = apiClient.defaults.baseURL || '';
+  return `${base}/calendar/${id}/ics`;
+};
+
+```
+
+### Removed from `frontend/src/components/layout/Sidebar.tsx`
+
+```tsx
+  {
+    label: 'Calendar',
+    path: '/calendar',
+    icon: Calendar,
+    roles: [
+      'student',
+      'lecturer',
+      'class_rep',
+      'class_bursar',
+      'dept_bursar',
+      'alumni',
+      'hod',
+      'delegated_admin',
+      'admin',
+    ],
+  },
+```
+(`Calendar` icon import kept — still used elsewhere in this file, e.g. the admin "Sessions" nav entry.)
+
+### Removed from `frontend/src/router.tsx`
+
+```tsx
+          { path: '/calendar', element: <Navigate to="/communication?tab=calendar" replace /> },
+```
+
+### Original `frontend/src/pages/student/StudentCommunicationPage.tsx` (Calendar tab removed; Notifications/Announcements/Notice Board tabs kept)
+
+```tsx
+import { useState } from 'react';
+import { Bell, Megaphone, Pin, Calendar } from 'lucide-react';
+import Tabs from '../../components/ui/Tabs';
+import NotificationsTab from '../shared/NotificationsPage';
+import AnnouncementsTab from '../shared/StudentAnnouncementsPage';
+import NoticesTab from '../shared/ClassNoticeBoardPage';
+import CalendarTab from '../admin/CalendarPage';
+
+const communicationTabs = [
+  { id: 'notifications', label: 'Notifications', icon: <Bell className="w-4 h-4" /> },
+  { id: 'announcements', label: 'Announcements', icon: <Megaphone className="w-4 h-4" /> },
+  { id: 'notices', label: 'Notice Board', icon: <Pin className="w-4 h-4" /> },
+  { id: 'calendar', label: 'Calendar', icon: <Calendar className="w-4 h-4" /> },
+];
+
+export default function StudentCommunicationPage() {
+  const initialTab = new URLSearchParams(window.location.search).get('tab');
+  const [activeTab, setActiveTab] = useState(
+    communicationTabs.some((t) => t.id === initialTab) ? (initialTab as string) : 'notifications',
+  );
+
+  return (
+    <div className="min-h-screen bg-surface-50 dark:bg-surface-950">
+      <div className="max-w-5xl mx-auto px-4 py-6">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Communication</h1>
+          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
+            Notifications, announcements, and class notices
+          </p>
+        </div>
+
+        <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm overflow-hidden">
+          <div className="px-4">
+            <Tabs tabs={communicationTabs} activeTab={activeTab} onChange={setActiveTab} />
+          </div>
+
+          <div className="p-4">
+            {activeTab === 'notifications' && <NotificationsTab />}
+            {activeTab === 'announcements' && <AnnouncementsTab />}
+            {activeTab === 'notices' && <NoticesTab />}
+            {activeTab === 'calendar' && <CalendarTab />}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+### Removed from `frontend/src/pages/student/StudyPlannerPage.tsx`
+
+Import: `import CalendarSyncModal from '../../components/features/CalendarSyncModal';`
+JSX: `<CalendarSyncModal />` (rendered next to the "AI Study Plan" button in the page header). The `Calendar` lucide icon import/usages (lines 232, 288) are unrelated decorative icons for due-date fields and were kept.
+
+### Original `mobile/app/(tabs)/communication.tsx` (Calendar tab removed; Notifications/Announcements/Notice Board tabs kept, including shared `noticeMetaRow`/`noticeMetaItem` styles used by both Notice Board and the removed Calendar tab)
+
+```tsx
+import { useCallback, useEffect, useState } from 'react';
+import { View, StyleSheet, FlatList, Pressable, TextInput } from 'react-native';
+import Text from '../../src/components/ui/Text';
+import { Ionicons } from '@expo/vector-icons';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useTheme } from '../../src/theme/ThemeProvider';
+import { fontFamily, fontSize, radius, spacing } from '../../src/theme/typography';
+import Screen from '../../src/components/ui/Screen';
+import Card from '../../src/components/ui/Card';
+import Badge from '../../src/components/ui/Badge';
+import {
+  listMyNotifications,
+  listAnnouncementsFeed,
+  markNotificationRead,
+  listClassNotices,
+  listNoticeComments,
+  createNoticeComment,
+  type NotificationItem,
+  type AnnouncementFeedItem,
+  type ClassNotice,
+  type NoticeComment,
+} from '../../src/api/communication';
+import { listDepartmentalEvents, type CalendarEvent } from '../../src/api/calendar';
+
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  academic: 'Academic',
+  social: 'Social',
+  deadline: 'Deadline',
+  holiday: 'Holiday',
+  exam: 'Exam',
+  meeting: 'Meeting',
+  other: 'Other',
+};
+
+function formatEventDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-NG', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+function formatEventTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('en-NG', { hour: 'numeric', minute: '2-digit' });
+}
+
+function timeAgo(iso: string) {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+export default function CommunicationScreen() {
+  const { theme } = useTheme();
+  const [tab, setTab] = useState<'notifications' | 'announcements' | 'notices' | 'calendar'>('notifications');
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [announcements, setAnnouncements] = useState<AnnouncementFeedItem[]>([]);
+  const [notices, setNotices] = useState<ClassNotice[]>([]);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const [expandedNoticeId, setExpandedNoticeId] = useState<string | null>(null);
+  const [commentsMap, setCommentsMap] = useState<Record<string, NoticeComment[]>>({});
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
+
+  const fetchAll = useCallback(async () => {
+    const [notifs, ann, notic, evts] = await Promise.allSettled([
+      listMyNotifications(),
+      listAnnouncementsFeed(),
+      listClassNotices(),
+      listDepartmentalEvents(new Date().toISOString()),
+    ]);
+    if (notifs.status === 'fulfilled') setNotifications(notifs.value);
+    if (ann.status === 'fulfilled') setAnnouncements(ann.value);
+    if (notic.status === 'fulfilled') setNotices(notic.value);
+    if (evts.status === 'fulfilled') {
+      setEvents(
+        [...evts.value].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()),
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchAll().finally(() => setLoading(false));
+  }, [fetchAll]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchAll();
+    setRefreshing(false);
+  };
+
+  const handleReadNotification = async (n: NotificationItem) => {
+    if (n.is_read) return;
+    setNotifications((prev) => prev.map((item) => (item.id === n.id ? { ...item, is_read: true } : item)));
+    try {
+      await markNotificationRead(n.id);
+    } catch {
+      // optimistic update stands even if the sync call fails silently
+    }
+  };
+
+  const handleToggleNotice = (noticeId: string) => {
+    const opening = expandedNoticeId !== noticeId;
+    setExpandedNoticeId(opening ? noticeId : null);
+    setCommentText('');
+    if (opening && !commentsMap[noticeId]) {
+      setLoadingComments(true);
+      listNoticeComments(noticeId)
+        .then((comments) => setCommentsMap((prev) => ({ ...prev, [noticeId]: comments })))
+        .catch(() => {})
+        .finally(() => setLoadingComments(false));
+    }
+  };
+
+  const handleSubmitComment = async (noticeId: string) => {
+    if (!commentText.trim()) return;
+    setSubmittingComment(true);
+    try {
+      const newComment = await createNoticeComment(noticeId, commentText.trim());
+      setCommentsMap((prev) => ({ ...prev, [noticeId]: [...(prev[noticeId] ?? []), newComment] }));
+      setCommentText('');
+    } catch {
+      // input keeps its text on failure so the student can retry
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  const pinnedNotices = notices.filter((n) => n.is_pinned);
+  const regularNotices = notices.filter((n) => !n.is_pinned);
+
+  return (
+    <Screen refreshing={refreshing} onRefresh={onRefresh}>
+      <Text style={[styles.header, { color: theme.text }]}>Communication</Text>
+
+      <View style={[styles.tabRow, { borderColor: theme.divider }]}>
+        {(['notifications', 'announcements', 'notices', 'calendar'] as const).map((t) => (
+          <Text
+            key={t}
+            onPress={() => setTab(t)}
+            style={[
+              styles.tabLabel,
+              { color: tab === t ? theme.primary : theme.textMuted },
+              tab === t && { borderBottomColor: theme.primary, borderBottomWidth: 2 },
+            ]}
+          >
+            {t === 'notifications'
+              ? 'Notifications'
+              : t === 'announcements'
+                ? 'Announcements'
+                : t === 'notices'
+                  ? 'Notice Board'
+                  : 'Calendar'}
+          </Text>
+        ))}
+      </View>
+
+      {tab === 'notifications' ? (
+        <FlatList
+          data={notifications}
+          scrollEnabled={false}
+          keyExtractor={(n) => n.id}
+          ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+          ListEmptyComponent={
+            !loading ? (
+              <Card>
+                <Text style={{ color: theme.textMuted, fontFamily: fontFamily.regular, fontSize: fontSize.sm }}>
+                  You're all caught up — no notifications.
+                </Text>
+              </Card>
+            ) : null
+          }
+          renderItem={({ item, index }) => (
+            <Animated.View entering={FadeInDown.duration(350).delay(index * 40)}>
+              <Pressable onPress={() => handleReadNotification(item)}>
+                <Card style={styles.notifCard}>
+                  <View
+                    style={[
+                      styles.dot,
+                      { backgroundColor: item.is_read ? 'transparent' : theme.primary },
+                    ]}
+                  />
+                  <View style={styles.flex}>
+                    <Text
+                      style={[
+                        styles.itemName,
+                        { color: theme.text, fontFamily: item.is_read ? fontFamily.medium : fontFamily.semibold },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {item.title}
+                    </Text>
+                    <Text style={[styles.itemBody, { color: theme.textMuted }]} numberOfLines={2}>
+                      {item.message}
+                    </Text>
+                    <Text style={[styles.itemMeta, { color: theme.textFaint }]}>{timeAgo(item.created_at)}</Text>
+                  </View>
+                </Card>
+              </Pressable>
+            </Animated.View>
+          )}
+        />
+      ) : tab === 'announcements' ? (
+        <FlatList
+          data={announcements}
+          scrollEnabled={false}
+          keyExtractor={(a) => a.id}
+          ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+          ListEmptyComponent={
+            !loading ? (
+              <Card>
+                <Text style={{ color: theme.textMuted, fontFamily: fontFamily.regular, fontSize: fontSize.sm }}>
+                  No announcements right now.
+                </Text>
+              </Card>
+            ) : null
+          }
+          renderItem={({ item, index }) => (
+            <Animated.View entering={FadeInDown.duration(350).delay(index * 40)}>
+              <Card>
+                <View style={styles.announcementHeader}>
+                  <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                  {item.is_pinned && <Ionicons name="pin" size={14} color={theme.primary} />}
+                </View>
+                <Text style={[styles.itemBody, { color: theme.textMuted }]} numberOfLines={3}>
+                  {item.content}
+                </Text>
+                <View style={styles.announcementFooter}>
+                  <Badge label={item.category} tone="neutral" />
+                  <Text style={[styles.itemMeta, { color: theme.textFaint }]}>{timeAgo(item.created_at)}</Text>
+                </View>
+              </Card>
+            </Animated.View>
+          )}
+        />
+      ) : tab === 'notices' ? (
+        <View style={{ gap: spacing.lg }}>
+          {!loading && notices.length === 0 && (
+            <Card>
+              <Text style={{ color: theme.textMuted, fontFamily: fontFamily.regular, fontSize: fontSize.sm }}>
+                No notices posted yet.
+              </Text>
+            </Card>
+          )}
+
+          {pinnedNotices.length > 0 && (
+            <View style={{ gap: spacing.sm }}>
+              <View style={styles.noticeSectionHeader}>
+                <Ionicons name="pin" size={14} color={theme.warning} />
+                <Text style={[styles.noticeSectionLabel, { color: theme.warning }]}>PINNED</Text>
+              </View>
+              {pinnedNotices.map((n) => renderNotice(n))}
+            </View>
+          )}
+
+          {regularNotices.length > 0 && (
+            <View style={{ gap: spacing.sm }}>
+              {pinnedNotices.length > 0 && (
+                <View style={styles.noticeSectionHeader}>
+                  <Ionicons name="megaphone" size={14} color={theme.textFaint} />
+                  <Text style={[styles.noticeSectionLabel, { color: theme.textFaint }]}>RECENT</Text>
+                </View>
+              )}
+              {regularNotices.map((n) => renderNotice(n))}
+            </View>
+          )}
+        </View>
+      ) : (
+        <FlatList
+          data={events}
+          scrollEnabled={false}
+          keyExtractor={(e) => e.id}
+          ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+          ListEmptyComponent={
+            !loading ? (
+              <Card>
+                <Text style={{ color: theme.textMuted, fontFamily: fontFamily.regular, fontSize: fontSize.sm }}>
+                  No upcoming events.
+                </Text>
+              </Card>
+            ) : null
+          }
+          renderItem={({ item, index }) => (
+            <Animated.View entering={FadeInDown.duration(350).delay(index * 40)}>
+              <Card style={[styles.eventCard, { borderLeftColor: item.color || theme.primary }]}>
+                <View style={styles.announcementHeader}>
+                  <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                  <Badge label={EVENT_TYPE_LABELS[item.event_type] ?? item.event_type} tone="neutral" />
+                </View>
+                {item.description ? (
+                  <Text style={[styles.itemBody, { color: theme.textMuted }]} numberOfLines={2}>
+                    {item.description}
+                  </Text>
+                ) : null}
+                <View style={styles.noticeMetaRow}>
+                  <View style={styles.noticeMetaItem}>
+                    <Ionicons name="calendar-outline" size={12} color={theme.textFaint} />
+                    <Text style={[styles.itemMeta, { color: theme.textFaint }]}>{formatEventDate(item.start_time)}</Text>
+                  </View>
+                  {!item.is_all_day && (
+                    <View style={styles.noticeMetaItem}>
+                      <Ionicons name="time-outline" size={12} color={theme.textFaint} />
+                      <Text style={[styles.itemMeta, { color: theme.textFaint }]}>{formatEventTime(item.start_time)}</Text>
+                    </View>
+                  )}
+                  {item.venue ? (
+                    <View style={styles.noticeMetaItem}>
+                      <Ionicons name="location-outline" size={12} color={theme.textFaint} />
+                      <Text style={[styles.itemMeta, { color: theme.textFaint }]}>{item.venue}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              </Card>
+            </Animated.View>
+          )}
+        />
+      )}
+    </Screen>
+  );
+
+  function renderNotice(notice: ClassNotice) {
+    const isExpanded = expandedNoticeId === notice.id;
+    const comments = commentsMap[notice.id] ?? [];
+
+    return (
+      <Card
+        key={notice.id}
+        style={[notice.is_pinned && { borderLeftWidth: 3, borderLeftColor: theme.warning }]}
+      >
+        <Pressable onPress={() => handleToggleNotice(notice.id)}>
+          <View style={styles.announcementHeader}>
+            <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>
+              {notice.title}
+            </Text>
+            <Ionicons name="chatbubble-outline" size={14} color={theme.textFaint} />
+          </View>
+          <Text
+            style={[styles.itemBody, { color: theme.textMuted }]}
+            numberOfLines={isExpanded ? undefined : 2}
+          >
+            {notice.content}
+          </Text>
+          <View style={styles.noticeMetaRow}>
+            {notice.author_name && (
+              <Text style={[styles.itemMeta, { color: theme.textMuted, fontFamily: fontFamily.medium }]}>
+                {notice.author_name}
+              </Text>
+            )}
+            <Text style={[styles.itemMeta, { color: theme.textFaint }]}>{timeAgo(notice.created_at)}</Text>
+            <View style={styles.noticeMetaItem}>
+              <Ionicons name="chatbubble-outline" size={11} color={theme.textFaint} />
+              <Text style={[styles.itemMeta, { color: theme.textFaint }]}>{notice.comment_count ?? 0}</Text>
+            </View>
+          </View>
+        </Pressable>
+
+        {isExpanded && (
+          <View style={[styles.commentsBlock, { borderTopColor: theme.divider }]}>
+            {loadingComments && !commentsMap[notice.id] ? (
+              <Text style={{ color: theme.textFaint, fontFamily: fontFamily.regular, fontSize: fontSize.xs }}>
+                Loading comments...
+              </Text>
+            ) : comments.length === 0 ? (
+              <Text style={{ color: theme.textFaint, fontFamily: fontFamily.regular, fontSize: fontSize.xs }}>
+                No comments yet. Be the first to comment.
+              </Text>
+            ) : (
+              comments.map((c) => (
+                <View key={c.id} style={[styles.commentBubble, { backgroundColor: theme.background }]}>
+                  <View style={styles.noticeMetaItem}>
+                    <Text style={[styles.commentAuthor, { color: theme.text }]}>{c.author_name}</Text>
+                    <Text style={[styles.itemMeta, { color: theme.textFaint }]}>{timeAgo(c.created_at)}</Text>
+                  </View>
+                  <Text style={[styles.itemBody, { color: theme.textMuted, marginTop: 2 }]}>{c.content}</Text>
+                </View>
+              ))
+            )}
+
+            <View style={styles.commentInputRow}>
+              <TextInput
+                value={commentText}
+                onChangeText={setCommentText}
+                placeholder="Write a comment..."
+                placeholderTextColor={theme.textFaint}
+                style={[styles.commentInput, { backgroundColor: theme.background, color: theme.text }]}
+                onSubmitEditing={() => handleSubmitComment(notice.id)}
+              />
+              <Pressable
+                onPress={() => handleSubmitComment(notice.id)}
+                disabled={!commentText.trim() || submittingComment}
+                style={[
+                  styles.commentSendButton,
+                  { backgroundColor: theme.primary, opacity: !commentText.trim() || submittingComment ? 0.5 : 1 },
+                ]}
+              >
+                <Ionicons name="send" size={14} color={theme.onPrimary} />
+              </Pressable>
+            </View>
+          </View>
+        )}
+      </Card>
+    );
+  }
+}
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  header: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize['2xl'],
+  },
+  tabRow: {
+    flexDirection: 'row',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: spacing.xl,
+  },
+  tabLabel: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    paddingBottom: spacing.sm,
+  },
+  notifCard: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: radius.full,
+    marginTop: 6,
+  },
+  itemName: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+  },
+  itemBody: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    marginTop: 2,
+    lineHeight: 18,
+  },
+  itemMeta: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    marginTop: spacing.xs,
+  },
+  announcementHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  noticeSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  noticeSectionLabel: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xs,
+    letterSpacing: 0.5,
+  },
+  noticeMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: spacing.xs,
+  },
+  noticeMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs / 2,
+  },
+  commentsBlock: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: spacing.sm,
+  },
+  commentBubble: {
+    borderRadius: radius.md,
+    padding: spacing.sm,
+  },
+  commentAuthor: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+  },
+  commentInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  commentInput: {
+    flex: 1,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+  },
+  commentSendButton: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  eventCard: {
+    borderLeftWidth: 3,
+  },
+  announcementFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.sm,
+  },
+});
+```

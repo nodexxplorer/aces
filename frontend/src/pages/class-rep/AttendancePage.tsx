@@ -18,6 +18,7 @@ import {
   Clock,
   AlertCircle,
   QrCode,
+  History,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import {
@@ -32,53 +33,29 @@ import {
   type AttendanceCheckin,
 } from '../../api/class-rep';
 import {
-  getClassRepTimetable,
   getRegisteredStudentsForAttendance,
   submitAttendanceSession,
   downloadAttendancePDF,
-  type TimetableEntry,
   type RegisteredStudentAttendance,
 } from '../../api/attendance';
 import { getCourses } from '../../api/courses';
 import type { Course } from '../../types';
 import { parseProfileScanUserId } from '../../utils/qr-scanner';
 import { getErrorMessage } from '../../utils/errors';
-
-// timetable.day_of_week is 1=Monday..7=Sunday (see TimetablePage.tsx's
-// numToDay for the same convention on the student-facing timetable).
-const dayNames: Record<number, string> = {
-  1: 'Mon',
-  2: 'Tue',
-  3: 'Wed',
-  4: 'Thu',
-  5: 'Fri',
-  6: 'Sat',
-  7: 'Sun',
-};
-
-// start_time/end_time come back as raw TIMESTAMPTZ text (e.g.
-// "2026-08-17 08:00:00+00") — only the time-of-day is meaningful.
-function formatClockTime(raw: string): string {
-  const match = raw.match(/(\d{2}):(\d{2})/);
-  return match ? `${match[1]}:${match[2]}` : raw;
-}
-
-function describeSchedule(entry: TimetableEntry): string {
-  const day = entry.day_of_week != null ? dayNames[entry.day_of_week] : null;
-  const time = formatClockTime(entry.start_time);
-  return day ? `${day} ${time}` : time;
-}
+import { useAuth } from '../../hooks/useAuth';
 
 type StatusType = 'present' | 'absent' | 'late' | 'excused';
 
 const AttendancePage = () => {
   const { success, warning, error: notifyError } = useNotification();
-  const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
+  const { user } = useAuth();
+  const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   const [students, setStudents] = useState<RegisteredStudentAttendance[]>([]);
   const [checkins, setCheckins] = useState<AttendanceCheckin[]>([]);
-  const [, setSessions] = useState<AttendanceSession[]>([]);
+  const [sessions, setSessions] = useState<AttendanceSession[]>([]);
   const [activeSession, setActiveSession] = useState<AttendanceSession | null>(null);
+  const [historyBusyId, setHistoryBusyId] = useState<string | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [displayQrOpen, setDisplayQrOpen] = useState(false);
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -93,49 +70,29 @@ const AttendancePage = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const [ttRes, coursesRes, sessionsList] = await Promise.allSettled([
-          getClassRepTimetable(),
-          getCourses(),
-          listMyAttendanceSessions(),
-        ]);
+        const [coursesRes, sessionsList] = await Promise.allSettled([getCourses(), listMyAttendanceSessions()]);
 
-        let level = 400;
-        let entries: TimetableEntry[] = [];
-        if (ttRes.status === 'fulfilled') {
-          if (ttRes.value.level) {
-            level = ttRes.value.level;
-          }
-          if (ttRes.value.entries?.length > 0) {
-            entries = ttRes.value.entries;
-          }
-        }
-
-        if (entries.length === 0 && coursesRes.status === 'fulfilled' && coursesRes.value.length > 0) {
+        let sourceCourses: Course[] = [];
+        if (coursesRes.status === 'fulfilled' && coursesRes.value.length > 0) {
+          const level = user?.level || 400;
           const levelCourses = coursesRes.value.filter((c: Course) => c.level === level);
-          const sourceCourses = levelCourses.length > 0 ? levelCourses : coursesRes.value;
-
-          entries = sourceCourses.map((c: Course) => ({
-            timetable_entry_id: c.id,
-            course_id: c.id,
-            course_code: c.code,
-            course_title: c.title,
-            lecturer_name: 'Department Lecturer',
-            venue: 'Main Hall',
-            day_of_week: null,
-            start_time: '08:00',
-            end_time: '10:00',
-            card_status: 'upcoming',
-          }));
+          sourceCourses = levelCourses.length > 0 ? levelCourses : coursesRes.value;
         }
 
-        setTimetable(entries);
-        if (entries.length > 0) {
-          setSelectedCourseId(entries[0].course_id);
+        setCourses(sourceCourses);
+        if (sourceCourses.length > 0) {
+          setSelectedCourseId(sourceCourses[0].id);
         }
 
         if (sessionsList.status === 'fulfilled') {
           setSessions(sessionsList.value);
-          const openSession = sessionsList.value.find((s) => s.status === 'open' || s.status === 'active');
+          // A session the lecturer bounced back with 'changes_requested' needs
+          // to reopen into this same editable view (not the read-only History
+          // list below) so the class rep actually has somewhere to fix the
+          // roster and resubmit it.
+          const openSession = sessionsList.value.find(
+            (s) => s.status === 'open' || s.status === 'active' || s.status === 'changes_requested',
+          );
           if (openSession) {
             setActiveSession(openSession);
             try {
@@ -153,7 +110,7 @@ const AttendancePage = () => {
       }
     };
     load();
-  }, [notifyError]);
+  }, [notifyError, user?.level]);
 
   // Load registered students for the selected course
   useEffect(() => {
@@ -320,8 +277,12 @@ const AttendancePage = () => {
     if (!activeSession) return;
     setSaving(true);
     try {
+      // Only submit — do NOT also close the session here. Closing overwrites
+      // the 'pending_lecturer_review' status this call just set, which
+      // silently removed every "sent" session from the lecturer's review
+      // queue. Closing only makes sense for the "print PDF instead" path
+      // below, where there's no digital review to wait for.
       await submitAttendanceSession(activeSession.id, 'send_to_lecturer');
-      await closeAttendanceSession(activeSession.id);
       setActiveSession(null);
       setCheckins([]);
       setFinalizeModalOpen(false);
@@ -352,6 +313,24 @@ const AttendancePage = () => {
     return matchesSearch && matchesStatus;
   });
 
+  const history = sessions.filter(
+    (s) => s.status !== 'open' && s.status !== 'active' && s.status !== 'changes_requested',
+  );
+  const courseLabel = (courseId: string) => courses.find((c) => c.id === courseId);
+  const historyStatusVariant: Record<string, 'success' | 'danger' | 'warning' | 'default'> = {
+    approved: 'success',
+    rejected: 'danger',
+    changes_requested: 'warning',
+  };
+  const handleDownloadHistoryPDF = async (sessionId: string) => {
+    setHistoryBusyId(sessionId);
+    try {
+      downloadAttendancePDF(sessionId);
+    } finally {
+      setHistoryBusyId(null);
+    }
+  };
+
   const presentCount = students.filter((s) => getStudentStatus(s.user_id) === 'present').length;
   const lateCount = students.filter((s) => getStudentStatus(s.user_id) === 'late').length;
   const excusedCount = students.filter((s) => getStudentStatus(s.user_id) === 'excused').length;
@@ -375,7 +354,7 @@ const AttendancePage = () => {
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
             {activeSession
               ? `Session Active · ${attendanceRate}% Present (${presentCount}/${students.length} students)`
-              : 'Select a course from your semester timetable to initiate attendance.'}
+              : 'Select a course to initiate attendance.'}
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -408,7 +387,21 @@ const AttendancePage = () => {
         </div>
       </div>
 
-      {/* Timetable Course Selector */}
+      {activeSession?.status === 'changes_requested' && (
+        <div className="flex items-start gap-3 p-4 rounded-xl border border-warning-200 dark:border-warning-800/40 bg-warning-50 dark:bg-warning-950/20">
+          <AlertCircle className="w-5 h-5 text-warning-600 dark:text-warning-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-warning-800 dark:text-warning-300">
+              Your lecturer requested changes to this attendance sheet
+            </p>
+            <p className="text-xs text-warning-700/80 dark:text-warning-400/80 mt-0.5">
+              Fix the roster below, then finalize again to resend it for review.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Course Selector */}
       {!activeSession && (
         <Card className="p-6">
           <CardHeader className="p-0 mb-4">
@@ -421,9 +414,9 @@ const AttendancePage = () => {
             <div>
               <label className="block text-xs font-semibold text-surface-500 mb-1">Select Course</label>
               <Select
-                options={timetable.map((t) => ({
-                  value: t.course_id,
-                  label: `${t.course_code} - ${t.course_title} (${describeSchedule(t)})`,
+                options={courses.map((c) => ({
+                  value: c.id,
+                  label: `${c.code} - ${c.title}`,
                 }))}
                 value={selectedCourseId}
                 onChange={(e) => setSelectedCourseId(e.target.value)}
@@ -636,6 +629,52 @@ const AttendancePage = () => {
             </tbody>
           </table>
         </div>
+      </Card>
+
+      {/* Session History */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <History className="w-4 h-4" /> Session History
+          </CardTitle>
+          <CardDescription>Every attendance session you've ever started, with its current status.</CardDescription>
+        </CardHeader>
+        {history.length === 0 ? (
+          <p className="px-6 pb-6 text-sm text-surface-500">No past attendance sessions yet.</p>
+        ) : (
+          <div className="divide-y divide-surface-100 dark:divide-surface-800">
+            {history.map((h) => {
+              const course = courseLabel(h.course_id);
+              return (
+                <div key={h.id} className="p-4 flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-sm text-surface-900 dark:text-white">
+                        {course ? course.code : 'Course'}
+                      </span>
+                      <Badge variant={historyStatusVariant[h.status] ?? 'default'} className="text-[10px] capitalize">
+                        {h.status.replace(/_/g, ' ')}
+                      </Badge>
+                    </div>
+                    {course && <p className="text-xs text-surface-500 mt-0.5 truncate">{course.title}</p>}
+                    <p className="text-xs text-surface-400 mt-1">
+                      {new Date(h.created_at).toLocaleDateString()} · {h.total_present}/{h.total_students} present
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    isLoading={historyBusyId === h.id}
+                    leftIcon={<Download className="w-4 h-4" />}
+                    onClick={() => handleDownloadHistoryPDF(h.id)}
+                  >
+                    PDF
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </Card>
 
       {/* QR Scanner Modal */}

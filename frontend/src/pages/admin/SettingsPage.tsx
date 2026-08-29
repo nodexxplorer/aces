@@ -5,6 +5,7 @@ import Input from '../../components/ui/Input';
 import { useTheme } from '../../hooks/useTheme';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuthStore } from '../../stores/authStore';
+import { getMediaUrl } from '../../api/client';
 import { updateUser } from '../../api/users';
 import { getCGPAConfig, updateCGPAConfig } from '../../api/cgpa';
 import { getAISettings, updateAISettings } from '../../api/ai';
@@ -114,7 +115,7 @@ const SettingsPage = () => {
                 <div className="relative">
                   {avatarUrl ? (
                     <img
-                      src={avatarUrl}
+                      src={getMediaUrl(avatarUrl) ?? undefined}
                       alt="Profile"
                       className="w-20 h-20 rounded-full object-cover border-2 border-surface-200 dark:border-surface-700"
                     />

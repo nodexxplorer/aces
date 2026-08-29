@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
-import { Search, Sun, Moon, LogOut, ShoppingCart, Menu, ScanLine } from 'lucide-react';
+import { Search, Sun, Moon, LogOut, Menu, ScanLine } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useDarkMode } from '../../hooks/useDarkMode';
 import RoleSwitcher from '../ui/RoleSwitcher';
 import NotificationBell from '../notifications/NotificationBell';
 import { getInitials } from '../../utils/formatters';
+import { getMediaUrl } from '../../api/client';
 import { useSearch } from '../../hooks/useSearch';
-import { useCartStore } from '../../stores/cartStore';
 import { useRBAC } from '../../hooks/useRBAC';
 
 interface NavbarProps {
@@ -20,7 +20,6 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
   const { toggle, isDark } = useDarkMode();
   const { setQuery } = useSearch();
   const { activeRole } = useRBAC();
-  const getItemCount = useCartStore((s) => s.getItemCount);
   const [profileOpen, setProfileOpen] = useState(false);
   const isStudent = activeRole === 'student';
   const [searchValue, setSearchValue] = useState('');
@@ -84,23 +83,6 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
         >
           {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
         </button>
-        {isStudent && (
-          <div className="flex items-center gap-1 md:hidden">
-            <Link to="/manuals">
-              <button
-                className="relative p-2 rounded-lg text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-                aria-label="Shopping cart"
-              >
-                <ShoppingCart className="w-5 h-5" />
-                {getItemCount() > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center w-4 h-4 text-[10px] font-bold text-white bg-danger-500 rounded-full">
-                    {getItemCount()}
-                  </span>
-                )}
-              </button>
-            </Link>
-          </div>
-        )}
         <NotificationBell />
         <div ref={dropdownRef} className="relative">
           <button
@@ -108,7 +90,11 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
             className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-xs font-semibold hover:opacity-90 transition-opacity"
           >
             {user?.avatar ? (
-              <img src={user.avatar} alt="" className="w-full h-full rounded-full object-cover" />
+              <img
+                src={getMediaUrl(user.avatar) ?? undefined}
+                alt=""
+                className="w-full h-full rounded-full object-cover"
+              />
             ) : (
               getInitials(user?.firstName || 'A', user?.lastName || 'Z')
             )}

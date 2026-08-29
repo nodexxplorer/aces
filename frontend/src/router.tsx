@@ -18,13 +18,9 @@ const ResultsPage = lazy(() => import('./pages/student/ResultsPage'));
 const ResultDetailPage = lazy(() => import('./pages/student/ResultDetailPage'));
 const PaymentsPage = lazy(() => import('./pages/student/PaymentsPage'));
 const PaymentConfirmationPage = lazy(() => import('./pages/student/PaymentConfirmationPage'));
-const TranscriptsPage = lazy(() => import('./pages/student/TranscriptsPage'));
 const CoursesPage = lazy(() => import('./pages/student/CoursesPage'));
 const ComplaintsPage = lazy(() => import('./pages/student/ComplaintsPage'));
-const TimetablePage = lazy(() => import('./pages/student/TimetablePage'));
 const ProfilePage = lazy(() => import('./pages/student/ProfilePage'));
-const ManualsPage = lazy(() => import('./pages/student/ManualsPage'));
-const PracticalDetailsPage = lazy(() => import('./pages/student/PracticalDetailsPage'));
 const StudentJobBoardPage = lazy(() => import('./pages/student/StudentJobBoardPage'));
 const MyApplicationsPage = lazy(() => import('./pages/student/MyApplicationsPage'));
 
@@ -63,9 +59,6 @@ const SessionManagementPage = lazy(() => import('./pages/admin/SessionManagement
 const CourseHubPage = lazy(() => import('./pages/admin/CourseHubPage'));
 const AnnouncementsPage = lazy(() => import('./pages/admin/AnnouncementsManagePage'));
 const AcademicsHubPage = lazy(() => import('./pages/admin/AcademicsHubPage'));
-const TimetableManagePage = lazy(() => import('./pages/admin/TimetableManagePage'));
-const ManualsManagementPage = lazy(() => import('./pages/admin/ManualsManagementPage'));
-const ManualCoverBulkDownloadPage = lazy(() => import('./pages/admin/ManualCoverBulkDownloadPage'));
 const AlumniManagementPage = lazy(() => import('./pages/admin/AlumniManagementPage'));
 const ResultsManagementPage = lazy(() => import('./pages/admin/ResultsManagementPage'));
 
@@ -75,11 +68,9 @@ const AISettingsPage = lazy(() => import('./pages/settings/AISettingsPage'));
 const CRFSigningSettingsPage = lazy(() => import('./pages/admin/CRFSigningSettingsPage'));
 const CourseFormSigningPage = lazy(() => import('./pages/student/CourseFormSigningPage'));
 const StudentDetailPage = lazy(() => import('./pages/admin/StudentDetailPage'));
-const ManualDetailPage = lazy(() => import('./pages/admin/ManualDetailPage'));
 const AdminJobModerationPage = lazy(() => import('./pages/admin/AdminJobModerationPage'));
 const UserDetailPage = lazy(() => import('./pages/admin/UserDetailPage'));
 const EditStudentPage = lazy(() => import('./pages/admin/EditStudentPage'));
-const DocumentVerificationPage = lazy(() => import('./pages/admin/DocumentVerificationPage'));
 const CourseDetailPage = lazy(() => import('./pages/admin/CourseDetailPage'));
 const LecturerManagementPage = lazy(() => import('./pages/admin/LecturerManagementPage'));
 
@@ -87,12 +78,10 @@ const LecturerManagementPage = lazy(() => import('./pages/admin/LecturerManageme
 const GPAHubPage = lazy(() => import('./pages/student/GPAHubPage'));
 const FindMentorPage = lazy(() => import('./pages/student/FindMentorPage'));
 const AtRiskDashboard = lazy(() => import('./pages/admin/AtRiskDashboard'));
-const GradeDistributionPage = lazy(() => import('./pages/admin/GradeDistributionPage'));
 const RevenueForecastPage = lazy(() => import('./pages/admin/RevenueForecastPage'));
 
 // Additional Features
 const StudyPlannerPage = lazy(() => import('./pages/student/StudyPlannerPage'));
-const GradeAppealsPage = lazy(() => import('./pages/student/GradeAppealsPage'));
 const ClassNoticeBoardPage = lazy(() => import('./pages/shared/ClassNoticeBoardPage'));
 const ExpensesPage = lazy(() => import('./pages/admin/ExpensesPage'));
 
@@ -225,10 +214,14 @@ export const router = createBrowserRouter([
   {
     element: <PublicOnlyRoute />,
     children: [
+      // Login gets its own full-bleed layout (video background, two-column
+      // desktop split) — it deliberately bypasses PublicLayout's centered
+      // max-w-md gradient card treatment, which the other public pages below
+      // still use unchanged.
+      { path: '/login', element: <LoginPage /> },
       {
         element: <PublicLayout />,
         children: [
-          { path: '/login', element: <LoginPage /> },
           { path: '/forgot-password', element: <ForgotPasswordPage /> },
           { path: '/reset-password-otp', element: <PasswordResetOTPPage /> },
           { path: '/signup/student', element: <StudentSignupPage /> },
@@ -290,24 +283,17 @@ export const router = createBrowserRouter([
               { path: '/payments/history', element: <Navigate to="/payments" replace /> },
               { path: '/course-form-signing', element: <CourseFormSigningPage /> },
               { path: '/payments/confirmation', element: <PaymentConfirmationPage /> },
-              { path: '/transcripts', element: <TranscriptsPage /> },
               { path: '/courses', element: <CoursesPage /> },
               { path: '/courses/register', element: <Navigate to="/courses?tab=register" replace /> },
-              { path: '/timetable', element: <TimetablePage /> },
               { path: '/attendance', element: <StudentAttendancePage /> },
-              { path: '/manuals', element: <ManualsPage /> },
-              { path: '/manuals/my', element: <Navigate to="/manuals?tab=my" replace /> },
-              { path: '/practicals', element: <PracticalDetailsPage /> },
               { path: '/student/jobs', element: <StudentJobBoardPage /> },
               { path: '/student/applications', element: <MyApplicationsPage /> },
               { path: '/study-planner', element: <StudyPlannerPage /> },
               { path: '/gpa-calculator', element: <Navigate to="/gpa" replace /> },
               { path: '/gpa', element: <GPAHubPage /> },
               { path: '/find-mentor', element: <FindMentorPage /> },
-              { path: '/grade-appeals', element: <GradeAppealsPage /> },
               { path: '/support', element: <SupportPage /> },
               { path: '/help-center', element: <SupportPage /> },
-              { path: '/carryovers', element: <Navigate to="/courses?tab=carryovers" replace /> },
               { path: '/materials', element: <Navigate to="/courses?tab=materials" replace /> },
               { path: '/attendance/checkin', element: <AttendanceCheckinPage /> },
             ],
@@ -317,7 +303,6 @@ export const router = createBrowserRouter([
           { path: '/profile', element: <ProfilePage /> },
           { path: '/notices', element: <Navigate to="/communication" replace /> },
           { path: '/scan', element: <QRScanPage /> },
-          { path: '/calendar', element: <Navigate to="/communication?tab=calendar" replace /> },
           { path: '/notice-board', element: <ClassNoticeBoardPage /> },
 
           { path: '/waiting', element: <WaitingDashboardPage /> },
@@ -384,23 +369,17 @@ export const router = createBrowserRouter([
               { path: '/admin/announcements', element: <AnnouncementsPage /> },
               { path: '/admin/academics', element: <AcademicsHubPage /> },
               { path: '/admin/system', element: <SystemAdminPage /> },
-              { path: '/admin/timetable', element: <TimetableManagePage /> },
-              { path: '/admin/manuals', element: <ManualsManagementPage /> },
-              { path: '/admin/manuals/covers/bulk', element: <ManualCoverBulkDownloadPage /> },
               { path: '/admin/alumni', element: <AlumniManagementPage /> },
               { path: '/admin/cgpa-settings', element: <CGPASettingsPage /> },
               { path: '/admin/settings', element: <SettingsPage /> },
               { path: '/admin/ai-settings', element: <AISettingsPage /> },
               { path: '/admin/at-risk', element: <AtRiskDashboard /> },
-              { path: '/admin/grade-distribution', element: <GradeDistributionPage /> },
               { path: '/admin/revenue-forecast', element: <RevenueForecastPage /> },
               { path: '/admin/expenses', element: <ExpensesPage /> },
               { path: '/admin/students/:id', element: <StudentDetailPage /> },
               { path: '/admin/users/:id', element: <UserDetailPage /> },
               { path: '/admin/users/:id/edit', element: <EditStudentPage /> },
-              { path: '/admin/documents', element: <DocumentVerificationPage /> },
               { path: '/admin/courses/:id', element: <CourseDetailPage /> },
-              { path: '/admin/manuals/:id', element: <ManualDetailPage /> },
               { path: '/admin/job-moderation', element: <AdminJobModerationPage /> },
               { path: '/admin/lecturers', element: <LecturerManagementPage /> },
               { path: '/admin/crf-signing', element: <CRFSigningSettingsPage /> },

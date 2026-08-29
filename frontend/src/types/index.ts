@@ -22,7 +22,6 @@ export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded';
 export type PaymentMethod = 'paystack' | 'manual';
 export type ComplaintStatus = 'open' | 'in_review' | 'resolved' | 'rejected';
 export type ComplaintPriority = 'low' | 'medium' | 'high' | 'critical';
-export type TranscriptStatus = 'pending' | 'processing' | 'ready' | 'collected' | 'approved' | 'printed';
 export type ConnectionStatus = 'pending' | 'accepted' | 'rejected' | 'blocked';
 export type AlumniStatusType = 'pending' | 'active' | 'suspended' | 'honorary';
 export type MentorshipStatus = 'pending' | 'accepted' | 'rejected' | 'completed';
@@ -269,7 +268,7 @@ export interface Assignment extends BaseEntity {
 }
 
 // ───── Payments ─────
-export type PaymentType = 'dept_dues' | 'class_dues' | 'manual' | 'materials' | 'transcript_fee' | 'other';
+export type PaymentType = 'dept_dues' | 'class_dues' | 'materials' | 'transcript_fee' | 'other';
 
 export interface Payment extends BaseEntity {
   student_id: string;
@@ -327,67 +326,6 @@ export interface Complaint extends BaseEntity {
   user?: User;
 }
 
-// ───── Transcripts ─────
-export interface TranscriptRequest extends BaseEntity {
-  studentId: string;
-  status: TranscriptStatus;
-  requestedAt?: string;
-  processedAt?: string;
-  readyAt?: string;
-  collectedAt?: string;
-  paymentId?: string;
-  student?: Student;
-  destination?: string;
-  paymentStatus?: string;
-  studentName?: string;
-  purpose?: string;
-  copies?: number;
-}
-
-// ───── Timetable ─────
-export type EntryType = 'class' | 'exam';
-export type ClassType = 'lecture' | 'lab' | 'tutorial' | 'seminar';
-export type ExamType = 'main' | 'carryover';
-
-export interface TimetableEntry {
-  id: string;
-  course_id: string;
-  day_of_week?: number;
-  start_time: string;
-  end_time: string;
-  venue: string;
-  level?: number;
-  courseCode: string;
-  courseTitle: string;
-  entry_type: EntryType;
-  class_type?: ClassType;
-  exam_type?: ExamType;
-  lecturer_id?: string;
-  lecturer_name?: string;
-  invigilators?: string;
-  is_published: boolean;
-  has_conflict: boolean;
-  conflict_details?: string;
-  exam_date?: string;
-  session_id?: string;
-  semester_id?: string;
-  created_by?: string;
-  created_at?: string;
-  course?: Course;
-  // Legacy aliases for backward compat
-  courseId?: string;
-  dayOfWeek?: number;
-  startTime?: string;
-  endTime?: string;
-}
-
-export interface TimetableConflict {
-  type: string;
-  message: string;
-  entry1_id: string;
-  entry2_id: string;
-}
-
 // ───── Announcements ─────
 export interface Announcement extends BaseEntity {
   title: string;
@@ -410,35 +348,6 @@ export interface AppNotification extends BaseEntity {
   readAt?: string;
   actionUrl?: string;
   metadata?: Record<string, unknown>;
-}
-
-// ───── Manuals ─────
-export interface Manual extends BaseEntity {
-  title: string;
-  description?: string;
-  price: number;
-  level: number;
-  coverImageUrl?: string;
-  fileUrl?: string;
-  isActive: boolean;
-  courseId?: string;
-  sessionId?: string;
-  createdBy?: string;
-}
-
-export interface ManualPurchase extends BaseEntity {
-  manualId: string;
-  manualTitle?: string;
-  manualLevel?: number;
-  price: number;
-  isCollected: boolean;
-  collectedAt?: string;
-  purchasedAt?: string;
-  qrCodeData?: string;
-  qrCodeUrl?: string;
-  studentName?: string;
-  matricNumber?: string;
-  matric_number?: string;
 }
 
 // ───── Campus Connect ─────

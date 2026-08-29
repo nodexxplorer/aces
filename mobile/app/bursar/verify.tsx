@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { View, StyleSheet, Pressable, Alert } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { View, StyleSheet, Pressable, Alert, TextInput, ScrollView } from 'react-native';
 import Text from '../../src/components/ui/Text';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +17,9 @@ function formatCurrency(n: number) {
   return `₦${n.toLocaleString('en-NG', { maximumFractionDigits: 0 })}`;
 }
 
+const METHOD_FILTER_ALL = 'all';
+const LEVEL_FILTER_ALL = 'all';
+
 export default function BursarVerifyScreen() {
   const { theme } = useTheme();
   const router = useRouter();
@@ -24,6 +27,10 @@ export default function BursarVerifyScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
+
+  const [search, setSearch] = useState('');
+  const [methodFilter, setMethodFilter] = useState(METHOD_FILTER_ALL);
+  const [levelFilter, setLevelFilter] = useState<string>(LEVEL_FILTER_ALL);
 
   const load = () => {
     return getBursarDashboard()
@@ -55,6 +62,29 @@ export default function BursarVerifyScreen() {
     }
   };
 
+  const methodOptions = useMemo(() => {
+    const distinct = Array.from(new Set(payments.map((p) => p.payment_method).filter(Boolean)));
+    return [METHOD_FILTER_ALL, ...distinct];
+  }, [payments]);
+
+  const levelOptions = useMemo(() => {
+    const distinct = Array.from(new Set(payments.map((p) => p.level))).sort((a, b) => a - b);
+    return [LEVEL_FILTER_ALL, ...distinct.map(String)];
+  }, [payments]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return payments.filter((p) => {
+      const matchesSearch =
+        !q || p.student_name.toLowerCase().includes(q) || p.matric_number.toLowerCase().includes(q);
+      const matchesMethod = methodFilter === METHOD_FILTER_ALL || p.payment_method === methodFilter;
+      const matchesLevel = levelFilter === LEVEL_FILTER_ALL || String(p.level) === levelFilter;
+      return matchesSearch && matchesMethod && matchesLevel;
+    });
+  }, [payments, search, methodFilter, levelFilter]);
+
+  const totalPendingAmount = useMemo(() => filtered.reduce((sum, p) => sum + p.amount, 0), [filtered]);
+
   return (
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
       <Pressable style={styles.backRow} onPress={() => router.back()} hitSlop={12}>
@@ -63,31 +93,135 @@ export default function BursarVerifyScreen() {
       </Pressable>
 
       <Text style={[styles.header, { color: theme.text }]}>Verify Payments</Text>
-      <Text style={{ color: theme.textMuted, fontSize: fontSize.sm, marginBottom: spacing.md }}>
-        {loading ? 'Loading...' : `${payments.length} payment${payments.length !== 1 ? 's' : ''} awaiting review`}
-      </Text>
 
-      {!loading && payments.length === 0 ? (
+      {/* Summary strip */}
+      <View style={styles.summaryRow}>
+        <Card style={styles.summaryCard}>
+          <Text style={[styles.summaryValue, { color: theme.text }]} numberOfLines={1} adjustsFontSizeToFit>
+            {loading ? '—' : filtered.length}
+          </Text>
+          <Text style={[styles.summaryLabel, { color: theme.textMuted }]}>Awaiting Review</Text>
+        </Card>
+        <Card style={styles.summaryCard}>
+          <Text
+            style={[styles.summaryValue, { color: theme.warning }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
+            {loading ? '—' : formatCurrency(totalPendingAmount)}
+          </Text>
+          <Text style={[styles.summaryLabel, { color: theme.textMuted }]}>Total Pending</Text>
+        </Card>
+      </View>
+
+      {/* Search */}
+      <View style={[styles.searchRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <Ionicons name="search" size={16} color={theme.textFaint} />
+        <TextInput
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search name or matric number..."
+          placeholderTextColor={theme.textFaint}
+          style={[styles.searchInput, { color: theme.text }]}
+        />
+        {search.length > 0 && (
+          <Pressable onPress={() => setSearch('')} hitSlop={8}>
+            <Ionicons name="close-circle" size={16} color={theme.textFaint} />
+          </Pressable>
+        )}
+      </View>
+
+      {/* Level filter chips */}
+      {levelOptions.length > 2 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
+          {levelOptions.map((lvl) => {
+            const active = levelFilter === lvl;
+            return (
+              <Pressable
+                key={lvl}
+                onPress={() => setLevelFilter(lvl)}
+                style={[
+                  styles.chip,
+                  { backgroundColor: active ? theme.primary : theme.card, borderColor: theme.cardBorder },
+                ]}
+              >
+                <Text style={[styles.chipText, { color: active ? theme.onPrimary : theme.textMuted }]}>
+                  {lvl === LEVEL_FILTER_ALL ? 'All Levels' : `${lvl}L`}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
+
+      {/* Payment method filter chips */}
+      {methodOptions.length > 2 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
+          {methodOptions.map((m) => {
+            const active = methodFilter === m;
+            return (
+              <Pressable
+                key={m}
+                onPress={() => setMethodFilter(m)}
+                style={[
+                  styles.chip,
+                  { backgroundColor: active ? theme.primary : theme.card, borderColor: theme.cardBorder },
+                ]}
+              >
+                <Text
+                  style={[styles.chipText, { color: active ? theme.onPrimary : theme.textMuted }]}
+                  numberOfLines={1}
+                >
+                  {m === METHOD_FILTER_ALL ? 'All Methods' : m}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
+
+      {!loading && filtered.length === 0 ? (
         <Card style={styles.emptyCard}>
-          <Ionicons name="checkmark-circle-outline" size={32} color={theme.success} />
-          <Text style={[styles.emptyTitle, { color: theme.text }]}>All clear</Text>
-          <Text style={{ color: theme.textMuted, fontSize: fontSize.xs }}>No pending verifications</Text>
+          <Ionicons
+            name={payments.length === 0 ? 'checkmark-circle-outline' : 'file-tray-outline'}
+            size={32}
+            color={payments.length === 0 ? theme.success : theme.textFaint}
+          />
+          <Text style={[styles.emptyTitle, { color: theme.text }]}>
+            {payments.length === 0 ? 'All clear' : 'No matches'}
+          </Text>
+          <Text style={{ color: theme.textMuted, fontSize: fontSize.xs }}>
+            {payments.length === 0 ? 'No pending verifications' : 'Try a different search or filter'}
+          </Text>
         </Card>
       ) : (
-        payments.map((p, i) => (
+        filtered.map((p, i) => (
           <Animated.View key={p.id} entering={FadeInDown.duration(300).delay(i * 30)}>
             <Card style={styles.paymentCard}>
               <View style={styles.paymentTop}>
                 <View style={styles.flex}>
-                  <Text style={[styles.studentName, { color: theme.text }]}>{p.student_name}</Text>
-                  <Text style={{ color: theme.textFaint, fontSize: fontSize.xs }}>{p.matric_number}</Text>
+                  <Text style={[styles.studentName, { color: theme.text }]} numberOfLines={1}>
+                    {p.student_name}
+                  </Text>
+                  <Text style={{ color: theme.textFaint, fontSize: fontSize.xs }} numberOfLines={1}>
+                    {p.matric_number} · {p.level}L
+                  </Text>
                 </View>
-                <Text style={[styles.amount, { color: theme.text }]}>{formatCurrency(p.amount)}</Text>
+                <Text style={[styles.amount, { color: theme.text }]} numberOfLines={1}>
+                  {formatCurrency(p.amount)}
+                </Text>
               </View>
               <View style={styles.paymentMeta}>
-                <Text style={{ color: theme.textMuted, fontSize: fontSize.xs }}>{p.due_name}</Text>
+                <Text
+                  style={{ color: theme.textMuted, fontSize: fontSize.xs, flex: 1 }}
+                  numberOfLines={1}
+                >
+                  {p.due_name}
+                </Text>
                 <View style={[styles.methodBadge, { backgroundColor: theme.primaryMuted }]}>
-                  <Text style={[styles.methodText, { color: theme.primary }]}>{p.payment_method}</Text>
+                  <Text style={[styles.methodText, { color: theme.primary }]} numberOfLines={1}>
+                    {p.payment_method}
+                  </Text>
                 </View>
               </View>
               <Button
@@ -108,7 +242,7 @@ export default function BursarVerifyScreen() {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
+  flex: { flex: 1, minWidth: 0 },
   backRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -123,6 +257,55 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     fontSize: fontSize['2xl'],
     marginTop: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  summaryCard: {
+    flex: 1,
+    alignItems: 'flex-start',
+    gap: 2,
+  },
+  summaryValue: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
+  },
+  summaryLabel: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    padding: 0,
+  },
+  chipRow: {
+    marginBottom: spacing.sm,
+  },
+  chip: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    marginRight: spacing.xs,
+  },
+  chipText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
   },
   emptyCard: {
     alignItems: 'center',
@@ -149,16 +332,19 @@ const styles = StyleSheet.create({
   amount: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.sm,
+    flexShrink: 0,
   },
   paymentMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: spacing.sm,
   },
   methodBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
     borderRadius: radius.full,
+    flexShrink: 0,
+    maxWidth: 120,
   },
   methodText: {
     fontFamily: fontFamily.semibold,

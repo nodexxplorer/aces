@@ -8,7 +8,6 @@ import {
   getAIStudyPlan,
   type StudyTask,
 } from '../../api/additional-features';
-import CalendarSyncModal from '../../components/features/CalendarSyncModal';
 
 type Priority = 'high' | 'medium' | 'low';
 type Status = 'pending' | 'in_progress' | 'completed';
@@ -164,7 +163,6 @@ export default function StudyPlannerPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <CalendarSyncModal />
           <button
             onClick={handleGeneratePlan}
             disabled={aiPlanLoading}

@@ -16,6 +16,12 @@ import (
 )
 
 type createAlumniStatusReq struct {
+	// UserID lets an admin/HOD create an alumni record on behalf of an
+	// existing student/graduate. Only honored for staff callers (see
+	// isAlumniAdminRole below) — a self-service caller creating their own
+	// alumni status can't set this, they just get their own user ID as
+	// before.
+	UserID               *string `json:"user_id"`
 	GraduationYear       int32   `json:"graduation_year" binding:"required"`
 	GraduationClass      *string `json:"graduation_class"`
 	IsMentorAvailable    bool    `json:"is_mentor_available"`
@@ -24,6 +30,22 @@ type createAlumniStatusReq struct {
 	CurrentPosition      *string `json:"current_position"`
 	LinkedInURL          *string `json:"linkedin_url"`
 	Bio                  *string `json:"bio"`
+}
+
+// isAlumniAdminRole checks whether the caller may create/manage an alumni
+// record for someone other than themselves — deliberately narrower than the
+// broader isStaffRole helper (which also covers bursars, who have no
+// business granting alumni status).
+func isAlumniAdminRole(ctx *gin.Context) bool {
+	claimsVal, exists := ctx.Get("claims")
+	if !exists {
+		return false
+	}
+	claims, ok := claimsVal.(*auth.Claims)
+	if !ok {
+		return false
+	}
+	return claims.HasAnyRole([]string{"hod", "admin", "delegated_admin"})
 }
 
 type updateAlumniStatusReq struct {
@@ -126,6 +148,14 @@ func (server *Server) createAlumniStatus(ctx *gin.Context) {
 	}
 
 	userID := getUserID(ctx)
+	if req.UserID != nil && isAlumniAdminRole(ctx) {
+		parsed, err := uuid.Parse(*req.UserID)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid user_id"})
+			return
+		}
+		userID = parsed
+	}
 
 	status, err := server.alumni.CreateStatus(ctx, db.CreateAlumniStatusParams{
 		UserID:               userID,

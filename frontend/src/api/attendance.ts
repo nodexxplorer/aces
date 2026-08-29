@@ -12,25 +12,6 @@ export interface RegisteredStudentAttendance {
   registered_at: string;
 }
 
-export interface TimetableEntry {
-  timetable_entry_id: string;
-  course_id: string;
-  course_code: string;
-  course_title: string;
-  lecturer_name: string;
-  venue: string;
-  // 1=Monday..7=Sunday, matching timetable.day_of_week — same convention
-  // TimetablePage.tsx's numToDay uses for the student-facing timetable.
-  day_of_week: number | null;
-  // Raw TIMESTAMPTZ text (e.g. "2026-08-17 08:00:00+00") — only the
-  // time-of-day portion is meaningful, the date is a placeholder.
-  start_time: string;
-  end_time: string;
-  card_status: 'upcoming' | 'ongoing' | 'past' | 'cancelled';
-  attendance_session_id?: string;
-  attendance_status?: string;
-}
-
 export interface PendingAttendanceReview {
   session_id: string;
   course_id: string;
@@ -94,11 +75,6 @@ export const getRegisteredStudentsForAttendance = async (courseId: string) => {
   return res.data;
 };
 
-export const getClassRepTimetable = async () => {
-  const res = await apiClient.get<{ entries: TimetableEntry[]; level: number }>('/class-rep/timetable');
-  return res.data;
-};
-
 export const submitAttendanceSession = async (
   sessionId: string,
   action: 'send_to_lecturer' | 'generate_pdf',
@@ -114,6 +90,13 @@ export const submitAttendanceSession = async (
 export const getLecturerPendingAttendanceReviews = async () => {
   const res = await apiClient.get<{ reviews: PendingAttendanceReview[]; total: number }>(
     '/lecturers/attendance/pending',
+  );
+  return res.data;
+};
+
+export const getLecturerAttendanceHistory = async () => {
+  const res = await apiClient.get<{ history: PendingAttendanceReview[]; total: number }>(
+    '/lecturers/attendance/history',
   );
   return res.data;
 };
@@ -191,4 +174,9 @@ export const getLecturerAttendanceOverview = async () => {
 
 export const downloadAttendancePDF = (sessionId: string) => {
   window.open(`${apiClient.defaults.baseURL || '/api/v1'}/attendance/sessions/${sessionId}/pdf`, '_blank');
+};
+
+export const getAttendancePDFBlobUrl = async (sessionId: string): Promise<string> => {
+  const res = await apiClient.get(`/attendance/sessions/${sessionId}/pdf`, { responseType: 'blob' });
+  return URL.createObjectURL(res.data as Blob);
 };

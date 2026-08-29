@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/smtp"
+	"strings"
 )
 
 // EmailSender defines the interface for sending emails
@@ -44,6 +45,7 @@ func (s *SMTPSender) SendEmail(to []string, subject, body string, isHTML bool) e
 	header := make(map[string]string)
 
 	header["From"] = fmt.Sprintf("ACES Zone <%s>", s.from)
+	header["To"] = strings.Join(to, ", ")
 	header["Subject"] = subject
 	if isHTML {
 		header["MIME-Version"] = "1.0"

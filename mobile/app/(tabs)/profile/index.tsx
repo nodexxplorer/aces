@@ -12,6 +12,7 @@ import Card from '../../../src/components/ui/Card';
 import Button from '../../../src/components/ui/Button';
 import { useAuthStore } from '../../../src/store/authStore';
 import { logoutRequest } from '../../../src/api/auth';
+import { getMediaUrl } from '../../../src/api/client';
 import { haptics } from '../../../src/utils/haptics';
 import { WEB_ORIGIN, PROFILE_SCAN_PARAM } from '../../../src/config';
 
@@ -147,8 +148,8 @@ export default function ProfileScreen() {
 
       <Animated.View entering={FadeInDown.duration(400)}>
         <Card style={styles.identityCard}>
-          {user?.avatar ? (
-            <Image source={{ uri: user.avatar }} style={styles.avatar} />
+          {getMediaUrl(user?.avatar) ? (
+            <Image source={{ uri: getMediaUrl(user?.avatar)! }} style={styles.avatar} resizeMode="cover" />
           ) : (
             <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
               <Text style={styles.avatarText}>{initials(user?.firstName, user?.lastName)}</Text>

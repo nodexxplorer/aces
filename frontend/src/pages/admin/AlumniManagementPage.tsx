@@ -7,7 +7,19 @@ import DataTable from '../../components/data-display/DataTable';
 import StatusBadge from '../../components/data-display/StatusBadge';
 import Modal from '../../components/ui/Modal';
 import { useNotification } from '../../hooks/useNotification';
-import { Plus, Search, Loader2, Eye, Users, Briefcase, Calendar, DollarSign, BarChart3, FileText } from 'lucide-react';
+import {
+  Plus,
+  Search,
+  Loader2,
+  Eye,
+  Users,
+  Briefcase,
+  Calendar,
+  DollarSign,
+  BarChart3,
+  FileText,
+  X,
+} from 'lucide-react';
 import {
   getAlumniProfiles,
   createAlumniProfile,
@@ -16,6 +28,7 @@ import {
   getMentors,
   getAlumniEvents,
 } from '../../api/alumni';
+import { getUsers } from '../../api/users';
 import { formatCurrency } from '../../utils/formatters';
 import { getErrorMessage } from '../../utils/errors';
 import type {
@@ -25,6 +38,7 @@ import type {
   AlumniDonation,
   MentorItem,
   AlumniEventItem,
+  User,
 } from '../../types';
 
 const AlumniManagementPage = () => {
@@ -48,6 +62,27 @@ const AlumniManagementPage = () => {
   const [formCompany, setFormCompany] = useState('');
   const [formPosition, setFormPosition] = useState('');
   const [formBio, setFormBio] = useState('');
+
+  // Which existing student this new alumni record is for — required, since
+  // without it the backend used to fall back to the calling admin's own
+  // user ID instead of the student being converted.
+  const [studentSearch, setStudentSearch] = useState('');
+  const [studentResults, setStudentResults] = useState<User[]>([]);
+  const [searchingStudents, setSearchingStudents] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
+
+  const handleStudentSearch = async () => {
+    if (!studentSearch.trim()) return;
+    setSearchingStudents(true);
+    try {
+      const results = await getUsers({ role: 'student', search: studentSearch.trim(), perPage: 10 });
+      setStudentResults(Array.isArray(results) ? results : []);
+    } catch {
+      setStudentResults([]);
+    } finally {
+      setSearchingStudents(false);
+    }
+  };
 
   useEffect(() => {
     fetchData();
@@ -82,9 +117,14 @@ const AlumniManagementPage = () => {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedStudent) {
+      notifyError('Select a Student', 'Search for and select the student to convert to alumni first.');
+      return;
+    }
     try {
       setSubmitting(true);
       await createAlumniProfile({
+        user_id: selectedStudent.id,
         graduation_year: parseInt(formGradYear),
         graduation_class: formGradClass || undefined,
         is_mentor_available: formIsMentor,
@@ -99,7 +139,13 @@ const AlumniManagementPage = () => {
       setFormCompany('');
       setFormPosition('');
       setFormBio('');
-      success('Alumni Added', 'Alumni status has been created');
+      setSelectedStudent(null);
+      setStudentSearch('');
+      setStudentResults([]);
+      success(
+        'Alumni Added',
+        `${selectedStudent.fullName || selectedStudent.full_name || selectedStudent.email} is now an alumnus.`,
+      );
       fetchData();
     } catch (err: unknown) {
       notifyError('Failed', getErrorMessage(err, 'Could not create alumni record'));
@@ -403,8 +449,78 @@ const AlumniManagementPage = () => {
         </div>
       )}
 
-      <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title="Add Alumni Record">
+      <Modal
+        isOpen={createOpen}
+        onClose={() => {
+          setCreateOpen(false);
+          setSelectedStudent(null);
+          setStudentSearch('');
+          setStudentResults([]);
+        }}
+        title="Add Alumni Record"
+      >
         <form onSubmit={handleCreate} className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Student</label>
+            {selectedStudent ? (
+              <div className="mt-1 flex items-center justify-between p-3 bg-primary-50 dark:bg-primary-950/20 border border-primary-200 dark:border-primary-800 rounded-lg">
+                <div>
+                  <p className="text-sm font-medium text-surface-900 dark:text-white">
+                    {selectedStudent.fullName || selectedStudent.full_name || selectedStudent.email}
+                  </p>
+                  <p className="text-xs text-surface-500">{selectedStudent.email}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedStudent(null)}
+                  className="p-1 rounded-lg text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-2 mt-1">
+                  <input
+                    type="text"
+                    placeholder="Search by name, matric no. or email..."
+                    value={studentSearch}
+                    onChange={(e) => setStudentSearch(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleStudentSearch();
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                  />
+                  <Button type="button" size="sm" isLoading={searchingStudents} onClick={handleStudentSearch}>
+                    <Search className="w-4 h-4" />
+                  </Button>
+                </div>
+                {studentResults.length > 0 && (
+                  <div className="mt-2 border border-surface-200 dark:border-surface-700 rounded-lg divide-y divide-surface-100 dark:divide-surface-800 max-h-48 overflow-y-auto">
+                    {studentResults.map((s) => (
+                      <button
+                        type="button"
+                        key={s.id}
+                        onClick={() => {
+                          setSelectedStudent(s);
+                          setStudentResults([]);
+                        }}
+                        className="w-full text-left p-2.5 hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors"
+                      >
+                        <p className="text-sm font-medium text-surface-900 dark:text-white">
+                          {s.fullName || s.full_name || s.email}
+                        </p>
+                        <p className="text-xs text-surface-500">{s.email}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
           <Input
             label="Graduation Year"
             type="number"
@@ -451,7 +567,7 @@ const AlumniManagementPage = () => {
               onChange={(e) => setFormBio(e.target.value)}
             />
           </div>
-          <Button type="submit" className="w-full" isLoading={submitting}>
+          <Button type="submit" className="w-full" isLoading={submitting} disabled={!selectedStudent}>
             Add Alumni
           </Button>
         </form>

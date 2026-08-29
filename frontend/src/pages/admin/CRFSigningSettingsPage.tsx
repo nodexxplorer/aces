@@ -10,6 +10,8 @@ import {
   uploadCRFSignatureAsset,
   deleteCRFSignatureAsset,
   testStampCRF,
+  getCRFBacklogPrice,
+  updateCRFBacklogPrice,
   type CRFSignatureAsset,
   type CRFSignatureKind,
 } from '../../api/crf-signing';
@@ -69,6 +71,33 @@ export default function CRFSigningSettingsPage() {
   const [saving, setSaving] = useState<CRFSignatureKind | null>(null);
   const [deleting, setDeleting] = useState<CRFSignatureKind | null>(null);
   const [testStamping, setTestStamping] = useState(false);
+
+  const [backlogPriceInput, setBacklogPriceInput] = useState('1000');
+  const [savingBacklogPrice, setSavingBacklogPrice] = useState(false);
+
+  useEffect(() => {
+    getCRFBacklogPrice()
+      .then((p) => setBacklogPriceInput(String(p.amount_per_backlog)))
+      .catch(() => {});
+  }, []);
+
+  const handleSaveBacklogPrice = async () => {
+    const amount = Number(backlogPriceInput);
+    if (!amount || amount <= 0) {
+      notifyError('Invalid Amount', 'Enter a positive number.');
+      return;
+    }
+    setSavingBacklogPrice(true);
+    try {
+      const updated = await updateCRFBacklogPrice(amount);
+      setBacklogPriceInput(String(updated.amount_per_backlog));
+      success('Saved', 'Backlog fee per form updated.');
+    } catch (err: unknown) {
+      notifyError('Could Not Save', getErrorMessage(err, 'Please try again'));
+    } finally {
+      setSavingBacklogPrice(false);
+    }
+  };
 
   useEffect(() => {
     listCRFSignatureAssets()
@@ -259,6 +288,30 @@ export default function CRFSigningSettingsPage() {
           </p>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Backlog Fee</CardTitle>
+          <CardDescription>
+            Price charged per old/unsigned course form a student submits through "Upload Old Course Form". Total = form
+            count × this amount, snapshotted at request time (changing it here only affects new requests).
+          </CardDescription>
+        </CardHeader>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-surface-500">₦</span>
+          <input
+            type="number"
+            min={1}
+            value={backlogPriceInput}
+            onChange={(e) => setBacklogPriceInput(e.target.value)}
+            className="w-32 px-3 py-2 text-sm border rounded-lg dark:bg-surface-800 dark:border-surface-700"
+          />
+          <span className="text-sm text-surface-500">per form</span>
+          <Button size="sm" isLoading={savingBacklogPrice} onClick={handleSaveBacklogPrice}>
+            Save
+          </Button>
+        </div>
+      </Card>
 
       <Card>
         <CardHeader>

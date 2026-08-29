@@ -2,13 +2,10 @@ import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import StatusBadge from '../../components/data-display/StatusBadge';
-import DataTable, { type Column } from '../../components/data-display/DataTable';
-import Modal from '../../components/ui/Modal';
 import { useNotification } from '../../hooks/useNotification';
-import { GraduationCap, FileText, Search, Loader2, CheckCircle, AlertTriangle, Printer, Eye, Send } from 'lucide-react';
+import { GraduationCap, Search, CheckCircle, AlertTriangle } from 'lucide-react';
 import { getStudents, getStudentCGPA } from '../../api/users';
-import { getTranscriptRequests, approveTranscriptRequest, markTranscriptPrinted } from '../../api/transcripts';
-import type { TranscriptRequest, TranscriptStatus, User } from '../../types';
+import type { User } from '../../types';
 
 // The backend's student record occasionally includes a legacy `regNo` field
 // that isn't part of the shared `User` type — kept here for the defensive
@@ -25,8 +22,6 @@ interface CGPAResponse {
   totalCredits?: number;
 }
 
-type Tab = 'graduation' | 'transcripts';
-
 interface GraduationStatus {
   studentId: string;
   name: string;
@@ -39,8 +34,6 @@ interface GraduationStatus {
 }
 
 export default function AcademicsHubPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('graduation');
-
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -49,32 +42,11 @@ export default function AcademicsHubPage() {
         </div>
         <div>
           <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Academics</h1>
-          <p className="text-sm text-surface-500 dark:text-surface-400">Graduation checks and transcript requests.</p>
+          <p className="text-sm text-surface-500 dark:text-surface-400">Graduation eligibility checks.</p>
         </div>
       </div>
 
-      <div className="flex gap-1 border-b border-surface-200 dark:border-surface-800 pb-px">
-        {[
-          { key: 'graduation' as Tab, label: 'Graduation Check', icon: GraduationCap },
-          { key: 'transcripts' as Tab, label: 'Transcript Queue', icon: FileText },
-        ].map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => setActiveTab(key)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors border-b-2 -mb-px ${
-              activeTab === key
-                ? 'border-primary-500 text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-950/20'
-                : 'border-transparent text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-300'
-            }`}
-          >
-            <Icon className="w-4 h-4" />
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === 'graduation' && <GraduationTab />}
-      {activeTab === 'transcripts' && <TranscriptsTab />}
+      <GraduationTab />
     </div>
   );
 }
@@ -257,190 +229,6 @@ function GraduationTab() {
           <p className="text-sm">Click "Run Check" to evaluate students.</p>
         </div>
       )}
-    </div>
-  );
-}
-
-function TranscriptsTab() {
-  const { success } = useNotification();
-  const [requests, setRequests] = useState<TranscriptRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [viewOpen, setViewOpen] = useState(false);
-  const [selected, setSelected] = useState<TranscriptRequest | null>(null);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchRequests();
-  }, []);
-
-  const fetchRequests = async () => {
-    try {
-      setLoading(true);
-      const data = await getTranscriptRequests();
-      const items = Array.isArray(data) ? data : (data as unknown as { items?: TranscriptRequest[] }).items || [];
-      setRequests(items);
-    } catch {
-      /* silent */
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleApprove = async (id: string) => {
-    try {
-      setActionLoading(id);
-      await approveTranscriptRequest(id);
-      setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'approved' as TranscriptStatus } : r)));
-      success('Request Approved', 'Student can now collect transcript');
-      setViewOpen(false);
-    } catch {
-      /* silent */
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleMarkPrinted = async (id: string) => {
-    try {
-      setActionLoading(id);
-      await markTranscriptPrinted(id);
-      setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'printed' as TranscriptStatus } : r)));
-      success('Marked Printed', 'Transcript ready for collection');
-      setViewOpen(false);
-    } catch {
-      /* silent */
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const columns: Column<TranscriptRequest>[] = [
-    {
-      key: 'studentId',
-      label: 'Student',
-      render: (_: unknown, row: TranscriptRequest) => (
-        <div>
-          <p className="font-semibold">{row.studentName || 'Student'}</p>
-          <p className="text-[10px] text-surface-500 font-mono">{row.studentId}</p>
-        </div>
-      ),
-    },
-    { key: 'purpose', label: 'Purpose' },
-    { key: 'copies', label: 'Copies', render: (val: unknown) => String((val as number | undefined) || 1) },
-    {
-      key: 'requestedAt',
-      label: 'Requested',
-      render: (val: unknown) => (val ? new Date(val as string).toLocaleDateString() : 'N/A'),
-    },
-    {
-      key: 'estimatedCost',
-      label: 'Cost',
-      render: (val: unknown) => (val ? `₦${Number(val).toLocaleString()}` : 'N/A'),
-    },
-    { key: 'status', label: 'Status', render: (val: unknown) => <StatusBadge status={val as string} /> },
-    {
-      key: 'action',
-      label: 'Action',
-      render: (_: unknown, row: TranscriptRequest) => (
-        <Button
-          size="xs"
-          variant="ghost"
-          leftIcon={<Eye className="w-3.5 h-3.5" />}
-          onClick={() => {
-            setSelected(row);
-            setViewOpen(true);
-          }}
-        >
-          Review
-        </Button>
-      ),
-    },
-  ];
-
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-3">
-        <Card className="p-3 text-center">
-          <p className="text-2xl font-bold text-primary-600">{requests.filter((r) => r.status === 'pending').length}</p>
-          <p className="text-[10px] text-surface-500 mt-1">Pending</p>
-        </Card>
-        <Card className="p-3 text-center">
-          <p className="text-2xl font-bold text-warning-600">
-            {requests.filter((r) => r.status === 'approved').length}
-          </p>
-          <p className="text-[10px] text-surface-500 mt-1">Approved</p>
-        </Card>
-        <Card className="p-3 text-center">
-          <p className="text-2xl font-bold text-success-600">
-            {requests.filter((r) => r.status === 'printed' || r.status === 'collected').length}
-          </p>
-          <p className="text-[10px] text-surface-500 mt-1">Printed</p>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Request History</CardTitle>
-          <CardDescription>All transcript requests and their current status</CardDescription>
-        </CardHeader>
-        {loading ? (
-          <div className="flex items-center justify-center p-12">
-            <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
-          </div>
-        ) : (
-          <DataTable columns={columns} data={requests} />
-        )}
-      </Card>
-
-      <Modal isOpen={viewOpen} onClose={() => setViewOpen(false)} title="Transcript Request Details">
-        {selected && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-surface-500">Student</p>
-                <p className="font-semibold">{selected.studentName || 'Student'}</p>
-                <p className="text-xs text-surface-400">{selected.studentId}</p>
-              </div>
-              <div>
-                <p className="text-xs text-surface-500">Status</p>
-                <StatusBadge status={selected.status} />
-              </div>
-              <div>
-                <p className="text-xs text-surface-500">Purpose</p>
-                <p className="font-semibold">{selected.purpose}</p>
-              </div>
-              <div>
-                <p className="text-xs text-surface-500">Copies</p>
-                <p className="font-semibold">{selected.copies || 1}</p>
-              </div>
-            </div>
-            <div className="flex gap-3 pt-2">
-              {selected.status === 'pending' && (
-                <Button
-                  variant="success"
-                  className="flex-1"
-                  isLoading={actionLoading === selected.id}
-                  leftIcon={<Send className="w-4 h-4" />}
-                  onClick={() => handleApprove(selected.id)}
-                >
-                  Approve Request
-                </Button>
-              )}
-              {selected.status === 'approved' && (
-                <Button
-                  variant="success"
-                  className="flex-1"
-                  isLoading={actionLoading === selected.id}
-                  leftIcon={<Printer className="w-4 h-4" />}
-                  onClick={() => handleMarkPrinted(selected.id)}
-                >
-                  Mark as Printed
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
-      </Modal>
     </div>
   );
 }

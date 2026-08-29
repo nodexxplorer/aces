@@ -1,21 +1,5 @@
 import apiClient, { unwrap } from './client';
 
-export interface GPAGrade {
-  course_code: string;
-  credits: number;
-  total_score: number;
-  grade_points: number;
-  grade_letter: string;
-}
-
-export interface GPAPrediction {
-  student_id: string;
-  grades: GPAGrade[];
-  total_credits: number;
-  predicted_gpa: number;
-  total_courses: number;
-}
-
 export interface AtRiskStudent {
   student_id: string;
   full_name: string;
@@ -56,11 +40,6 @@ export interface GradeDistribution {
   grade_f: number;
   pass_rate: number;
 }
-
-export const getGPAPrediction = async () => {
-  const res = await apiClient.get('/predictions/gpa');
-  return unwrap<GPAPrediction>(res);
-};
 
 export const getAtRiskStudents = async (limit?: number) => {
   const params = limit ? { limit: String(limit) } : {};

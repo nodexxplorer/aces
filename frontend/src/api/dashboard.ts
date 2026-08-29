@@ -18,24 +18,6 @@ export interface StudentDashboard {
     amount_paid: number;
     dues_outstanding: number;
   };
-  next_class: {
-    course_code: string;
-    course_title: string;
-    start_time: string;
-    end_time: string;
-    venue: string;
-    day_of_week: string;
-    time_until: string;
-    class_type: string | null;
-  } | null;
-  today_classes: Array<{
-    course_code: string;
-    course_title: string;
-    start_time: string;
-    end_time: string;
-    venue: string;
-    class_type: string | null;
-  }>;
   announcements: Array<{
     id: string;
     title: string;
@@ -55,7 +37,6 @@ export interface StudentDashboard {
     total: number;
     unread: number;
   };
-  carryovers: number;
 }
 
 export async function getStudentDashboard(): Promise<StudentDashboard> {

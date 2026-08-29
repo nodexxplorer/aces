@@ -334,6 +334,7 @@ func (server *Server) createLeaveRequestHandler(ctx *gin.Context) {
 		CourseHandover: req.CourseHandover,
 	})
 	if err != nil {
+		_ = ctx.Error(err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}

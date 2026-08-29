@@ -13,48 +13,6 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-const createCarryoverCourse = `-- name: CreateCarryoverCourse :one
-INSERT INTO carryover_courses (
-    student_id, course_id, original_result_id, original_session_id, attempt_count, max_attempts
-) VALUES (
-    $1, $2, $3, $4, $5, $6
-) RETURNING id, student_id, course_id, original_result_id, original_session_id, attempt_count, max_attempts, is_resolved, resolved_result_id, created_at
-`
-
-type CreateCarryoverCourseParams struct {
-	StudentID         uuid.UUID `json:"student_id"`
-	CourseID          uuid.UUID `json:"course_id"`
-	OriginalResultID  uuid.UUID `json:"original_result_id"`
-	OriginalSessionID uuid.UUID `json:"original_session_id"`
-	AttemptCount      int32     `json:"attempt_count"`
-	MaxAttempts       int32     `json:"max_attempts"`
-}
-
-func (q *Queries) CreateCarryoverCourse(ctx context.Context, arg CreateCarryoverCourseParams) (CarryoverCourse, error) {
-	row := q.db.QueryRow(ctx, createCarryoverCourse,
-		arg.StudentID,
-		arg.CourseID,
-		arg.OriginalResultID,
-		arg.OriginalSessionID,
-		arg.AttemptCount,
-		arg.MaxAttempts,
-	)
-	var i CarryoverCourse
-	err := row.Scan(
-		&i.ID,
-		&i.StudentID,
-		&i.CourseID,
-		&i.OriginalResultID,
-		&i.OriginalSessionID,
-		&i.AttemptCount,
-		&i.MaxAttempts,
-		&i.IsResolved,
-		&i.ResolvedResultID,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
 const createResult = `-- name: CreateResult :one
 INSERT INTO results (
     student_id, course_id, session_id, semester_id, ca_score, exam_score, total_score, grade, grade_point, status, is_carryover, matric_number
@@ -163,16 +121,6 @@ func (q *Queries) CreateResultAuditLog(ctx context.Context, arg CreateResultAudi
 	return i, err
 }
 
-const deleteCarryoverCourse = `-- name: DeleteCarryoverCourse :exec
-DELETE FROM carryover_courses
-WHERE id = $1
-`
-
-func (q *Queries) DeleteCarryoverCourse(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, deleteCarryoverCourse, id)
-	return err
-}
-
 const linkResultsByMatric = `-- name: LinkResultsByMatric :exec
 UPDATE results
 SET student_id = $2
@@ -188,29 +136,6 @@ func (q *Queries) LinkResultsByMatric(ctx context.Context, arg LinkResultsByMatr
 type LinkResultsByMatricParams struct {
 	MatricNumber *string    `json:"matric_number"`
 	StudentID    *uuid.UUID `json:"student_id"`
-}
-
-const getCarryoverCourse = `-- name: GetCarryoverCourse :one
-SELECT id, student_id, course_id, original_result_id, original_session_id, attempt_count, max_attempts, is_resolved, resolved_result_id, created_at FROM carryover_courses
-WHERE id = $1 LIMIT 1
-`
-
-func (q *Queries) GetCarryoverCourse(ctx context.Context, id uuid.UUID) (CarryoverCourse, error) {
-	row := q.db.QueryRow(ctx, getCarryoverCourse, id)
-	var i CarryoverCourse
-	err := row.Scan(
-		&i.ID,
-		&i.StudentID,
-		&i.CourseID,
-		&i.OriginalResultID,
-		&i.OriginalSessionID,
-		&i.AttemptCount,
-		&i.MaxAttempts,
-		&i.IsResolved,
-		&i.ResolvedResultID,
-		&i.CreatedAt,
-	)
-	return i, err
 }
 
 const getResult = `-- name: GetResult :one
@@ -329,43 +254,6 @@ func (q *Queries) ListResultAuditLogs(ctx context.Context, resultID uuid.UUID) (
 	return items, nil
 }
 
-const listStudentCarryoverCourses = `-- name: ListStudentCarryoverCourses :many
-SELECT id, student_id, course_id, original_result_id, original_session_id, attempt_count, max_attempts, is_resolved, resolved_result_id, created_at FROM carryover_courses
-WHERE student_id = $1
-ORDER BY created_at DESC
-`
-
-func (q *Queries) ListStudentCarryoverCourses(ctx context.Context, studentID uuid.UUID) ([]CarryoverCourse, error) {
-	rows, err := q.db.Query(ctx, listStudentCarryoverCourses, studentID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []CarryoverCourse{}
-	for rows.Next() {
-		var i CarryoverCourse
-		if err := rows.Scan(
-			&i.ID,
-			&i.StudentID,
-			&i.CourseID,
-			&i.OriginalResultID,
-			&i.OriginalSessionID,
-			&i.AttemptCount,
-			&i.MaxAttempts,
-			&i.IsResolved,
-			&i.ResolvedResultID,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listStudentResults = `-- name: ListStudentResults :many
 SELECT id, student_id, course_id, ca_score, exam_score, total_score, grade, grade_point, session_id, semester_id, status, approved_by, approved_at, rejection_reason, is_carryover, created_at, updated_at FROM results
 WHERE student_id = $1
@@ -408,46 +296,6 @@ func (q *Queries) ListStudentResults(ctx context.Context, studentID uuid.UUID) (
 		return nil, err
 	}
 	return items, nil
-}
-
-const updateCarryoverCourse = `-- name: UpdateCarryoverCourse :one
-UPDATE carryover_courses
-SET
-    attempt_count = $2,
-    is_resolved = $3,
-    resolved_result_id = $4
-WHERE id = $1
-RETURNING id, student_id, course_id, original_result_id, original_session_id, attempt_count, max_attempts, is_resolved, resolved_result_id, created_at
-`
-
-type UpdateCarryoverCourseParams struct {
-	ID               uuid.UUID   `json:"id"`
-	AttemptCount     int32       `json:"attempt_count"`
-	IsResolved       bool        `json:"is_resolved"`
-	ResolvedResultID pgtype.UUID `json:"resolved_result_id"`
-}
-
-func (q *Queries) UpdateCarryoverCourse(ctx context.Context, arg UpdateCarryoverCourseParams) (CarryoverCourse, error) {
-	row := q.db.QueryRow(ctx, updateCarryoverCourse,
-		arg.ID,
-		arg.AttemptCount,
-		arg.IsResolved,
-		arg.ResolvedResultID,
-	)
-	var i CarryoverCourse
-	err := row.Scan(
-		&i.ID,
-		&i.StudentID,
-		&i.CourseID,
-		&i.OriginalResultID,
-		&i.OriginalSessionID,
-		&i.AttemptCount,
-		&i.MaxAttempts,
-		&i.IsResolved,
-		&i.ResolvedResultID,
-		&i.CreatedAt,
-	)
-	return i, err
 }
 
 const updateResult = `-- name: UpdateResult :one

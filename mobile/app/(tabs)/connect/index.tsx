@@ -14,6 +14,7 @@ import { haptics } from '../../../src/utils/haptics';
 import { useAuthStore } from '../../../src/store/authStore';
 import { useUnreadStore } from '../../../src/store/unreadStore';
 import { useWebSocket, getChatSocketUrl } from '../../../src/hooks/useWebSocket';
+import { getMediaUrl } from '../../../src/api/client';
 import { PROFILE_SCAN_PARAM } from '../../../src/config';
 import {
   getDirectory,
@@ -42,8 +43,15 @@ function initials(name: string) {
 
 function Avatar({ url, name, size = 44 }: { url: string | null; name: string; size?: number }) {
   const { theme } = useTheme();
-  if (url) {
-    return <Image source={{ uri: url }} style={{ width: size, height: size, borderRadius: size / 2 }} />;
+  const resolvedUrl = getMediaUrl(url);
+  if (resolvedUrl) {
+    return (
+      <Image
+        source={{ uri: resolvedUrl }}
+        style={{ width: size, height: size, borderRadius: size / 2 }}
+        resizeMode="cover"
+      />
+    );
   }
   return (
     <View

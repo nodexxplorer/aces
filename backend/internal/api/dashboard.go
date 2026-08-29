@@ -2,10 +2,8 @@ package api
 
 import (
 	"database/sql"
-	"fmt"
 	"math/big"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/aces/backend/internal/auth"
@@ -21,12 +19,9 @@ type studentDashboardResponse struct {
 	Student       *studentInfo        `json:"student"`
 	Attendance    *attendanceOverview `json:"attendance"`
 	Payments      *paymentSummary     `json:"payments"`
-	NextClass     *nextClassInfo      `json:"next_class"`
-	TodayClasses  []todayClassItem    `json:"today_classes"`
 	Announcements []announcementItem  `json:"announcements"`
 	RecentGrades  []recentGradeItem   `json:"recent_grades"`
 	Notifications *notifSummary       `json:"notifications"`
-	Carryovers    int                 `json:"carryovers"`
 }
 
 type studentInfo struct {
@@ -47,26 +42,6 @@ type paymentSummary struct {
 	AmountPending   float64 `json:"amount_pending"`
 	AmountPaid      float64 `json:"amount_paid"`
 	DuesOutstanding int     `json:"dues_outstanding"`
-}
-
-type nextClassInfo struct {
-	CourseCode  string  `json:"course_code"`
-	CourseTitle string  `json:"course_title"`
-	StartTime   string  `json:"start_time"`
-	EndTime     string  `json:"end_time"`
-	Venue       string  `json:"venue"`
-	DayOfWeek   string  `json:"day_of_week"`
-	TimeUntil   string  `json:"time_until"`
-	ClassType   *string `json:"class_type"`
-}
-
-type todayClassItem struct {
-	CourseCode  string  `json:"course_code"`
-	CourseTitle string  `json:"course_title"`
-	StartTime   string  `json:"start_time"`
-	EndTime     string  `json:"end_time"`
-	Venue       string  `json:"venue"`
-	ClassType   *string `json:"class_type"`
 }
 
 type announcementItem struct {
@@ -193,64 +168,6 @@ func (server *Server) getStudentDashboard(ctx *gin.Context) {
 		resp.Payments.DuesOutstanding = unpaidCount
 	}
 
-	// 5. Today's timetable + next class
-	entries, err := queries.ListTimetableByType(ctx, db.ListTimetableByTypeParams{
-		EntryType: "class",
-		Level:     &level,
-	})
-	if err == nil {
-		now := time.Now()
-		todayDow := int32(now.Weekday())
-		// Convert to 1=Mon...5=Fri
-		todayDow1 := todayDow
-		if todayDow == 0 {
-			todayDow1 = 7 // Sunday -> no match
-		}
-
-		for _, entry := range entries {
-			if entry.DayOfWeek == nil || *entry.DayOfWeek != todayDow1 {
-				continue
-			}
-
-			item := todayClassItem{
-				CourseCode:  entry.CourseCode,
-				CourseTitle: entry.CourseTitle,
-				StartTime:   entry.StartTime,
-				EndTime:     entry.EndTime,
-				Venue:       entry.Venue,
-				ClassType:   entry.ClassType,
-			}
-			resp.TodayClasses = append(resp.TodayClasses, item)
-
-			// Next class detection
-			if resp.NextClass == nil {
-				hour, minute, ok := parseTimeStr(entry.StartTime)
-				if ok {
-					classTime := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, now.Location())
-					if classTime.After(now) {
-						timeUntil := classTime.Sub(now)
-						var timeStr string
-						if timeUntil.Hours() >= 1 {
-							timeStr = fmt.Sprintf("%.0fh %dm", timeUntil.Hours(), int(timeUntil.Minutes())%60)
-						} else {
-							timeStr = fmt.Sprintf("%dm", int(timeUntil.Minutes()))
-						}
-						resp.NextClass = &nextClassInfo{
-							CourseCode:  entry.CourseCode,
-							CourseTitle: entry.CourseTitle,
-							StartTime:   entry.StartTime,
-							EndTime:     entry.EndTime,
-							Venue:       entry.Venue,
-							DayOfWeek:   now.Weekday().String(),
-							TimeUntil:   timeStr,
-							ClassType:   entry.ClassType,
-						}
-					}
-				}
-			}
-		}
-	}
-
 	// 6. Announcements (last 5)
 	announcements, err := queries.ListActiveAnnouncements(ctx, db.ListActiveAnnouncementsParams{
 		Limit:  5,
@@ -315,12 +232,6 @@ func (server *Server) getStudentDashboard(ctx *gin.Context) {
 			Total:  len(userNotifs),
 			Unread: unread,
 		}
-	}
-
-	// 9. Carryover count
-	carryovers, err := queries.ListStudentCarryoverCourses(ctx, student.ID)
-	if err == nil {
-		resp.Carryovers = len(carryovers)
 	}
 
 	ctx.JSON(http.StatusOK, resp)
@@ -1010,26 +921,6 @@ func nullStr(s string) sql.NullString {
 		return sql.NullString{Valid: false}
 	}
 	return sql.NullString{String: s, Valid: true}
-}
-
-func parseTimeStr(timeStr string) (hour, minute int, ok bool) {
-	timeStr = strings.TrimSpace(timeStr)
-	if strings.Contains(timeStr, " ") {
-		parts := strings.Split(timeStr, " ")
-		if len(parts) >= 2 {
-			timeStr = parts[1]
-		}
-	}
-	if idx := strings.Index(timeStr, "+"); idx > 0 {
-		timeStr = timeStr[:idx]
-	}
-	tp := strings.Split(timeStr, ":")
-	if len(tp) >= 2 {
-		fmt.Sscanf(tp[0], "%d", &hour)
-		fmt.Sscanf(tp[1], "%d", &minute)
-		return hour, minute, true
-	}
-	return 0, 0, false
 }
 
 func parseFlexibleTime(s string) *time.Time {

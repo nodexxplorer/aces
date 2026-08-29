@@ -20,7 +20,6 @@ const categoryTabs = [
   { id: 'announcement', label: 'Announcements' },
   { id: 'approval', label: 'Approvals' },
   { id: 'system', label: 'System' },
-  { id: 'timetable', label: 'Timetable' },
   { id: 'course', label: 'Course' },
 ];
 
@@ -58,7 +57,7 @@ const NotificationsPage = () => {
           fetchMoreNotifications();
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1 },
     );
     if (sentinelRef.current) observer.observe(sentinelRef.current);
     return () => observer.disconnect();
@@ -75,7 +74,9 @@ const NotificationsPage = () => {
         <div>
           <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Notifications</h1>
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-            {unreadCount > 0 ? `You have ${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}` : 'All caught up!'}
+            {unreadCount > 0
+              ? `You have ${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`
+              : 'All caught up!'}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -147,18 +148,13 @@ const NotificationsPage = () => {
               description={
                 selectedCategory || selectedStatus !== 'all'
                   ? 'Try adjusting your filters to see more notifications.'
-                  : 'When you get notifications, they\'ll appear here.'
+                  : "When you get notifications, they'll appear here."
               }
             />
           ) : (
             <>
               {notifications.map((n) => (
-                <NotificationItem
-                  key={n.id}
-                  notification={n}
-                  showDelete
-                  onClick={() => {}}
-                />
+                <NotificationItem key={n.id} notification={n} showDelete onClick={() => {}} />
               ))}
               {notifications.length < total && (
                 <div ref={sentinelRef} className="p-4 flex justify-center">

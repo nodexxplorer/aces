@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import { getMediaUrl } from '../../api/client';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
@@ -356,7 +357,7 @@ const ProfilePage = () => {
             </h4>
             <div className="relative group">
               <img
-                src={u?.avatar || u?.avatarUrl || ''}
+                src={getMediaUrl(u?.avatar || u?.avatarUrl) ?? ''}
                 alt="Profile"
                 className="w-32 h-32 rounded-full object-cover border-4 border-surface-200 dark:border-surface-700"
                 onError={(e) => {

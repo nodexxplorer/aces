@@ -204,6 +204,16 @@ func (server *Server) submitCRFForSigning(ctx *gin.Context) {
 		return
 	}
 
+	if student, err := server.store.GetStudentByUserId(ctx, userID); err == nil {
+		if unpaid, err := unpaidRequiredDues(ctx, server.store, student.ID, student.Level); err == nil && len(unpaid) > 0 {
+			ctx.JSON(http.StatusForbidden, gin.H{
+				"error":       "you must pay your outstanding dues before your course form can be signed",
+				"unpaid_dues": unpaid,
+			})
+			return
+		}
+	}
+
 	semester, err := server.store.GetActiveSemester(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "no active semester"})

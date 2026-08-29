@@ -7,6 +7,7 @@ import { useTheme } from '../../src/theme/ThemeProvider';
 import { fontFamily, fontSize, radius, spacing } from '../../src/theme/typography';
 import Screen from '../../src/components/ui/Screen';
 import Card from '../../src/components/ui/Card';
+import EmptyState from '../../src/components/ui/EmptyState';
 import Badge from '../../src/components/ui/Badge';
 import { useAuthStore } from '../../src/store/authStore';
 import {
@@ -91,9 +92,7 @@ export default function CoursesScreen() {
           <Text style={{ color: theme.textMuted, fontFamily: fontFamily.regular }}>Loading...</Text>
         ) : materials.length === 0 ? (
           <Card>
-            <Text style={{ color: theme.textMuted, fontFamily: fontFamily.regular, fontSize: fontSize.sm }}>
-              No materials uploaded for this course yet.
-            </Text>
+            <EmptyState title="No materials yet" description="Nothing uploaded for this course yet." />
           </Card>
         ) : (
           <View style={{ gap: spacing.sm }}>
@@ -124,9 +123,7 @@ export default function CoursesScreen() {
       <Text style={[styles.header, { color: theme.text }]}>My Courses</Text>
       {!loading && courses.length === 0 ? (
         <Card>
-          <Text style={{ color: theme.textMuted, fontFamily: fontFamily.regular, fontSize: fontSize.sm }}>
-            You haven't registered for any courses yet.
-          </Text>
+          <EmptyState title="No courses yet" description="You haven't registered for any courses yet." />
         </Card>
       ) : (
         <FlatList

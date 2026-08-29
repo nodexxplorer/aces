@@ -98,7 +98,6 @@ func (s *AIService) queries() *db.Queries {
 }
 
 var quickActions = []QuickAction{
-	{ID: "schedule", Label: "My Schedule", Icon: "📅", Query: "Show me my class schedule for today"},
 	{ID: "grades", Label: "My Grades", Icon: "📊", Query: "What are my current grades?"},
 	{ID: "dues", Label: "Pay Dues", Icon: "💰", Query: "How much do I owe in dues?"},
 	{ID: "mentor", Label: "Find Mentor", Icon: "👥", Query: "How do I connect with an alumni mentor?"},
@@ -187,10 +186,10 @@ func (s *AIService) handleWithRules(_ context.Context, _ uuid.UUID, message stri
 			keywords: []string{"hello", "hi ", "hey", "good morning", "good afternoon", "good evening"},
 			handler: func() *ChatbotResponse {
 				return &ChatbotResponse{
-					Reply:       "Hello! I'm your ACES Assistant. I can help you with schedules, grades, dues, courses, mentorship, and more. What would you like to know?",
+					Reply:       "Hello! I'm your ACES Assistant. I can help you with grades, dues, courses, mentorship, and more. What would you like to know?",
 					Confidence:  0.95,
 					ModelUsed:   "rule_based",
-					Suggestions: []string{"Show my schedule", "Check my grades", "How to pay dues"},
+					Suggestions: []string{"Check my grades", "How to pay dues"},
 				}
 			},
 		},
@@ -199,7 +198,6 @@ func (s *AIService) handleWithRules(_ context.Context, _ uuid.UUID, message stri
 			handler: func() *ChatbotResponse {
 				return &ChatbotResponse{
 					Reply: "Here's what I can help you with:\n\n" +
-						"📅 **Schedule** — View your class and exam timetables\n" +
 						"📊 **Grades** — Check your results and GPA\n" +
 						"💰 **Dues** — View and pay departmental dues\n" +
 						"📚 **Courses** — Course registration and info\n" +
@@ -214,24 +212,13 @@ func (s *AIService) handleWithRules(_ context.Context, _ uuid.UUID, message stri
 			},
 		},
 		{
-			keywords: []string{"schedule", "timetable", "class today", "next class", "classes"},
-			handler: func() *ChatbotResponse {
-				return &ChatbotResponse{
-					Reply:       "To view your class schedule, visit the Timetable page. You can see your classes by day and week. Would you like me to help with anything else?",
-					Confidence:  0.85,
-					ModelUsed:   "rule_based",
-					Suggestions: []string{"View exam timetable", "Check attendance"},
-				}
-			},
-		},
-		{
 			keywords: []string{"grade", "result", "gpa", "cgpa", "marks", "score"},
 			handler: func() *ChatbotResponse {
 				return &ChatbotResponse{
 					Reply:       "You can view your grades on the Results page. Your GPA and CGPA are displayed in your academic profile. Need help understanding your results?",
 					Confidence:  0.85,
 					ModelUsed:   "rule_based",
-					Suggestions: []string{"View full transcript", "Check carryover courses"},
+					Suggestions: []string{"View my results", "Check academic standing"},
 				}
 			},
 		},
@@ -313,17 +300,6 @@ func (s *AIService) handleWithRules(_ context.Context, _ uuid.UUID, message stri
 			},
 		},
 		{
-			keywords: []string{"manual", "lab manual", "practical", "practicals"},
-			handler: func() *ChatbotResponse {
-				return &ChatbotResponse{
-					Reply:       "Lab manuals are available on the Manuals page. You can view and download manuals for your registered practical courses. QR codes are provided for verification.",
-					Confidence:  0.85,
-					ModelUsed:   "rule_based",
-					Suggestions: []string{"View my manuals", "Check practical details"},
-				}
-			},
-		},
-		{
 			keywords: []string{"event", "upcoming event", "hackathon", "workshop"},
 			handler: func() *ChatbotResponse {
 				return &ChatbotResponse{
@@ -356,17 +332,6 @@ func (s *AIService) handleWithRules(_ context.Context, _ uuid.UUID, message stri
 				}
 			},
 		},
-		{
-			keywords: []string{"transcript", "academic record", "official"},
-			handler: func() *ChatbotResponse {
-				return &ChatbotResponse{
-					Reply:       "Your unofficial transcript is available on the Transcripts page. For an official transcript, submit a request through the admin and it will be processed by the HOD office.",
-					Confidence:  0.85,
-					ModelUsed:   "rule_based",
-					Suggestions: []string{"View my transcript", "Request official transcript"},
-				}
-			},
-		},
 	}
 
 	for _, rule := range rules {
@@ -390,7 +355,7 @@ func (s *AIService) handleWithLLM(ctx context.Context, userID uuid.UUID, message
 	systemPrompt := `You are ACES Assistant, the AI helper for ACES Zone — the Computer Engineering Students' platform at University of Uyo, Nigeria.
 
 Your role is to help students with:
-- Academic matters (grades, courses, registration, timetable)
+- Academic matters (grades, courses, registration)
 - Administrative tasks (dues, payments, complaints)
 - Campus life (events, study groups, announcements)
 - Career support (jobs, mentorship, alumni network)

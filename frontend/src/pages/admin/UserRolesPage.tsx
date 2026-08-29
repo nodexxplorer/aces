@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { getMediaUrl } from '../../api/client';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
@@ -456,7 +457,11 @@ function AssignTab() {
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-xs font-semibold shrink-0">
                           {student.avatar_url ? (
-                            <img src={student.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                            <img
+                              src={getMediaUrl(student.avatar_url) ?? undefined}
+                              alt=""
+                              className="w-full h-full rounded-full object-cover"
+                            />
                           ) : (
                             student.full_name
                               ?.split(' ')

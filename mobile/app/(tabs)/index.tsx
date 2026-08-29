@@ -10,10 +10,12 @@ import { useTheme } from '../../src/theme/ThemeProvider';
 import { fontFamily, fontSize, radius, spacing } from '../../src/theme/typography';
 import { palette } from '../../src/theme/colors';
 import { useAuthStore } from '../../src/store/authStore';
+import { useSettingsStore } from '../../src/store/settingsStore';
 import Screen from '../../src/components/ui/Screen';
 import Card from '../../src/components/ui/Card';
 import Badge from '../../src/components/ui/Badge';
 import { getStudentDashboard, type StudentDashboard } from '../../src/api/dashboard';
+import { getMediaUrl } from '../../src/api/client';
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -26,11 +28,17 @@ function formatCurrency(n: number) {
   return `₦${n.toLocaleString('en-NG', { maximumFractionDigits: 0 })}`;
 }
 
+function initials(firstName?: string, lastName?: string) {
+  return `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`.toUpperCase() || '?';
+}
+
 export default function DashboardScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
+  const cgpaHidden = useSettingsStore((s) => s.cgpaHidden);
+  const setCgpaHidden = useSettingsStore((s) => s.setCgpaHidden);
 
   const [data, setData] = useState<StudentDashboard | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,6 +76,15 @@ export default function DashboardScreen() {
         style={[styles.header, { paddingTop: insets.top + spacing['2xl'] }]}
       >
         <View style={styles.headerTop}>
+          <Pressable onPress={() => router.push('/(tabs)/profile')} hitSlop={8}>
+            {getMediaUrl(user?.avatar) ? (
+              <Image source={{ uri: getMediaUrl(user?.avatar)! }} style={styles.headerAvatar} resizeMode="cover" />
+            ) : (
+              <View style={[styles.headerAvatar, styles.headerAvatarFallback]}>
+                <Text style={styles.headerAvatarText}>{initials(user?.firstName, user?.lastName)}</Text>
+              </View>
+            )}
+          </Pressable>
           <View style={styles.flex}>
             <Text style={styles.greeting}>{getGreeting()},</Text>
             <Text style={styles.name} numberOfLines={1}>
@@ -90,8 +107,22 @@ export default function DashboardScreen() {
 
         <Animated.View entering={FadeInDown.duration(500).springify()} style={styles.cgpaCard}>
           <View>
-            <Text style={styles.cgpaLabel}>Current CGPA</Text>
-            <Text style={styles.cgpaValue}>{cgpa != null ? cgpa.toFixed(2) : '—'}</Text>
+            <View style={styles.cgpaLabelRow}>
+              <Text style={styles.cgpaLabel}>Current CGPA</Text>
+              <Pressable
+                onPress={() => setCgpaHidden(!cgpaHidden)}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel={cgpaHidden ? 'Show CGPA' : 'Hide CGPA'}
+              >
+                <Ionicons
+                  name={cgpaHidden ? 'eye-off-outline' : 'eye-outline'}
+                  size={14}
+                  color="rgba(255,255,255,0.8)"
+                />
+              </Pressable>
+            </View>
+            <Text style={styles.cgpaValue}>{cgpaHidden ? '••••' : cgpa != null ? cgpa.toFixed(2) : '—'}</Text>
             {data?.student?.academic_standing && (
               <Text style={styles.cgpaStanding}>{data.student.academic_standing.replace(/_/g, ' ')}</Text>
             )}
@@ -108,22 +139,22 @@ export default function DashboardScreen() {
       <Screen refreshing={refreshing} onRefresh={onRefresh} contentContainerStyle={styles.scrollContent}>
         <Animated.View entering={FadeInDown.duration(400).delay(100)} style={styles.statsRow}>
           <StatCard
-            icon="cash-outline"
-            tone="danger"
-            label="Outstanding"
-            value={formatCurrency(data?.payments?.amount_pending ?? 0)}
-          />
-          <StatCard
             icon="checkmark-done-outline"
             tone="success"
             label="Attendance"
             value={`${Math.round(data?.attendance?.attendance_rate ?? 0)}%`}
           />
           <StatCard
-            icon="repeat-outline"
+            icon="cash-outline"
+            tone="danger"
+            label="Outstanding"
+            value={formatCurrency(data?.payments?.amount_pending ?? 0)}
+          />
+          <StatCard
+            icon="chatbubbles-outline"
             tone="warning"
-            label="Carryovers"
-            value={String(data?.carryovers ?? 0)}
+            label="Notifications"
+            value={String(unread)}
           />
         </Animated.View>
 
@@ -138,44 +169,18 @@ export default function DashboardScreen() {
               onPress={() => router.push('/(tabs)/payments')}
             />
             <QuickLink
-              icon="calendar-outline"
-              label="Timetable"
-              onPress={() => router.push('/(tabs)/timetable')}
-            />
-            <QuickLink
               icon="notifications-outline"
               label="Updates"
               onPress={() => router.push('/(tabs)/communication')}
               badge={unread > 0 ? unread : undefined}
             />
+            <QuickLink
+              icon="checkmark-circle-outline"
+              label="Attendance"
+              onPress={() => router.push('/(tabs)/attendance')}
+            />
           </View>
         </Animated.View>
-
-        {data?.next_class && (
-          <Animated.View entering={FadeInDown.duration(400).delay(180)}>
-            <Card style={styles.nextClassCard}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={[styles.sectionTitle, { color: theme.text }]}>Next Class</Text>
-                <Badge label={data.next_class.time_until} tone="primary" />
-              </View>
-              <Text style={[styles.classCourse, { color: theme.text }]}>
-                {data.next_class.course_code} · {data.next_class.course_title}
-              </Text>
-              <View style={styles.classMetaRow}>
-                <View style={styles.classMetaItem}>
-                  <Ionicons name="time-outline" size={14} color={theme.textMuted} />
-                  <Text style={[styles.classMetaText, { color: theme.textMuted }]}>
-                    {data.next_class.start_time}–{data.next_class.end_time}
-                  </Text>
-                </View>
-                <View style={styles.classMetaItem}>
-                  <Ionicons name="location-outline" size={14} color={theme.textMuted} />
-                  <Text style={[styles.classMetaText, { color: theme.textMuted }]}>{data.next_class.venue}</Text>
-                </View>
-              </View>
-            </Card>
-          </Animated.View>
-        )}
 
         <Animated.View entering={FadeInDown.duration(400).delay(260)}>
           <View style={styles.sectionHeaderRow}>
@@ -283,11 +288,10 @@ function StatCard({
 }) {
   const { theme } = useTheme();
   const toneColor = { success: theme.success, warning: theme.warning, danger: theme.danger }[tone];
-  const toneMuted = { success: theme.successMuted, warning: theme.warningMuted, danger: theme.dangerMuted }[tone];
   return (
     <Card style={styles.statCard}>
-      <View style={[styles.statIconWrap, { backgroundColor: toneMuted }]}>
-        <Ionicons name={icon} size={16} color={toneColor} />
+      <View style={[styles.statIconWrap, { backgroundColor: toneColor }]}>
+        <Ionicons name={icon} size={16} color="#fff" />
       </View>
       <Text style={[styles.statValue, { color: theme.text }]} numberOfLines={1} adjustsFontSizeToFit>
         {value}
@@ -308,7 +312,23 @@ const styles = StyleSheet.create({
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
     marginBottom: spacing.xl,
+  },
+  headerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.full,
+  },
+  headerAvatarFallback: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerAvatarText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.sm,
+    color: palette.white,
   },
   greeting: {
     fontFamily: fontFamily.regular,
@@ -352,6 +372,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     padding: spacing.lg,
   },
+  cgpaLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   cgpaLabel: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.xs,
@@ -389,9 +414,9 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   statIconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: radius.sm,
+    width: 32,
+    height: 32,
+    borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },

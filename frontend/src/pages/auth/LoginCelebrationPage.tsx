@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Sparkles, ChevronRight, GraduationCap } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { getMediaUrl } from '../../api/client';
 import Button from '../../components/ui/Button';
 import type { UserRole } from '../../types';
 
@@ -13,9 +14,15 @@ const roleConfig: Record<UserRole, { label: string; color: string }> = {
   delegated_admin: { label: 'Admin', color: 'bg-primary-500/20 text-primary-300 border-primary-500/30' },
   class_rep: { label: 'Class Representative', color: 'bg-accent-500/20 text-accent-400 border-accent-500/30' },
   class_bursar: { label: 'Class Bursar', color: 'bg-secondary-500/20 text-secondary-400 border-secondary-500/30' },
-  dept_bursar: { label: 'Departmental Bursar', color: 'bg-secondary-500/20 text-secondary-400 border-secondary-500/30' },
+  dept_bursar: {
+    label: 'Departmental Bursar',
+    color: 'bg-secondary-500/20 text-secondary-400 border-secondary-500/30',
+  },
   alumni: { label: 'Alumni', color: 'bg-primary-500/20 text-primary-300 border-primary-500/30' },
-  project_coordinator: { label: 'Project Coordinator', color: 'bg-primary-500/20 text-primary-300 border-primary-500/30' },
+  project_coordinator: {
+    label: 'Project Coordinator',
+    color: 'bg-primary-500/20 text-primary-300 border-primary-500/30',
+  },
   event_coordinator: { label: 'Event Coordinator', color: 'bg-primary-500/20 text-primary-300 border-primary-500/30' },
   alumni_rep: { label: 'Alumni Representative', color: 'bg-primary-500/20 text-primary-300 border-primary-500/30' },
   admin: { label: 'Admin', color: 'bg-primary-500/20 text-primary-300 border-primary-500/30' },
@@ -135,7 +142,11 @@ const LoginCelebrationPage = () => {
             <div className="relative">
               <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary-500 to-accent-600 flex items-center justify-center shadow-lg shadow-primary-500/30 animate-pulse-glow overflow-hidden">
                 {avatarUrl ? (
-                  <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+                  <img
+                    src={getMediaUrl(avatarUrl) ?? undefined}
+                    alt={displayName}
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   <span className="text-2xl font-bold text-white tracking-wide">{initials}</span>
                 )}
@@ -152,15 +163,17 @@ const LoginCelebrationPage = () => {
 
           {/* Welcome text */}
           <motion.div className="text-center mb-6" variants={itemVariants}>
-            <h1 className="text-3xl font-bold text-white mb-1 tracking-tight">
-              Welcome, {displayName}!
-            </h1>
-            <p className="text-white/50 text-sm">You've successfully signed in to <span className="text-accent-400 font-semibold">ACES Zone</span></p>
+            <h1 className="text-3xl font-bold text-white mb-1 tracking-tight">Welcome, {displayName}!</h1>
+            <p className="text-white/50 text-sm">
+              You've successfully signed in to <span className="text-accent-400 font-semibold">ACES Zone</span>
+            </p>
           </motion.div>
 
           {/* Role badge */}
           <motion.div className="flex justify-center mb-8" variants={itemVariants}>
-            <div className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border text-xs font-medium ${config.color}`}>
+            <div
+              className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border text-xs font-medium ${config.color}`}
+            >
               <GraduationCap className="w-3.5 h-3.5" />
               {config.label}
             </div>
@@ -203,10 +216,7 @@ const LoginCelebrationPage = () => {
         </motion.div>
 
         {/* Footer */}
-        <motion.p
-          className="text-center text-xs text-white/20 mt-6 tracking-wider uppercase"
-          variants={itemVariants}
-        >
+        <motion.p className="text-center text-xs text-white/20 mt-6 tracking-wider uppercase" variants={itemVariants}>
           &copy; {new Date().getFullYear()} ACES Zone &mdash; All rights reserved
         </motion.p>
       </motion.div>
