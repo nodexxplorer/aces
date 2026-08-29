@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/shopspring/decimal"
 )
 
 func (q *Queries) GetDB() DBTX {
@@ -74,10 +75,10 @@ func (q *Queries) GetStudentAttendanceSummary(ctx context.Context, studentID, us
 			WHERE cr.student_id = $1 AND cr.semester_id = $3
 		),
 		my_sessions AS (
-			SELECT s.id
-			FROM attendance_sessions s
-			JOIN my_courses mc ON mc.course_id = s.course_id
-			WHERE s.semester_id = $3 AND s.status IN ('closed', 'finalized')
+			SELECT asess.id
+			FROM attendance_sessions asess
+			JOIN my_courses mc ON mc.course_id = asess.course_id
+			WHERE asess.semester_id = $3 AND `+attendanceSessionCountedStatusesSQL+`
 		)
 		SELECT
 			(SELECT COUNT(*) FROM my_sessions)::int AS total_classes,
@@ -450,245 +451,6 @@ func (q *Queries) ListUsersWithStudents(ctx context.Context, limit, offset int32
 	return items, nil
 }
 
-// ==================== TIMETABLE ====================
-
-type TimetableListItem struct {
-	ID              uuid.UUID  `json:"id"`
-	CourseID        uuid.UUID  `json:"course_id"`
-	DayOfWeek       *int32     `json:"day_of_week"`
-	StartTime       string     `json:"start_time"`
-	EndTime         string     `json:"end_time"`
-	Venue           string     `json:"venue"`
-	Level           *int32     `json:"level"`
-	CourseCode      string     `json:"courseCode"`
-	CourseTitle     string     `json:"courseTitle"`
-	EntryType       string     `json:"entry_type"`
-	ClassType       *string    `json:"class_type"`
-	ExamType        *string    `json:"exam_type"`
-	LecturerID      *uuid.UUID `json:"lecturer_id"`
-	LecturerName    *string    `json:"lecturer_name"`
-	Invigilators    *string    `json:"invigilators"`
-	IsPublished     bool       `json:"is_published"`
-	HasConflict     bool       `json:"has_conflict"`
-	ConflictDetails []byte     `json:"conflict_details"`
-	ExamDate        *string    `json:"exam_date"`
-}
-
-type ListTimetableByTypeParams struct {
-	EntryType string
-	Level     *int32
-}
-
-func (q *Queries) ListTimetableByType(ctx context.Context, arg ListTimetableByTypeParams) ([]TimetableListItem, error) {
-	query := `
-		SELECT t.id, t.course_id, t.day_of_week,
-			t.start_time::text, t.end_time::text, t.venue, t.level,
-			COALESCE(c.code, '') as course_code,
-			COALESCE(c.title, '') as course_title,
-			t.entry_type, t.class_type, t.exam_type, t.lecturer_id,
-			(SELECT full_name FROM users WHERE id = t.lecturer_id) as lecturer_name,
-			t.invigilators, t.is_published, t.has_conflict, t.conflict_details,
-			CASE WHEN t.exam_date > '1970-01-02'::timestamptz THEN t.exam_date::date::text ELSE NULL END as exam_date
-		FROM timetable t
-		LEFT JOIN courses c ON c.id = t.course_id
-		WHERE t.entry_type = $1
-	`
-	args := []interface{}{arg.EntryType}
-	idx := 2
-	if arg.Level != nil {
-		query += fmt.Sprintf(" AND (t.level IS NULL OR t.level = $%d)", idx)
-		args = append(args, *arg.Level)
-		idx++
-	}
-	query += " ORDER BY t.day_of_week NULLS LAST, t.exam_date NULLS LAST, t.start_time"
-
-	rows, err := q.db.Query(ctx, query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []TimetableListItem{}
-	for rows.Next() {
-		var i TimetableListItem
-		if err := rows.Scan(
-			&i.ID, &i.CourseID, &i.DayOfWeek,
-			&i.StartTime, &i.EndTime, &i.Venue, &i.Level,
-			&i.CourseCode, &i.CourseTitle,
-			&i.EntryType, &i.ClassType, &i.ExamType, &i.LecturerID,
-			&i.LecturerName, &i.Invigilators, &i.IsPublished, &i.HasConflict, &i.ConflictDetails,
-			&i.ExamDate,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-func (q *Queries) ListAllTimetableEntries(ctx context.Context) ([]TimetableListItem, error) {
-	rows, err := q.db.Query(ctx, `
-		SELECT t.id, t.course_id, t.day_of_week,
-			t.start_time::text, t.end_time::text, t.venue, t.level,
-			COALESCE(c.code, '') as course_code,
-			COALESCE(c.title, '') as course_title,
-			t.entry_type, t.class_type, t.exam_type, t.lecturer_id,
-			(SELECT full_name FROM users WHERE id = t.lecturer_id) as lecturer_name,
-			t.invigilators, t.is_published, t.has_conflict, t.conflict_details,
-			CASE WHEN t.exam_date > '1970-01-02'::timestamptz THEN t.exam_date::date::text ELSE NULL END as exam_date
-		FROM timetable t
-		LEFT JOIN courses c ON c.id = t.course_id
-		ORDER BY t.entry_type, t.day_of_week NULLS LAST, t.exam_date NULLS LAST, t.start_time
-	`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []TimetableListItem{}
-	for rows.Next() {
-		var i TimetableListItem
-		if err := rows.Scan(
-			&i.ID, &i.CourseID, &i.DayOfWeek,
-			&i.StartTime, &i.EndTime, &i.Venue, &i.Level,
-			&i.CourseCode, &i.CourseTitle,
-			&i.EntryType, &i.ClassType, &i.ExamType, &i.LecturerID,
-			&i.LecturerName, &i.Invigilators, &i.IsPublished, &i.HasConflict, &i.ConflictDetails,
-			&i.ExamDate,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-func (q *Queries) PublishTimetableByType(ctx context.Context, entryType string) error {
-	_, err := q.db.Exec(ctx, `UPDATE timetable SET is_published = true, published_at = NOW() WHERE entry_type = $1`, entryType)
-	return err
-}
-
-func (q *Queries) UnpublishTimetableByType(ctx context.Context, entryType string) error {
-	_, err := q.db.Exec(ctx, `UPDATE timetable SET is_published = false, published_at = NULL WHERE entry_type = $1`, entryType)
-	return err
-}
-
-type TimetableConflictRow struct {
-	ID         uuid.UUID  `json:"id"`
-	CourseCode string     `json:"course_code"`
-	Venue      string     `json:"venue"`
-	StartTime  string     `json:"start_time"`
-	EndTime    string     `json:"end_time"`
-	DayOfWeek  *int32     `json:"day_of_week"`
-	Level      *int32     `json:"level"`
-	LecturerID *uuid.UUID `json:"lecturer_id"`
-}
-
-func (q *Queries) CheckTimetableConflicts(ctx context.Context, arg ListTimetableByTypeParams) ([]TimetableConflictRow, error) {
-	query := `
-		SELECT t.id, COALESCE(c.code, '') as course_code, t.venue,
-			t.start_time::text, t.end_time::text, t.day_of_week, t.level, t.lecturer_id
-		FROM timetable t
-		LEFT JOIN courses c ON c.id = t.course_id
-		WHERE t.entry_type = $1
-	`
-	args := []interface{}{arg.EntryType}
-	idx := 2
-	if arg.Level != nil {
-		query += fmt.Sprintf(" AND (t.level IS NULL OR t.level = $%d)", idx)
-		args = append(args, *arg.Level)
-		idx++
-	}
-	query += " ORDER BY t.day_of_week, t.start_time"
-
-	rows, err := q.db.Query(ctx, query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []TimetableConflictRow{}
-	for rows.Next() {
-		var i TimetableConflictRow
-		if err := rows.Scan(&i.ID, &i.CourseCode, &i.Venue, &i.StartTime, &i.EndTime, &i.DayOfWeek, &i.Level, &i.LecturerID); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-type CreateTimetableEntrySimpleParams struct {
-	CourseID     uuid.UUID
-	DayOfWeek    *int32
-	StartTime    string
-	EndTime      string
-	Venue        string
-	Level        int32
-	EntryType    string
-	ClassType    *string
-	ExamType     *string
-	LecturerID   *uuid.UUID
-	Invigilators *string
-	ExamDate     *time.Time
-}
-
-func (q *Queries) CreateTimetableEntrySimple(ctx context.Context, arg CreateTimetableEntrySimpleParams) (uuid.UUID, error) {
-	var id uuid.UUID
-
-	// Convert *uuid.UUID to pgtype.UUID for proper NULL encoding
-	lecturerPG := pgtype.UUID{}
-	if arg.LecturerID != nil {
-		lecturerPG = pgtype.UUID{Bytes: *arg.LecturerID, Valid: true}
-	}
-
-	// Convert *time.Time to pgtype.Timestamptz for proper NULL encoding
-	examDatePG := pgtype.Timestamptz{}
-	if arg.ExamDate != nil {
-		examDatePG = pgtype.Timestamptz{Time: *arg.ExamDate, Valid: true}
-	}
-
-	err := q.db.QueryRow(ctx, `
-		INSERT INTO timetable (course_id, day_of_week, start_time, end_time, venue, level, exam_date, session_id, semester_id, created_by, entry_type, class_type, exam_type, lecturer_id, invigilators)
-		VALUES ($1, $2, ('1970-01-01 ' || $3)::timestamptz, ('1970-01-01 ' || $4)::timestamptz, $5, $6, COALESCE($7, '1970-01-01T00:00:00Z'::timestamptz), NULL, NULL, NULL, $8, $9, $10, $11, $12)
-		RETURNING id
-	`, arg.CourseID, arg.DayOfWeek, arg.StartTime, arg.EndTime, arg.Venue, arg.Level, examDatePG, arg.EntryType, arg.ClassType, arg.ExamType, lecturerPG, arg.Invigilators).Scan(&id)
-	return id, err
-}
-
-func (q *Queries) UpdateTimetableEntryFull(ctx context.Context, arg CreateTimetableEntrySimpleParams, id uuid.UUID) error {
-	// Convert *uuid.UUID to pgtype.UUID for proper NULL encoding
-	lecturerPG := pgtype.UUID{}
-	if arg.LecturerID != nil {
-		lecturerPG = pgtype.UUID{Bytes: *arg.LecturerID, Valid: true}
-	}
-
-	// Convert *time.Time to pgtype.Timestamptz for proper NULL encoding
-	examDatePG := pgtype.Timestamptz{}
-	if arg.ExamDate != nil {
-		examDatePG = pgtype.Timestamptz{Time: *arg.ExamDate, Valid: true}
-	}
-
-	_, err := q.db.Exec(ctx, `
-		UPDATE timetable SET
-			course_id = $2, day_of_week = $3,
-			start_time = ('1970-01-01 ' || $4)::timestamptz,
-			end_time = ('1970-01-01 ' || $5)::timestamptz,
-			venue = $6, level = $7,
-			exam_date = COALESCE($8, '1970-01-01T00:00:00Z'::timestamptz),
-			entry_type = $9, class_type = $10, exam_type = $11,
-			lecturer_id = $12, invigilators = $13
-		WHERE id = $1
-	`, id, arg.CourseID, arg.DayOfWeek, arg.StartTime, arg.EndTime, arg.Venue, arg.Level, examDatePG, arg.EntryType, arg.ClassType, arg.ExamType, lecturerPG, arg.Invigilators)
-	return err
-}
-
 // ==================== BACKUPS ====================
 
 type BackupListItem struct {
@@ -993,7 +755,7 @@ func (q *Queries) CreateLeaveRequest(ctx context.Context, arg CreateLeaveRequest
 	err := q.db.QueryRow(ctx, `
 		INSERT INTO lecturer_leave (lecturer_id, leave_type, start_date, end_date, reason, course_handover)
 		VALUES ($1, $2, $3, $4, $5, $6::jsonb)
-		RETURNING id, lecturer_id, leave_type, start_date, end_date, reason, course_handover, status, approved_by, approved_at, created_at
+		RETURNING id, lecturer_id, leave_type, start_date::text, end_date::text, reason, course_handover, status, approved_by, approved_at, created_at
 	`, arg.LecturerID, arg.LeaveType, arg.StartDate, arg.EndDate, arg.Reason, arg.CourseHandover).Scan(
 		&i.ID, &i.LecturerID, &i.LeaveType, &i.StartDate, &i.EndDate, &i.Reason, &i.CourseHandover,
 		&i.Status, &i.ApprovedBy, &i.ApprovedAt, &i.CreatedAt,
@@ -1060,7 +822,7 @@ func (q *Queries) ListAllLeaveRequests(ctx context.Context) ([]LecturerLeaveRow,
 func (q *Queries) UpdateLeaveStatus(ctx context.Context, id uuid.UUID, status string, approvedBy uuid.UUID) error {
 	_, err := q.db.Exec(ctx, `
 		UPDATE lecturer_leave
-		SET status = $2, approved_by = $3, approved_at = CASE WHEN $2 = 'approved' THEN NOW() ELSE approved_at END, updated_at = NOW()
+		SET status = $2::leave_status, approved_by = $3, approved_at = CASE WHEN $2 = 'approved' THEN NOW() ELSE approved_at END, updated_at = NOW()
 		WHERE id = $1
 	`, id, status, approvedBy)
 	return err
@@ -1708,72 +1470,6 @@ func (q *Queries) GetRegisteredStudentsForAttendance(ctx context.Context, course
 	return results, rows.Err()
 }
 
-type ClassRepTimetableEntryRow struct {
-	TimetableEntryID    uuid.UUID  `json:"timetable_entry_id"`
-	CourseID            uuid.UUID  `json:"course_id"`
-	CourseCode          string     `json:"course_code"`
-	CourseTitle         string     `json:"course_title"`
-	LecturerName        string     `json:"lecturer_name"`
-	Venue               string     `json:"venue"`
-	DayOfWeek           *int32     `json:"day_of_week"`
-	StartTime           string     `json:"start_time"`
-	EndTime             string     `json:"end_time"`
-	CardStatus          string     `json:"card_status"`
-	AttendanceSessionID *uuid.UUID `json:"attendance_session_id"`
-	AttendanceStatus    *string    `json:"attendance_status"`
-}
-
-func (q *Queries) GetClassRepTimetableEntries(ctx context.Context, level int32, semesterID uuid.UUID) ([]ClassRepTimetableEntryRow, error) {
-	rows, err := q.db.Query(ctx, `
-		SELECT 
-			t.id AS timetable_entry_id,
-			t.course_id,
-			c.code AS course_code,
-			c.title AS course_title,
-			COALESCE(u.full_name, 'TBA') AS lecturer_name,
-			t.venue,
-			t.day_of_week,
-			t.start_time::text,
-			t.end_time::text,
-			'upcoming' AS card_status,
-			asess.id AS attendance_session_id,
-			asess.status AS attendance_status
-		FROM timetable t
-		JOIN courses c ON c.id = t.course_id
-		LEFT JOIN users u ON u.id = t.lecturer_id
-		LEFT JOIN attendance_sessions asess ON asess.course_id = t.course_id AND asess.created_at::date = CURRENT_DATE
-		WHERE t.level = $1
-		ORDER BY t.day_of_week NULLS LAST, t.start_time ASC
-	`, level)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var results []ClassRepTimetableEntryRow
-	for rows.Next() {
-		var r ClassRepTimetableEntryRow
-		if err := rows.Scan(
-			&r.TimetableEntryID,
-			&r.CourseID,
-			&r.CourseCode,
-			&r.CourseTitle,
-			&r.LecturerName,
-			&r.Venue,
-			&r.DayOfWeek,
-			&r.StartTime,
-			&r.EndTime,
-			&r.CardStatus,
-			&r.AttendanceSessionID,
-			&r.AttendanceStatus,
-		); err != nil {
-			return nil, err
-		}
-		results = append(results, r)
-	}
-	return results, rows.Err()
-}
-
 type PendingAttendanceReviewRow struct {
 	SessionID      uuid.UUID `json:"session_id"`
 	CourseID       uuid.UUID `json:"course_id"`
@@ -1812,6 +1508,65 @@ func (q *Queries) GetPendingAttendanceReviews(ctx context.Context, lecturerUserI
 		LEFT JOIN students st ON st.user_id = u.id
 		WHERE asess.status IN ('pending_lecturer_review', 'pending', 'submitted')
 		  AND (
+			c.lecturer_id = $1
+			OR EXISTS (
+				SELECT 1 FROM lecturer_course_assignments lca
+				WHERE lca.course_id = c.id AND lca.lecturer_id = $1
+			)
+		  )
+		ORDER BY asess.created_at DESC
+	`, lecturerUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []PendingAttendanceReviewRow
+	for rows.Next() {
+		var r PendingAttendanceReviewRow
+		if err := rows.Scan(
+			&r.SessionID,
+			&r.CourseID,
+			&r.CourseCode,
+			&r.CourseTitle,
+			&r.ScheduledDate,
+			&r.ClassRepName,
+			&r.ClassRepMatric,
+			&r.TotalPresent,
+			&r.TotalAbsent,
+			&r.TotalLate,
+			&r.TotalExcused,
+			&r.Status,
+			&r.SubmittedAt,
+		); err != nil {
+			return nil, err
+		}
+		results = append(results, r)
+	}
+	return results, rows.Err()
+}
+
+func (q *Queries) GetLecturerAttendanceHistory(ctx context.Context, lecturerUserID uuid.UUID) ([]PendingAttendanceReviewRow, error) {
+	rows, err := q.db.Query(ctx, `
+		SELECT
+			asess.id AS session_id,
+			asess.course_id,
+			c.code AS course_code,
+			c.title AS course_title,
+			COALESCE(asess.date::text, asess.created_at::date::text) AS scheduled_date,
+			COALESCE(u.full_name, 'Class Rep') AS class_rep_name,
+			COALESCE(st.matric_number, '') AS class_rep_matric,
+			COALESCE(asess.total_present, 0) AS total_present,
+			COALESCE(asess.total_absent, 0) AS total_absent,
+			0 AS total_late,
+			0 AS total_excused,
+			asess.status,
+			asess.created_at AS submitted_at
+		FROM attendance_sessions asess
+		JOIN courses c ON c.id = asess.course_id
+		LEFT JOIN users u ON u.id = asess.class_rep_id
+		LEFT JOIN students st ON st.user_id = u.id
+		WHERE (
 			c.lecturer_id = $1
 			OR EXISTS (
 				SELECT 1 FROM lecturer_course_assignments lca
@@ -1919,37 +1674,6 @@ func (q *Queries) GetAttendanceSessionDetails(ctx context.Context, sessionID uui
 	}
 	d.DepartmentName = "COMPUTER ENGINEERING"
 	return &d, nil
-}
-
-type HasCompletedPaymentForManualParams struct {
-	StudentID uuid.UUID
-	ManualID  uuid.UUID
-	PaymentID *uuid.UUID
-}
-
-func (q *Queries) HasCompletedPaymentForManual(ctx context.Context, arg HasCompletedPaymentForManualParams) (bool, error) {
-	if arg.PaymentID != nil {
-		var exists bool
-		err := q.db.QueryRow(ctx, `
-			SELECT EXISTS (
-				SELECT 1 FROM payments
-				WHERE id = $1 AND student_id = $2 AND status = 'completed'
-			)
-		`, *arg.PaymentID, arg.StudentID).Scan(&exists)
-		return exists, err
-	}
-
-	var exists bool
-	err := q.db.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1 FROM payments p
-			JOIN manuals m ON m.id = $2
-			WHERE p.student_id = $1 
-			  AND p.status = 'completed'
-			  AND (p.type = 'manual' OR p.item_name ILIKE '%' || m.title || '%')
-		)
-	`, arg.StudentID, arg.ManualID).Scan(&exists)
-	return exists, err
 }
 
 func (q *Queries) GetAIInteraction(ctx context.Context, id uuid.UUID) (AiInteraction, error) {
@@ -2219,6 +1943,46 @@ func (q *Queries) MarkBirthdayGreeted(ctx context.Context, userID uuid.UUID) err
 	return err
 }
 
+type DueStudyTaskReminderRow struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+	Title  string    `json:"title"`
+}
+
+// ListDueStudyTaskReminders finds tasks whose reminder_at has arrived and
+// hasn't been sent yet — reminder_at is cleared (one-shot) by
+// ClearStudyTaskReminder right after a successful send, which is also what
+// keeps a task off this list on the next poll rather than a separate
+// "already reminded" flag.
+func (q *Queries) ListDueStudyTaskReminders(ctx context.Context) ([]DueStudyTaskReminderRow, error) {
+	rows, err := q.db.Query(ctx, `
+		SELECT id, user_id, title
+		FROM study_tasks
+		WHERE reminder_at IS NOT NULL
+			AND reminder_at <= NOW()
+			AND status NOT IN ('completed', 'cancelled')
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []DueStudyTaskReminderRow
+	for rows.Next() {
+		var r DueStudyTaskReminderRow
+		if err := rows.Scan(&r.ID, &r.UserID, &r.Title); err != nil {
+			return nil, err
+		}
+		results = append(results, r)
+	}
+	return results, rows.Err()
+}
+
+func (q *Queries) ClearStudyTaskReminder(ctx context.Context, taskID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, `UPDATE study_tasks SET reminder_at = NULL WHERE id = $1`, taskID)
+	return err
+}
+
 
 
 func (q *Queries) CreateReport(ctx context.Context, title, reportType, format string, generatedBy uuid.UUID) (Report, error) {
@@ -2456,4 +2220,106 @@ func (q *Queries) GetCRFSigningSubmission(ctx context.Context, id uuid.UUID) (CR
 	var s CRFSigningSubmission
 	err := row.Scan(&s.ID, &s.UserID, &s.SemesterID, &s.OriginalFilePath, &s.SignedFilePath, &s.Status, &s.CreatedAt)
 	return s, err
+}
+
+// ─── CRF backlog (old/unsigned course forms from past semesters) ───
+
+type CRFBacklogPrice struct {
+	AmountPerBacklog decimal.Decimal `json:"amount_per_backlog"`
+	UpdatedBy        *uuid.UUID      `json:"updated_by"`
+	UpdatedAt        time.Time       `json:"updated_at"`
+}
+
+func (q *Queries) GetCRFBacklogPrice(ctx context.Context) (CRFBacklogPrice, error) {
+	row := q.db.QueryRow(ctx, `SELECT amount_per_backlog, updated_by, updated_at FROM crf_backlog_price WHERE id = 1`)
+	var p CRFBacklogPrice
+	err := row.Scan(&p.AmountPerBacklog, &p.UpdatedBy, &p.UpdatedAt)
+	return p, err
+}
+
+func (q *Queries) UpdateCRFBacklogPrice(ctx context.Context, amount decimal.Decimal, updatedBy uuid.UUID) (CRFBacklogPrice, error) {
+	row := q.db.QueryRow(ctx, `
+		UPDATE crf_backlog_price
+		SET amount_per_backlog = $1, updated_by = $2, updated_at = NOW()
+		WHERE id = 1
+		RETURNING amount_per_backlog, updated_by, updated_at
+	`, amount, updatedBy)
+	var p CRFBacklogPrice
+	err := row.Scan(&p.AmountPerBacklog, &p.UpdatedBy, &p.UpdatedAt)
+	return p, err
+}
+
+type CRFBacklogRequest struct {
+	ID             uuid.UUID       `json:"id"`
+	UserID         uuid.UUID       `json:"user_id"`
+	RequestedCount int32           `json:"requested_count"`
+	Amount         decimal.Decimal `json:"amount"`
+	PaymentID      *uuid.UUID      `json:"payment_id"`
+	Status         string          `json:"status"`
+	FormsSubmitted int32           `json:"forms_submitted"`
+	CreatedAt      time.Time       `json:"created_at"`
+	PaidAt         *time.Time      `json:"paid_at"`
+}
+
+var crfBacklogRequestColumns = `id, user_id, requested_count, amount, payment_id, status, forms_submitted, created_at, paid_at`
+
+func scanCRFBacklogRequest(row pgx.Row) (CRFBacklogRequest, error) {
+	var r CRFBacklogRequest
+	err := row.Scan(&r.ID, &r.UserID, &r.RequestedCount, &r.Amount, &r.PaymentID, &r.Status, &r.FormsSubmitted, &r.CreatedAt, &r.PaidAt)
+	return r, err
+}
+
+func (q *Queries) CreateCRFBacklogRequest(ctx context.Context, userID uuid.UUID, requestedCount int32, amount decimal.Decimal) (CRFBacklogRequest, error) {
+	row := q.db.QueryRow(ctx, `
+		INSERT INTO crf_backlog_requests (user_id, requested_count, amount)
+		VALUES ($1, $2, $3)
+		RETURNING `+crfBacklogRequestColumns,
+		userID, requestedCount, amount,
+	)
+	return scanCRFBacklogRequest(row)
+}
+
+func (q *Queries) SetCRFBacklogRequestPayment(ctx context.Context, id, paymentID uuid.UUID) (CRFBacklogRequest, error) {
+	row := q.db.QueryRow(ctx, `
+		UPDATE crf_backlog_requests SET payment_id = $2 WHERE id = $1
+		RETURNING `+crfBacklogRequestColumns,
+		id, paymentID,
+	)
+	return scanCRFBacklogRequest(row)
+}
+
+// GetLatestCRFBacklogRequest returns pgx.ErrNoRows when the student has never
+// made a backlog request.
+func (q *Queries) GetLatestCRFBacklogRequest(ctx context.Context, userID uuid.UUID) (CRFBacklogRequest, error) {
+	row := q.db.QueryRow(ctx, `
+		SELECT `+crfBacklogRequestColumns+`
+		FROM crf_backlog_requests
+		WHERE user_id = $1
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, userID)
+	return scanCRFBacklogRequest(row)
+}
+
+func (q *Queries) GetCRFBacklogRequestByPaymentID(ctx context.Context, paymentID uuid.UUID) (CRFBacklogRequest, error) {
+	row := q.db.QueryRow(ctx, `SELECT `+crfBacklogRequestColumns+` FROM crf_backlog_requests WHERE payment_id = $1`, paymentID)
+	return scanCRFBacklogRequest(row)
+}
+
+func (q *Queries) MarkCRFBacklogRequestPaid(ctx context.Context, id uuid.UUID) (CRFBacklogRequest, error) {
+	row := q.db.QueryRow(ctx, `
+		UPDATE crf_backlog_requests SET status = 'paid', paid_at = NOW() WHERE id = $1
+		RETURNING `+crfBacklogRequestColumns,
+		id,
+	)
+	return scanCRFBacklogRequest(row)
+}
+
+func (q *Queries) IncrementCRFBacklogFormsSubmitted(ctx context.Context, id uuid.UUID) (CRFBacklogRequest, error) {
+	row := q.db.QueryRow(ctx, `
+		UPDATE crf_backlog_requests SET forms_submitted = forms_submitted + 1 WHERE id = $1
+		RETURNING `+crfBacklogRequestColumns,
+		id,
+	)
+	return scanCRFBacklogRequest(row)
 }

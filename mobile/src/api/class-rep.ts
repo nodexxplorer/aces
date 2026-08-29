@@ -34,24 +34,6 @@ export interface AttendanceCheckin {
   matric_number: string;
 }
 
-export interface TimetableEntry {
-  timetable_entry_id: string;
-  course_id: string;
-  course_code: string;
-  course_title: string;
-  lecturer_name: string;
-  venue: string;
-  // 1=Monday..7=Sunday, or null.
-  day_of_week: number | null;
-  // Raw TIMESTAMPTZ text (e.g. "2026-08-17 08:00:00+00") — only the
-  // time-of-day portion is meaningful.
-  start_time: string;
-  end_time: string;
-  card_status: 'upcoming' | 'ongoing' | 'past' | 'cancelled';
-  attendance_session_id?: string;
-  attendance_status?: string;
-}
-
 export interface RegisteredStudentAttendance {
   student_id: string;
   user_id: string;
@@ -62,11 +44,6 @@ export interface RegisteredStudentAttendance {
   registration_status: string;
   registered_at: string;
 }
-
-export const getClassRepTimetable = async () => {
-  const res = await apiClient.get<{ entries: TimetableEntry[]; level: number }>('/class-rep/timetable');
-  return res.data;
-};
 
 export const getRegisteredStudentsForAttendance = async (courseId: string) => {
   const res = await apiClient.get<{ students: RegisteredStudentAttendance[]; total_registered: number }>(

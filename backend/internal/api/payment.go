@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -21,7 +23,7 @@ import (
 type createDueRequest struct {
 	Name        string  `json:"name"         binding:"required"`
 	Description *string `json:"description"`
-	Type        string  `json:"type"         binding:"required,oneof=dept_dues class_dues manual materials transcript_fee other"`
+	Type        string  `json:"type"         binding:"required,oneof=dept_dues class_dues materials transcript_fee other"`
 	Amount      string  `json:"amount"       binding:"required"`
 	Level       *int32  `json:"level"`
 	SessionID   *string `json:"session_id"   binding:"omitempty,uuid"`
@@ -32,7 +34,7 @@ type createDueRequest struct {
 type updateDueRequest struct {
 	Name        string  `json:"name"         binding:"required"`
 	Description *string `json:"description"`
-	Type        string  `json:"type"         binding:"required,oneof=dept_dues class_dues manual materials transcript_fee other"`
+	Type        string  `json:"type"         binding:"required,oneof=dept_dues class_dues materials transcript_fee other"`
 	Amount      string  `json:"amount"       binding:"required"`
 	Level       *int32  `json:"level"`
 	Deadline    *string `json:"deadline"` // RFC3339
@@ -218,6 +220,34 @@ func (server *Server) createDue(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
+	}
+
+	if server.notificationsFull != nil {
+		go func(dueName, amountStr string, level *int32, senderID uuid.UUID) {
+			bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			title := "New Due: " + dueName
+			message := fmt.Sprintf("A new due of ₦%s has been added: %s.", amountStr, dueName)
+			if level != nil {
+				_, err := server.notificationsFull.BroadcastNotification(
+					bgCtx, title, message, "dues", "normal", "level", nil, *level, &senderID,
+				)
+				if err != nil {
+					log.Printf("[due-notif] broadcast to level %d failed: %v", *level, err)
+				}
+				return
+			}
+			// Department-wide due (no level) — students specifically, not
+			// every active user (lecturers/hod/bursars aren't the audience
+			// for a class/department due).
+			_, err := server.notificationsFull.BroadcastNotification(
+				bgCtx, title, message, "dues", "normal", "role", []string{"student"}, 0, &senderID,
+			)
+			if err != nil {
+				log.Printf("[due-notif] broadcast failed: %v", err)
+			}
+		}(due.Name, amount.String(), req.Level, createdBy)
 	}
 
 	ctx.JSON(http.StatusCreated, due)

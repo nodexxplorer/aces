@@ -69,7 +69,6 @@ type Config struct {
 	GeminiModel        string
 	AIFallbackEnabled  bool
 	FrontendPublicURL  string
-	ManualQRSecret     string
 }
 
 func (c *Config) IsProduction() bool {
@@ -124,7 +123,6 @@ func Load() *Config {
 		GeminiModel:        getEnv("GEMINI_MODEL", "gemini-2.5-flash"),
 		AIFallbackEnabled:  getBool("AI_FALLBACK_ENABLED", true),
 		FrontendPublicURL:  getFirstEnv("FRONTEND_PUBLIC_URL", "http://localhost:5173"),
-		ManualQRSecret:     getEnv("MANUAL_QR_SECRET", "aces-manual-qr-secret-change-in-prod-2026"),
 	}
 }
 

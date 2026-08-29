@@ -24,6 +24,7 @@ interface PersistedSettings {
   themeMode: ThemeMode;
   fontScale: FontScaleKey;
   biometricEnabled: boolean;
+  cgpaHidden: boolean;
 }
 
 interface SettingsState extends PersistedSettings {
@@ -31,6 +32,7 @@ interface SettingsState extends PersistedSettings {
   setThemeMode: (mode: ThemeMode) => void;
   setFontScale: (scale: FontScaleKey) => void;
   setBiometricEnabled: (enabled: boolean) => void;
+  setCgpaHidden: (hidden: boolean) => void;
   hydrate: () => Promise<void>;
 }
 
@@ -45,19 +47,24 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   themeMode: 'system',
   fontScale: 'default',
   biometricEnabled: false,
+  cgpaHidden: false,
   isHydrated: false,
 
   setThemeMode: (themeMode) => {
     set({ themeMode });
-    persist({ themeMode, fontScale: get().fontScale, biometricEnabled: get().biometricEnabled });
+    persist({ ...persistedSlice(get()), themeMode });
   },
   setFontScale: (fontScale) => {
     set({ fontScale });
-    persist({ themeMode: get().themeMode, fontScale, biometricEnabled: get().biometricEnabled });
+    persist({ ...persistedSlice(get()), fontScale });
   },
   setBiometricEnabled: (biometricEnabled) => {
     set({ biometricEnabled });
-    persist({ themeMode: get().themeMode, fontScale: get().fontScale, biometricEnabled });
+    persist({ ...persistedSlice(get()), biometricEnabled });
+  },
+  setCgpaHidden: (cgpaHidden) => {
+    set({ cgpaHidden });
+    persist({ ...persistedSlice(get()), cgpaHidden });
   },
 
   hydrate: async () => {
@@ -69,6 +76,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           themeMode: parsed.themeMode ?? 'system',
           fontScale: parsed.fontScale ?? 'default',
           biometricEnabled: parsed.biometricEnabled ?? false,
+          cgpaHidden: parsed.cgpaHidden ?? false,
         });
       }
     } finally {
@@ -76,3 +84,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     }
   },
 }));
+
+function persistedSlice(state: PersistedSettings): PersistedSettings {
+  const { themeMode, fontScale, biometricEnabled, cgpaHidden } = state;
+  return { themeMode, fontScale, biometricEnabled, cgpaHidden };
+}

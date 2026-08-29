@@ -238,51 +238,6 @@ func (ns NullAlumniVerificationStatus) Value() (driver.Value, error) {
 	return string(ns.AlumniVerificationStatus), nil
 }
 
-type AppealStatus string
-
-const (
-	AppealStatusSubmitted      AppealStatus = "submitted"
-	AppealStatusLecturerReview AppealStatus = "lecturer_review"
-	AppealStatusHodReview      AppealStatus = "hod_review"
-	AppealStatusResolved       AppealStatus = "resolved"
-	AppealStatusRejected       AppealStatus = "rejected"
-)
-
-func (e *AppealStatus) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = AppealStatus(s)
-	case string:
-		*e = AppealStatus(s)
-	default:
-		return fmt.Errorf("unsupported scan type for AppealStatus: %T", src)
-	}
-	return nil
-}
-
-type NullAppealStatus struct {
-	AppealStatus AppealStatus `json:"appeal_status"`
-	Valid        bool         `json:"valid"` // Valid is true if AppealStatus is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullAppealStatus) Scan(value interface{}) error {
-	if value == nil {
-		ns.AppealStatus, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.AppealStatus.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullAppealStatus) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.AppealStatus), nil
-}
-
 type ApplicationStatus string
 
 const (
@@ -1455,7 +1410,6 @@ type PaymentType string
 const (
 	PaymentTypeDeptDues      PaymentType = "dept_dues"
 	PaymentTypeClassDues     PaymentType = "class_dues"
-	PaymentTypeManual        PaymentType = "manual"
 	PaymentTypeMaterials     PaymentType = "materials"
 	PaymentTypeTranscriptFee PaymentType = "transcript_fee"
 	PaymentTypeOther         PaymentType = "other"
@@ -2024,51 +1978,6 @@ func (ns NullTradeStatus) Value() (driver.Value, error) {
 	return string(ns.TradeStatus), nil
 }
 
-type TranscriptStatus string
-
-const (
-	TranscriptStatusRequested      TranscriptStatus = "requested"
-	TranscriptStatusPendingPayment TranscriptStatus = "pending_payment"
-	TranscriptStatusProcessing     TranscriptStatus = "processing"
-	TranscriptStatusReady          TranscriptStatus = "ready"
-	TranscriptStatusSent           TranscriptStatus = "sent"
-)
-
-func (e *TranscriptStatus) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = TranscriptStatus(s)
-	case string:
-		*e = TranscriptStatus(s)
-	default:
-		return fmt.Errorf("unsupported scan type for TranscriptStatus: %T", src)
-	}
-	return nil
-}
-
-type NullTranscriptStatus struct {
-	TranscriptStatus TranscriptStatus `json:"transcript_status"`
-	Valid            bool             `json:"valid"` // Valid is true if TranscriptStatus is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullTranscriptStatus) Scan(value interface{}) error {
-	if value == nil {
-		ns.TranscriptStatus, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.TranscriptStatus.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullTranscriptStatus) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.TranscriptStatus), nil
-}
-
 type UserRole string
 
 const (
@@ -2507,19 +2416,6 @@ type CampusReport struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
-type CarryoverCourse struct {
-	ID                uuid.UUID          `json:"id"`
-	StudentID         uuid.UUID          `json:"student_id"`
-	CourseID          uuid.UUID          `json:"course_id"`
-	OriginalResultID  uuid.UUID          `json:"original_result_id"`
-	OriginalSessionID uuid.UUID          `json:"original_session_id"`
-	AttemptCount      int32              `json:"attempt_count"`
-	MaxAttempts       int32              `json:"max_attempts"`
-	IsResolved        bool               `json:"is_resolved"`
-	ResolvedResultID  pgtype.UUID        `json:"resolved_result_id"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-}
-
 type CgpaRule struct {
 	ID         uuid.UUID          `json:"id"`
 	MinScore   decimal.Decimal    `json:"min_score"`
@@ -2862,26 +2758,6 @@ type GpaScenario struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
-type GradeAppeal struct {
-	ID               uuid.UUID          `json:"id"`
-	StudentID        uuid.UUID          `json:"student_id"`
-	CourseID         uuid.UUID          `json:"course_id"`
-	SemesterID       uuid.UUID          `json:"semester_id"`
-	SessionID        uuid.UUID          `json:"session_id"`
-	Reason           string             `json:"reason"`
-	EvidenceUrls     []byte             `json:"evidence_urls"`
-	Status           AppealStatus       `json:"status"`
-	LecturerResponse *string            `json:"lecturer_response"`
-	LecturerID       pgtype.UUID        `json:"lecturer_id"`
-	HodResponse      *string            `json:"hod_response"`
-	HodID            pgtype.UUID        `json:"hod_id"`
-	OriginalScore    *float64           `json:"original_score"`
-	RevisedScore     *float64           `json:"revised_score"`
-	ResolvedAt       pgtype.Timestamptz `json:"resolved_at"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-}
-
 type Group struct {
 	ID          uuid.UUID          `json:"id"`
 	Name        string             `json:"name"`
@@ -3030,47 +2906,6 @@ type LecturerPerformance struct {
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 }
 
-type Manual struct {
-	ID            uuid.UUID          `json:"id"`
-	Title         string             `json:"title"`
-	Description   *string            `json:"description"`
-	Level         int32              `json:"level"`
-	Price         decimal.Decimal    `json:"price"`
-	FileUrl       *string            `json:"file_url"`
-	CoverImageUrl *string            `json:"cover_image_url"`
-	CourseID      pgtype.UUID        `json:"course_id"`
-	SessionID     pgtype.UUID        `json:"session_id"`
-	IsActive      bool               `json:"is_active"`
-	CreatedBy     uuid.UUID          `json:"created_by"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
-}
-
-type ManualPrintQueue struct {
-	ID          uuid.UUID          `json:"id"`
-	PurchaseID  uuid.UUID          `json:"purchase_id"`
-	StudentID   uuid.UUID          `json:"student_id"`
-	ManualID    uuid.UUID          `json:"manual_id"`
-	Status      string             `json:"status"`
-	QueuedAt    pgtype.Timestamptz `json:"queued_at"`
-	PrintedAt   pgtype.Timestamptz `json:"printed_at"`
-	CollectedAt pgtype.Timestamptz `json:"collected_at"`
-	ProcessedBy pgtype.UUID        `json:"processed_by"`
-}
-
-type ManualPurchase struct {
-	ID          uuid.UUID          `json:"id"`
-	StudentID   uuid.UUID          `json:"student_id"`
-	ManualID    uuid.UUID          `json:"manual_id"`
-	PaymentID   pgtype.UUID        `json:"payment_id"`
-	QrCodeData  *string            `json:"qr_code_data"`
-	QrCodeUrl   *string            `json:"qr_code_url"`
-	IsCollected bool               `json:"is_collected"`
-	CollectedAt pgtype.Timestamptz `json:"collected_at"`
-	PurchasedAt pgtype.Timestamptz `json:"purchased_at"`
-	PrintedAt   pgtype.Timestamptz `json:"printed_at"`
-}
-
 type MeetingAttendee struct {
 	ID          uuid.UUID          `json:"id"`
 	MeetingID   uuid.UUID          `json:"meeting_id"`
@@ -3211,16 +3046,6 @@ type PostReaction struct {
 	UserID       uuid.UUID          `json:"user_id"`
 	ReactionType string             `json:"reaction_type"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-}
-
-type PracticalEnrollment struct {
-	ID               uuid.UUID          `json:"id"`
-	StudentID        uuid.UUID          `json:"student_id"`
-	CourseID         uuid.UUID          `json:"course_id"`
-	ManualPurchaseID pgtype.UUID        `json:"manual_purchase_id"`
-	SessionID        uuid.UUID          `json:"session_id"`
-	EnrolledVia      string             `json:"enrolled_via"`
-	EnrolledAt       pgtype.Timestamptz `json:"enrolled_at"`
 }
 
 type ProfileEditLog struct {
@@ -3548,30 +3373,6 @@ type SubcategoryAssignment struct {
 	AssignedBy    pgtype.UUID        `json:"assigned_by"`
 }
 
-type Timetable struct {
-	ID              uuid.UUID          `json:"id"`
-	CourseID        uuid.UUID          `json:"course_id"`
-	ExamDate        pgtype.Timestamptz `json:"exam_date"`
-	StartTime       pgtype.Timestamptz `json:"start_time"`
-	EndTime         pgtype.Timestamptz `json:"end_time"`
-	Venue           string             `json:"venue"`
-	SessionID       pgtype.UUID        `json:"session_id"`
-	SemesterID      pgtype.UUID        `json:"semester_id"`
-	HasConflict     bool               `json:"has_conflict"`
-	ConflictDetails []byte             `json:"conflict_details"`
-	CreatedBy       pgtype.UUID        `json:"created_by"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	DayOfWeek       *int32             `json:"day_of_week"`
-	Level           *int32             `json:"level"`
-	EntryType       string             `json:"entry_type"`
-	ClassType       *string            `json:"class_type"`
-	LecturerID      pgtype.UUID        `json:"lecturer_id"`
-	ExamType        *string            `json:"exam_type"`
-	Invigilators    *string            `json:"invigilators"`
-	IsPublished     bool               `json:"is_published"`
-	PublishedAt     pgtype.Timestamptz `json:"published_at"`
-}
-
 type TradeOffer struct {
 	ID               uuid.UUID          `json:"id"`
 	FromUserID       uuid.UUID          `json:"from_user_id"`
@@ -3585,22 +3386,6 @@ type TradeOffer struct {
 	RespondedAt      pgtype.Timestamptz `json:"responded_at"`
 	CompletedAt      pgtype.Timestamptz `json:"completed_at"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-}
-
-type TranscriptRequest struct {
-	ID           uuid.UUID          `json:"id"`
-	StudentID    uuid.UUID          `json:"student_id"`
-	Purpose      string             `json:"purpose"`
-	Status       TranscriptStatus   `json:"status"`
-	FeePaid      bool               `json:"fee_paid"`
-	FeeAmount    pgtype.Numeric     `json:"fee_amount"`
-	PdfUrl       *string            `json:"pdf_url"`
-	QrCodeUrl    *string            `json:"qr_code_url"`
-	SentViaEmail bool               `json:"sent_via_email"`
-	EmailedAt    pgtype.Timestamptz `json:"emailed_at"`
-	ProcessedBy  pgtype.UUID        `json:"processed_by"`
-	ProcessedAt  pgtype.Timestamptz `json:"processed_at"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
 type User struct {

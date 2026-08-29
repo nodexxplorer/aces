@@ -174,6 +174,17 @@ func (server *Server) completePaymentsForReference(ctx *gin.Context, reference s
 				&eID,
 			)
 		}
+
+		// A CRF backlog request pays through this same generic payment
+		// pipeline — once its linked payment completes, unlock the slots it
+		// bought.
+		if queries, ok := server.store.(*db.Queries); ok {
+			if backlog, err := queries.GetCRFBacklogRequestByPaymentID(ctx, p.ID); err == nil && backlog.Status == "pending_payment" {
+				if _, err := queries.MarkCRFBacklogRequestPaid(ctx, backlog.ID); err != nil {
+					log.Printf("[payment-confirm] Failed to mark CRF backlog request %s paid: %v", backlog.ID, err)
+				}
+			}
+		}
 	}
 
 	// If payment is part of a batch, check if all batch payments are now completed

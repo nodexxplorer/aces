@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -29,6 +30,26 @@ func getUserID(ctx *gin.Context) uuid.UUID {
 		}
 	}
 	return uuid.Nil
+}
+
+// getStudentIDFromUser resolves the caller's student record ID from their JWT user ID.
+func (server *Server) getStudentIDFromUser(ctx *gin.Context) (uuid.UUID, error) {
+	userID := getUserID(ctx)
+	if userID == uuid.Nil {
+		return uuid.Nil, fmt.Errorf("unauthorized")
+	}
+
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		return uuid.Nil, fmt.Errorf("database not available")
+	}
+
+	student, err := queries.GetStudentByUserIDFull(ctx, userID)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("student record not found")
+	}
+
+	return student.ID, nil
 }
 
 // getUserRole extracts the caller's primary role from their JWT claims.
@@ -101,6 +122,37 @@ func requireOwnershipOrStaffByStudentIDParam(ctx *gin.Context, store db.Querier)
 		return uuid.Nil, false
 	}
 	return student.ID, true
+}
+
+// unpaidRequiredDues returns the names of any active department/class dues
+// (dept_dues, class_dues — deliberately excluding materials/transcript_fee/
+// other, which don't gate anything) for the student's level that they
+// haven't completed payment on yet. An empty slice means they're clear.
+// Course registration and course-form signing both refuse to proceed while
+// this is non-empty.
+func unpaidRequiredDues(ctx context.Context, store db.Querier, studentID uuid.UUID, level int32) ([]string, error) {
+	dues, err := store.ListDuesByLevel(ctx, &level)
+	if err != nil {
+		return nil, err
+	}
+
+	var unpaid []string
+	for _, due := range dues {
+		if !due.IsActive {
+			continue
+		}
+		if due.Type != db.PaymentTypeDeptDues && due.Type != db.PaymentTypeClassDues {
+			continue
+		}
+		paid, err := store.CheckDuePaid(ctx, db.CheckDuePaidParams{StudentID: studentID, DueID: due.ID})
+		if err != nil {
+			return nil, err
+		}
+		if !paid {
+			unpaid = append(unpaid, due.Name)
+		}
+	}
+	return unpaid, nil
 }
 
 func (server *Server) notifyUser(

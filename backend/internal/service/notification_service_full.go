@@ -40,35 +40,48 @@ func (s *NotificationServiceFull) CreateAndPush(
 	senderID *uuid.UUID, entityType *string, entityID *uuid.UUID,
 	metadata map[string]interface{},
 ) (db.NotificationFull, error) {
-	notif, err := s.queries.CreateNotificationFull(ctx, db.CreateNotificationFullParams{
-		UserID:      userID,
-		Type:        notifType,
-		Title:       title,
-		Message:     message,
-		Category:    category,
-		Priority:    priority,
-		SenderID:    senderID,
-		EntityType:  entityType,
-		EntityID:    entityID,
-		ActionLabel: &actionLabel,
-		Metadata:    metadata,
-	})
-	if err != nil {
-		return db.NotificationFull{}, err
-	}
-
-	if actionURL != "" {
-		notif.ActionUrl = &actionURL
-	}
-	if actionLabel != "" {
-		notif.ActionLabel = &actionLabel
-	}
-
 	prefs, prefsErr := s.queries.GetNotificationPreferences(ctx, userID)
 	hasPrefs := prefsErr == nil
+	inAppAllowed := !hasPrefs || prefs.InAppEnabled
 
-	if s.wsHub != nil && (!hasPrefs || prefs.InAppEnabled) {
-		s.wsHub.SendToUser(userID, ws.TypeNotification, notif)
+	// Respecting "In-App Notifications: off" means never creating the row in
+	// the first place — ListUserNotificationsFull reads straight from this
+	// table with no preference filtering of its own, so a row that exists
+	// here will show up in the user's notification list regardless of what
+	// their toggle says. Previously this only gated the live WebSocket push,
+	// so turning the toggle off didn't actually stop anything; the
+	// notification just silently reappeared the next time they opened the
+	// list. Email/push remain independently gated below either way.
+	var notif db.NotificationFull
+	if inAppAllowed {
+		var err error
+		notif, err = s.queries.CreateNotificationFull(ctx, db.CreateNotificationFullParams{
+			UserID:      userID,
+			Type:        notifType,
+			Title:       title,
+			Message:     message,
+			Category:    category,
+			Priority:    priority,
+			SenderID:    senderID,
+			EntityType:  entityType,
+			EntityID:    entityID,
+			ActionLabel: &actionLabel,
+			Metadata:    metadata,
+		})
+		if err != nil {
+			return db.NotificationFull{}, err
+		}
+
+		if actionURL != "" {
+			notif.ActionUrl = &actionURL
+		}
+		if actionLabel != "" {
+			notif.ActionLabel = &actionLabel
+		}
+
+		if s.wsHub != nil {
+			s.wsHub.SendToUser(userID, ws.TypeNotification, notif)
+		}
 	}
 
 	if s.emailSender != nil && (!hasPrefs || (prefs.EmailEnabled && categoryEmailAllowed(prefs, category))) {
@@ -145,28 +158,57 @@ func (s *NotificationServiceFull) buildNotificationEmailHTML(title, message, act
 	}
 
 	return fmt.Sprintf(`
-<table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="background-color: #eef2f6; padding: 32px 16px; font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+<table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 48px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
 	<tr>
 		<td align="center">
-			<table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="max-width: 560px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+			<table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);">
+				<!-- Header Section -->
 				<tr>
-					<td style="background: linear-gradient(135deg, #0066CC 0%%, #003d7a 100%%); padding: 28px 40px;" align="center">
-						<img src="%s" alt="ACES Zone" width="44" height="44" style="display: block; margin: 0 auto 10px auto; border-radius: 10px;" />
-						<div style="color: #ffffff; font-size: 18px; font-weight: 700; letter-spacing: 0.3px;">ACES Zone</div>
-						<div style="color: rgba(255,255,255,0.75); font-size: 11px; margin-top: 2px;">Association of Computer Engineering Students &middot; Uniuyo Chapter</div>
+					<td style="background: linear-gradient(135deg, #0066CC 0%%, #003d7a 100%%); padding: 32px 40px; border-bottom: 4px solid #0369a1;" align="left">
+						<table role="presentation" width="100%%" cellpadding="0" cellspacing="0">
+							<tr>
+								<td width="56" style="vertical-align: middle;">
+									<img src="%s" alt="ACES Zone" width="48" height="48" style="display: block; border-radius: 8px; background-color: #1e293b;" />
+								</td>
+								<td style="padding-left: 16px; vertical-align: middle;">
+									<div style="color: #ffffff; font-size: 20px; font-weight: 700; letter-spacing: -0.2px; line-height: 1.2;">ACES Zone</div>
+									<div style="color: #94a3b8; font-size: 12px; margin-top: 2px; font-weight: 500;">Association of Computer Engineering Students &middot; Uniuyo</div>
+								</td>
+							</tr>
+						</table>
 					</td>
 				</tr>
+				
+				<!-- Main Body Content Section -->
 				<tr>
-					<td style="padding: 32px 40px 8px 40px;">
-						<h1 style="margin: 0 0 12px 0; color: #0f172a; font-size: 18px; font-weight: 700;">%s</h1>
-						<p style="margin: 0; color: #475569; font-size: 14px; line-height: 1.65;">%s</p>
+					<td style="padding: 40px 40px 16px 40px;">
+						<h1 style="margin: 0 0 16px 0; color: #0f172a; font-size: 22px; font-weight: 700; letter-spacing: -0.4px; line-height: 1.3;">%s</h1>
+						<div style="margin: 0; color: #334155; font-size: 15px; line-height: 1.7; font-weight: 400;">
+							%s
+						</div>
 					</td>
-				</tr>%s
+				</tr>
+				
+				<!-- Call to Action / Custom Block Injection Area -->
+				%s
+				
+				<!-- Closing Context Area -->
 				<tr>
-					<td style="padding: 20px 40px 28px 40px; border-top: 1px solid #eef2f6;">
-						<p style="margin: 0; color: #94a3b8; font-size: 11px; line-height: 1.6; text-align: center;">
-							This is an automated message from ACES Zone. Please do not reply to this email.<br />
-							&copy; %d ACES Zone &mdash; Association of Computer Engineering Students, Uniuyo Chapter.%s
+					<td style="padding: 16px 40px 32px 40px;">
+						<p style="margin: 0; color: #64748b; font-size: 14px; line-height: 1.6;">
+							If you have any immediate technical questions or need further clarification regarding this update, please message the support or lodge a complaints.
+						</p>
+					</td>
+				</tr>
+				
+				<!-- Footer Section -->
+				<tr>
+					<td style="padding: 32px 40px; background-color: #f8fafc; border-top: 1px solid #f1f5f9;">
+						<p style="margin: 0 0 12px 0; color: #64748b; font-size: 12px; line-height: 1.6; text-align: center;">
+							This is an automated operational broadcast from the ACES Zone engine. Direct replies to this tracking address are unmonitored.
+						</p>
+						<p style="margin: 0; color: #94a3b8; font-size: 11px; line-height: 1.6; text-align: center; font-weight: 500;">
+							&copy; %d ACES Zone &mdash; Department of Computer Engineering, University of Uyo.%s
 						</p>
 					</td>
 				</tr>
@@ -175,6 +217,7 @@ func (s *NotificationServiceFull) buildNotificationEmailHTML(title, message, act
 	</tr>
 </table>`, logoURL, html.EscapeString(title), html.EscapeString(message), ctaBlock, year, unsubscribeBlock)
 }
+
 
 func categoryEmailAllowed(prefs db.NotificationPreference, category string) bool {
 	switch category {

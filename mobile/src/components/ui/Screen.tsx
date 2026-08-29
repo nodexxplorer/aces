@@ -2,6 +2,7 @@ import { ScrollView, View, StyleSheet, RefreshControl, type ScrollViewProps } fr
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing } from '../../theme/typography';
+import { TAB_BAR_FOOTPRINT } from '../FloatingTabBar';
 
 interface ScreenProps extends ScrollViewProps {
   scroll?: boolean;
@@ -25,17 +26,29 @@ export default function Screen({
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const topPadding = insets.top + spacing.xl;
+  // FloatingTabBar overlays every screen nested under (tabs) — including
+  // ones with no tab item of their own, like Profile — so the last bit of
+  // scrollable content needs enough clearance to not end up hidden under it.
+  // Screens outside (tabs) just get a bit of harmless extra bottom space.
+  const bottomPadding = insets.bottom + TAB_BAR_FOOTPRINT + spacing.md;
 
   if (!scroll) {
     return (
-      <View style={[styles.flex, { backgroundColor: theme.background, paddingTop: topPadding }]}>{children}</View>
+      <View
+        style={[
+          styles.flex,
+          { backgroundColor: theme.background, paddingTop: topPadding, paddingBottom: bottomPadding },
+        ]}
+      >
+        {children}
+      </View>
     );
   }
 
   return (
     <ScrollView
       style={[styles.flex, { backgroundColor: theme.background }]}
-      contentContainerStyle={[styles.content, { paddingTop: topPadding }, contentContainerStyle]}
+      contentContainerStyle={[styles.content, { paddingTop: topPadding, paddingBottom: bottomPadding }, contentContainerStyle]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         onRefresh ? (
@@ -53,7 +66,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing['4xl'],
     gap: spacing.lg,
   },
 });

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getMediaUrl } from '../../api/client';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
@@ -232,7 +233,11 @@ const LecturerManagementPage = () => {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           {l.avatar_url ? (
-                            <img src={l.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+                            <img
+                              src={getMediaUrl(l.avatar_url) ?? undefined}
+                              alt=""
+                              className="w-8 h-8 rounded-full object-cover"
+                            />
                           ) : (
                             <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-xs font-semibold text-primary-600 dark:text-primary-400">
                               {(l.full_name || '?')
@@ -526,7 +531,11 @@ const LecturerManagementPage = () => {
           <div className="space-y-5">
             <div className="flex items-center gap-4">
               {selectedLecturer.avatar_url ? (
-                <img src={selectedLecturer.avatar_url} alt="" className="w-16 h-16 rounded-full object-cover" />
+                <img
+                  src={getMediaUrl(selectedLecturer.avatar_url) ?? undefined}
+                  alt=""
+                  className="w-16 h-16 rounded-full object-cover"
+                />
               ) : (
                 <div className="w-16 h-16 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-xl font-bold text-primary-600 dark:text-primary-400">
                   {(selectedLecturer.full_name || '?')

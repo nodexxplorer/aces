@@ -1,20 +1,17 @@
 import { useState } from 'react';
-import { BookMarked, RotateCcw, FolderOpen } from 'lucide-react';
+import { BookMarked, FolderOpen } from 'lucide-react';
 import CourseRegistrationPage from './CourseRegistrationPage';
-import CarryoverPage from './CarryoverPage';
 import StudentCourseMaterialsPage from './CourseMaterialsPage';
 
-type Tab = 'register' | 'carryovers' | 'materials';
+type Tab = 'register' | 'materials';
 
 const TAB_FROM_PARAM: Record<string, Tab> = {
   register: 'register',
-  carryovers: 'carryovers',
   materials: 'materials',
 };
 
 const tabs: { key: Tab; label: string; icon: typeof BookMarked }[] = [
   { key: 'register', label: 'Course Registration', icon: BookMarked },
-  { key: 'carryovers', label: 'Carryovers', icon: RotateCcw },
   { key: 'materials', label: 'Course Materials', icon: FolderOpen },
 ];
 
@@ -28,7 +25,7 @@ export default function CoursesPage() {
       <div>
         <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Courses</h1>
         <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-          Register for courses, track carryovers, and access course materials.
+          Register for courses and access course materials.
         </p>
       </div>
 
@@ -50,7 +47,6 @@ export default function CoursesPage() {
       </div>
 
       {activeTab === 'register' && <CourseRegistrationPage />}
-      {activeTab === 'carryovers' && <CarryoverPage />}
       {activeTab === 'materials' && <StudentCourseMaterialsPage />}
     </div>
   );

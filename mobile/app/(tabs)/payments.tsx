@@ -6,6 +6,7 @@ import { useTheme } from '../../src/theme/ThemeProvider';
 import { fontFamily, fontSize, radius, spacing } from '../../src/theme/typography';
 import Screen from '../../src/components/ui/Screen';
 import Card from '../../src/components/ui/Card';
+import EmptyState from '../../src/components/ui/EmptyState';
 import Badge from '../../src/components/ui/Badge';
 import { useAuthStore } from '../../src/store/authStore';
 import { getMyDues, getStudentPayments, getStudentPaymentSummary, type DuePayment, type Payment } from '../../src/api/payments';
@@ -131,9 +132,7 @@ export default function PaymentsScreen() {
           ListEmptyComponent={
             !loading ? (
               <Card>
-                <Text style={{ color: theme.textMuted, fontFamily: fontFamily.regular, fontSize: fontSize.sm }}>
-                  No transactions yet.
-                </Text>
+                <EmptyState title="No transactions yet" description="Your payment history will show up here." />
               </Card>
             ) : null
           }

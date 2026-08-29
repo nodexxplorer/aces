@@ -3,6 +3,24 @@ import { getStoredAccessToken, getStoredRefreshToken, useAuthStore } from '../st
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8080/api/v1';
 
+// Uploaded files (avatars, etc.) are served from the API server's root
+// (e.g. /uploads/profile-photos/xyz.jpg), not under /api/v1 — strip that
+// suffix to get the plain server origin for building those URLs.
+const SERVER_ORIGIN = API_BASE_URL.replace(/\/api\/v\d+\/?$/, '');
+
+// The backend stores/returns upload paths as server-relative
+// (e.g. "/uploads/profile-photos/xyz.jpg"). A relative path like that
+// resolves fine in a browser (relative to the page's own origin) but is
+// meaningless to React Native's <Image> on a device — there's no "current
+// page" to resolve it against, so it silently fails to load. Every avatar/
+// upload URL from the API must go through this before being used as an
+// Image source.
+export function getMediaUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${SERVER_ORIGIN}${path.startsWith('/') ? '' : '/'}${path}`;
+}
+
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,

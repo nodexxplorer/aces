@@ -35,7 +35,7 @@ const DefaultersPage = () => {
     const csv = [
       'Matric Number,Name,Level,Unpaid Dues,Outstanding (₦)',
       ...filtered.map(
-        (d) => `${d.matric_number},${d.full_name},${d.level * 100},${d.unpaid_dues_count},${d.total_outstanding}`,
+        (d) => `${d.matric_number},${d.full_name},${d.level},${d.unpaid_dues_count},${d.total_outstanding}`,
       ),
     ].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -50,7 +50,7 @@ const DefaultersPage = () => {
   const columns = [
     { key: 'matric_number', label: 'Matric Number', sortable: true },
     { key: 'full_name', label: 'Student Name', sortable: true },
-    { key: 'level', label: 'Level', render: (val: unknown) => `${(val as number) * 100} Level` },
+    { key: 'level', label: 'Level', render: (val: unknown) => `${val as number} Level` },
     { key: 'unpaid_dues_count', label: 'Unpaid Dues' },
     { key: 'total_outstanding', label: 'Outstanding', render: (val: unknown) => formatCurrency(val as number) },
   ];

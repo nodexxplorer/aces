@@ -11,9 +11,9 @@ import { fontFamily, fontSize, radius, spacing } from '../theme/typography';
 import { WEB_ORIGIN } from '../config';
 import { haptics } from '../utils/haptics';
 import { getErrorMessage } from '../utils/errors';
-import { getCourses } from '../api/courses';
+import { getCourses, type Course } from '../api/courses';
+import { useAuthStore } from '../store/authStore';
 import {
-  getClassRepTimetable,
   listMyAttendanceSessions,
   createAttendanceSession,
   openAttendanceSession,
@@ -23,7 +23,6 @@ import {
   submitAttendanceSession,
   downloadAttendancePDF,
   checkInStudent,
-  type TimetableEntry,
   type AttendanceSession,
   type AttendanceCheckin,
   type RegisteredStudentAttendance,
@@ -54,9 +53,12 @@ function getStudentStatus(checkins: AttendanceCheckin[], userId: string): Status
 export default function ClassRepAttendance() {
   const { theme } = useTheme();
   const router = useRouter();
+  const userLevel = useAuthStore((s) => s.user?.level);
   const [loading, setLoading] = useState(true);
-  const [entries, setEntries] = useState<TimetableEntry[]>([]);
+  const [entries, setEntries] = useState<Course[]>([]);
   const [session, setSession] = useState<AttendanceSession | null>(null);
+  const [history, setHistory] = useState<AttendanceSession[]>([]);
+  const [historyBusyId, setHistoryBusyId] = useState<string | null>(null);
   const [roster, setRoster] = useState<RegisteredStudentAttendance[]>([]);
   const [checkins, setCheckins] = useState<AttendanceCheckin[]>([]);
   const [starting, setStarting] = useState<string | null>(null);
@@ -70,37 +72,14 @@ export default function ClassRepAttendance() {
 
   const load = useCallback(async () => {
     try {
-      const [ttRes, sessions] = await Promise.allSettled([getClassRepTimetable(), listMyAttendanceSessions()]);
+      const [coursesRes, sessions] = await Promise.allSettled([
+        getCourses({ level: userLevel ?? 400 }),
+        listMyAttendanceSessions(),
+      ]);
 
-      let level = 400;
-      let list: TimetableEntry[] = [];
-      if (ttRes.status === 'fulfilled') {
-        if (ttRes.value.level) level = ttRes.value.level;
-        if (ttRes.value.entries?.length > 0) list = ttRes.value.entries;
-      }
-
-      // Timetable entries are frequently empty in practice — fall back to
-      // the department's course list for the class rep's level so there's
-      // always a way to start a session, same fallback the web app uses.
-      if (list.length === 0) {
-        try {
-          const courses = await getCourses({ level });
-          const source = courses.length > 0 ? courses : await getCourses();
-          list = source.map((c) => ({
-            timetable_entry_id: c.id,
-            course_id: c.id,
-            course_code: c.code,
-            course_title: c.title,
-            lecturer_name: 'Department Lecturer',
-            venue: '',
-            day_of_week: null,
-            start_time: '',
-            end_time: '',
-            card_status: 'upcoming' as const,
-          }));
-        } catch {
-          // leave list empty — the empty state below handles it
-        }
+      let list: Course[] = [];
+      if (coursesRes.status === 'fulfilled') {
+        list = coursesRes.value.length > 0 ? coursesRes.value : await getCourses().catch(() => []);
       }
       setEntries(list);
 
@@ -110,8 +89,19 @@ export default function ClassRepAttendance() {
       // here was the bug: any old closed-but-unsubmitted session (even a
       // stale one from testing) would permanently take over this screen,
       // with no way back to course selection, QR, or the scanner.
-      const active = sessions.status === 'fulfilled' ? (sessions.value.find((s) => s.status === 'open') ?? null) : null;
+      // 'changes_requested' also reopens into this editable view — otherwise
+      // a session the lecturer bounced back has nowhere for the rep to fix
+      // the roster and resend it.
+      const active =
+        sessions.status === 'fulfilled'
+          ? (sessions.value.find((s) => s.status === 'open' || s.status === 'changes_requested') ?? null)
+          : null;
       setSession(active);
+      setHistory(
+        sessions.status === 'fulfilled'
+          ? sessions.value.filter((s) => s.status !== 'open' && s.status !== 'changes_requested')
+          : [],
+      );
       if (active) {
         const [rosterRes, checkinsRes] = await Promise.all([
           getRegisteredStudentsForAttendance(active.course_id),
@@ -125,7 +115,7 @@ export default function ClassRepAttendance() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userLevel]);
 
   useFocusEffect(
     useCallback(() => {
@@ -133,14 +123,14 @@ export default function ClassRepAttendance() {
     }, [load]),
   );
 
-  const handleStart = async (entry: TimetableEntry) => {
-    setStarting(entry.course_id);
+  const handleStart = async (entry: Course) => {
+    setStarting(entry.id);
     try {
-      const created = await createAttendanceSession(entry.course_id, method, venue || undefined);
+      const created = await createAttendanceSession(entry.id, method, venue || undefined);
       const opened = await openAttendanceSession(created.id);
       haptics.success();
       setSession(opened);
-      const rosterRes = await getRegisteredStudentsForAttendance(entry.course_id);
+      const rosterRes = await getRegisteredStudentsForAttendance(entry.id);
       setRoster(rosterRes.students ?? []);
       setCheckins([]);
     } catch (err) {
@@ -151,7 +141,7 @@ export default function ClassRepAttendance() {
   };
 
   const handleUpdateStatus = async (studentUserId: string, newStatus: StatusType) => {
-    if (!session || session.status !== 'open') return;
+    if (!session || (session.status !== 'open' && session.status !== 'changes_requested')) return;
     haptics.tap();
     const present = newStatus === 'present' || newStatus === 'late';
     const remark = newStatus === 'late' || newStatus === 'excused' ? newStatus : undefined;
@@ -179,8 +169,11 @@ export default function ClassRepAttendance() {
     if (!session) return;
     setBusy(true);
     try {
+      // Don't also close the session — that would overwrite the
+      // 'pending_lecturer_review' status this call just set, silently
+      // dropping it out of the lecturer's review queue. Closing only
+      // applies to the "print PDF instead" path below.
       await submitAttendanceSession(session.id);
-      await closeAttendanceSession(session.id);
       haptics.success();
       Alert.alert('Submitted', 'Attendance has been sent to your lecturer for review.');
       setSession(null);
@@ -212,6 +205,22 @@ export default function ClassRepAttendance() {
     }
   };
 
+  const handleDownloadHistoryPDF = async (sessionId: string) => {
+    setHistoryBusyId(sessionId);
+    try {
+      await downloadAttendancePDF(sessionId);
+    } catch (err) {
+      Alert.alert('Could Not Download PDF', getErrorMessage(err, 'Please try again'));
+    } finally {
+      setHistoryBusyId(null);
+    }
+  };
+
+  const courseLabel = (courseId: string) => {
+    const course = entries.find((e) => e.id === courseId);
+    return course ? { code: course.code, title: course.title } : { code: 'Course', title: '' };
+  };
+
   const filteredRoster = useMemo(() => {
     const q = search.trim().toLowerCase();
     return roster.filter((s) => {
@@ -231,6 +240,7 @@ export default function ClassRepAttendance() {
 
   if (!session) {
     return (
+      <View style={{ gap: spacing.lg }}>
       <Card style={{ gap: spacing.md }}>
         <Text style={[styles.title, { color: theme.text }]}>Start Attendance</Text>
 
@@ -273,15 +283,15 @@ export default function ClassRepAttendance() {
           <Text style={{ color: theme.textMuted }}>No courses found for your level right now.</Text>
         ) : (
           entries.map((entry) => (
-            <View key={entry.timetable_entry_id} style={[styles.entryRow, { borderColor: theme.divider }]}>
+            <View key={entry.id} style={[styles.entryRow, { borderColor: theme.divider }]}>
               <View style={styles.flex}>
-                <Text style={[styles.entryCode, { color: theme.text }]}>{entry.course_code}</Text>
-                <Text style={{ color: theme.textMuted, fontSize: fontSize.xs }}>{entry.course_title}</Text>
+                <Text style={[styles.entryCode, { color: theme.text }]}>{entry.code}</Text>
+                <Text style={{ color: theme.textMuted, fontSize: fontSize.xs }}>{entry.title}</Text>
               </View>
               <Button
                 label="Start"
                 size="sm"
-                loading={starting === entry.course_id}
+                loading={starting === entry.id}
                 disabled={starting !== null}
                 onPress={() => handleStart(entry)}
               />
@@ -289,10 +299,61 @@ export default function ClassRepAttendance() {
           ))
         )}
       </Card>
+
+      <Card style={{ gap: spacing.md }}>
+        <Text style={[styles.title, { color: theme.text }]}>Session History</Text>
+        {history.length === 0 ? (
+          <Text style={{ color: theme.textMuted }}>No past attendance sessions yet.</Text>
+        ) : (
+          history.map((h) => {
+            const { code, title } = courseLabel(h.course_id);
+            const statusColor =
+              h.status === 'approved'
+                ? theme.success
+                : h.status === 'rejected'
+                  ? theme.danger
+                  : h.status === 'changes_requested'
+                    ? theme.warning
+                    : theme.textMuted;
+            return (
+              <View key={h.id} style={[styles.historyRow, { borderColor: theme.divider }]}>
+                <View style={styles.flex}>
+                  <Text style={[styles.entryCode, { color: theme.text }]} numberOfLines={1}>
+                    {code}
+                  </Text>
+                  <Text style={{ color: theme.textMuted, fontSize: fontSize.xs }} numberOfLines={1}>
+                    {title}
+                  </Text>
+                  <Text style={{ color: theme.textFaint, fontSize: fontSize.xs, marginTop: 2 }}>
+                    {new Date(h.created_at).toLocaleDateString()} · {h.total_present}/{h.total_students} present
+                  </Text>
+                </View>
+                <View style={{ alignItems: 'flex-end', gap: spacing.xs }}>
+                  <Text style={{ color: statusColor, fontSize: fontSize.xs, fontFamily: fontFamily.semibold }}>
+                    {h.status.replace(/_/g, ' ')}
+                  </Text>
+                  <Pressable
+                    onPress={() => handleDownloadHistoryPDF(h.id)}
+                    disabled={historyBusyId === h.id}
+                    style={[
+                      styles.actionChip,
+                      { flex: 0, borderColor: theme.cardBorder, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+                    ]}
+                  >
+                    <Ionicons name="download-outline" size={14} color={theme.text} />
+                    <Text style={[styles.actionChipText, { color: theme.text }]}>PDF</Text>
+                  </Pressable>
+                </View>
+              </View>
+            );
+          })
+        )}
+      </Card>
+      </View>
     );
   }
 
-  const isOpen = session.status === 'open';
+  const isOpen = session.status === 'open' || session.status === 'changes_requested';
   const presentCount = roster.filter((s) => getStudentStatus(checkins, s.user_id) === 'present').length;
   const lateCount = roster.filter((s) => getStudentStatus(checkins, s.user_id) === 'late').length;
   const excusedCount = roster.filter((s) => getStudentStatus(checkins, s.user_id) === 'excused').length;
@@ -301,6 +362,17 @@ export default function ClassRepAttendance() {
 
   return (
     <View style={{ gap: spacing.lg }}>
+      {session.status === 'changes_requested' && (
+        <Card style={[styles.changesBanner, { borderColor: theme.warning, backgroundColor: theme.warningMuted }]}>
+          <Ionicons name="alert-circle" size={20} color={theme.warning} />
+          <View style={styles.flex}>
+            <Text style={[styles.changesBannerTitle, { color: theme.warning }]}>Your lecturer requested changes</Text>
+            <Text style={{ color: theme.textMuted, fontSize: fontSize.xs }}>
+              Fix the roster below, then send it back for review.
+            </Text>
+          </View>
+        </Card>
+      )}
       <View style={styles.statsGrid}>
         {[
           { label: 'Registered', value: roster.length, color: theme.text },
@@ -537,9 +609,28 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
   entryCode: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
+  },
+  changesBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    borderWidth: 1,
+  },
+  changesBannerTitle: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    marginBottom: 2,
   },
   statsGrid: {
     flexDirection: 'row',

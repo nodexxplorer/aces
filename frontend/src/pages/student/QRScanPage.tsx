@@ -2,51 +2,29 @@ import { useState } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import QRScanner from '../../components/ui/QRScanner';
-import { verifyManualQR } from '../../api/manuals';
 import { useNotification } from '../../hooks/useNotification';
-import { ScanLine, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
+import { ScanLine, XCircle, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { parseProfileScanUserId } from '../../utils/qr-scanner';
-import { getErrorMessage } from '../../utils/errors';
-
-// The manuals QR-verify endpoint's response shape isn't declared in
-// src/api/manuals.ts (it returns the raw axios `res.data`) — capture just
-// the fields this page reads from it.
-interface ManualQRVerifyResult {
-  message?: string;
-  student_name?: string;
-}
 
 export default function QRScanPage() {
   const navigate = useNavigate();
-  const { success, error: notifyError } = useNotification();
+  const { error: notifyError } = useNotification();
   const [scanning, setScanning] = useState(false);
-  const [lastResult, setLastResult] = useState<{
-    success: boolean;
-    message: string;
-    data?: ManualQRVerifyResult;
-  } | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   const handleScan = async (data: string) => {
     setScanning(false);
 
-    // A scanned student profile QR takes you straight to Connect instead of
-    // being treated as a manual-purchase verification code.
     const scannedUserId = parseProfileScanUserId(data);
     if (scannedUserId) {
       navigate(`/connect?scan=${scannedUserId}`);
       return;
     }
 
-    try {
-      const result = (await verifyManualQR(data)) as ManualQRVerifyResult;
-      setLastResult({ success: true, message: result.message || 'QR code verified successfully.', data: result });
-      success('QR Verified', result.message || 'Manual QR code verified.');
-    } catch (err: unknown) {
-      const msg = getErrorMessage(err, 'Invalid QR code');
-      setLastResult({ success: false, message: msg });
-      notifyError('Verification Failed', msg);
-    }
+    const msg = 'Not a recognized profile QR code.';
+    setLastError(msg);
+    notifyError('Scan Failed', msg);
   };
 
   return (
@@ -60,7 +38,7 @@ export default function QRScanPage() {
         </button>
         <div>
           <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Scan QR Code</h1>
-          <p className="text-sm text-surface-500 dark:text-surface-400">Scan a manual QR code to verify or enroll.</p>
+          <p className="text-sm text-surface-500 dark:text-surface-400">Scan a student's profile QR code to connect.</p>
         </div>
       </div>
 
@@ -74,7 +52,7 @@ export default function QRScanPage() {
             <Button
               onClick={() => {
                 setScanning(true);
-                setLastResult(null);
+                setLastError(null);
               }}
               leftIcon={<ScanLine className="w-4 h-4" />}
             >
@@ -91,26 +69,13 @@ export default function QRScanPage() {
         </div>
       </Card>
 
-      {lastResult && (
+      {lastError && (
         <Card>
-          <div
-            className={`p-4 flex items-start gap-3 ${lastResult.success ? 'bg-success-50 dark:bg-success-900/10' : 'bg-danger-50 dark:bg-danger-900/10'} rounded-xl`}
-          >
-            {lastResult.success ? (
-              <CheckCircle className="w-5 h-5 text-success-500 mt-0.5 shrink-0" />
-            ) : (
-              <XCircle className="w-5 h-5 text-danger-500 mt-0.5 shrink-0" />
-            )}
+          <div className="p-4 flex items-start gap-3 bg-danger-50 dark:bg-danger-900/10 rounded-xl">
+            <XCircle className="w-5 h-5 text-danger-500 mt-0.5 shrink-0" />
             <div>
-              <p
-                className={`text-sm font-medium ${lastResult.success ? 'text-success-700 dark:text-success-400' : 'text-danger-700 dark:text-danger-400'}`}
-              >
-                {lastResult.success ? 'Verified' : 'Failed'}
-              </p>
-              <p className="text-sm text-surface-600 dark:text-surface-400 mt-1">{lastResult.message}</p>
-              {lastResult.data?.student_name && (
-                <p className="text-xs text-surface-500 mt-1">Student: {lastResult.data.student_name}</p>
-              )}
+              <p className="text-sm font-medium text-danger-700 dark:text-danger-400">Failed</p>
+              <p className="text-sm text-surface-600 dark:text-surface-400 mt-1">{lastError}</p>
             </div>
           </div>
         </Card>

@@ -47,6 +47,7 @@ func main() {
 	server := api.NewServer(store, connPool, cfg)
 
 	go server.RunBirthdayScheduler(ctx)
+	go server.RunStudyTaskReminderScheduler(ctx)
 
 	srv := &http.Server{
 		Addr:         cfg.ServerAddress,

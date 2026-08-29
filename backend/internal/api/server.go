@@ -86,12 +86,9 @@ type Server struct {
 	announcements     *service.AnnouncementService
 	notifications     *service.NotificationService
 	notificationsFull *service.NotificationServiceFull
-	transcripts       *service.TranscriptService
 	analytics         *service.AnalyticsService
 	cgpa              *service.CGPAService
-	timetables        *service.TimetableService
 	roles             *service.RoleService
-	manuals           *service.ManualService
 	campusConnect     *service.CampusConnectService
 	alumni            *service.AlumniService
 	ai                *service.AIService
@@ -133,12 +130,9 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		announcements:     service.NewAnnouncementService(store),
 		notifications:     service.NewNotificationService(store),
 		notificationsFull: service.NewNotificationServiceFull(db.New(dbPool), hub, emailSender, pushSender, cfg.FrontendPublicURL),
-		transcripts:       service.NewTranscriptService(store),
 		analytics:         service.NewAnalyticsService(store),
 		cgpa:              service.NewCGPAService(store),
-		timetables:        service.NewTimetableService(store),
 		roles:             service.NewRoleService(store),
-		manuals:           service.NewManualService(store),
 		campusConnect:     service.NewCampusConnectService(store),
 		alumni:            service.NewAlumniService(store),
 		ai:                service.NewAIService(store, cfg),
@@ -428,16 +422,6 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		results.GET("/:id/audit-logs", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listResultAuditLogs)
 	}
 
-	carryovers := api.Group("/carryovers")
-	{
-		carryovers.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createCarryoverCourse)
-		carryovers.GET("/:id", server.getCarryoverCourse)
-		carryovers.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateCarryoverCourse)
-		carryovers.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteCarryoverCourse)
-		carryovers.GET("/student/:student_id", server.listStudentCarryoverCourses)
-		carryovers.GET("/student/:student_id/detailed", server.listStudentCarryoverCoursesDetailed)
-	}
-
 	notifications := api.Group("/notifications")
 	{
 		notifications.GET("/unread-count", server.getMyUnreadCount)
@@ -450,18 +434,6 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		notifications.PUT("/preferences", server.updateMyNotificationPreferences)
 		notifications.PUT("/push-token", server.updateMyPushToken)
 		notifications.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin", "class_rep"), server.createNotification)
-	}
-
-	timetables := api.Group("/timetable")
-	{
-		timetables.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createTimetableEntry)
-		timetables.GET("", server.listTimetableEntries)
-		timetables.GET("/conflicts", server.checkTimetableConflicts)
-		timetables.GET("/:id", server.getTimetableEntry)
-		timetables.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateTimetableEntry)
-		timetables.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteTimetableEntry)
-		timetables.POST("/publish", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.publishTimetable)
-		timetables.DELETE("/bulk", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.bulkDeleteTimetable)
 	}
 
 	payments := api.Group("/payments")
@@ -499,16 +471,6 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		payments.GET("/:id", server.getPayment)
 		payments.PUT("/:id/status", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.updatePaymentStatus)
 		payments.POST("/:id/verify", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.verifyPayment)
-	}
-
-	transcripts := api.Group("/transcript-requests")
-	{
-		transcripts.POST("", middleware.RequireRoles("student"), server.createTranscriptRequest)
-		transcripts.GET("/pending", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listPendingTranscriptRequests)
-		transcripts.GET("/student/:student_id", server.listStudentTranscriptRequests)
-		transcripts.GET("/:id", server.getTranscriptRequest)
-		transcripts.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateTranscriptRequest)
-		transcripts.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteTranscriptRequest)
 	}
 
 	profileUpdates := api.Group("/profile-update-requests")
@@ -566,34 +528,6 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		rolesGroup.POST("/promote", middleware.RequireRoles("hod", "admin"), server.promoteUser)
 		rolesGroup.GET("/promotions", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listPromotions)
 		rolesGroup.GET("/promotable-students", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listPromotableStudents)
-	}
-
-	// ── Manuals ──
-	manualsGroup := api.Group("/manuals")
-	{
-		// Catalog
-		manualsGroup.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin", "lecturer"), server.createManual)
-		manualsGroup.GET("", server.listManuals)
-		manualsGroup.GET("/:id", server.getManual)
-		manualsGroup.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateManual)
-		manualsGroup.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteManual)
-
-		// Student purchase flow
-		manualsGroup.POST("/:id/checkout", middleware.RequireRoles("student"), server.createManualPayment)
-		manualsGroup.POST("/purchase", middleware.RequireRoles("student"), server.purchaseManual)
-		manualsGroup.GET("/my-purchases", middleware.RequireRoles("student"), server.listMyPurchases)
-		manualsGroup.GET("/:id/cover", server.downloadManualCover)
-		manualsGroup.GET("/purchases/:id/receipt", server.downloadManualReceipt)
-
-		// Admin: bought list & print queue
-		manualsGroup.GET("/:id/purchases", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.listManualPurchasesByManual)
-		manualsGroup.GET("/:id/covers/bulk", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.bulkDownloadManualCovers)
-		manualsGroup.POST("/purchases/:id/collect", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.markManualCollected)
-
-		// QR scan & enrollment
-		manualsGroup.POST("/qr-verify", middleware.RequireRoles("student"), server.verifyManualQR)
-		manualsGroup.POST("/practical/enroll", middleware.RequireRoles("student"), server.enrollPractical)
-		manualsGroup.GET("/practicals", middleware.RequireRoles("student"), server.listMyPracticalEnrollments)
 	}
 
 	// ── Campus Connect ──
@@ -674,8 +608,6 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		classRep.GET("/list", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listClassReps)
 		classRep.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deactivateClassRep)
 
-		classRep.GET("/timetable", server.getClassRepTimetable)
-
 		// Attendance sessions — class_rep/staff only; "student" is deliberately
 		// excluded here (unlike /checkin below, which is legitimate self-service).
 		// A plain student must never be able to create, open, close, or view the
@@ -703,6 +635,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 	{
 		lecturers.GET("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listLecturers)
 		lecturers.GET("/attendance/pending", middleware.RequireRoles("lecturer", "hod", "admin"), server.getLecturerPendingAttendanceReviews)
+		lecturers.GET("/attendance/history", middleware.RequireRoles("lecturer", "hod", "admin"), server.getLecturerAttendanceHistory)
 		lecturers.GET("/attendance/overview", middleware.RequireRoles("lecturer", "hod", "admin"), server.getLecturerCourseAttendanceOverview)
 		lecturers.GET("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin", "lecturer"), server.getLecturerProfile)
 		lecturers.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateLecturerProfile)
@@ -777,22 +710,23 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		crfSigning.GET("/:id/download", server.downloadCRFSubmission)
 	}
 
+	// ── CRF backlog: paid catch-up submissions for old/unsigned course forms
+	// from past semesters, priced per-form at an admin-configurable rate.
+	crfBacklog := api.Group("/crf-backlog")
+	{
+		crfBacklog.GET("/price", server.getCRFBacklogPrice)
+		crfBacklog.PUT("/price", middleware.RequireRoles("hod", "delegated_admin", "admin"), server.updateCRFBacklogPrice)
+		crfBacklog.POST("/request", middleware.RequireRoles("student"), server.createCRFBacklogRequest)
+		crfBacklog.GET("/mine", middleware.RequireRoles("student"), server.getMyCRFBacklogStatus)
+		crfBacklog.POST("/upload", middleware.RequireRoles("student"), server.submitCRFBacklogForm)
+	}
+
 	// ── Security: Sessions ──
 	sessionsAPI := api.Group("/sessions/security")
 	{
 		sessionsAPI.GET("", server.getMyActiveSessions)
 		sessionsAPI.DELETE("/:id", server.revokeSession)
 		sessionsAPI.DELETE("", server.revokeAllSessions)
-	}
-
-	// ── Grade Appeals ──
-	appeals := api.Group("/grade-appeals")
-	{
-		appeals.POST("", middleware.RequireRoles("student"), server.createGradeAppeal)
-		appeals.GET("/my", middleware.RequireRoles("student"), server.listMyAppeals)
-		appeals.GET("/pending", middleware.RequireRoles("hod", "admin", "lecturer", "delegated_admin"), server.listPendingAppeals)
-		appeals.GET("/:id", server.getGradeAppeal)
-		appeals.PUT("/:id/status", middleware.RequireRoles("hod", "admin", "lecturer", "delegated_admin"), server.updateAppealStatus)
 	}
 
 	// ── Study Planner ──

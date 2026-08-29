@@ -9,6 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import Text from '../../../../src/components/ui/Text';
+import EmptyState from '../../../../src/components/ui/EmptyState';
 import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +20,7 @@ import { useAuthStore } from '../../../../src/store/authStore';
 import { useUnreadStore } from '../../../../src/store/unreadStore';
 import { useWebSocket, getChatSocketUrl } from '../../../../src/hooks/useWebSocket';
 import { getConversation, sendChatMessage, markMessageRead, type ChatMessage } from '../../../../src/api/connect';
+import { TAB_BAR_FOOTPRINT } from '../../../../src/components/FloatingTabBar';
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/);
@@ -136,9 +138,7 @@ export default function ChatScreen() {
           keyExtractor={(m) => m.id}
           contentContainerStyle={styles.messagesContent}
           ListEmptyComponent={
-            !loading ? (
-              <Text style={[styles.emptyText, { color: theme.textMuted }]}>No messages yet. Say hello!</Text>
-            ) : null
+            !loading ? <EmptyState title="No messages yet" description="Say hello!" /> : null
           }
           renderItem={({ item }) => {
             const isMine = item.sender_id === myId;
@@ -164,7 +164,14 @@ export default function ChatScreen() {
         <View
           style={[
             styles.inputRow,
-            { paddingBottom: insets.bottom + spacing.md, backgroundColor: theme.background, borderColor: theme.divider },
+            {
+              // The floating tab bar persists behind this stack screen (it's
+              // nested inside the (tabs) group), so the input needs enough
+              // clearance to sit above its raised center button, not under it.
+              paddingBottom: insets.bottom + TAB_BAR_FOOTPRINT + spacing.sm,
+              backgroundColor: theme.background,
+              borderColor: theme.divider,
+            },
           ]}
         >
           <TextInput

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, Award, CreditCard, Megaphone, Calendar, Clock, AlertTriangle, TrendingUp, Bell } from 'lucide-react';
+import { BookOpen, Award, CreditCard, Megaphone, AlertTriangle, TrendingUp, Bell } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import KpiCard from '../../components/data-display/KpiCard';
 import Card, { CardHeader, CardTitle } from '../../components/ui/Card';
@@ -42,17 +42,7 @@ const StudentDashboard = () => {
     );
   }
 
-  const {
-    student,
-    attendance,
-    payments,
-    next_class,
-    today_classes,
-    announcements,
-    recent_grades,
-    notifications,
-    carryovers,
-  } = data;
+  const { student, attendance, payments, announcements, recent_grades, notifications } = data;
 
   return (
     <div className="space-y-6">
@@ -92,75 +82,6 @@ const StudentDashboard = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {/* Next Class */}
-          {next_class && (
-            <Card className="border-l-4 border-primary-500">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-primary-500" />
-                  <CardTitle>Next Class</CardTitle>
-                </div>
-                <Badge variant="primary">{next_class.time_until}</Badge>
-              </CardHeader>
-              <div className="p-4 pt-0">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h4 className="font-semibold text-surface-900 dark:text-surface-100">
-                      {next_class.course_code} — {next_class.course_title}
-                    </h4>
-                    <p className="text-sm text-surface-500">
-                      {next_class.venue} · {next_class.start_time?.slice(0, 5)} – {next_class.end_time?.slice(0, 5)}
-                    </p>
-                  </div>
-                  {next_class.class_type && <Badge variant="secondary">{next_class.class_type}</Badge>}
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {/* Today's Classes */}
-          {today_classes && today_classes.length > 0 && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-primary-500" />
-                  <CardTitle>Today's Classes</CardTitle>
-                </div>
-                <span className="text-xs text-surface-400">{today_classes.length} classes</span>
-              </CardHeader>
-              <div className="space-y-2 p-4 pt-0">
-                {today_classes.map((c, i) => (
-                  <div
-                    key={i}
-                    className="flex justify-between items-center p-3 rounded-lg border border-surface-100 dark:border-surface-800 bg-white dark:bg-surface-900"
-                  >
-                    <div>
-                      <h5 className="font-semibold text-sm text-surface-900 dark:text-surface-100">{c.course_code}</h5>
-                      <p className="text-[10px] text-surface-500 truncate max-w-[180px]">{c.course_title}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-xs font-semibold text-primary-500">{c.start_time?.slice(0, 5)}</span>
-                      <p className="text-[10px] text-surface-400">{c.venue}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
-
-          {/* No classes today */}
-          {(!today_classes || today_classes.length === 0) && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-surface-400" />
-                  <CardTitle>Today's Classes</CardTitle>
-                </div>
-              </CardHeader>
-              <p className="text-center text-surface-400 text-sm py-6">No classes scheduled for today.</p>
-            </Card>
-          )}
-
           {/* Announcements */}
           <Card>
             <CardHeader>
@@ -215,12 +136,6 @@ const StudentDashboard = () => {
                   ₦{(payments?.amount_pending || 0).toLocaleString()}
                 </span>
               </div>
-              {carryovers > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-surface-500">Carryovers</span>
-                  <span className="font-semibold text-danger-500">{carryovers}</span>
-                </div>
-              )}
             </div>
           </Card>
 
@@ -256,11 +171,6 @@ const StudentDashboard = () => {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <div className="p-4 pt-0 space-y-2">
-              <Link to="/timetable" className="block">
-                <Button variant="outline" className="w-full justify-start" leftIcon={<Calendar className="w-4 h-4" />}>
-                  View Timetable
-                </Button>
-              </Link>
               <Link to="/payments" className="block">
                 <Button
                   variant="outline"

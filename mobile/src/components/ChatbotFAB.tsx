@@ -9,18 +9,36 @@ import {
   KeyboardAvoidingView,
   Platform,
   Linking,
+  useWindowDimensions,
   type StyleProp,
   type TextStyle,
 } from 'react-native';
 import Text from './ui/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  runOnJS,
+} from 'react-native-reanimated';
 import { useTheme } from '../theme/ThemeProvider';
 import { fontFamily, fontSize, radius, spacing } from '../theme/typography';
 import { haptics } from '../utils/haptics';
 import { sendChatMessage, getQuickActions, type QuickAction } from '../api/ai';
 import { WEB_ORIGIN } from '../config';
+import { TAB_BAR_FOOTPRINT } from './FloatingTabBar';
+
+const FAB_SIZE = 56;
+const EDGE_MARGIN = spacing.lg;
+// Clears FloatingTabBar's full floating footprint plus a small gap above it.
+const DEFAULT_BOTTOM_OFFSET = TAB_BAR_FOOTPRINT + spacing.md;
+// Below this total drag distance, a gesture is treated as a tap (open the
+// chat) rather than a reposition.
+const TAP_SLOP = 6;
 
 interface Message {
   id: string;
@@ -71,15 +89,12 @@ function newId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-// A handful of things the AI can talk about that only really work with a
-// mouse and a big screen (bulk uploads, admin dashboards, printing) — when
-// the reply mentions one, point the student at the website instead of
-// pretending the app can do it too.
 const WEB_ONLY_HINTS = ['bulk upload', 'admin dashboard', 'print', 'export', 'spreadsheet', 'csv'];
 
 export default function ChatbotFAB() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -88,6 +103,60 @@ export default function ChatbotFAB() {
   const sessionId = useRef(newId());
   const listRef = useRef<FlatList>(null);
   const scale = useSharedValue(1);
+
+  // Absolute screen position (top-left of the bubble) — resets to the
+  // default bottom-right spot on every mount, per product decision (no
+  // persisted drag position across app launches).
+  const defaultX = screenWidth - EDGE_MARGIN - FAB_SIZE;
+  const defaultY = screenHeight - insets.bottom - DEFAULT_BOTTOM_OFFSET - FAB_SIZE;
+  const posX = useSharedValue(defaultX);
+  const posY = useSharedValue(defaultY);
+  const dragStartX = useSharedValue(0);
+  const dragStartY = useSharedValue(0);
+
+  const openChat = () => {
+    haptics.select();
+    setOpen(true);
+  };
+
+  const panGesture = Gesture.Pan()
+    // Without this, Pan requires a small minimum finger movement before it
+    // "activates" — a true zero-movement tap can fail to activate at all,
+    // so onEnd (and the tap-to-open logic inside it) never fires.
+    .minDistance(0)
+    .onBegin(() => {
+      dragStartX.value = posX.value;
+      dragStartY.value = posY.value;
+      scale.value = withSpring(0.92);
+    })
+    .onUpdate((e) => {
+      posX.value = dragStartX.value + e.translationX;
+      posY.value = dragStartY.value + e.translationY;
+    })
+    .onEnd((e) => {
+      scale.value = withSpring(1);
+      const moved = Math.abs(e.translationX) > TAP_SLOP || Math.abs(e.translationY) > TAP_SLOP;
+      if (!moved) {
+        runOnJS(openChat)();
+        return;
+      }
+      // Clamp vertically so a drag can't strand the bubble under the status
+      // bar or behind the tab bar; snap horizontally to whichever edge it's
+      // closer to, chat-head style.
+      const minY = insets.top + spacing.lg;
+      const maxY = screenHeight - insets.bottom - FAB_SIZE - spacing.lg;
+      const clampedY = Math.min(Math.max(posY.value, minY), maxY);
+      const bubbleCenterX = posX.value + FAB_SIZE / 2;
+      const targetX = bubbleCenterX < screenWidth / 2 ? EDGE_MARGIN : screenWidth - EDGE_MARGIN - FAB_SIZE;
+
+      posX.value = withSpring(targetX, { damping: 16 });
+      posY.value = withSpring(clampedY, { damping: 16 });
+      runOnJS(haptics.tap)();
+    });
+
+  const fabAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: posX.value }, { translateY: posY.value }, { scale: scale.value }],
+  }));
 
   useEffect(() => {
     if (open && messages.length === 0) {
@@ -100,7 +169,7 @@ export default function ChatbotFAB() {
           role: 'assistant',
           content:
             "Hi! I'm your ACES Assistant. I can help with schedules, grades, dues, courses, and more — what do you need?",
-          suggestions: ['Check my grades', 'How to pay dues', 'Show my timetable'],
+          suggestions: ['Check my grades', 'How to pay dues'],
         },
       ]);
     }
@@ -139,19 +208,13 @@ export default function ChatbotFAB() {
 
   return (
     <>
-      <Animated.View style={[styles.fabWrap, { bottom: insets.bottom + 78 }, useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))]}>
-        <Pressable
-          onPressIn={() => (scale.value = withSpring(0.9))}
-          onPressOut={() => (scale.value = withSpring(1))}
-          onPress={() => {
-            haptics.select();
-            setOpen(true);
-          }}
-          style={[styles.fab, { backgroundColor: theme.primary }]}
-        >
-          <Ionicons name="sparkles" size={24} color={theme.onPrimary} />
-        </Pressable>
-      </Animated.View>
+      <GestureDetector gesture={panGesture}>
+        <Animated.View style={[styles.fabWrap, fabAnimatedStyle]}>
+          <View style={[styles.fab, { backgroundColor: theme.primary }]}>
+            <Ionicons name="sparkles" size={24} color={theme.onPrimary} />
+          </View>
+        </Animated.View>
+      </GestureDetector>
 
       <Modal visible={open} animationType="slide" onRequestClose={() => setOpen(false)}>
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -288,7 +351,8 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   fabWrap: {
     position: 'absolute',
-    right: spacing.lg,
+    top: 0,
+    left: 0,
     zIndex: 50,
   },
   fab: {

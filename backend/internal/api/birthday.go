@@ -69,7 +69,7 @@ func (server *Server) sendTodaysBirthdayGreetings(ctx context.Context) {
 			ctx,
 			s.ID,
 			"general",
-			"birthday",
+			"system",
 			"normal",
 			"🎉 Happy Birthday, "+s.FirstName+"!",
 			message,

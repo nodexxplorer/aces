@@ -9,14 +9,12 @@ import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRep
 import { useTheme } from '../src/theme/ThemeProvider';
 import { fontFamily, fontSize, radius, spacing } from '../src/theme/typography';
 import Button from '../src/components/ui/Button';
-import { verifyManualQR, type QRVerifyResult } from '../src/api/manuals';
 import { selfCheckIn } from '../src/api/attendance';
 import { haptics } from '../src/utils/haptics';
 import { PROFILE_SCAN_PARAM } from '../src/config';
 
 // Attendance check-in QR codes encode a plain URL (.../attendance/checkin?session=<id>) —
-// any stock camera app can open them. Manual QR codes encode an opaque
-// signed JSON payload instead. Same camera, same screen, branch on shape.
+// any stock camera app can open them.
 function extractAttendanceSessionId(data: string): string | null {
   if (!data.startsWith('http')) return null;
   try {
@@ -79,16 +77,16 @@ export default function ScanScreen() {
       return;
     }
 
+    if (!sessionId) {
+      haptics.error();
+      setResult({ ok: false, text: 'Not a recognized attendance or profile QR code.' });
+      return;
+    }
+
     try {
-      if (sessionId) {
-        await selfCheckIn(sessionId);
-        haptics.success();
-        setResult({ ok: true, text: 'You have been marked present.' });
-      } else {
-        const res: QRVerifyResult = await verifyManualQR(scan.data);
-        haptics.success();
-        setResult({ ok: true, text: res.message || 'Manual collection confirmed' });
-      }
+      await selfCheckIn(sessionId);
+      haptics.success();
+      setResult({ ok: true, text: 'You have been marked present.' });
     } catch (err: unknown) {
       haptics.error();
       const message =
@@ -115,7 +113,7 @@ export default function ScanScreen() {
         <Ionicons name="camera-outline" size={48} color={theme.textFaint} />
         <Text style={[styles.permTitle, { color: theme.text }]}>Camera access needed</Text>
         <Text style={[styles.permBody, { color: theme.textMuted }]}>
-          Scan manual, attendance, or student profile QR codes.
+          Scan attendance or student profile QR codes.
         </Text>
         <Button label="Grant Permission" onPress={requestPermission} size="lg" />
         <Pressable onPress={() => router.back()} style={{ marginTop: spacing.lg }}>
@@ -139,7 +137,7 @@ export default function ScanScreen() {
           <Ionicons name="close" size={24} color="#fff" />
         </Pressable>
         <Text style={styles.overlayTitle}>Scan QR Code</Text>
-        <Text style={styles.overlaySubtitle}>Scan a manual cover, attendance, or student profile QR code</Text>
+        <Text style={styles.overlaySubtitle}>Scan an attendance or student profile QR code</Text>
 
         <View style={styles.frameWrap}>
           <View style={styles.frame}>

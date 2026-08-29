@@ -1,3 +1,17 @@
+# Archived: GPA Predictor tab (frontend only)
+
+Removed the "GPA Predictor" tab from the GPA Tools page (`frontend/src/pages/student/GPAHubPage.tsx`), which left What-If Simulator and GPA Calculator. Backend endpoint (`getGPAPrediction` → `/predictions/gpa` or similar) and its route were NOT touched — only the frontend page and its dedicated types/API function (which had no other callers) were removed.
+
+## Restoration checklist
+
+1. Recreate `frontend/src/pages/student/GPAPredictionPage.tsx` from the snippet below.
+2. Re-add `GPAGrade`, `GPAPrediction`, `getGPAPrediction` to `frontend/src/api/predictions.ts`.
+3. Re-add the "GPA Predictor" tab, import, and render branch to `GPAHubPage.tsx`; restore `activeTab` default to `'prediction'` and the `TrendingUp` icon import if it's no longer used elsewhere in that file.
+
+## Deleted file
+
+### `frontend/src/pages/student/GPAPredictionPage.tsx`
+```tsx
 import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import KpiCard from '../../components/data-display/KpiCard';
@@ -152,3 +166,44 @@ const GPAPredictionPage = () => {
 };
 
 export default GPAPredictionPage;
+```
+
+## Removed from `frontend/src/api/predictions.ts`
+
+```ts
+export interface GPAGrade {
+  course_code: string;
+  credits: number;
+  total_score: number;
+  grade_points: number;
+  grade_letter: string;
+}
+
+export interface GPAPrediction {
+  student_id: string;
+  grades: GPAGrade[];
+  total_credits: number;
+  predicted_gpa: number;
+  total_courses: number;
+}
+```
+and:
+```ts
+export const getGPAPrediction = async () => {
+  const res = await apiClient.get('/predictions/gpa');
+  return unwrap<GPAPrediction>(res);
+};
+```
+
+## Removed from `frontend/src/pages/student/GPAHubPage.tsx`
+
+```tsx
+import GPAPredictionTab from './GPAPredictionPage';
+```
+```tsx
+  { id: 'prediction', label: 'GPA Predictor', icon: <TrendingUp className="w-4 h-4" /> },
+```
+```tsx
+            {activeTab === 'prediction' && <GPAPredictionTab />}
+```
+`activeTab` default state was `'prediction'`, changed to `'whatif'`.

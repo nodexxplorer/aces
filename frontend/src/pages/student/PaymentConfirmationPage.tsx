@@ -4,13 +4,11 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { CheckCircle, Clock, XCircle, ArrowLeft } from 'lucide-react';
 import { confirmMyPaymentByReference } from '../../api/payments';
-import { purchaseManual } from '../../api/manuals';
 import type { Payment } from '../../types';
 
 const PaymentConfirmationPage = () => {
   const [searchParams] = useSearchParams();
   const reference = searchParams.get('reference') || searchParams.get('trxref');
-  const manualId = searchParams.get('manual_id');
   const [status, setStatus] = useState<'loading' | 'success' | 'pending' | 'error'>('loading');
   const [payment, setPayment] = useState<Payment | null>(null);
 
@@ -25,18 +23,6 @@ const PaymentConfirmationPage = () => {
         const data = await confirmMyPaymentByReference(reference);
         setPayment(data);
         if (data?.status === 'completed') {
-          // The generic payment confirmation only marks the payment row
-          // completed — a manual purchase still needs its own record (QR
-          // code, print-queue entry) created via purchaseManual now that
-          // there's a completed payment behind it.
-          if (manualId) {
-            try {
-              await purchaseManual(manualId, data.id);
-            } catch {
-              // Already purchased (e.g. a retried/duplicate redirect) is fine;
-              // any other failure still leaves the payment itself completed.
-            }
-          }
           setStatus('success');
         } else if (data?.status === 'pending') {
           setStatus('pending');
@@ -49,7 +35,7 @@ const PaymentConfirmationPage = () => {
     };
 
     verify();
-  }, [reference, manualId]);
+  }, [reference]);
 
   const icons = {
     loading: null,

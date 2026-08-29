@@ -16,21 +16,17 @@ import {
   clearStudentCart,
   checkDuePaid,
 } from '../../api/payments';
-import { purchaseManual, checkoutManual } from '../../api/manuals';
-import { useCartStore } from '../../stores/cartStore';
 import type { CartItem } from '../../api/payments';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
 import { CreditCard, Download, ShoppingCart, Trash2, Plus, Loader2, Receipt, Search } from 'lucide-react';
 import type { Payment, DuePayment, PaymentStatus, PaymentType } from '../../types';
-import { getErrorMessage } from '../../utils/errors';
 
 const STATUS_OPTIONS: (PaymentStatus | 'all')[] = ['all', 'pending', 'completed', 'failed', 'refunded'];
 const TYPE_OPTIONS: (PaymentType | 'all')[] = [
   'all',
   'dept_dues',
   'class_dues',
-  'manual',
   'materials',
   'transcript_fee',
   'other',
@@ -38,7 +34,6 @@ const TYPE_OPTIONS: (PaymentType | 'all')[] = [
 const TYPE_LABELS: Record<string, string> = {
   dept_dues: 'Department Dues',
   class_dues: 'Class Dues',
-  manual: 'Manual/Book Purchase',
   materials: 'Course Materials',
   transcript_fee: 'Transcript Fee',
   other: 'Other',
@@ -62,18 +57,11 @@ const PaymentsPage = () => {
   const [cartLoading, setCartLoading] = useState(false);
   const [cartBusyId, setCartBusyId] = useState<string | null>(null);
   const [paidDueIds, setPaidDueIds] = useState<Set<string>>(new Set());
-  const [manualCheckoutBusy, setManualCheckoutBusy] = useState(false);
   const [txSearch, setTxSearch] = useState('');
   const [txStatusFilter, setTxStatusFilter] = useState<PaymentStatus | 'all'>('all');
   const [txTypeFilter, setTxTypeFilter] = useState<PaymentType | 'all'>('all');
 
-  const manualCartItems = useCartStore((s) => s.items);
-  const removeManualItem = useCartStore((s) => s.removeItem);
-  const clearManualCart = useCartStore((s) => s.clearCart);
-  const manualCartTotal = useCartStore((s) => s.getTotal);
-  const manualCartCount = useCartStore((s) => s.getItemCount);
-
-  const totalCartCount = cart.length + manualCartCount();
+  const totalCartCount = cart.length;
   // Dues already in the cart must be excluded from "add to cart" — the
   // backend's AddToCart is a plain INSERT with no uniqueness constraint on
   // (student_id, due_id), so without this a student could add the same due
@@ -178,77 +166,9 @@ const PaymentsPage = () => {
     }
   };
 
-  const handleManualCheckout = async () => {
-    if (manualCartItems.length === 0) return;
-    setManualCheckoutBusy(true);
-
-    // Free manuals can be purchased directly. Priced manuals need a Paystack
-    // checkout first — purchaseManual refuses them without a completed
-    // payment — and since a Paystack redirect navigates the whole page away,
-    // only one priced manual can be sent to checkout per click.
-    const freeItems = manualCartItems.filter((item) => !(item.manual.price > 0));
-    const pricedItems = manualCartItems.filter((item) => item.manual.price > 0);
-
-    let purchased = 0;
-    let failed = 0;
-    for (const item of freeItems) {
-      try {
-        await purchaseManual(item.manual.id);
-        removeManualItem(item.manual.id);
-        purchased++;
-      } catch (err: unknown) {
-        const msg = getErrorMessage(err, 'Purchase failed');
-        if (msg.includes('already purchased')) {
-          removeManualItem(item.manual.id);
-          purchased++;
-        } else {
-          failed++;
-        }
-      }
-    }
-
-    if (purchased > 0) {
-      success('Purchased', `${purchased} free manual(s) added to "My Manuals".`);
-    }
-    if (failed > 0) {
-      notifyError('Purchase Failed', `${failed} manual(s) failed to purchase.`);
-    }
-
-    if (pricedItems.length === 0) {
-      setManualCheckoutBusy(false);
-      return;
-    }
-
-    if (!user?.email) {
-      notifyError('Checkout Error', 'User email is required.');
-      setManualCheckoutBusy(false);
-      return;
-    }
-
-    const next = pricedItems[0];
-    try {
-      const res = await checkoutManual(next.manual.id, user.email);
-      if (res?.authorization_url) {
-        success(
-          'Redirecting',
-          pricedItems.length > 1
-            ? `Forwarding to Paystack for ${next.manual.title}. Check out the remaining ${pricedItems.length - 1} manual(s) afterward.`
-            : `Forwarding to Paystack for ${next.manual.title}...`,
-        );
-        window.location.href = res.authorization_url;
-        return;
-      }
-      notifyError('Checkout Error', 'No redirect URL returned.');
-    } catch (err: unknown) {
-      notifyError('Checkout Error', getErrorMessage(err, 'Unable to initiate gateway transaction.'));
-    }
-
-    setManualCheckoutBusy(false);
-  };
-
   const dueLookup = new Map(dues.map((d) => [d.id, d]));
   const duesCartTotal = cart.reduce((sum, item) => sum + Number(item.amount), 0);
-  const combinedCartTotal = duesCartTotal + manualCartTotal();
+  const combinedCartTotal = duesCartTotal;
 
   // Mirrors the search + status/type filter + sortable table design from the
   // now-retired standalone student payment-history page.
@@ -511,7 +431,7 @@ const PaymentsPage = () => {
           )}
 
           {/* Unified Cart */}
-          {(cart.length > 0 || manualCartCount() > 0) && (
+          {cart.length > 0 && (
             <Card>
               <CardHeader>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -524,10 +444,7 @@ const PaymentsPage = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      handleClearCart();
-                      clearManualCart();
-                    }}
+                    onClick={handleClearCart}
                     leftIcon={<Trash2 className="w-4 h-4" />}
                   >
                     Clear All
@@ -584,36 +501,12 @@ const PaymentsPage = () => {
                         </tr>
                       );
                     })}
-                    {manualCartItems.map((item) => (
-                      <tr key={item.manual.id} className="border-b border-surface-100 dark:border-surface-800">
-                        <td className="px-4 py-3 font-medium text-surface-900 dark:text-white">{item.manual.title}</td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                            Manual
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-surface-700 dark:text-surface-300">
-                          {formatCurrency(item.manual.price)}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <Button
-                            size="xs"
-                            variant="danger"
-                            leftIcon={<Trash2 className="w-3.5 h-3.5" />}
-                            onClick={() => removeManualItem(item.manual.id)}
-                          >
-                            Remove
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
                   </tbody>
                 </table>
               </div>
               <div className="flex items-center justify-between p-4 border-t border-surface-200 dark:border-surface-700 flex-wrap gap-3">
                 <div className="text-sm text-surface-700 dark:text-surface-300 space-y-0.5">
                   {cart.length > 0 && <div>Dues: {formatCurrency(duesCartTotal)}</div>}
-                  {manualCartCount() > 0 && <div>Manuals: {formatCurrency(manualCartTotal())}</div>}
                   <div className="font-semibold">Total: {formatCurrency(combinedCartTotal)}</div>
                 </div>
                 <div className="flex gap-2 flex-wrap">
@@ -642,38 +535,18 @@ const PaymentsPage = () => {
                       Pay Dues ({cart.length})
                     </Button>
                   )}
-                  {manualCartCount() > 0 && (
-                    <Button
-                      leftIcon={
-                        manualCheckoutBusy ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <CreditCard className="w-4 h-4" />
-                        )
-                      }
-                      onClick={handleManualCheckout}
-                      disabled={manualCheckoutBusy}
-                    >
-                      {manualCheckoutBusy ? 'Processing...' : `Get Manuals (${manualCartCount()})`}
-                    </Button>
-                  )}
                 </div>
               </div>
             </Card>
           )}
 
           {/* Empty state */}
-          {cart.length === 0 && manualCartCount() === 0 && !cartLoading && (
+          {cart.length === 0 && !cartLoading && (
             <Card>
               <div className="text-center py-12">
                 <ShoppingCart className="w-10 h-10 mx-auto mb-3 text-surface-300 dark:text-surface-600" />
                 <p className="text-sm text-surface-500">Your cart is empty.</p>
-                <p className="text-xs text-surface-400 mt-1">
-                  Add dues from the list above or browse manuals to add items.
-                </p>
-                <a href="/manuals" className="mt-3 inline-block text-sm text-primary-600 hover:underline">
-                  Browse Manuals
-                </a>
+                <p className="text-xs text-surface-400 mt-1">Add dues from the list above.</p>
               </div>
             </Card>
           )}

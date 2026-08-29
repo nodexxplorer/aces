@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -408,6 +410,14 @@ func (server *Server) submitRegistration(ctx *gin.Context) {
 		return
 	}
 
+	if unpaid, err := unpaidRequiredDues(ctx, server.store, student.ID, student.Level); err == nil && len(unpaid) > 0 {
+		ctx.JSON(http.StatusForbidden, gin.H{
+			"error":       "you must pay your outstanding dues before registering for courses",
+			"unpaid_dues": unpaid,
+		})
+		return
+	}
+
 	sessionID, err := uuid.Parse(req.SessionID)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid session_id"})
@@ -486,6 +496,45 @@ func (server *Server) submitRegistration(ctx *gin.Context) {
 			return
 		}
 		registeredCourses = append(registeredCourses, rc)
+	}
+
+	if server.notificationsFull != nil {
+		go func(studentUserID uuid.UUID, level int32, regID uuid.UUID) {
+			bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			reps, err := server.store.ListActiveClassRepAssignments(bgCtx)
+			if err != nil {
+				log.Printf("[registration-notif] failed to list class reps: %v", err)
+				return
+			}
+
+			studentUser, err := server.store.GetUser(bgCtx, studentUserID)
+			studentName := "A student"
+			if err == nil {
+				studentName = studentUser.FullName
+			}
+
+			entType := "course_registration"
+			for _, rep := range reps {
+				if rep.Level != level || rep.ClassRepID == studentUserID {
+					continue
+				}
+				server.notifyUser(
+					bgCtx,
+					rep.ClassRepID,
+					"course_registration_pending",
+					"results",
+					"normal",
+					"Course Registration Awaiting Review",
+					fmt.Sprintf("%s submitted a course registration for review.", studentName),
+					"/class-rep/pending",
+					"Review Registrations",
+					&entType,
+					&regID,
+				)
+			}
+		}(userID, student.Level, registration.ID)
 	}
 
 	ctx.JSON(http.StatusCreated, gin.H{

@@ -4,6 +4,20 @@ import { useAuthStore } from '../stores/authStore';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const API_PREFIX = '/api/v1';
 
+// The backend stores/returns upload paths as server-relative
+// (e.g. "/uploads/profile-photos/xyz.jpg"), meant to be resolved against the
+// API host, not wherever the frontend happens to be served from. On
+// localhost dev this "works" by accident since nothing else claims
+// /uploads, but in production the frontend's own SPA rewrite (see
+// vercel.json's catch-all) intercepts a bare "/uploads/..." <img src> and
+// serves index.html instead of the image. Every upload URL from the API
+// must go through this before being used as an <img>/background-image src.
+export function getMediaUrl(path?: string | null): string | null {
+  if (!path) return null;
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${API_BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+}
+
 const apiClient = axios.create({
   baseURL: API_BASE_URL + API_PREFIX,
   timeout: 15000,
