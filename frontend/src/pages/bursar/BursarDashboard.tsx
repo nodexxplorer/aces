@@ -3,6 +3,7 @@ import Card, { CardHeader, CardTitle, CardDescription } from '../../components/u
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
+import EmptyState from '../../components/ui/EmptyState';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
 import { formatCurrency, formatDateTime } from '../../utils/formatters';
@@ -15,7 +16,6 @@ import {
   TrendingUp,
   AlertTriangle,
   Clock,
-  CreditCard,
   RefreshCw,
   CheckCircle,
   Loader2,
@@ -282,11 +282,7 @@ const BursarDashboard = () => {
                 <Loader2 className="w-6 h-6 animate-spin text-surface-400" />
               </div>
             ) : filteredPending.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <CheckCircle className="w-10 h-10 text-success-400 mb-2" />
-                <p className="text-sm font-medium text-surface-600 dark:text-surface-300">All clear</p>
-                <p className="text-xs text-surface-400 dark:text-surface-500">No pending verifications</p>
-              </div>
+              <EmptyState title="All clear" description="No pending verifications" />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -374,11 +370,7 @@ const BursarDashboard = () => {
                 <Loader2 className="w-6 h-6 animate-spin text-surface-400" />
               </div>
             ) : (data?.recent_payments ?? []).length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <CreditCard className="w-10 h-10 text-surface-300 dark:text-surface-600 mb-2" />
-                <p className="text-sm font-medium text-surface-600 dark:text-surface-300">No transactions yet</p>
-                <p className="text-xs text-surface-400 dark:text-surface-500">Transactions will appear here</p>
-              </div>
+              <EmptyState title="No transactions yet" description="Transactions will appear here" />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">

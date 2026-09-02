@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
+import EmptyState from '../../components/ui/EmptyState';
 import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
 import { getCourses } from '../../api/courses';
@@ -590,16 +591,20 @@ const AdminCourseRegistrationsPage = () => {
                     <span className="text-xs text-surface-500">Loading course roster...</span>
                   </div>
                 ) : registeredCourses.length === 0 ? (
-                  <div className="text-center py-8 border border-dashed border-surface-200 dark:border-surface-700 rounded-lg">
-                    <p className="text-xs text-surface-400 mb-3">No courses added to this registration yet.</p>
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      leftIcon={<Plus className="w-3.5 h-3.5" />}
-                      onClick={() => setIsAddCourseModalOpen(true)}
-                    >
-                      Add First Course
-                    </Button>
+                  <div className="border border-dashed border-surface-200 dark:border-surface-700 rounded-lg">
+                    <EmptyState
+                      title="No courses added to this registration yet."
+                      action={
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          leftIcon={<Plus className="w-3.5 h-3.5" />}
+                          onClick={() => setIsAddCourseModalOpen(true)}
+                        >
+                          Add First Course
+                        </Button>
+                      }
+                    />
                   </div>
                 ) : (
                   <div className="overflow-x-auto">

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import Button from '../../components/ui/Button';
+import EmptyState from '../../components/ui/EmptyState';
 import { useNotification } from '../../hooks/useNotification';
 import {
   Megaphone,
@@ -348,7 +349,7 @@ const AnnouncementsManagePage = () => {
             {templateDropdownOpen && (
               <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-lg shadow-lg z-50 py-1">
                 {templates.length === 0 ? (
-                  <div className="px-4 py-3 text-sm text-surface-500">No templates available</div>
+                  <EmptyState title="No templates available" className="py-3" />
                 ) : (
                   templates.map((t) => (
                     <button
@@ -449,9 +450,8 @@ const AnnouncementsManagePage = () => {
             <span className="ml-2 text-sm text-surface-500">Loading announcements...</span>
           </div>
         ) : announcements.length === 0 ? (
-          <div className="bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl p-16 text-center">
-            <Megaphone className="w-10 h-10 mx-auto text-surface-300 dark:text-surface-600 mb-3" />
-            <p className="text-sm text-surface-500 dark:text-surface-400">No announcements found</p>
+          <div className="bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl">
+            <EmptyState title="No announcements found" />
           </div>
         ) : (
           announcements.map((ann) => (

@@ -1,0 +1,1 @@
+ALTER TABLE groups ADD COLUMN invite_code VARCHAR(12) UNIQUE;

@@ -6,6 +6,7 @@ import {
   deleteGPAScenario,
   type GPAScenario,
 } from '../../api/additional-features';
+import EmptyState from '../../components/ui/EmptyState';
 
 interface CourseRow {
   id: string;
@@ -291,11 +292,7 @@ export default function GPACalculatorPage() {
               Saved Scenarios
             </h2>
             {savedScenarios.length === 0 ? (
-              <div className="text-center py-12 text-surface-400 dark:text-surface-500">
-                <Calculator className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p className="text-sm">No saved scenarios yet.</p>
-                <p className="text-xs mt-1">Enter courses above and save a scenario.</p>
-              </div>
+              <EmptyState title="No saved scenarios yet." description="Enter courses above and save a scenario." />
             ) : (
               <div className="space-y-3">
                 {savedScenarios.map((scenario) => (

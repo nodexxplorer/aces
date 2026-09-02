@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
+import EmptyState from '../../components/ui/EmptyState';
 import { getLecturerDashboardStats } from '../../api/lecturers';
 import type { LecturerDashboardStats } from '../../api/lecturers';
 import { useNotification } from '../../hooks/useNotification';
 import { Link } from 'react-router-dom';
-import { BookOpen, Users, ClipboardList, FileClock, Calendar, Loader2 } from 'lucide-react';
+import { BookOpen, Users, ClipboardList, FileClock, Loader2 } from 'lucide-react';
 
 const LecturerDashboard = () => {
   const { user } = useAuth();
@@ -100,11 +101,11 @@ const LecturerDashboard = () => {
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    <Link to="/lecturer/grades">
+                    {/* <Link to="/lecturer/grades">
                       <Button size="xs" variant="outline" leftIcon={<ClipboardList className="w-3.5 h-3.5" />}>
                         Enter Grades
                       </Button>
-                    </Link>
+                    </Link> */}
                     <Link to="/lecturer/class-list">
                       <Button size="xs" variant="outline" leftIcon={<Users className="w-3.5 h-3.5" />}>
                         Class List
@@ -113,11 +114,7 @@ const LecturerDashboard = () => {
                   </div>
                 </div>
               ))}
-              {stats?.assignments.length === 0 && (
-                <p className="py-4 text-sm text-surface-500 dark:text-surface-400 text-center">
-                  No course assignments found.
-                </p>
-              )}
+              {stats?.assignments.length === 0 && <EmptyState title="No course assignments found." className="py-4" />}
             </div>
           </Card>
         </div>
@@ -128,7 +125,7 @@ const LecturerDashboard = () => {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <div className="p-4 pt-0 space-y-3">
-              <Link to="/lecturer/grades" className="block">
+              {/* <Link to="/lecturer/grades" className="block">
                 <Button variant="outline" className="w-full justify-start" leftIcon={<Calendar className="w-4 h-4" />}>
                   Bulk Upload Grades
                 </Button>
@@ -141,7 +138,7 @@ const LecturerDashboard = () => {
                 >
                   Grading Assignments
                 </Button>
-              </Link>
+              </Link> */}
               <Link to="/lecturer/class-list" className="block">
                 <Button variant="outline" className="w-full justify-start" leftIcon={<Users className="w-4 h-4" />}>
                   View Class List

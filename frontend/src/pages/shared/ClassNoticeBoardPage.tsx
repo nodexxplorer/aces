@@ -7,6 +7,7 @@ import {
   type ClassNotice,
 } from '../../api/additional-features';
 import { useAuthStore } from '../../stores/authStore';
+import EmptyState from '../../components/ui/EmptyState';
 
 export default function ClassNoticeBoardPage() {
   const { user } = useAuthStore();
@@ -120,7 +121,7 @@ export default function ClassNoticeBoardPage() {
               {loadingComments ? (
                 <p className="text-xs text-surface-400 py-2">Loading comments...</p>
               ) : comments.length === 0 ? (
-                <p className="text-xs text-surface-400 py-2">No comments yet. Be the first to comment.</p>
+                <EmptyState title="No comments yet. Be the first to comment." className="py-2" />
               ) : (
                 <div className="space-y-3">
                   {comments.map((c, i) => (
@@ -190,9 +191,8 @@ export default function ClassNoticeBoardPage() {
             <p className="text-sm text-red-500">{error}</p>
           </div>
         ) : notices.length === 0 ? (
-          <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 p-8 text-center">
-            <Megaphone className="w-10 h-10 text-surface-300 dark:text-surface-600 mx-auto mb-3" />
-            <p className="text-sm text-surface-500 dark:text-surface-400">No notices posted yet.</p>
+          <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800">
+            <EmptyState title="No notices posted yet." />
           </div>
         ) : (
           <div className="space-y-6">

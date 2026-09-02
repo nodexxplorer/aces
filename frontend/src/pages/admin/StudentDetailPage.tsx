@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import EmptyState from '../../components/ui/EmptyState';
 import { getUser } from '../../api/users';
 import { getStudentResults } from '../../api/results';
 import { useNotification } from '../../hooks/useNotification';
@@ -209,7 +210,7 @@ const StudentDetailPage = () => {
               <span className="ml-2 text-sm text-surface-500">Loading results...</span>
             </div>
           ) : results.length === 0 ? (
-            <p className="text-sm text-surface-500 text-center py-6">No results recorded yet.</p>
+            <EmptyState title="No results recorded yet." />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

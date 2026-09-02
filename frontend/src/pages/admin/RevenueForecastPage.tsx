@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
+import EmptyState from '../../components/ui/EmptyState';
 import KpiCard from '../../components/data-display/KpiCard';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { getRevenueForecast } from '../../api/predictions';
@@ -19,8 +20,13 @@ const RevenueForecastPage = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" /></div>;
-  if (!data) return <div className="text-center py-12 text-surface-500">No revenue data available</div>;
+  if (loading)
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  if (!data) return <EmptyState title="No revenue data available" />;
 
   const chartData = [
     { name: 'Collected', value: data.total_collected, fill: '#22c55e' },
@@ -38,10 +44,26 @@ const RevenueForecastPage = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <KpiCard title="Total Collected" value={formatNaira(data.total_collected)} icon={<DollarSign className="w-5 h-5" />} />
-        <KpiCard title="Projected Next Month" value={formatNaira(data.projected_next_month)} icon={<TrendingUp className="w-5 h-5" />} />
-        <KpiCard title="Collection Rate" value={`${data.collection_rate.toFixed(1)}%`} icon={<PieChart className="w-5 h-5" />} />
-        <KpiCard title="Total Expected" value={formatNaira(data.total_expected)} icon={<Target className="w-5 h-5" />} />
+        <KpiCard
+          title="Total Collected"
+          value={formatNaira(data.total_collected)}
+          icon={<DollarSign className="w-5 h-5" />}
+        />
+        <KpiCard
+          title="Projected Next Month"
+          value={formatNaira(data.projected_next_month)}
+          icon={<TrendingUp className="w-5 h-5" />}
+        />
+        <KpiCard
+          title="Collection Rate"
+          value={`${data.collection_rate.toFixed(1)}%`}
+          icon={<PieChart className="w-5 h-5" />}
+        />
+        <KpiCard
+          title="Total Expected"
+          value={formatNaira(data.total_expected)}
+          icon={<Target className="w-5 h-5" />}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -90,8 +112,12 @@ const RevenueForecastPage = () => {
               <span className="font-semibold">{formatNaira(data.semester_total)}</span>
             </div>
             <div className="flex justify-between items-center p-3 rounded-lg bg-primary-50 dark:bg-primary-950/20 border border-primary-200 dark:border-primary-800">
-              <span className="text-sm font-medium text-primary-700 dark:text-primary-400">AI Projected Next Month</span>
-              <span className="font-bold text-primary-600 dark:text-primary-300">{formatNaira(data.projected_next_month)}</span>
+              <span className="text-sm font-medium text-primary-700 dark:text-primary-400">
+                AI Projected Next Month
+              </span>
+              <span className="font-bold text-primary-600 dark:text-primary-300">
+                {formatNaira(data.projected_next_month)}
+              </span>
             </div>
           </div>
         </Card>

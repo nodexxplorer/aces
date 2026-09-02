@@ -8,6 +8,7 @@ import {
   getAIStudyPlan,
   type StudyTask,
 } from '../../api/additional-features';
+import EmptyState from '../../components/ui/EmptyState';
 
 type Priority = 'high' | 'medium' | 'low';
 type Status = 'pending' | 'in_progress' | 'completed';
@@ -225,21 +226,20 @@ export default function StudyPlannerPage() {
       </div>
 
       {filteredTasks.length === 0 ? (
-        <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm p-12 text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-surface-100 dark:bg-surface-800 flex items-center justify-center">
-            <Calendar className="w-8 h-8 text-surface-400" />
-          </div>
-          <h3 className="text-lg font-semibold text-surface-900 dark:text-white mb-1">No tasks yet</h3>
-          <p className="text-sm text-surface-500 dark:text-surface-400 mb-4">
-            Create your first study task to start organizing your workflow.
-          </p>
-          <button
-            onClick={() => setShowModal(true)}
-            className="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-xl font-medium transition-colors inline-flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            New Task
-          </button>
+        <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm">
+          <EmptyState
+            title="No tasks yet"
+            description="Create your first study task to start organizing your workflow."
+            action={
+              <button
+                onClick={() => setShowModal(true)}
+                className="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-xl font-medium transition-colors inline-flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                New Task
+              </button>
+            }
+          />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

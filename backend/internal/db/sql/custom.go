@@ -65,7 +65,7 @@ type StudentAttendanceSummaryRow struct {
 	Attended     int32
 }
 
-func (q *Queries) GetStudentAttendanceSummary(ctx context.Context, studentID, userID, semesterID uuid.UUID) (StudentAttendanceSummaryRow, error) {
+func (q *Queries) GetStudentAttendanceSummary(ctx context.Context, studentID, userID, semesterID uuid.UUID, semStart, semEnd time.Time) (StudentAttendanceSummaryRow, error) {
 	var i StudentAttendanceSummaryRow
 	err := q.db.QueryRow(ctx, `
 		WITH my_courses AS (
@@ -78,14 +78,19 @@ func (q *Queries) GetStudentAttendanceSummary(ctx context.Context, studentID, us
 			SELECT asess.id
 			FROM attendance_sessions asess
 			JOIN my_courses mc ON mc.course_id = asess.course_id
-			WHERE asess.semester_id = $3 AND `+attendanceSessionCountedStatusesSQL+`
+			-- attendance_sessions.semester_id is never populated at session
+			-- creation time (always NULL in practice), so filtering on it here
+			-- silently zeroed out every student's count. Match by date range
+			-- against the semester instead, same as
+			-- GetStudentCourseAttendanceOverview already does correctly.
+			WHERE asess.created_at BETWEEN $4 AND $5 AND `+attendanceSessionCountedStatusesSQL+`
 		)
 		SELECT
 			(SELECT COUNT(*) FROM my_sessions)::int AS total_classes,
 			(SELECT COUNT(*) FROM attendance_checkins ac
 			 JOIN my_sessions ms ON ms.id = ac.session_id
 			 WHERE ac.student_id = $2 AND ac.present = true)::int AS attended
-	`, studentID, userID, semesterID).Scan(&i.TotalClasses, &i.Attended)
+	`, studentID, userID, semesterID, semStart, semEnd).Scan(&i.TotalClasses, &i.Attended)
 	return i, err
 }
 
@@ -2322,4 +2327,182 @@ func (q *Queries) IncrementCRFBacklogFormsSubmitted(ctx context.Context, id uuid
 		id,
 	)
 	return scanCRFBacklogRequest(row)
+}
+
+// EnsureGroupInviteCode returns a group's short invite code, generating and
+// persisting one on first use — the raw group UUID makes for an unwieldy
+// share link, so invite links use this short code instead.
+func (q *Queries) EnsureGroupInviteCode(ctx context.Context, groupID uuid.UUID) (string, error) {
+	var existing *string
+	if err := q.db.QueryRow(ctx, `SELECT invite_code FROM groups WHERE id = $1`, groupID).Scan(&existing); err != nil {
+		return "", err
+	}
+	if existing != nil && *existing != "" {
+		return *existing, nil
+	}
+
+	for attempt := 0; attempt < 5; attempt++ {
+		b := make([]byte, 4)
+		if _, err := rand.Read(b); err != nil {
+			return "", err
+		}
+		code := hex.EncodeToString(b)
+		if _, err := q.db.Exec(ctx, `UPDATE groups SET invite_code = $2 WHERE id = $1`, groupID, code); err != nil {
+			continue // likely a unique constraint collision — try another code
+		}
+		return code, nil
+	}
+	return "", fmt.Errorf("failed to generate a unique invite code")
+}
+
+type GroupByCodeRow struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Description *string   `json:"description"`
+	AvatarUrl   *string   `json:"avatar_url"`
+	IsPrivate   bool      `json:"is_private"`
+	MemberCount int64     `json:"member_count"`
+}
+
+func (q *Queries) GetGroupByInviteCode(ctx context.Context, code string) (GroupByCodeRow, error) {
+	var r GroupByCodeRow
+	err := q.db.QueryRow(ctx, `
+		SELECT g.id, g.name, g.description, g.avatar_url, g.is_private,
+			(SELECT COUNT(*) FROM group_members WHERE group_id = g.id) AS member_count
+		FROM groups g
+		WHERE g.invite_code = $1
+	`, code).Scan(&r.ID, &r.Name, &r.Description, &r.AvatarUrl, &r.IsPrivate, &r.MemberCount)
+	return r, err
+}
+
+// GetGroupMemberRole returns the caller's role in a group ("admin",
+// "moderator", "member") or sql.ErrNoRows if they aren't a member at all —
+// used to gate admin-only actions like adding other members.
+func (q *Queries) GetGroupMemberRole(ctx context.Context, groupID, userID uuid.UUID) (string, error) {
+	var role string
+	err := q.db.QueryRow(ctx, `
+		SELECT role FROM group_members WHERE group_id = $1 AND user_id = $2
+	`, groupID, userID).Scan(&role)
+	return role, err
+}
+
+// ==================== CONNECT: CONVERSATION PREVIEWS ====================
+// Neither ListUserConnections nor ListUserGroups join in each thread's most
+// recent message, which the redesigned Connect page's list panels need
+// (name + last message snippet + timestamp, like any real chat app). These
+// two queries add that via a LATERAL join instead of touching the sqlc
+// generated files.
+
+type DMConversationRow struct {
+	ConnectionID      uuid.UUID          `json:"connection_id"`
+	OtherUserID       uuid.UUID          `json:"other_user_id"`
+	OtherFullName     string             `json:"other_full_name"`
+	OtherAvatarUrl    *string            `json:"other_avatar_url"`
+	LastMessage       *string            `json:"last_message"`
+	LastMessageAt     pgtype.Timestamptz `json:"last_message_at"`
+	LastMessageMine   bool               `json:"last_message_mine"`
+	UnreadCount       int32              `json:"unread_count"`
+}
+
+func (q *Queries) ListDMConversations(ctx context.Context, userID uuid.UUID) ([]DMConversationRow, error) {
+	rows, err := q.db.Query(ctx, `
+		SELECT
+			c.id AS connection_id,
+			ou.id AS other_user_id,
+			ou.full_name AS other_full_name,
+			ou.avatar_url AS other_avatar_url,
+			lm.content AS last_message,
+			lm.created_at AS last_message_at,
+			COALESCE(lm.sender_id = $1, false) AS last_message_mine,
+			COALESCE((
+				SELECT COUNT(*) FROM messages um
+				WHERE um.sender_id = ou.id AND um.receiver_id = $1 AND um.is_read = false
+			), 0)::int AS unread_count
+		FROM connections c
+		JOIN users ou ON ou.id = (CASE WHEN c.requester_id = $1 THEN c.receiver_id ELSE c.requester_id END)
+		LEFT JOIN LATERAL (
+			SELECT content, created_at, sender_id
+			FROM messages m
+			WHERE (m.sender_id = c.requester_id AND m.receiver_id = c.receiver_id)
+			   OR (m.sender_id = c.receiver_id AND m.receiver_id = c.requester_id)
+			ORDER BY m.created_at DESC
+			LIMIT 1
+		) lm ON true
+		WHERE c.status = 'accepted' AND (c.requester_id = $1 OR c.receiver_id = $1)
+		ORDER BY COALESCE(lm.created_at, c.created_at) DESC
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	results := []DMConversationRow{}
+	for rows.Next() {
+		var r DMConversationRow
+		if err := rows.Scan(
+			&r.ConnectionID, &r.OtherUserID, &r.OtherFullName, &r.OtherAvatarUrl,
+			&r.LastMessage, &r.LastMessageAt, &r.LastMessageMine, &r.UnreadCount,
+		); err != nil {
+			return nil, err
+		}
+		results = append(results, r)
+	}
+	return results, rows.Err()
+}
+
+type GroupConversationRow struct {
+	ID                uuid.UUID          `json:"id"`
+	Name              string             `json:"name"`
+	Description       *string            `json:"description"`
+	Category          string             `json:"category"`
+	AvatarUrl         *string            `json:"avatar_url"`
+	IsPrivate         bool               `json:"is_private"`
+	MemberRole        string             `json:"member_role"`
+	MemberCount       int64              `json:"member_count"`
+	LastMessage       *string            `json:"last_message"`
+	LastMessageAt     pgtype.Timestamptz `json:"last_message_at"`
+	LastMessageSender *string            `json:"last_message_sender"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) ListGroupConversations(ctx context.Context, userID uuid.UUID) ([]GroupConversationRow, error) {
+	rows, err := q.db.Query(ctx, `
+		SELECT
+			g.id, g.name, g.description, g.category, g.avatar_url, g.is_private,
+			gm.role AS member_role,
+			(SELECT COUNT(*) FROM group_members WHERE group_id = g.id) AS member_count,
+			lm.content AS last_message,
+			lm.created_at AS last_message_at,
+			su.full_name AS last_message_sender,
+			g.created_at
+		FROM groups g
+		JOIN group_members gm ON gm.group_id = g.id AND gm.user_id = $1
+		LEFT JOIN LATERAL (
+			SELECT content, created_at, sender_id
+			FROM group_messages
+			WHERE group_id = g.id
+			ORDER BY created_at DESC
+			LIMIT 1
+		) lm ON true
+		LEFT JOIN users su ON su.id = lm.sender_id
+		ORDER BY COALESCE(lm.created_at, g.created_at) DESC
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	results := []GroupConversationRow{}
+	for rows.Next() {
+		var r GroupConversationRow
+		if err := rows.Scan(
+			&r.ID, &r.Name, &r.Description, &r.Category, &r.AvatarUrl, &r.IsPrivate,
+			&r.MemberRole, &r.MemberCount, &r.LastMessage, &r.LastMessageAt, &r.LastMessageSender,
+			&r.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		results = append(results, r)
+	}
+	return results, rows.Err()
 }

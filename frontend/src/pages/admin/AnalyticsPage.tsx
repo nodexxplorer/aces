@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
+import EmptyState from '../../components/ui/EmptyState';
 import { useNotification } from '../../hooks/useNotification';
 import { getAnalyticsOverview, getRecentActivity, type AnalyticsOverview } from '../../api/analytics';
 import { generateReport, listReports, type GeneratedReport, type ReportType } from '../../api/reports';
@@ -297,7 +298,9 @@ const AnalyticsPage = () => {
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-sm text-surface-400">No data</div>
+                  <div className="flex items-center justify-center h-full">
+                    <EmptyState title="No data" className="py-0" />
+                  </div>
                 )}
               </div>
             </Card>
@@ -332,7 +335,9 @@ const AnalyticsPage = () => {
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-sm text-surface-400">No data</div>
+                  <div className="flex items-center justify-center h-full">
+                    <EmptyState title="No data" className="py-0" />
+                  </div>
                 )}
               </div>
             </Card>
@@ -373,7 +378,7 @@ const AnalyticsPage = () => {
                     })}
                   </div>
                 ) : (
-                  <p className="text-sm text-surface-400 text-center py-8">No complaints</p>
+                  <EmptyState title="No complaints" />
                 )}
               </div>
             </Card>
@@ -389,7 +394,7 @@ const AnalyticsPage = () => {
               </CardHeader>
               <div className="p-4 pt-0 max-h-64 overflow-y-auto">
                 {recentActivity.length === 0 ? (
-                  <p className="text-sm text-surface-400 text-center py-8">No recent activity</p>
+                  <EmptyState title="No recent activity" />
                 ) : (
                   <div className="space-y-3">
                     {recentActivity.slice(0, 10).map((item: RecentActivityItem, i: number) => (

@@ -6,6 +6,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
 import { getErrorMessage } from '../../utils/errors';
 import type { Course } from '../../types';
+import EmptyState from '../../components/ui/EmptyState';
 
 interface OverrideRow {
   course_id: string;
@@ -129,9 +130,10 @@ export default function WhatIfSimulatorTab() {
       </div>
 
       {results.length === 0 ? (
-        <p className="text-sm text-surface-400 py-8 text-center">
-          No approved results yet. Once your results are approved, you'll be able to simulate hypothetical scores here.
-        </p>
+        <EmptyState
+          title="No approved results yet. Once your results are approved, you'll be able to simulate hypothetical scores here."
+          className="py-8"
+        />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-surface-200 dark:border-surface-700">
           <table className="w-full text-sm">

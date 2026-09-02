@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Card from '../../components/ui/Card';
+import EmptyState from '../../components/ui/EmptyState';
 import KpiCard from '../../components/data-display/KpiCard';
 import { getAtRiskStudents } from '../../api/predictions';
 import type { AtRiskStudent } from '../../api/predictions';
@@ -75,7 +76,7 @@ const AtRiskDashboard = () => {
 
       {filtered.length === 0 ? (
         <Card className="p-12 text-center">
-          <p className="text-surface-500">No students match this filter. All students are on track.</p>
+          <EmptyState title="No students match this filter" description="All students are on track." />
         </Card>
       ) : (
         <Card>

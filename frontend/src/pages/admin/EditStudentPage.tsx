@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import EmptyState from '../../components/ui/EmptyState';
 import Badge from '../../components/ui/Badge';
 import { getStudentFullProfile, hodEditStudent, type AuditLog, type StudentProfile } from '../../api/profile-edit';
 import { useNotification } from '../../hooks/useNotification';
@@ -342,7 +343,7 @@ const EditStudentPage = () => {
               </div>
             </CardHeader>
             <div className="p-4 pt-0">
-              {auditLogs.length === 0 && <p className="text-xs text-surface-400">No changes recorded yet.</p>}
+              {auditLogs.length === 0 && <EmptyState title="No changes recorded yet." />}
               {auditLogs.slice(0, 10).map((log, idx: number) => (
                 <div key={idx} className="py-2 border-b border-surface-100 dark:border-surface-800 last:border-0">
                   <div className="flex items-center justify-between text-xs">

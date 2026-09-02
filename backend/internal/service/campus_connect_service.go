@@ -98,6 +98,42 @@ func (s *CampusConnectService) ListGroupMessages(ctx context.Context, groupID uu
 	return s.store.ListGroupMessages(ctx, db.ListGroupMessagesParams{GroupID: groupID, Limit: limit, Offset: offset})
 }
 
+func (s *CampusConnectService) CheckGroupMembership(ctx context.Context, groupID, userID uuid.UUID) (bool, error) {
+	return s.store.CheckGroupMembership(ctx, db.CheckGroupMembershipParams{GroupID: groupID, UserID: userID})
+}
+
+func (s *CampusConnectService) GetGroupMemberRole(ctx context.Context, groupID, userID uuid.UUID) (string, error) {
+	return s.store.GetGroupMemberRole(ctx, groupID, userID)
+}
+
+func (s *CampusConnectService) EnsureGroupInviteCode(ctx context.Context, groupID uuid.UUID) (string, error) {
+	return s.store.EnsureGroupInviteCode(ctx, groupID)
+}
+
+func (s *CampusConnectService) GetGroupByInviteCode(ctx context.Context, code string) (db.GroupByCodeRow, error) {
+	return s.store.GetGroupByInviteCode(ctx, code)
+}
+
+func (s *CampusConnectService) ListPublicGroups(ctx context.Context, limit, offset int32) ([]db.ListGroupsRow, error) {
+	return s.store.ListGroups(ctx, db.ListGroupsParams{Limit: limit, Offset: offset})
+}
+
+// AddMember adds someone else to a group (an admin/moderator inviting a
+// specific person), as opposed to JoinGroup which is always the caller
+// joining themselves.
+func (s *CampusConnectService) AddMember(ctx context.Context, groupID, userID uuid.UUID) (db.GroupMember, error) {
+	return s.store.AddGroupMember(ctx, db.AddGroupMemberParams{GroupID: groupID, UserID: userID, Role: "member"})
+}
+
+// Conversation previews — list + last-message snippet, for the Connect page's chat list panels.
+func (s *CampusConnectService) ListDMConversations(ctx context.Context, userID uuid.UUID) ([]db.DMConversationRow, error) {
+	return s.store.ListDMConversations(ctx, userID)
+}
+
+func (s *CampusConnectService) ListGroupConversations(ctx context.Context, userID uuid.UUID) ([]db.GroupConversationRow, error) {
+	return s.store.ListGroupConversations(ctx, userID)
+}
+
 // Directory
 func (s *CampusConnectService) GetStudentDirectory(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]db.GetStudentDirectoryRow, error) {
 	return s.store.GetStudentDirectory(ctx, db.GetStudentDirectoryParams{UserID: userID, Limit: limit, Offset: offset})

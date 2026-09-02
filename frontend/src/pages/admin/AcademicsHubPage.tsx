@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import StatusBadge from '../../components/data-display/StatusBadge';
+import EmptyState from '../../components/ui/EmptyState';
 import { useNotification } from '../../hooks/useNotification';
 import { GraduationCap, Search, CheckCircle, AlertTriangle } from 'lucide-react';
 import { getStudents, getStudentCGPA } from '../../api/users';
@@ -223,12 +224,7 @@ function GraduationTab() {
         </>
       )}
 
-      {!loading && results.length === 0 && !checking && (
-        <div className="text-center py-12 text-surface-500">
-          <GraduationCap className="w-12 h-12 mx-auto mb-3 text-surface-300" />
-          <p className="text-sm">Click "Run Check" to evaluate students.</p>
-        </div>
-      )}
+      {!loading && results.length === 0 && !checking && <EmptyState title='Click "Run Check" to evaluate students.' />}
     </div>
   );
 }

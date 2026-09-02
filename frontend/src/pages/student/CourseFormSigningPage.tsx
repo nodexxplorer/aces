@@ -5,7 +5,8 @@ import { FileSignature, Download, CheckCircle2, Info, History, CreditCard } from
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../hooks/useAuth';
 import { getErrorMessage } from '../../utils/errors';
-import { initializeCheckout } from '../../api/payments';
+import { Link } from 'react-router-dom';
+import { initializeCheckout, getMyDues, checkDuePaid } from '../../api/payments';
 import { getSessions, listSessionSemesters } from '../../api/sessions';
 import type { SemesterEntry } from '../../types';
 import {
@@ -36,6 +37,37 @@ export default function CourseFormSigningPage() {
   const [selectedSemesterId, setSelectedSemesterId] = useState('');
   const [backlogFile, setBacklogFile] = useState<File | null>(null);
   const [uploadingBacklog, setUploadingBacklog] = useState(false);
+  const [unpaidDues, setUnpaidDues] = useState<string[]>([]);
+  const [duesChecked, setDuesChecked] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const checkDues = async () => {
+      try {
+        const dues = await getMyDues(user?.level);
+        const requiredDues = dues.filter((d) => d.is_active && (d.type === 'dept_dues' || d.type === 'class_dues'));
+        const results = await Promise.all(
+          requiredDues.map(async (d) => {
+            try {
+              const status = await checkDuePaid(d.id);
+              return status.is_paid ? null : d.name;
+            } catch {
+              return null;
+            }
+          }),
+        );
+        if (!cancelled) setUnpaidDues(results.filter((n): n is string => !!n));
+      } catch {
+        // don't block the page on this — the backend still enforces it on submit
+      } finally {
+        if (!cancelled) setDuesChecked(true);
+      }
+    };
+    checkDues();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.level]);
 
   useEffect(() => {
     getMyCRFSubmission()
@@ -64,6 +96,10 @@ export default function CourseFormSigningPage() {
 
   const handleSubmit = async () => {
     if (!file) return;
+    if (unpaidDues.length > 0) {
+      notifyError('Outstanding Dues', 'Pay your outstanding dues before your course form can be signed.');
+      return;
+    }
     setUploading(true);
     try {
       const result = await submitCRFForSigning(file);
@@ -149,6 +185,27 @@ export default function CourseFormSigningPage() {
         </div>
       </div>
 
+      {duesChecked && unpaidDues.length > 0 && (
+        <Card className="p-4 border-danger-500/30 bg-danger-500/5">
+          <div className="flex items-start gap-3">
+            <Info className="w-5 h-5 text-danger-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-danger-700 dark:text-danger-400">
+                Outstanding dues must be paid before your course form can be signed
+              </p>
+              <p className="text-xs text-danger-600/80 dark:text-danger-400/80 mt-0.5">
+                Unpaid: {unpaidDues.join(', ')}
+              </p>
+            </div>
+            <Link to="/payments">
+              <Button size="sm" variant="danger" leftIcon={<CreditCard className="w-4 h-4" />}>
+                Go to Payments
+              </Button>
+            </Link>
+          </div>
+        </Card>
+      )}
+
       <Card className="border-primary-200 dark:border-primary-800 bg-primary-50/50 dark:bg-primary-950/20">
         <div className="flex gap-3">
           <Info className="w-5 h-5 text-primary-500 shrink-0 mt-0.5" />
@@ -190,7 +247,7 @@ export default function CourseFormSigningPage() {
             onChange={(e) => setFile(e.target.files?.[0] || null)}
             className="w-full text-sm text-surface-600 dark:text-surface-400 mb-4"
           />
-          <Button isLoading={uploading} disabled={!file} onClick={handleSubmit}>
+          <Button isLoading={uploading} disabled={!file || unpaidDues.length > 0} onClick={handleSubmit}>
             Sign My Course Form
           </Button>
         </Card>

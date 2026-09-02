@@ -10,6 +10,7 @@ import Screen from '../../../src/components/ui/Screen';
 import Card from '../../../src/components/ui/Card';
 import Button from '../../../src/components/ui/Button';
 import Badge from '../../../src/components/ui/Badge';
+import EmptyState from '../../../src/components/ui/EmptyState';
 import { haptics } from '../../../src/utils/haptics';
 import { useAuthStore } from '../../../src/store/authStore';
 import { useUnreadStore } from '../../../src/store/unreadStore';
@@ -18,27 +19,43 @@ import { getMediaUrl } from '../../../src/api/client';
 import { PROFILE_SCAN_PARAM } from '../../../src/config';
 import {
   getDirectory,
-  getMyConnections,
   getPendingRequests,
   sendConnectionRequest,
   respondToConnection,
   getConnectionUserIds,
-  getUnreadCounts,
+  getMyConversations,
+  getMyGroups,
   type DirectoryUser,
   type Connection,
+  type DMConversation,
+  type GroupConversation,
   type ChatMessage,
+  type GroupMessage,
 } from '../../../src/api/connect';
 
 const TABS = [
-  { key: 'connections', label: 'Connections' },
+  { key: 'chats', label: 'Chats' },
+  { key: 'discover', label: 'Discover' },
   { key: 'requests', label: 'Requests' },
-  { key: 'directory', label: 'Directory' },
 ] as const;
 type TabKey = (typeof TABS)[number]['key'];
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/);
   return `${parts[0]?.[0] ?? ''}${parts[1]?.[0] ?? ''}`.toUpperCase() || '?';
+}
+
+function timeLabel(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) {
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
 function Avatar({ url, name, size = 44 }: { url: string | null; name: string; size?: number }) {
@@ -131,13 +148,13 @@ export default function ConnectScreen() {
   const { [PROFILE_SCAN_PARAM]: scannedUserId } = useLocalSearchParams<{ [PROFILE_SCAN_PARAM]?: string }>();
   const [scanDismissed, setScanDismissed] = useState(false);
 
-  const [tab, setTab] = useState<TabKey>('connections');
+  const [tab, setTab] = useState<TabKey>('chats');
   const [search, setSearch] = useState('');
   const [directory, setDirectory] = useState<DirectoryUser[]>([]);
-  const [connections, setConnections] = useState<Connection[]>([]);
+  const [groups, setGroups] = useState<GroupConversation[]>([]);
+  const [conversations, setConversations] = useState<DMConversation[]>([]);
   const [requests, setRequests] = useState<Connection[]>([]);
   const [connectedIds, setConnectedIds] = useState<Set<string>>(new Set());
-  const [unread, setUnread] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -146,31 +163,30 @@ export default function ConnectScreen() {
   const setUnreadCounts = useUnreadStore((s) => s.setCounts);
 
   const fetchAll = useCallback(async () => {
-    const [dir, conns, reqs, ids, counts] = await Promise.allSettled([
+    const [dir, convos, grps, reqs, ids] = await Promise.allSettled([
       getDirectory(),
-      getMyConnections(),
+      getMyConversations(),
+      getMyGroups(),
       getPendingRequests(),
       getConnectionUserIds(),
-      getUnreadCounts(),
     ]);
     if (dir.status === 'fulfilled') setDirectory(dir.value);
-    if (conns.status === 'fulfilled') setConnections(conns.value);
+    if (convos.status === 'fulfilled') {
+      setConversations(convos.value);
+      const counts: Record<string, number> = {};
+      for (const c of convos.value) {
+        if (c.unread_count > 0) counts[c.other_user_id] = c.unread_count;
+      }
+      setUnreadCounts(counts);
+    }
+    if (grps.status === 'fulfilled') setGroups(grps.value);
     if (reqs.status === 'fulfilled') setRequests(reqs.value);
     if (ids.status === 'fulfilled') setConnectedIds(new Set(ids.value));
-    if (counts.status === 'fulfilled') {
-      setUnread(counts.value);
-      // Push into the shared store so the tab bar badge updates immediately
-      // instead of waiting for its own next poll — avoids a duplicate fetch.
-      setUnreadCounts(counts.value);
-    }
   }, [setUnreadCounts]);
 
   // useFocusEffect (not a plain mount-only useEffect) so unread counts and
-  // the connections list refresh every time this screen regains focus —
-  // including coming back from a chat conversation, where markMessageRead
-  // already fired but this screen's own `unread` state and the tab-bar
-  // badge (useUnreadStore) had no other trigger to catch up until the next
-  // websocket message or 60s poll.
+  // the chat list refresh every time this screen regains focus — including
+  // coming back from a conversation, where markMessageRead already fired.
   const hasLoadedOnce = useRef(false);
   useFocusEffect(
     useCallback(() => {
@@ -185,23 +201,18 @@ export default function ConnectScreen() {
   );
 
   // A message arriving anywhere in the app while Connect itself is on screen
-  // should update badges live, same as the web version.
+  // should refresh the list live, same as the web version.
   useEffect(() => {
     if (!lastMessage) return;
     try {
-      const frame = JSON.parse(lastMessage) as { type: string; payload: ChatMessage };
-      if (frame.type === 'chat') {
-        getUnreadCounts()
-          .then((counts) => {
-            setUnread(counts);
-            setUnreadCounts(counts);
-          })
-          .catch(() => {});
+      const frame = JSON.parse(lastMessage) as { type: string; payload: ChatMessage & GroupMessage };
+      if (frame.type === 'chat' || frame.type === 'group_chat') {
+        fetchAll();
       }
     } catch {
       // ignore malformed frames
     }
-  }, [lastMessage, setUnreadCounts]);
+  }, [lastMessage, fetchAll]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -247,11 +258,38 @@ export default function ConnectScreen() {
       d.matric_number?.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const totalUnread = Object.values(unread).reduce((sum, n) => sum + n, 0);
+  const totalUnread = conversations.reduce((sum, c) => sum + c.unread_count, 0);
 
   return (
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
-      <Text style={[styles.header, { color: theme.text }]}>Connect</Text>
+      <View style={styles.headerRow}>
+        <Text style={[styles.header, { color: theme.text }]}>Connect</Text>
+        {tab === 'chats' && (
+          <View style={styles.headerActions}>
+            <Pressable
+              onPress={() => router.push('/connect/discover-groups' as never)}
+              hitSlop={8}
+              style={[styles.headerIconButton, { backgroundColor: theme.card }]}
+            >
+              <Ionicons name="compass-outline" size={18} color={theme.primary} />
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/connect/join-link' as never)}
+              hitSlop={8}
+              style={[styles.headerIconButton, { backgroundColor: theme.card }]}
+            >
+              <Ionicons name="link-outline" size={18} color={theme.primary} />
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/connect/new-group' as never)}
+              hitSlop={8}
+              style={[styles.headerIconButton, { backgroundColor: theme.primary }]}
+            >
+              <Ionicons name="add" size={20} color={theme.onPrimary} />
+            </Pressable>
+          </View>
+        )}
+      </View>
 
       {scannedUserId && !scanDismissed && scannedUserId !== user?.id && (
         <Animated.View entering={FadeInDown.duration(250)}>
@@ -284,7 +322,7 @@ export default function ConnectScreen() {
                   <Text style={styles.countBadgeText}>{requests.length}</Text>
                 </View>
               )}
-              {t.key === 'connections' && totalUnread > 0 && (
+              {t.key === 'chats' && totalUnread > 0 && (
                 <View style={[styles.countBadge, { backgroundColor: theme.danger }]}>
                   <Text style={styles.countBadgeText}>{totalUnread > 9 ? '9+' : totalUnread}</Text>
                 </View>
@@ -294,7 +332,7 @@ export default function ConnectScreen() {
         ))}
       </View>
 
-      {tab === 'directory' && (
+      {tab === 'discover' && (
         <View style={styles.searchRow}>
           <Ionicons name="search" size={16} color={theme.textFaint} style={styles.searchIcon} />
           <TextInput
@@ -307,50 +345,110 @@ export default function ConnectScreen() {
         </View>
       )}
 
-      {tab === 'connections' && (
-        <FlatList
-          data={connections}
-          scrollEnabled={false}
-          keyExtractor={(c) => c.id}
-          ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
-          ListEmptyComponent={
-            !loading ? (
-              <Card>
+      {tab === 'chats' && (
+        <View style={{ gap: spacing.lg }}>
+          <View>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionLabel, { color: theme.textFaint }]}>GROUPS</Text>
+            </View>
+            {groups.length === 0 ? (
+              !loading && (
                 <Text style={{ color: theme.textMuted, fontFamily: fontFamily.regular, fontSize: fontSize.sm }}>
-                  No connections yet — find classmates in Directory.
+                  No groups yet — tap + to start one.
                 </Text>
-              </Card>
-            ) : null
-          }
-          renderItem={({ item, index }) => {
-            const otherId = item.requester_id === user?.id ? item.receiver_id : item.requester_id;
-            const unreadCount = unread[otherId] ?? 0;
-            return (
-              <Animated.View entering={FadeInDown.duration(300).delay(index * 40)}>
-                <Pressable
-                  onPress={() => router.push(`/connect/chat/${otherId}?name=${encodeURIComponent(item.full_name)}`)}
-                >
-                  <Card style={styles.row}>
-                    <Avatar url={item.avatar_url} name={item.full_name} />
-                    <View style={styles.flex}>
-                      <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>
-                        {item.full_name}
-                      </Text>
-                      <Text style={[styles.itemMeta, { color: theme.textFaint }]}>{item.role}</Text>
-                    </View>
-                    {unreadCount > 0 ? (
-                      <View style={[styles.countBadge, { backgroundColor: theme.primary }]}>
-                        <Text style={styles.countBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-                      </View>
-                    ) : (
-                      <Ionicons name="chevron-forward" size={18} color={theme.textFaint} />
-                    )}
-                  </Card>
-                </Pressable>
-              </Animated.View>
-            );
-          }}
-        />
+              )
+            ) : (
+              <FlatList
+                data={groups}
+                scrollEnabled={false}
+                keyExtractor={(g) => g.id}
+                ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+                renderItem={({ item, index }) => (
+                  <Animated.View entering={FadeInDown.duration(300).delay(index * 40)}>
+                    <Pressable
+                      onPress={() =>
+                        router.push(
+                          `/connect/group/${item.id}?name=${encodeURIComponent(item.name)}&memberCount=${item.member_count}` as never,
+                        )
+                      }
+                    >
+                      <Card style={styles.row}>
+                        <Avatar url={item.avatar_url} name={item.name} />
+                        <View style={styles.flex}>
+                          <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>
+                            {item.name}
+                          </Text>
+                          <Text style={[styles.itemMeta, { color: theme.textFaint }]} numberOfLines={1}>
+                            {item.last_message
+                              ? `${item.last_message_sender ? item.last_message_sender.split(' ')[0] + ': ' : ''}${item.last_message}`
+                              : `${item.member_count} member${item.member_count === 1 ? '' : 's'}`}
+                          </Text>
+                        </View>
+                        <Text style={[styles.timeLabel, { color: theme.textFaint }]}>
+                          {timeLabel(item.last_message_at)}
+                        </Text>
+                      </Card>
+                    </Pressable>
+                  </Animated.View>
+                )}
+              />
+            )}
+          </View>
+
+          <View>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionLabel, { color: theme.textFaint }]}>DIRECT MESSAGES</Text>
+            </View>
+            {conversations.length === 0 ? (
+              !loading && (
+                <Card>
+                  <EmptyState title="No conversations yet" description="Find classmates in Discover." />
+                </Card>
+              )
+            ) : (
+              <FlatList
+                data={conversations}
+                scrollEnabled={false}
+                keyExtractor={(c) => c.connection_id}
+                ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+                renderItem={({ item, index }) => (
+                  <Animated.View entering={FadeInDown.duration(300).delay(index * 40)}>
+                    <Pressable
+                      onPress={() =>
+                        router.push(
+                          `/connect/chat/${item.other_user_id}?name=${encodeURIComponent(item.other_full_name)}` as never,
+                        )
+                      }
+                    >
+                      <Card style={styles.row}>
+                        <Avatar url={item.other_avatar_url} name={item.other_full_name} />
+                        <View style={styles.flex}>
+                          <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>
+                            {item.other_full_name}
+                          </Text>
+                          <Text style={[styles.itemMeta, { color: theme.textFaint }]} numberOfLines={1}>
+                            {item.last_message ? `${item.last_message_mine ? 'You: ' : ''}${item.last_message}` : 'Say hello!'}
+                          </Text>
+                        </View>
+                        {item.unread_count > 0 ? (
+                          <View style={[styles.countBadge, { backgroundColor: theme.primary }]}>
+                            <Text style={styles.countBadgeText}>
+                              {item.unread_count > 9 ? '9+' : item.unread_count}
+                            </Text>
+                          </View>
+                        ) : (
+                          <Text style={[styles.timeLabel, { color: theme.textFaint }]}>
+                            {timeLabel(item.last_message_at)}
+                          </Text>
+                        )}
+                      </Card>
+                    </Pressable>
+                  </Animated.View>
+                )}
+              />
+            )}
+          </View>
+        </View>
       )}
 
       {tab === 'requests' && (
@@ -400,7 +498,7 @@ export default function ConnectScreen() {
         />
       )}
 
-      {tab === 'directory' && (
+      {tab === 'discover' && (
         <FlatList
           data={filteredDirectory}
           scrollEnabled={false}
@@ -452,9 +550,40 @@ export default function ConnectScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   header: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize['2xl'],
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  headerIconButton: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
+  sectionLabel: {
+    fontFamily: fontFamily.semibold,
+    fontSize: 11,
+    letterSpacing: 0.5,
+  },
+  timeLabel: {
+    fontFamily: fontFamily.regular,
+    fontSize: 10,
   },
   scanBanner: {
     flexDirection: 'row',

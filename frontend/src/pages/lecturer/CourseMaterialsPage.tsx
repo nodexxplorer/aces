@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
+import EmptyState from '../../components/ui/EmptyState';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
 import { listLecturerAssignments, type LecturerAssignment } from '../../api/lecturers';
@@ -120,7 +121,7 @@ export default function LecturerCourseMaterialsPage() {
         </CardHeader>
         <form onSubmit={handleUpload} className="p-4 pt-0 space-y-4">
           {assignments.length === 0 ? (
-            <p className="text-sm text-surface-400">You have no course assignments yet.</p>
+            <EmptyState title="You have no course assignments yet." className="py-0" />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -188,7 +189,7 @@ export default function LecturerCourseMaterialsPage() {
           </div>
         </CardHeader>
         {materials.length === 0 ? (
-          <p className="text-sm text-surface-400 text-center py-8">No materials uploaded yet.</p>
+          <EmptyState title="No materials uploaded yet." />
         ) : (
           <div className="divide-y divide-surface-100 dark:divide-surface-800">
             {materials.map((m) => (

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
+import EmptyState from '../../components/ui/EmptyState';
 import Badge from '../../components/ui/Badge';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
@@ -82,9 +83,11 @@ export default function StudentCourseMaterialsPage() {
           {loadingCourses ? (
             <Loader2 className="w-5 h-5 animate-spin text-primary-500" />
           ) : courses.length === 0 ? (
-            <p className="text-sm text-surface-400">
-              You haven't registered for any courses yet. Register for courses to see their materials here.
-            </p>
+            <EmptyState
+              title="You haven't registered for any courses yet."
+              description="Register for courses to see their materials here."
+              className="py-0"
+            />
           ) : (
             <Select
               options={courses.map((c) => ({ value: c.id, label: `${c.code} - ${c.title}` }))}
@@ -105,7 +108,7 @@ export default function StudentCourseMaterialsPage() {
               <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
             </div>
           ) : materials.length === 0 ? (
-            <p className="text-sm text-surface-400 text-center py-12">No materials uploaded for this course yet.</p>
+            <EmptyState title="No materials uploaded for this course yet." />
           ) : (
             <div className="divide-y divide-surface-100 dark:divide-surface-800">
               {materials.map((m) => (

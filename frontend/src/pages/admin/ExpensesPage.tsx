@@ -8,6 +8,7 @@ import {
   type Expense,
 } from '../../api/additional-features';
 import { useRBAC } from '../../hooks/useRBAC';
+import EmptyState from '../../components/ui/EmptyState';
 
 const STATUS_BADGES: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
@@ -296,7 +297,7 @@ export default function ExpensesPage() {
           {loading ? (
             <div className="text-center py-12 text-surface-500 dark:text-surface-400">Loading expenses...</div>
           ) : filteredExpenses.length === 0 ? (
-            <div className="text-center py-12 text-surface-500 dark:text-surface-400">No expenses found</div>
+            <EmptyState title="No expenses found" />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">

@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Select from '../../components/ui/Select';
 import Button from '../../components/ui/Button';
+import EmptyState from '../../components/ui/EmptyState';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../hooks/useAuth';
-import { Printer, Download, Loader2, Users } from 'lucide-react';
+import { Printer, Download, Loader2 } from 'lucide-react';
 import { listLecturerAssignments, type LecturerAssignment } from '../../api/lecturers';
 import { getCourseClassList } from '../../api/courses';
 
@@ -126,11 +127,10 @@ const ClassListPage = () => {
             <span className="text-sm text-surface-500">Loading...</span>
           </div>
         ) : students.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Users className="w-10 h-10 text-surface-300 mb-3" />
-            <p className="text-sm text-surface-500">No students found for this course yet.</p>
-            <p className="text-xs text-surface-400 mt-1">Students appear once results are submitted for this course.</p>
-          </div>
+          <EmptyState
+            title="No students found for this course yet."
+            description="Students appear once results are submitted for this course."
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

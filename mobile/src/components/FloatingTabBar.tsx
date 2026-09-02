@@ -139,6 +139,17 @@ export default function FloatingTabBar({ state, descriptors, navigation, insets 
   const barWidth = windowWidth - FLOAT_MARGIN * 2;
   const centerScale = useSharedValue(1);
 
+  // A screen nested inside a tab's own stack (e.g. an open chat) calls
+  // navigation.getParent()?.setOptions({ tabBarStyle: { display: 'none' } })
+  // to hide the bar entirely while it's focused — that option lands on the
+  // focused tab's own descriptor, but nothing previously read it back out,
+  // so the bar stayed floating on top of the chat composer regardless.
+  // Computed here (not an early return) since every hook below must still
+  // run on every render regardless — bailing out before them would break
+  // the Rules of Hooks the moment two renders disagree on this value.
+  const focusedOptions = descriptors[state.routes[state.index].key].options as { tabBarStyle?: StyleProp<ViewStyle> };
+  const hidden = StyleSheet.flatten(focusedOptions.tabBarStyle)?.display === 'none';
+
   const visible = state.routes.filter((r) => !isHiddenRoute(descriptors[r.key].options));
   const byName = (name: string) => visible.find((r) => r.name === name);
   const leftRoutes = LEFT_ROUTE_NAMES.map(byName).filter((r): r is Route => !!r);
@@ -170,6 +181,10 @@ export default function FloatingTabBar({ state, descriptors, navigation, insets 
       onPress={() => goTo(route)}
     />
   );
+
+  if (hidden) {
+    return null;
+  }
 
   return (
     <View style={[styles.wrap, { bottom: insets.bottom + FLOAT_MARGIN }]} pointerEvents="box-none">

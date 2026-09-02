@@ -5,6 +5,7 @@ import KpiCard from '../../components/data-display/KpiCard';
 import Card, { CardHeader, CardTitle } from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
+import EmptyState from '../../components/ui/EmptyState';
 import { useAuth } from '../../hooks/useAuth';
 import { formatGPA } from '../../utils/formatters';
 import { getStudentDashboard, type StudentDashboard as DashboardData } from '../../api/dashboard';
@@ -92,7 +93,7 @@ const StudentDashboard = () => {
             </CardHeader>
             <div className="space-y-3 p-4 pt-0">
               {!announcements || announcements.length === 0 ? (
-                <p className="text-xs text-surface-400 text-center py-4">No announcements.</p>
+                <EmptyState title="No announcements." className="py-4" />
               ) : (
                 announcements.map((ann) => (
                   <div

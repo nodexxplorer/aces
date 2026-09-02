@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import EmptyState from '../../components/ui/EmptyState';
 import Tabs from '../../components/ui/Tabs';
 import { useNotification } from '../../hooks/useNotification';
 import {
@@ -65,7 +66,7 @@ const CourseFormsTab = () => {
           <span className="ml-2 text-sm text-surface-500">Loading pending registrations...</span>
         </div>
       ) : list.length === 0 ? (
-        <div className="text-center py-12 text-sm text-surface-400">No pending course registrations to review</div>
+        <EmptyState title="No pending course registrations to review" />
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -173,7 +174,7 @@ const StudentRegistrationsTab = () => {
           <span className="ml-2 text-sm text-surface-500">Loading pending students...</span>
         </div>
       ) : list.length === 0 ? (
-        <div className="text-center py-12 text-sm text-surface-400">No pending student registrations to review</div>
+        <EmptyState title="No pending student registrations to review" />
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

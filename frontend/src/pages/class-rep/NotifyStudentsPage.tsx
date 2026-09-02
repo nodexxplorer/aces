@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import EmptyState from '../../components/ui/EmptyState';
 import { useNotification } from '../../hooks/useNotification';
 import { getClassRepClassList, type ClassRepStudent } from '../../api/class-rep';
 import { createClassNotice } from '../../api/additional-features';
@@ -170,7 +171,7 @@ const NotifyStudentsPage = () => {
                   {s.is_defaulter && <Badge variant="danger">Defaulter</Badge>}
                 </label>
               ))}
-              {filtered.length === 0 && <p className="text-xs text-surface-400 text-center py-6">No students found</p>}
+              {filtered.length === 0 && <EmptyState title="No students found" className="py-6" />}
             </div>
           </Card>
         </div>

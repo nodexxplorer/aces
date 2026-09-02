@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { MessageSquare, Star, CheckCircle, Clock, AlertCircle, Filter } from 'lucide-react';
 import { listFeedback, updateFeedbackStatus, type Feedback } from '../../api/additional-features';
+import EmptyState from '../../components/ui/EmptyState';
 
 const STATUS_TABS = [
   { key: 'all', label: 'All' },
@@ -63,7 +64,9 @@ const FeedbackManagePage = () => {
     setUpdatingId(id);
     try {
       await updateFeedbackStatus(id, { status, admin_response: responseMap[id] || undefined });
-      setFeedbacks((prev) => prev.map((f) => (f.id === id ? { ...f, status, admin_response: responseMap[id] || f.admin_response } : f)));
+      setFeedbacks((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, status, admin_response: responseMap[id] || f.admin_response } : f)),
+      );
       setExpandedId(null);
     } catch {
       // silent
@@ -75,7 +78,10 @@ const FeedbackManagePage = () => {
   const renderStars = (rating: number) => (
     <div className="flex gap-0.5">
       {[1, 2, 3, 4, 5].map((s) => (
-        <Star key={s} className={`w-3.5 h-3.5 ${s <= rating ? 'fill-amber-400 text-amber-400' : 'text-surface-300 dark:text-surface-600'}`} />
+        <Star
+          key={s}
+          className={`w-3.5 h-3.5 ${s <= rating ? 'fill-amber-400 text-amber-400' : 'text-surface-300 dark:text-surface-600'}`}
+        />
       ))}
     </div>
   );
@@ -89,7 +95,9 @@ const FeedbackManagePage = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-surface-900 dark:text-white">User Feedback</h1>
-            <p className="text-sm text-surface-500 dark:text-surface-400">Review and respond to user-submitted feedback</p>
+            <p className="text-sm text-surface-500 dark:text-surface-400">
+              Review and respond to user-submitted feedback
+            </p>
           </div>
         </div>
 
@@ -115,34 +123,45 @@ const FeedbackManagePage = () => {
             <span className="ml-3 text-sm text-surface-500">Loading feedback...</span>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm flex flex-col items-center justify-center p-16 text-center">
-            <MessageSquare className="w-10 h-10 text-surface-300 dark:text-surface-600 mb-3" />
-            <p className="text-sm font-medium text-surface-500 dark:text-surface-400">No feedback submissions</p>
-            <p className="text-xs text-surface-400 dark:text-surface-500 mt-1">Feedback from users will appear here</p>
+          <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm">
+            <EmptyState title="No feedback submissions" description="Feedback from users will appear here" />
           </div>
         ) : (
           <div className="space-y-3">
             {filtered.map((fb) => (
-              <div key={fb.id} className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm overflow-hidden">
+              <div
+                key={fb.id}
+                className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm overflow-hidden"
+              >
                 <div className="p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-2">
-                        <span className={`inline-flex items-center text-[10px] font-semibold px-2.5 py-1 rounded-full uppercase tracking-wide ${TYPE_STYLES[fb.feedback_type] || TYPE_STYLES.general}`}>
+                        <span
+                          className={`inline-flex items-center text-[10px] font-semibold px-2.5 py-1 rounded-full uppercase tracking-wide ${TYPE_STYLES[fb.feedback_type] || TYPE_STYLES.general}`}
+                        >
                           {fb.feedback_type}
                         </span>
-                        <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-full ${STATUS_STYLES[fb.status] || STATUS_STYLES.submitted}`}>
+                        <span
+                          className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-full ${STATUS_STYLES[fb.status] || STATUS_STYLES.submitted}`}
+                        >
                           {STATUS_ICONS[fb.status]}
                           {fb.status.replace(/_/g, ' ')}
                         </span>
                       </div>
                       <h3 className="text-sm font-semibold text-surface-900 dark:text-white">{fb.title}</h3>
-                      <p className="text-sm text-surface-500 dark:text-surface-400 mt-1 line-clamp-2">{fb.description}</p>
+                      <p className="text-sm text-surface-500 dark:text-surface-400 mt-1 line-clamp-2">
+                        {fb.description}
+                      </p>
                     </div>
                     <div className="text-right shrink-0">
                       {fb.rating != null && renderStars(fb.rating)}
-                      <p className="text-xs text-surface-400 dark:text-surface-500 mt-1">{fb.user_name || 'Anonymous'}</p>
-                      <p className="text-xs text-surface-400 dark:text-surface-500">{fb.created_at ? new Date(fb.created_at).toLocaleDateString() : ''}</p>
+                      <p className="text-xs text-surface-400 dark:text-surface-500 mt-1">
+                        {fb.user_name || 'Anonymous'}
+                      </p>
+                      <p className="text-xs text-surface-400 dark:text-surface-500">
+                        {fb.created_at ? new Date(fb.created_at).toLocaleDateString() : ''}
+                      </p>
                     </div>
                   </div>
 
@@ -166,7 +185,9 @@ const FeedbackManagePage = () => {
                 {expandedId === fb.id && (
                   <div className="border-t border-surface-100 dark:border-surface-800 p-5 space-y-4">
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Admin Response</label>
+                      <label className="text-sm font-medium text-surface-700 dark:text-surface-300">
+                        Admin Response
+                      </label>
                       <textarea
                         value={responseMap[fb.id] || ''}
                         onChange={(e) => setResponseMap((prev) => ({ ...prev, [fb.id]: e.target.value }))}

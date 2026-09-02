@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import EmptyState from '../../components/ui/EmptyState';
 import { getUser, updateUser, deleteUser } from '../../api/users';
 import { getCourses } from '../../api/courses';
 import { useNotification } from '../../hooks/useNotification';
@@ -639,7 +640,7 @@ const UserDetailPage = () => {
           </CardHeader>
           <div className="p-4 pt-0">
             {assignedCourses.length === 0 ? (
-              <p className="text-sm text-surface-500 text-center py-6">No courses assigned yet.</p>
+              <EmptyState title="No courses assigned yet." />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">

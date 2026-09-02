@@ -543,6 +543,24 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		connect.GET("/messages/:id", server.listConversation)
 		connect.PUT("/messages/:id/read", server.markMessageRead)
 		connect.GET("/directory", server.getStudentDirectory)
+		connect.GET("/conversations", server.listMyDMConversations)
+	}
+
+	// ── Groups (Campus Connect group chat) ──
+	groupsRoute := api.Group("/groups")
+	{
+		groupsRoute.POST("", server.createGroup)
+		groupsRoute.GET("", server.listPublicGroups)
+		groupsRoute.GET("/mine", server.listMyGroupConversations)
+		groupsRoute.GET("/join/:code", server.getGroupByInviteCode)
+		groupsRoute.GET("/:id", server.getGroup)
+		groupsRoute.GET("/:id/invite-code", server.getGroupInviteCode)
+		groupsRoute.POST("/:id/join", server.joinGroup)
+		groupsRoute.POST("/:id/leave", server.leaveGroup)
+		groupsRoute.GET("/:id/members", server.listGroupMembers)
+		groupsRoute.POST("/:id/members", server.addGroupMember)
+		groupsRoute.POST("/:id/messages", server.sendGroupMessage)
+		groupsRoute.GET("/:id/messages", server.listGroupMessages)
 	}
 
 	// ── Backups ──

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
+import EmptyState from '../../components/ui/EmptyState';
 import { useNotification } from '../../hooks/useNotification';
 import { listMyJobApplications } from '../../api/alumni';
-import { Briefcase, CheckCircle, Clock, AlertCircle, type LucideIcon } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, type LucideIcon } from 'lucide-react';
 import type { BadgeVariant } from '../../components/ui/Badge';
 
 const statusColors: Record<string, BadgeVariant> = {
@@ -77,10 +78,7 @@ const MyApplicationsPage = () => {
         </Card>
       ) : applications.length === 0 ? (
         <Card>
-          <div className="p-12 text-center">
-            <Briefcase className="w-12 h-12 mx-auto text-surface-300 dark:text-surface-600 mb-3" />
-            <p className="text-sm text-surface-500">You haven't applied to any jobs yet</p>
-          </div>
+          <EmptyState title="You haven't applied to any jobs yet" />
         </Card>
       ) : (
         <div className="space-y-3">

@@ -60,6 +60,30 @@ export const getStudentPaymentSummary = async (studentId: string) => {
   return unwrap<PaymentSummary>(res);
 };
 
+// ─── Cart / checkout — "tap a due, pay it" ─────────────────────────────────
+
+export interface CartItem {
+  id: string;
+  student_id: string;
+  due_id: string;
+  amount: number;
+  added_at: string;
+}
+
+export const addToCart = async (dueId: string, amount: number) => {
+  const res = await apiClient.post('/payments/cart', { due_id: dueId, amount: String(amount) });
+  return unwrap<CartItem>(res);
+};
+
+export const clearStudentCart = async () => {
+  await apiClient.delete('/payments/cart/me');
+};
+
+export const checkoutCart = async () => {
+  const res = await apiClient.post('/payments/checkout-cart');
+  return unwrap<{ authorization_url: string; reference: string; access_code: string; batch_id: string }>(res);
+};
+
 // ─── Bursar (dues management, payment ledger, defaulters) ─────────────────
 
 export const getAllDues = async () => {

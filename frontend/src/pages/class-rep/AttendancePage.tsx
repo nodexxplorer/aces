@@ -3,6 +3,7 @@ import Card, { CardHeader, CardTitle, CardDescription } from '../../components/u
 import Select from '../../components/ui/Select';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import EmptyState from '../../components/ui/EmptyState';
 import QRScanner from '../../components/ui/QRScanner';
 import { useNotification } from '../../hooks/useNotification';
 import {
@@ -557,8 +558,8 @@ const AttendancePage = () => {
             <tbody className="divide-y divide-surface-150 dark:divide-surface-800/80">
               {filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-8 text-surface-400">
-                    No verified students match your query.
+                  <td colSpan={5}>
+                    <EmptyState title="No verified students match your query." />
                   </td>
                 </tr>
               ) : (

@@ -2,11 +2,27 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Search, BookOpen, User, Megaphone, Loader2, AlertCircle } from 'lucide-react';
 import { universalSearch, type SearchResult } from '../../api/additional-features';
+import EmptyState from '../../components/ui/EmptyState';
 
 const TYPE_CONFIG: Record<string, { icon: typeof BookOpen; label: string; color: string; bg: string }> = {
-  course:       { icon: BookOpen,   label: 'Course',       color: 'text-blue-600 dark:text-blue-400',  bg: 'bg-blue-50 dark:bg-blue-900/20' },
-  student:      { icon: User,       label: 'Student',      color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
-  announcement: { icon: Megaphone,  label: 'Announcement', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20' },
+  course: {
+    icon: BookOpen,
+    label: 'Course',
+    color: 'text-blue-600 dark:text-blue-400',
+    bg: 'bg-blue-50 dark:bg-blue-900/20',
+  },
+  student: {
+    icon: User,
+    label: 'Student',
+    color: 'text-emerald-600 dark:text-emerald-400',
+    bg: 'bg-emerald-50 dark:bg-emerald-900/20',
+  },
+  announcement: {
+    icon: Megaphone,
+    label: 'Announcement',
+    color: 'text-amber-600 dark:text-amber-400',
+    bg: 'bg-amber-50 dark:bg-amber-900/20',
+  },
 };
 
 export default function SearchResultsPage() {
@@ -20,15 +36,26 @@ export default function SearchResultsPage() {
 
   useEffect(() => {
     setInputValue(query);
-    if (!query.trim()) { setResults([]); return; }
+    if (!query.trim()) {
+      setResults([]);
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     setError('');
     universalSearch(query)
-      .then((data) => { if (!cancelled) setResults(data); })
-      .catch(() => { if (!cancelled) setError('Search failed. Please try again.'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .then((data) => {
+        if (!cancelled) setResults(data);
+      })
+      .catch(() => {
+        if (!cancelled) setError('Search failed. Please try again.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [query]);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -74,7 +101,9 @@ export default function SearchResultsPage() {
           <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm p-12 text-center">
             <Search className="w-12 h-12 text-surface-300 mx-auto mb-4" />
             <p className="text-surface-500 dark:text-surface-400 text-lg">Enter a search term to get started</p>
-            <p className="text-surface-400 dark:text-surface-500 text-sm mt-1">Search for courses by code, students by name or matric number, or browse announcements</p>
+            <p className="text-surface-400 dark:text-surface-500 text-sm mt-1">
+              Search for courses by code, students by name or matric number, or browse announcements
+            </p>
           </div>
         )}
 
@@ -93,19 +122,23 @@ export default function SearchResultsPage() {
         )}
 
         {!loading && query && !error && results.length === 0 && (
-          <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm p-12 text-center">
-            <Search className="w-12 h-12 text-surface-300 mx-auto mb-4" />
-            <p className="text-surface-500 dark:text-surface-400 text-lg">No results found</p>
-            <p className="text-surface-400 dark:text-surface-500 text-sm mt-1">
-              No items matching "{query}" were found. Try a different search term.
-            </p>
+          <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm">
+            <EmptyState
+              title="No results found"
+              description={`No items matching "${query}" were found. Try a different search term.`}
+            />
           </div>
         )}
 
         {!loading && !error && results.length > 0 && (
           <div className="space-y-6">
             {Object.entries(grouped).map(([type, items]) => {
-              const config = TYPE_CONFIG[type] || { icon: Search, label: type, color: 'text-surface-600', bg: 'bg-surface-100' };
+              const config = TYPE_CONFIG[type] || {
+                icon: Search,
+                label: type,
+                color: 'text-surface-600',
+                bg: 'bg-surface-100',
+              };
               const Icon = config.icon;
               return (
                 <div key={type}>
@@ -116,7 +149,9 @@ export default function SearchResultsPage() {
                     <h2 className="text-sm font-semibold text-surface-700 dark:text-surface-300 uppercase tracking-wide">
                       {config.label}s
                     </h2>
-                    <span className="text-xs text-surface-400 ml-auto">{items.length} result{items.length > 1 ? 's' : ''}</span>
+                    <span className="text-xs text-surface-400 ml-auto">
+                      {items.length} result{items.length > 1 ? 's' : ''}
+                    </span>
                   </div>
                   <div className="space-y-2">
                     {items.map((item) => (

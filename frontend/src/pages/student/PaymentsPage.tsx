@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
+import EmptyState from '../../components/ui/EmptyState';
 import StatusBadge from '../../components/data-display/StatusBadge';
 import DataTable, { type Column } from '../../components/data-display/DataTable';
 import { formatCurrency, formatDate } from '../../utils/formatters';
@@ -43,7 +44,7 @@ const PaymentsPage = () => {
   const { user } = useAuth();
   const { success, error: notifyError } = useNotification();
 
-  const [tab, setTab] = useState<'transactions' | 'cart'>('transactions');
+  const [tab, setTab] = useState<'transactions' | 'cart'>('cart');
   const [payments, setPayments] = useState<Payment[]>([]);
   const [summary, setSummary] = useState<{
     total_paid: number;
@@ -230,8 +231,8 @@ const PaymentsPage = () => {
   ];
 
   const tabs = [
-    { key: 'transactions' as const, label: 'Transactions', icon: Receipt },
     { key: 'cart' as const, label: `Cart (${totalCartCount})`, icon: ShoppingCart },
+    { key: 'transactions' as const, label: 'Transactions', icon: Receipt },
   ];
 
   return (
@@ -543,11 +544,11 @@ const PaymentsPage = () => {
           {/* Empty state */}
           {cart.length === 0 && !cartLoading && (
             <Card>
-              <div className="text-center py-12">
-                <ShoppingCart className="w-10 h-10 mx-auto mb-3 text-surface-300 dark:text-surface-600" />
-                <p className="text-sm text-surface-500">Your cart is empty.</p>
-                <p className="text-xs text-surface-400 mt-1">Add dues from the list above.</p>
-              </div>
+              <EmptyState
+                icon={<ShoppingCart className="w-8 h-8 text-surface-400" />}
+                title="Your cart is empty."
+                description="Add dues from the list above."
+              />
             </Card>
           )}
         </div>

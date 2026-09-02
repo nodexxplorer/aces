@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Card from '../../components/ui/Card';
+import EmptyState from '../../components/ui/EmptyState';
 import { getStudentResults, getResultSlipDownloadUrl } from '../../api/results';
 import { Download } from 'lucide-react';
 import { getCourses } from '../../api/courses';
@@ -210,14 +211,11 @@ export default function ResultsPage() {
       </div>
 
       {sections.length === 0 ? (
-        <Card className="p-12 flex flex-col items-center text-center">
-          <div className="w-12 h-12 rounded-full bg-surface-100 dark:bg-surface-800 flex items-center justify-center mb-3">
-            <span className="text-2xl">📚</span>
-          </div>
-          <h3 className="text-base font-semibold text-surface-700 dark:text-surface-300 mb-1">No results yet</h3>
-          <p className="text-sm text-surface-400 max-w-sm">
-            Your results will appear here once lecturers submit and they are approved.
-          </p>
+        <Card className="p-12">
+          <EmptyState
+            title="No results yet"
+            description="Your results will appear here once lecturers submit and they are approved."
+          />
         </Card>
       ) : (
         <Card>

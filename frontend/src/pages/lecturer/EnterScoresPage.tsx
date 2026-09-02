@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Select from '../../components/ui/Select';
 import Button from '../../components/ui/Button';
+import EmptyState from '../../components/ui/EmptyState';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../hooks/useAuth';
 import { calculateGrade } from '../../utils/cgpa';
@@ -145,9 +146,7 @@ export const ScoresTab = () => {
             <span className="text-sm text-surface-500">Loading scores...</span>
           </div>
         ) : rows.length === 0 ? (
-          <div className="text-center py-12 text-sm text-surface-400">
-            No results found for this course. Submit via Single Entry first.
-          </div>
+          <EmptyState title="No results found for this course. Submit via Single Entry first." />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
