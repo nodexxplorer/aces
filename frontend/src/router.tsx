@@ -127,7 +127,6 @@ const UnsubscribePage = lazy(() => import('./pages/shared/UnsubscribePage'));
 
 /* ── Layouts ─────────────────────────────────── */
 const AppShell = lazy(() => import('./components/layout/AppShell'));
-const PublicLayout = lazy(() => import('./components/layout/PublicLayout'));
 
 /* ── Loading fallback ────────────────────────── */
 const PageLoader = () => (
@@ -214,20 +213,11 @@ export const router = createBrowserRouter([
   {
     element: <PublicOnlyRoute />,
     children: [
-      // Login gets its own full-bleed layout (video background, two-column
-      // desktop split) — it deliberately bypasses PublicLayout's centered
-      // max-w-md gradient card treatment, which the other public pages below
-      // still use unchanged.
       { path: '/login', element: <LoginPage /> },
-      {
-        element: <PublicLayout />,
-        children: [
-          { path: '/forgot-password', element: <ForgotPasswordPage /> },
-          { path: '/reset-password-otp', element: <PasswordResetOTPPage /> },
-          { path: '/signup/student', element: <StudentSignupPage /> },
-          { path: '/signup/lecturer', element: <LecturerSignupPage /> },
-        ],
-      },
+      { path: '/forgot-password', element: <ForgotPasswordPage /> },
+      { path: '/reset-password-otp', element: <PasswordResetOTPPage /> },
+      { path: '/signup/student', element: <StudentSignupPage /> },
+      { path: '/signup/lecturer', element: <LecturerSignupPage /> },
     ],
   },
   {
@@ -254,12 +244,6 @@ export const router = createBrowserRouter([
         children: [
           { path: '/dashboard', element: <Dashboard /> },
 
-          // Student-only routes (lecturers cannot access). Includes the
-          // delegated student roles (project_coordinator/event_coordinator/
-          // alumni_rep) — they're students with an extra duty layered on,
-          // routed to the student dashboard/nav, so they need the same base
-          // page access a student gets or the Sidebar links Dashboard.tsx
-          // shows them would all dead-end back here.
           {
             element: (
               <RoleRoute

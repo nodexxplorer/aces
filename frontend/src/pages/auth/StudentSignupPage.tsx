@@ -8,7 +8,7 @@ import { motion } from 'framer-motion';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
-import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
+import AuthVideoShell from '../../components/layout/AuthVideoShell';
 import { Mail, Lock, User, UserCheck, MapPin } from 'lucide-react';
 import { studentSignup } from '../../api/signup';
 
@@ -65,113 +65,114 @@ const StudentSignupPage = () => {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="w-full max-w-lg mx-auto"
-    >
-      <Card glass className="p-8">
-        <CardHeader className="flex-col items-center gap-1 text-center mb-6">
-          <img src="/aces-logo.png" alt="Aces Logo" className="w-12 h-12 rounded-2xl mb-2 object-contain shadow-lg" />
-          <CardTitle className="text-2xl font-bold tracking-tight">Student Registration</CardTitle>
-          <CardDescription>Create your student account to join the ACES academic zone</CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="First Name"
-              placeholder="e.g. John"
-              leftIcon={<User className="w-4 h-4" />}
-              error={errors.firstName?.message}
-              {...register('firstName')}
+    <AuthVideoShell cardMaxWidth="max-w-lg">
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+        <div className="rounded-2xl border border-white/25 bg-white/10 backdrop-blur-2xl shadow-2xl p-8">
+          <div className="flex flex-col items-center gap-1 text-center mb-7">
+            <img
+              src="/aces-logo.png"
+              alt="Aces Logo"
+              className="w-14 h-14 rounded-2xl mb-2 object-contain shadow-lg md:hidden"
             />
-            <Input
-              label="Last Name"
-              placeholder="e.g. Doe"
-              leftIcon={<User className="w-4 h-4" />}
-              error={errors.lastName?.message}
-              {...register('lastName')}
-            />
+            <h2 className="text-3xl font-bold tracking-tight text-white">Student Registration</h2>
+            <p className="text-sm text-white/70">Create your student account to join the ACES academic zone</p>
           </div>
-          <Input
-            label="Email Address"
-            placeholder="e.g. john.doe@student.uniuyo.edu.ng"
-            leftIcon={<Mail className="w-4 h-4" />}
-            error={errors.email?.message}
-            {...register('email')}
-          />
-          <div className="grid grid-cols-2 gap-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="First Name"
+                placeholder="e.g. John"
+                leftIcon={<User className="w-4 h-4" />}
+                error={errors.firstName?.message}
+                {...register('firstName')}
+              />
+              <Input
+                label="Last Name"
+                placeholder="e.g. Doe"
+                leftIcon={<User className="w-4 h-4" />}
+                error={errors.lastName?.message}
+                {...register('lastName')}
+              />
+            </div>
             <Input
-              label="Matric Number"
-              placeholder="e.g. ENG/2022/123"
-              leftIcon={<UserCheck className="w-4 h-4" />}
-              error={errors.matricNumber?.message}
-              {...register('matricNumber')}
+              label="Email Address"
+              placeholder="e.g. john.doe@student.uniuyo.edu.ng"
+              leftIcon={<Mail className="w-4 h-4" />}
+              error={errors.email?.message}
+              {...register('email')}
             />
-            <Select
-              label="Level"
-              placeholder="Select Level"
-              options={[
-                { value: '100', label: '100 Level' },
-                { value: '200', label: '200 Level' },
-                { value: '300', label: '300 Level' },
-                { value: '400', label: '400 Level' },
-                { value: '500', label: '500 Level' },
-              ]}
-              error={errors.level?.message}
-              {...register('level')}
-            />
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="Matric Number"
+                placeholder="e.g. ENG/2022/123"
+                leftIcon={<UserCheck className="w-4 h-4" />}
+                error={errors.matricNumber?.message}
+                {...register('matricNumber')}
+              />
+              <Select
+                label="Level"
+                placeholder="Select Level"
+                options={[
+                  { value: '100', label: '100 Level' },
+                  { value: '200', label: '200 Level' },
+                  { value: '300', label: '300 Level' },
+                  { value: '400', label: '400 Level' },
+                  { value: '500', label: '500 Level' },
+                ]}
+                error={errors.level?.message}
+                {...register('level')}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Select
+                label="Gender"
+                placeholder="Select Gender"
+                options={[
+                  { value: 'male', label: 'Male' },
+                  { value: 'female', label: 'Female' },
+                ]}
+                error={errors.gender?.message}
+                {...register('gender')}
+              />
+              <Input
+                label="Address"
+                placeholder="e.g. 123 Main St"
+                leftIcon={<MapPin className="w-4 h-4" />}
+                error={errors.address?.message}
+                {...register('address')}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="Password"
+                type="password"
+                placeholder="••••••••"
+                leftIcon={<Lock className="w-4 h-4" />}
+                error={errors.password?.message}
+                {...register('password')}
+              />
+              <Input
+                label="Confirm Password"
+                type="password"
+                placeholder="••••••••"
+                leftIcon={<Lock className="w-4 h-4" />}
+                error={errors.confirmPassword?.message}
+                {...register('confirmPassword')}
+              />
+            </div>
+            <Button type="submit" className="w-full mt-2" isLoading={isSubmitting}>
+              Register Account
+            </Button>
+          </form>
+          <div className="mt-6 text-center text-xs text-white/60">
+            Already have an account?{' '}
+            <Link to="/login" className="text-primary-300 hover:text-primary-200 font-semibold transition-colors">
+              Sign In
+            </Link>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Select
-              label="Gender"
-              placeholder="Select Gender"
-              options={[
-                { value: 'male', label: 'Male' },
-                { value: 'female', label: 'Female' },
-              ]}
-              error={errors.gender?.message}
-              {...register('gender')}
-            />
-            <Input
-              label="Address"
-              placeholder="e.g. 123 Main St"
-              leftIcon={<MapPin className="w-4 h-4" />}
-              error={errors.address?.message}
-              {...register('address')}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Password"
-              type="password"
-              placeholder="••••••••"
-              leftIcon={<Lock className="w-4 h-4" />}
-              error={errors.password?.message}
-              {...register('password')}
-            />
-            <Input
-              label="Confirm Password"
-              type="password"
-              placeholder="••••••••"
-              leftIcon={<Lock className="w-4 h-4" />}
-              error={errors.confirmPassword?.message}
-              {...register('confirmPassword')}
-            />
-          </div>
-          <Button type="submit" className="w-full mt-2" isLoading={isSubmitting}>
-            Register Account
-          </Button>
-        </form>
-        <div className="mt-6 text-center text-xs text-surface-400">
-          Already have an account?{' '}
-          <Link to="/login" className="text-primary-400 hover:text-primary-300 font-semibold transition-colors">
-            Sign In
-          </Link>
         </div>
-      </Card>
-    </motion.div>
+      </motion.div>
+    </AuthVideoShell>
   );
 };
 
