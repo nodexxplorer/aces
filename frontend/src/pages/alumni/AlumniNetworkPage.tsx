@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import EmptyState from '../../components/ui/EmptyState';
 import { Search, MapPin, Briefcase, ExternalLink, Filter } from 'lucide-react';
 import { searchAlumniDirectory } from '../../api/alumni';
 import type { AlumniDirectoryItem } from '../../types';
@@ -155,7 +156,7 @@ const AlumniNetworkPage = () => {
         </Card>
       ) : alumni.length === 0 ? (
         <Card>
-          <div className="p-12 text-center text-sm text-surface-400">No alumni found matching your criteria</div>
+          <EmptyState title="No alumni found matching your criteria" />
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

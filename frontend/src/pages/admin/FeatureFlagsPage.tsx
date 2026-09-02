@@ -7,6 +7,7 @@ import {
   deleteFeatureFlag,
   type FeatureFlag,
 } from '../../api/additional-features';
+import EmptyState from '../../components/ui/EmptyState';
 import { useNotification } from '../../hooks/useNotification';
 import { getErrorMessage } from '../../utils/errors';
 
@@ -228,13 +229,10 @@ const FeatureFlagsPage = () => {
               <span className="ml-3 text-sm text-surface-500">Loading feature flags...</span>
             </div>
           ) : flags.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-12 text-center">
-              <Shield className="w-10 h-10 text-surface-300 dark:text-surface-600 mb-3" />
-              <p className="text-sm font-medium text-surface-500 dark:text-surface-400">No feature flags configured</p>
-              <p className="text-xs text-surface-400 dark:text-surface-500 mt-1">
-                Create your first flag to start rolling out features gradually
-              </p>
-            </div>
+            <EmptyState
+              title="No feature flags configured"
+              description="Create your first flag to start rolling out features gradually"
+            />
           ) : (
             <table className="w-full">
               <thead>

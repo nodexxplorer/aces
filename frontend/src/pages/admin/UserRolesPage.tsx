@@ -6,6 +6,7 @@ import Badge from '../../components/ui/Badge';
 import DataTable from '../../components/data-display/DataTable';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
+import EmptyState from '../../components/ui/EmptyState';
 import StatusBadge from '../../components/data-display/StatusBadge';
 import { useNotification } from '../../hooks/useNotification';
 import {
@@ -444,7 +445,7 @@ function AssignTab() {
               ) : students.length === 0 ? (
                 <tr>
                   <td colSpan={5}>
-                    <div className="text-center py-12 text-sm text-surface-400">No students found</div>
+                    <EmptyState title="No students found" />
                   </td>
                 </tr>
               ) : (
@@ -604,7 +605,7 @@ function AssignTab() {
                   <Loader2 className="w-4 h-4 animate-spin text-primary-500" />
                 </div>
               ) : logs.length === 0 ? (
-                <p className="text-xs text-surface-400 text-center py-3">No role history yet</p>
+                <EmptyState title="No role history yet" className="py-3" />
               ) : (
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {logs.map((log) => (
@@ -878,12 +879,7 @@ function ApprovalsTab() {
             <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
           </div>
         ) : paginatedUsers.length === 0 ? (
-          <div className="text-center py-12">
-            <UserCheck className="w-10 h-10 text-surface-300 dark:text-surface-600 mx-auto mb-3" />
-            <p className="text-sm text-surface-400">
-              {pendingUsers.length === 0 ? 'All users are approved' : 'No users match your search'}
-            </p>
-          </div>
+          <EmptyState title={pendingUsers.length === 0 ? 'All users are approved' : 'No users match your search'} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

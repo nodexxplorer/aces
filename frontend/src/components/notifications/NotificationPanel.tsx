@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CheckCheck, ArrowRight, Bell as BellIcon } from 'lucide-react';
+import { CheckCheck, ArrowRight } from 'lucide-react';
 import { useNotificationStore } from '../../stores/notificationStore';
 import NotificationItem from './NotificationItem';
+import EmptyState from '../ui/EmptyState';
 import type { NotificationFull } from '../../api/notifications';
 
 interface NotificationPanelProps {
@@ -96,15 +97,7 @@ const NotificationPanel = ({ onClose }: NotificationPanelProps) => {
 
       <div className="flex-1 overflow-y-auto">
         {recent.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-            <div className="w-12 h-12 rounded-xl bg-surface-100 dark:bg-surface-700 flex items-center justify-center mb-3">
-              <BellIcon className="w-6 h-6 text-surface-400" />
-            </div>
-            <p className="text-sm font-medium text-surface-600 dark:text-surface-300">No notifications yet</p>
-            <p className="text-xs text-surface-400 dark:text-surface-500 mt-1">
-              When you get notifications, they'll appear here
-            </p>
-          </div>
+          <EmptyState title="No notifications yet" description="When you get notifications, they'll appear here" />
         ) : (
           grouped.map((group) => (
             <div key={group.label}>

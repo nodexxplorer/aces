@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import EmptyState from '../../components/ui/EmptyState';
 import DataTable from '../../components/data-display/DataTable';
 import Modal from '../../components/ui/Modal';
 import Badge from '../../components/ui/Badge';
@@ -307,7 +308,7 @@ const CourseManagementPage = () => {
               </h3>
             </div>
             {Object.keys(lecturerCourseMap).length === 0 ? (
-              <p className="text-sm text-surface-500 text-center py-6">No courses assigned to any lecturer yet.</p>
+              <EmptyState title="No courses assigned to any lecturer yet." />
             ) : (
               <div className="space-y-4">
                 {Object.entries(lecturerCourseMap).map(([lecturerId, assignedCourses]) => {

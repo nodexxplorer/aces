@@ -436,10 +436,12 @@ func (server *Server) login(ctx *gin.Context) {
 			server.recordFailedLoginAttempt(ctx, preloadedUser.ID, clientIP)
 		}
 		status := http.StatusUnauthorized
+		message := "invalid email or password"
 		if err.Error() == "account is deactivated" {
 			status = http.StatusForbidden
+			message = "account is deactivated"
 		}
-		ctx.JSON(status, gin.H{"error": "internal server error"})
+		ctx.JSON(status, gin.H{"error": message})
 		return
 	}
 

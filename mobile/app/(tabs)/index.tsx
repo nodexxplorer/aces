@@ -3,6 +3,7 @@ import { View, StyleSheet, Pressable, Image } from 'react-native';
 import Text from '../../src/components/ui/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -16,6 +17,7 @@ import Card from '../../src/components/ui/Card';
 import Badge from '../../src/components/ui/Badge';
 import { getStudentDashboard, type StudentDashboard } from '../../src/api/dashboard';
 import { getMediaUrl } from '../../src/api/client';
+import { getUnreadCounts, getPendingRequests } from '../../src/api/connect';
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -24,16 +26,12 @@ function getGreeting() {
   return 'Good evening';
 }
 
-function formatCurrency(n: number) {
-  return `₦${n.toLocaleString('en-NG', { maximumFractionDigits: 0 })}`;
-}
-
 function initials(firstName?: string, lastName?: string) {
   return `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`.toUpperCase() || '?';
 }
 
 export default function DashboardScreen() {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
@@ -41,6 +39,7 @@ export default function DashboardScreen() {
   const setCgpaHidden = useSettingsStore((s) => s.setCgpaHidden);
 
   const [data, setData] = useState<StudentDashboard | null>(null);
+  const [connectActivity, setConnectActivity] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -51,6 +50,10 @@ export default function DashboardScreen() {
     } catch {
       // leave existing data on screen; a pull-to-refresh retry is one gesture away
     }
+    const [unreadRes, requestsRes] = await Promise.allSettled([getUnreadCounts(), getPendingRequests()]);
+    const unreadTotal = unreadRes.status === 'fulfilled' ? Object.values(unreadRes.value).reduce((a, b) => a + b, 0) : 0;
+    const pendingTotal = requestsRes.status === 'fulfilled' ? requestsRes.value.length : 0;
+    setConnectActivity(unreadTotal + pendingTotal);
   }, []);
 
   useEffect(() => {
@@ -137,50 +140,105 @@ export default function DashboardScreen() {
       </LinearGradient>
 
       <Screen refreshing={refreshing} onRefresh={onRefresh} contentContainerStyle={styles.scrollContent}>
+        <Animated.View entering={FadeInDown.duration(400).delay(80)}>
+          <UpdatesBanner
+            unread={unread}
+            latestAnnouncement={data?.announcements?.[0]}
+            onPress={() => router.push('/(tabs)/communication')}
+          />
+        </Animated.View>
+
+        
+        <Animated.View entering={FadeInDown.duration(400).delay(140)}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Quick Links</Text>
+          </View>
+          <BlurView
+            intensity={60}
+            tint={isDark ? 'dark' : 'light'}
+            style={[
+              styles.glassCard,
+              {
+                borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.6)',
+                backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.35)',
+              },
+            ]}
+          >
+            <View style={styles.tileGrid}>
+              <QuickAccessTile
+                icon="book-outline"
+                tone="primary"
+                label="Courses"
+                onPress={() => router.push('/(tabs)/courses')}
+              />
+              <QuickAccessTile
+                icon="cash-outline"
+                tone="primary"
+                label="Payments"
+                onPress={() => router.push('/(tabs)/payments')}
+              />
+              <QuickAccessTile
+                icon="checkmark-circle-outline"
+                tone="primary"
+                label="Attendance"
+                onPress={() => router.push('/(tabs)/attendance')}
+              />
+              <QuickAccessTile
+                icon="people-outline"
+                tone="primary"
+                label="Connect"
+                onPress={() => router.push('/(tabs)/connect')}
+              />
+              <QuickAccessTile
+                icon="qr-code-outline"
+                tone="primary"
+                label="Check In"
+                onPress={() => router.push('/scan')}
+              />
+              <QuickAccessTile
+                icon="megaphone-outline"
+                tone="primary"
+                label="Updates"
+                onPress={() => router.push('/(tabs)/communication')}
+                badge={unread > 0 ? unread : undefined}
+              />
+              <QuickAccessTile
+                icon="person-outline"
+                tone="primary"
+                label="Profile"
+                onPress={() => router.push('/(tabs)/profile')}
+              />
+              <QuickAccessTile
+                icon="help-circle-outline"
+                tone="primary"
+                label="Support"
+                onPress={() => router.push('/(tabs)/profile/support')}
+              />
+            </View>
+          </BlurView>
+        </Animated.View>
+
         <Animated.View entering={FadeInDown.duration(400).delay(100)} style={styles.statsRow}>
           <StatCard
             icon="checkmark-done-outline"
-            tone="success"
+            tone="primary"
             label="Attendance"
             value={`${Math.round(data?.attendance?.attendance_rate ?? 0)}%`}
           />
           <StatCard
-            icon="cash-outline"
-            tone="danger"
-            label="Outstanding"
-            value={formatCurrency(data?.payments?.amount_pending ?? 0)}
+            icon="people-outline"
+            tone="primary"
+            label="Connect"
+            value={String(connectActivity)}
           />
           <StatCard
             icon="chatbubbles-outline"
-            tone="warning"
+            tone="primary"
             label="Notifications"
             value={String(unread)}
           />
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.duration(400).delay(140)}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Quick Links</Text>
-          </View>
-          <View style={styles.quickLinksRow}>
-            <QuickLink
-              icon="cash-outline"
-              label="Payments"
-              onPress={() => router.push('/(tabs)/payments')}
-            />
-            <QuickLink
-              icon="notifications-outline"
-              label="Updates"
-              onPress={() => router.push('/(tabs)/communication')}
-              badge={unread > 0 ? unread : undefined}
-            />
-            <QuickLink
-              icon="checkmark-circle-outline"
-              label="Attendance"
-              onPress={() => router.push('/(tabs)/attendance')}
-            />
-          </View>
-        </Animated.View>
 
         <Animated.View entering={FadeInDown.duration(400).delay(260)}>
           <View style={styles.sectionHeaderRow}>
@@ -245,32 +303,98 @@ export default function DashboardScreen() {
   );
 }
 
-function QuickLink({
+// The OPay-style promo banner, repurposed as a "what's new" surface — it
+// always shows something actionable (a real announcement when there is one,
+// otherwise the unread count, otherwise a neutral prompt) with a chevron
+// leading straight to the Communication screen (notices/announcements/
+// notifications all live there), same as tapping the header bell.
+function UpdatesBanner({
+  unread,
+  latestAnnouncement,
+  onPress,
+}: {
+  unread: number;
+  latestAnnouncement?: { title: string };
+  onPress: () => void;
+}) {
+  const { theme } = useTheme();
+
+  let title: string;
+  let subtitle: string;
+  if (unread > 0) {
+    title = `You have ${unread} new update${unread === 1 ? '' : 's'}`;
+    subtitle = latestAnnouncement ? latestAnnouncement.title : 'Tap to view notifications';
+  } else if (latestAnnouncement) {
+    title = latestAnnouncement.title;
+    subtitle = 'New announcement';
+  } else {
+    title = "You're all caught up";
+    subtitle = 'No new notices or announcements';
+  }
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.updatesBanner,
+        { backgroundColor: theme.successMuted, borderColor: theme.success },
+        pressed && { opacity: 0.85 },
+      ]}
+    >
+      <View style={[styles.updatesIconWrap, { backgroundColor: theme.success }]}>
+        <Ionicons name="megaphone-outline" size={18} color="#fff" />
+      </View>
+      <View style={styles.flex}>
+        <Text style={[styles.updatesTitle, { color: theme.text }]} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={[styles.updatesSubtitle, { color: theme.textMuted }]} numberOfLines={1}>
+          {subtitle}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
+    </Pressable>
+  );
+}
+
+const TILE_TONES = {
+  primary: { icon: 'primary', muted: 'primaryMuted' },
+  success: { icon: 'success', muted: 'successMuted' },
+  warning: { icon: 'warning', muted: 'warningMuted' },
+  danger: { icon: 'danger', muted: 'dangerMuted' },
+} as const;
+
+function QuickAccessTile({
   icon,
+  tone,
   label,
   onPress,
   badge,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
+  tone: keyof typeof TILE_TONES;
   label: string;
   onPress: () => void;
   badge?: number;
 }) {
   const { theme } = useTheme();
+  const toneKeys = TILE_TONES[tone];
   return (
     <Pressable
-      style={({ pressed }) => [styles.quickLink, pressed && { opacity: 0.7 }]}
+      style={({ pressed }) => [styles.tile, pressed && { opacity: 0.7 }]}
       onPress={onPress}
     >
-      <View style={[styles.quickLinkIconWrap, { backgroundColor: theme.primaryMuted }]}>
-        <Ionicons name={icon} size={20} color={theme.primary} />
+      <View style={[styles.tileIconWrap, { backgroundColor: theme[toneKeys.muted] }]}>
+        <Ionicons name={icon} size={22} color={theme[toneKeys.icon]} />
         {!!badge && (
           <View style={styles.bellBadge}>
             <Text style={styles.bellBadgeText}>{badge > 9 ? '9+' : badge}</Text>
           </View>
         )}
       </View>
-      <Text style={[styles.quickLinkLabel, { color: theme.text }]}>{label}</Text>
+      <Text style={[styles.tileLabel, { color: theme.text }]} numberOfLines={1}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -282,12 +406,12 @@ function StatCard({
   value,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
-  tone: 'success' | 'warning' | 'danger';
+  tone: 'success' | 'warning' | 'danger' | 'primary';
   label: string;
   value: string;
 }) {
   const { theme } = useTheme();
-  const toneColor = { success: theme.success, warning: theme.warning, danger: theme.danger }[tone];
+  const toneColor = { success: theme.success, warning: theme.warning, danger: theme.danger,primary: theme.primary }[tone];
   return (
     <Card style={styles.statCard}>
       <View style={[styles.statIconWrap, { backgroundColor: toneColor }]}>
@@ -428,26 +552,56 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
   },
-  quickLinksRow: {
+  updatesBanner: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.xs,
-  },
-  quickLink: {
-    flex: 1,
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.xl,
+    borderWidth: 1,
   },
-  quickLinkIconWrap: {
-    width: 48,
-    height: 48,
+  updatesIconWrap: {
+    width: 36,
+    height: 36,
     borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  quickLinkLabel: {
-    fontFamily: fontFamily.medium,
+  updatesTitle: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+  },
+  updatesSubtitle: {
+    fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
+    marginTop: 1,
+  },
+  glassCard: {
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    padding: spacing.lg,
+    overflow: 'hidden',
+  },
+  tileGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    rowGap: spacing.md,
+  },
+  tile: {
+    width: '25%',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  tileIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tileLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize: 11,
   },
   sectionHeaderRow: {
     flexDirection: 'row',

@@ -123,7 +123,9 @@ func (server *Server) getStudentDashboard(ctx *gin.Context) {
 	// frontend page), so the summary always showed 0/0 no matter how many
 	// times a student actually checked in.
 	if activeSem, err := queries.GetActiveSemester(ctx); err == nil {
-		summary, err := queries.GetStudentAttendanceSummary(ctx, student.ID, userID, activeSem.ID)
+		summary, err := queries.GetStudentAttendanceSummary(
+			ctx, student.ID, userID, activeSem.ID, activeSem.StartDate.Time, activeSem.EndDate.Time,
+		)
 		if err == nil {
 			rate := 0.0
 			if summary.TotalClasses > 0 {
@@ -588,8 +590,21 @@ func (server *Server) createAttendanceSession(ctx *gin.Context) {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "course not found"})
 			return
 		}
-		assignment, aerr := queries.GetActiveClassRepAssignment(ctx, userID)
-		if aerr != nil || assignment.Level != course.Level {
+		// class_rep_assignments only gets a row when a rep is appointed
+		// through the formal admin flow — in practice the role is usually
+		// just toggled on a user directly, leaving that table empty and this
+		// check permanently forbidden for every rep. Fall back to the rep's
+		// own student level in that case instead of hard-blocking them.
+		var repLevel int32
+		if assignment, aerr := queries.GetActiveClassRepAssignment(ctx, userID); aerr == nil {
+			repLevel = assignment.Level
+		} else if student, serr := queries.GetStudentByUserId(ctx, userID); serr == nil {
+			repLevel = student.Level
+		} else {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "you may only open sessions for your own class level"})
+			return
+		}
+		if repLevel != course.Level {
 			ctx.JSON(http.StatusForbidden, gin.H{"error": "you may only open sessions for your own class level"})
 			return
 		}

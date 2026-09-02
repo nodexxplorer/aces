@@ -23,6 +23,7 @@ import {
 import { useNotification } from '../../hooks/useNotification';
 import { getErrorMessage } from '../../utils/errors';
 import Button from '../../components/ui/Button';
+import EmptyState from '../../components/ui/EmptyState';
 
 interface Announcement {
   id: string;
@@ -390,7 +391,7 @@ export default function StudentAnnouncementsPage() {
 
                   <div className="space-y-4 mb-6">
                     {comments.length === 0 ? (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 italic">No comments yet</p>
+                      <EmptyState title="No comments yet" className="py-0" />
                     ) : (
                       comments.map((comment) => (
                         <div key={comment.id} className="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4">
@@ -493,12 +494,7 @@ export default function StudentAnnouncementsPage() {
             <p className="text-sm text-gray-500 dark:text-gray-400">Loading announcements...</p>
           </div>
         ) : sortedAnnouncements.length === 0 ? (
-          <div className="text-center py-20">
-            <Megaphone className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-            <p className="text-gray-500 dark:text-gray-400 text-sm">
-              {searchQuery ? 'No announcements match your search' : 'No announcements available'}
-            </p>
-          </div>
+          <EmptyState title={searchQuery ? 'No announcements match your search' : 'No announcements available'} />
         ) : (
           <div className="space-y-3">
             {sortedAnnouncements.map((announcement) => (

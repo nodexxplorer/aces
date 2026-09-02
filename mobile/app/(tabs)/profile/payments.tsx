@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList, Pressable } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, StyleSheet, FlatList, Pressable, TextInput } from 'react-native';
 import Text from '../../../src/components/ui/Text';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
@@ -9,8 +9,9 @@ import { fontFamily, fontSize, radius, spacing } from '../../../src/theme/typogr
 import Screen from '../../../src/components/ui/Screen';
 import Card from '../../../src/components/ui/Card';
 import Badge from '../../../src/components/ui/Badge';
+import EmptyState from '../../../src/components/ui/EmptyState';
 import { useAuthStore } from '../../../src/store/authStore';
-import { getMyDues, getStudentPayments, getStudentPaymentSummary, type DuePayment, type Payment } from '../../../src/api/payments';
+import { getStudentPayments, type Payment } from '../../../src/api/payments';
 
 function formatCurrency(n: number) {
   return `₦${n.toLocaleString('en-NG', { maximumFractionDigits: 0 })}`;
@@ -23,28 +24,26 @@ const STATUS_TONE: Record<Payment['status'], 'success' | 'warning' | 'danger' | 
   refunded: 'neutral',
 };
 
-export default function PaymentsScreen() {
+const STATUS_FILTERS = ['all', 'completed', 'pending', 'failed', 'refunded'] as const;
+
+export default function TransactionHistoryScreen() {
   const { theme } = useTheme();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const [tab, setTab] = useState<'dues' | 'history'>('dues');
-  const [dues, setDues] = useState<DuePayment[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [summary, setSummary] = useState<{ amount_paid: number; amount_pending: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>('all');
 
   const fetchAll = useCallback(async () => {
     if (!user?.id) return;
-    const [duesData, paymentsData, summaryData] = await Promise.allSettled([
-      getMyDues(user.level),
-      getStudentPayments(user.id),
-      getStudentPaymentSummary(user.id),
-    ]);
-    if (duesData.status === 'fulfilled') setDues(duesData.value);
-    if (paymentsData.status === 'fulfilled') setPayments(paymentsData.value);
-    if (summaryData.status === 'fulfilled') setSummary(summaryData.value);
-  }, [user?.id, user?.level]);
+    try {
+      setPayments(await getStudentPayments(user.id));
+    } catch {
+      // pull-to-refresh is right there
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     setLoading(true);
@@ -57,114 +56,94 @@ export default function PaymentsScreen() {
     setRefreshing(false);
   };
 
-  const paidDueNames = new Set(payments.filter((p) => p.status === 'completed').map((p) => p.item_name));
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return payments.filter((p) => {
+      const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
+      const matchesSearch =
+        !q ||
+        p.item_name.toLowerCase().includes(q) ||
+        (p.paystack_reference ?? '').toLowerCase().includes(q);
+      return matchesStatus && matchesSearch;
+    });
+  }, [payments, search, statusFilter]);
 
   return (
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
       <Pressable style={styles.backRow} onPress={() => router.back()} hitSlop={12}>
         <Ionicons name="chevron-back" size={20} color={theme.primary} />
-        <Text style={[styles.backLabel, { color: theme.primary }]}>Profile</Text>
+        <Text style={[styles.backLabel, { color: theme.primary }]}>Payments</Text>
       </Pressable>
 
-      <Text style={[styles.header, { color: theme.text }]}>Payments & Dues</Text>
+      <Text style={[styles.header, { color: theme.text }]}>Transaction History</Text>
 
-      <View style={styles.summaryRow}>
-        <Card style={styles.summaryCard}>
-          <Text style={[styles.summaryLabel, { color: theme.textMuted }]}>Paid</Text>
-          <Text style={[styles.summaryValue, { color: theme.success }]}>
-            {formatCurrency(summary?.amount_paid ?? 0)}
-          </Text>
-        </Card>
-        <Card style={styles.summaryCard}>
-          <Text style={[styles.summaryLabel, { color: theme.textMuted }]}>Outstanding</Text>
-          <Text style={[styles.summaryValue, { color: theme.warning }]}>
-            {formatCurrency(summary?.amount_pending ?? 0)}
-          </Text>
-        </Card>
+      <View style={[styles.searchInputWrap, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <Ionicons name="search" size={16} color={theme.textFaint} />
+        <TextInput
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search by name or reference..."
+          placeholderTextColor={theme.textFaint}
+          style={[styles.searchInput, { color: theme.text }]}
+        />
       </View>
 
-      <View style={[styles.tabRow, { borderColor: theme.divider }]}>
-        {(['dues', 'history'] as const).map((t) => (
-          <Text
-            key={t}
-            onPress={() => setTab(t)}
-            style={[
-              styles.tabLabel,
-              { color: tab === t ? theme.primary : theme.textMuted },
-              tab === t && { borderBottomColor: theme.primary, borderBottomWidth: 2 },
-            ]}
-          >
-            {t === 'dues' ? 'Dues to Pay' : 'Transaction History'}
-          </Text>
-        ))}
+      <View style={styles.filterChipsRow}>
+        {STATUS_FILTERS.map((s) => {
+          const active = statusFilter === s;
+          return (
+            <Pressable
+              key={s}
+              onPress={() => setStatusFilter(s)}
+              style={[
+                styles.chip,
+                { borderColor: active ? theme.primary : theme.cardBorder, backgroundColor: active ? theme.primaryMuted : 'transparent' },
+              ]}
+            >
+              <Text style={[styles.chipText, { color: active ? theme.primary : theme.textMuted }]}>
+                {s === 'all' ? 'All' : s[0].toUpperCase() + s.slice(1)}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
-      {tab === 'dues' ? (
-        <FlatList
-          data={dues.filter((d) => d.is_active && !paidDueNames.has(d.name))}
-          scrollEnabled={false}
-          keyExtractor={(d) => d.id}
-          ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
-          ListEmptyComponent={
-            !loading ? (
-              <Card>
-                <Text style={{ color: theme.textMuted, fontFamily: fontFamily.regular, fontSize: fontSize.sm }}>
-                  No outstanding dues. You're all caught up.
+      <FlatList
+        data={filtered}
+        scrollEnabled={false}
+        keyExtractor={(p) => p.id}
+        ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+        ListEmptyComponent={
+          !loading ? (
+            <Card>
+              <EmptyState
+                title={payments.length === 0 ? 'No transactions yet' : 'No matching transactions'}
+                description={
+                  payments.length === 0 ? 'Your payment history will show up here.' : 'Try a different search or filter.'
+                }
+              />
+            </Card>
+          ) : null
+        }
+        renderItem={({ item, index }) => (
+          <Animated.View entering={FadeInDown.duration(350).delay(index * 40)}>
+            <Card style={styles.row}>
+              <View style={styles.flex}>
+                <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>
+                  {item.item_name}
                 </Text>
-              </Card>
-            ) : null
-          }
-          renderItem={({ item, index }) => (
-            <Animated.View entering={FadeInDown.duration(350).delay(index * 40)}>
-              <Card style={styles.row}>
-                <View style={styles.flex}>
-                  <Text style={[styles.itemName, { color: theme.text }]}>{item.name}</Text>
-                  {item.deadline && (
-                    <Text style={[styles.itemMeta, { color: theme.textFaint }]}>
-                      Due {new Date(item.deadline).toLocaleDateString()}
-                    </Text>
-                  )}
-                </View>
+                <Text style={[styles.itemMeta, { color: theme.textFaint }]}>
+                  {new Date(item.created_at).toLocaleDateString()}
+                </Text>
+              </View>
+              <View style={{ alignItems: 'flex-end', gap: spacing.xs }}>
                 <Text style={[styles.amount, { color: theme.text }]}>{formatCurrency(item.amount)}</Text>
-              </Card>
-            </Animated.View>
-          )}
-        />
-      ) : (
-        <FlatList
-          data={payments}
-          scrollEnabled={false}
-          keyExtractor={(p) => p.id}
-          ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
-          ListEmptyComponent={
-            !loading ? (
-              <Card>
-                <Text style={{ color: theme.textMuted, fontFamily: fontFamily.regular, fontSize: fontSize.sm }}>
-                  No transactions yet.
-                </Text>
-              </Card>
-            ) : null
-          }
-          renderItem={({ item, index }) => (
-            <Animated.View entering={FadeInDown.duration(350).delay(index * 40)}>
-              <Card style={styles.row}>
-                <View style={styles.flex}>
-                  <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>
-                    {item.item_name}
-                  </Text>
-                  <Text style={[styles.itemMeta, { color: theme.textFaint }]}>
-                    {new Date(item.created_at).toLocaleDateString()}
-                  </Text>
-                </View>
-                <View style={{ alignItems: 'flex-end', gap: spacing.xs }}>
-                  <Text style={[styles.amount, { color: theme.text }]}>{formatCurrency(item.amount)}</Text>
-                  <Badge label={item.status} tone={STATUS_TONE[item.status]} />
-                </View>
-              </Card>
-            </Animated.View>
-          )}
-        />
-      )}
+                <Badge label={item.status} tone={STATUS_TONE[item.status]} />
+              </View>
+            </Card>
+          </Animated.View>
+        )}
+      />
     </Screen>
   );
 }
@@ -184,31 +163,35 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     fontSize: fontSize['2xl'],
   },
-  summaryRow: {
+  searchInputWrap: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    height: 40,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    height: '100%',
+  },
+  filterChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  summaryCard: {
-    flex: 1,
+  chip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.full,
+    borderWidth: StyleSheet.hairlineWidth,
   },
-  summaryLabel: {
+  chipText: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.xs,
-  },
-  summaryValue: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.lg,
-    marginTop: spacing.xs,
-  },
-  tabRow: {
-    flexDirection: 'row',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: spacing.xl,
-  },
-  tabLabel: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    paddingBottom: spacing.sm,
   },
   row: {
     flexDirection: 'row',

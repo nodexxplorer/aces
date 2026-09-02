@@ -55,6 +55,15 @@ func (server *Server) handleWebSocket(ctx *gin.Context) {
 	client := ws.NewClient(server.wsHub, conn, userID)
 	server.wsHub.Register(client)
 
+	// Hydrate this connection's group membership so SendToGroup/IsGroupMember
+	// actually reach it — the hub only tracks membership in memory per
+	// connection, it never reads group_members itself.
+	if groups, err := server.campusConnect.ListUserGroups(ctx, userID); err == nil {
+		for _, g := range groups {
+			server.wsHub.JoinGroup(g.ID, userID)
+		}
+	}
+
 	go client.WritePump()
 	go client.ReadPump()
 }

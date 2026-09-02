@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
+import EmptyState from '../../components/ui/EmptyState';
 import { useNotification } from '../../hooks/useNotification';
 import { Save, CalendarRange, Loader2, CheckCircle, AlertCircle, Plus, Trash2 } from 'lucide-react';
 import {
@@ -302,7 +303,7 @@ const SessionManagementPage = () => {
         </CardHeader>
         <div className="p-4 pt-0">
           {sessions.length === 0 ? (
-            <p className="text-sm text-surface-500 text-center py-6">No sessions created yet.</p>
+            <EmptyState title="No sessions created yet." className="py-6" />
           ) : (
             <div className="space-y-4">
               {sessions.map((s) => (

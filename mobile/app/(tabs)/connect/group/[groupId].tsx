@@ -7,6 +7,7 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import Text from '../../../../src/components/ui/Text';
 import EmptyState from '../../../../src/components/ui/EmptyState';
@@ -17,22 +18,38 @@ import { useTheme } from '../../../../src/theme/ThemeProvider';
 import { fontFamily, fontSize, radius, spacing } from '../../../../src/theme/typography';
 import { haptics } from '../../../../src/utils/haptics';
 import { useAuthStore } from '../../../../src/store/authStore';
-import { useUnreadStore } from '../../../../src/store/unreadStore';
 import { useWebSocket, getChatSocketUrl } from '../../../../src/hooks/useWebSocket';
-import { getConversation, sendChatMessage, markMessageRead, type ChatMessage } from '../../../../src/api/connect';
+import { getMediaUrl } from '../../../../src/api/client';
+import { sendGroupMessage, getGroupMessages, type GroupMessage } from '../../../../src/api/connect';
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/);
   return `${parts[0]?.[0] ?? ''}${parts[1]?.[0] ?? ''}`.toUpperCase() || '?';
 }
 
-export default function ChatScreen() {
+function SenderAvatar({ name, url, theme }: { name: string; url: string | null; theme: { primary: string; primaryMuted: string } }) {
+  const resolvedUrl = getMediaUrl(url);
+  if (resolvedUrl) {
+    return <Image source={{ uri: resolvedUrl }} style={styles.senderAvatarImage} resizeMode="cover" />;
+  }
+  return (
+    <View style={[styles.senderAvatar, { backgroundColor: theme.primaryMuted }]}>
+      <Text style={[styles.senderAvatarText, { color: theme.primary }]}>{initials(name)}</Text>
+    </View>
+  );
+}
+
+export default function GroupChatScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { userId, name } = useLocalSearchParams<{ userId: string; name?: string }>();
+  const { groupId, name, memberCount } = useLocalSearchParams<{
+    groupId: string;
+    name?: string;
+    memberCount?: string;
+  }>();
   const myId = useAuthStore((s) => s.user?.id);
-  const otherName = name ?? 'Chat';
+  const groupName = name ?? 'Group';
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -41,7 +58,7 @@ export default function ChatScreen() {
     return () => parent?.setOptions({ tabBarStyle: undefined });
   }, [navigation]);
 
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<GroupMessage[]>([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -50,40 +67,30 @@ export default function ChatScreen() {
   const { lastMessage } = useWebSocket(myId ? getChatSocketUrl() : undefined);
 
   const loadMessages = useCallback(async () => {
-    if (!userId) return;
+    if (!groupId) return;
     try {
-      const data = await getConversation(userId);
+      const data = await getGroupMessages(groupId);
       setMessages(data);
-      const unreadFromThem = data.filter((msg) => !msg.is_read && msg.sender_id === userId);
-      for (const msg of unreadFromThem) {
-        markMessageRead(msg.id).catch(() => {});
-      }
-      if (unreadFromThem.length > 0) {
-        useUnreadStore.getState().decrement(unreadFromThem.length);
-      }
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [groupId]);
 
   useEffect(() => {
     loadMessages();
   }, [loadMessages]);
 
-  // Live-append a message pushed over the socket while this chat is open —
-  // same behavior as the web version, no reload/re-open needed to see it.
   useEffect(() => {
     if (!lastMessage) return;
     try {
-      const frame = JSON.parse(lastMessage) as { type: string; payload: ChatMessage };
-      if (frame.type === 'chat' && frame.payload.sender_id === userId) {
+      const frame = JSON.parse(lastMessage) as { type: string; payload: GroupMessage };
+      if (frame.type === 'group_chat' && frame.payload.group_id === groupId) {
         setMessages((prev) => (prev.some((m) => m.id === frame.payload.id) ? prev : [...prev, frame.payload]));
-        markMessageRead(frame.payload.id).catch(() => {});
       }
     } catch {
       // ignore malformed frames
     }
-  }, [lastMessage, userId]);
+  }, [lastMessage, groupId]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -92,14 +99,14 @@ export default function ChatScreen() {
   }, [messages.length]);
 
   const handleSend = async () => {
-    if (!text.trim() || sending || !userId) return;
+    if (!text.trim() || sending || !groupId) return;
     const content = text.trim();
     setText('');
     setSending(true);
     haptics.tap();
     try {
-      const msg = await sendChatMessage(userId, content);
-      setMessages((prev) => [...prev, msg]);
+      const msg = await sendGroupMessage(groupId, content);
+      setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
     } catch {
       haptics.error();
       setText(content);
@@ -120,11 +127,28 @@ export default function ChatScreen() {
             <Ionicons name="chevron-back" size={20} color={theme.text} />
           </Pressable>
           <View style={[styles.avatarFallback, { backgroundColor: theme.primary }]}>
-            <Text style={styles.avatarText}>{initials(otherName)}</Text>
+            <Text style={styles.avatarText}>{initials(groupName)}</Text>
           </View>
-          <Text style={[styles.headerName, { color: theme.text }]} numberOfLines={1}>
-            {otherName}
-          </Text>
+          <View style={styles.flex}>
+            <Text style={[styles.headerName, { color: theme.text }]} numberOfLines={1}>
+              {groupName}
+            </Text>
+            {!!memberCount && (
+              <Text style={[styles.headerMeta, { color: theme.textFaint }]}>
+                {memberCount} member{memberCount === '1' ? '' : 's'}
+              </Text>
+            )}
+          </View>
+          <Pressable
+            onPress={() =>
+              router.push(
+                `/connect/group/${groupId}/members?name=${encodeURIComponent(groupName)}` as never,
+              )
+            }
+            hitSlop={12}
+          >
+            <Ionicons name="information-circle-outline" size={24} color={theme.textMuted} />
+          </Pressable>
         </View>
 
         <FlatList
@@ -132,21 +156,30 @@ export default function ChatScreen() {
           data={messages}
           keyExtractor={(m) => m.id}
           contentContainerStyle={styles.messagesContent}
-          ListEmptyComponent={
-            !loading ? <EmptyState title="No messages yet" description="Say hello!" /> : null
-          }
+          ListEmptyComponent={!loading ? <EmptyState title="No messages yet" description="Say hello!" /> : null}
           renderItem={({ item }) => {
             const isMine = item.sender_id === myId;
             return (
               <View style={[styles.bubbleRow, isMine ? styles.bubbleRowMine : styles.bubbleRowTheirs]}>
+                {!isMine && <SenderAvatar name={item.full_name} url={item.avatar_url} theme={theme} />}
                 <View
                   style={[
                     styles.bubble,
                     isMine
                       ? { backgroundColor: theme.primary, borderBottomRightRadius: radius.sm }
-                      : { backgroundColor: theme.card, borderBottomLeftRadius: radius.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.cardBorder },
+                      : {
+                          backgroundColor: theme.card,
+                          borderBottomLeftRadius: radius.sm,
+                          borderWidth: StyleSheet.hairlineWidth,
+                          borderColor: theme.cardBorder,
+                        },
                   ]}
                 >
+                  {!isMine && (
+                    <Text style={[styles.senderName, { color: theme.primary }]} numberOfLines={1}>
+                      {item.full_name}
+                    </Text>
+                  )}
                   <Text style={[styles.bubbleText, { color: isMine ? theme.onPrimary : theme.text }]}>
                     {item.content}
                   </Text>
@@ -160,6 +193,10 @@ export default function ChatScreen() {
           style={[
             styles.inputRow,
             {
+              // The floating tab bar is genuinely hidden while this screen is
+              // focused now (see the useEffect above), so the composer no
+              // longer needs extra clearance to sit above it — just the
+              // safe-area inset, same as any other bottom-anchored input.
               paddingBottom: insets.bottom + spacing.sm,
               backgroundColor: theme.background,
               borderColor: theme.divider,
@@ -216,21 +253,20 @@ const styles = StyleSheet.create({
   headerName: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.base,
-    flexShrink: 1,
+  },
+  headerMeta: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    marginTop: 1,
   },
   messagesContent: {
     padding: spacing.lg,
     gap: spacing.sm,
     flexGrow: 1,
   },
-  emptyText: {
-    textAlign: 'center',
-    marginTop: spacing['3xl'],
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-  },
   bubbleRow: {
     flexDirection: 'row',
+    gap: spacing.xs,
   },
   bubbleRowMine: {
     justifyContent: 'flex-end',
@@ -238,8 +274,31 @@ const styles = StyleSheet.create({
   bubbleRowTheirs: {
     justifyContent: 'flex-start',
   },
+  senderAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'flex-end',
+  },
+  senderAvatarImage: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignSelf: 'flex-end',
+  },
+  senderAvatarText: {
+    fontFamily: fontFamily.bold,
+    fontSize: 9,
+  },
+  senderName: {
+    fontFamily: fontFamily.semibold,
+    fontSize: 11,
+    marginBottom: 2,
+  },
   bubble: {
-    maxWidth: '78%',
+    maxWidth: '72%',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.lg,

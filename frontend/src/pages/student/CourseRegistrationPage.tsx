@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import EmptyState from '../../components/ui/EmptyState';
 import { getCoursesByLevelAndSemester } from '../../api/courses';
 import {
   submitRegistration,
@@ -10,9 +12,10 @@ import {
   getStudentRegistrations,
 } from '../../api/course-registrations';
 import type { RawSession, RawSemester } from '../../api/course-registrations';
+import { getMyDues, checkDuePaid } from '../../api/payments';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../hooks/useAuth';
-import { Check, Plus, AlertCircle, Save, BookOpen, RefreshCw, ClipboardList } from 'lucide-react';
+import { Check, Plus, AlertCircle, Save, BookOpen, RefreshCw, ClipboardList, CreditCard } from 'lucide-react';
 import { getErrorMessage } from '../../utils/errors';
 import type { Course, User } from '../../types';
 
@@ -57,6 +60,8 @@ const CourseRegistrationPage = () => {
     semester: null,
   });
   const [loadError, setLoadError] = useState(false);
+  const [unpaidDues, setUnpaidDues] = useState<string[]>([]);
+  const [duesChecked, setDuesChecked] = useState(false);
 
   // Registrations tab state
   const [registrations, setRegistrations] = useState<RegistrationRow[]>([]);
@@ -111,6 +116,39 @@ const CourseRegistrationPage = () => {
     loadCourses();
   }, [loadCourses]);
 
+  // Surface the same dept/class dues gate the backend enforces on submit —
+  // proactively, before the student even picks courses, so they aren't
+  // surprised by a "Registration Failed" toast after doing all that work.
+  useEffect(() => {
+    let cancelled = false;
+    const checkDues = async () => {
+      try {
+        const dues = await getMyDues(studentLevel);
+        const requiredDues = dues.filter((d) => d.is_active && (d.type === 'dept_dues' || d.type === 'class_dues'));
+        const results = await Promise.all(
+          requiredDues.map(async (d) => {
+            try {
+              const status = await checkDuePaid(d.id);
+              return status.is_paid ? null : d.name;
+            } catch {
+              return null;
+            }
+          }),
+        );
+        if (!cancelled) setUnpaidDues(results.filter((n): n is string => !!n));
+      } catch {
+        // if the dues check itself fails, don't block the page on it —
+        // the backend still enforces the gate on actual submit
+      } finally {
+        if (!cancelled) setDuesChecked(true);
+      }
+    };
+    checkDues();
+    return () => {
+      cancelled = true;
+    };
+  }, [studentLevel]);
+
   useEffect(() => {
     if (activeTab === 'registrations') {
       loadRegistrations();
@@ -126,7 +164,12 @@ const CourseRegistrationPage = () => {
   const totalUnits = selectedCourses.reduce((sum, c) => sum + c.unit, 0);
   const minUnits = 4;
   const maxUnits = 24;
-  const canSubmit = totalUnits >= minUnits && totalUnits <= maxUnits && selectedCourses.length > 0 && !submitting;
+  const canSubmit =
+    totalUnits >= minUnits &&
+    totalUnits <= maxUnits &&
+    selectedCourses.length > 0 &&
+    !submitting &&
+    unpaidDues.length === 0;
 
   const handleSubmit = async () => {
     if (!semesterInfo.session || !semesterInfo.semester) {
@@ -139,6 +182,10 @@ const CourseRegistrationPage = () => {
     }
     if (totalUnits > maxUnits) {
       warning('Credit Overflow', `Maximum allowed credit units is ${maxUnits}.`);
+      return;
+    }
+    if (unpaidDues.length > 0) {
+      notifyError('Outstanding Dues', 'Pay your outstanding dues before registering for courses.');
       return;
     }
 
@@ -215,6 +262,27 @@ const CourseRegistrationPage = () => {
       {/* Register Courses Tab */}
       {activeTab === 'register' && (
         <>
+          {duesChecked && unpaidDues.length > 0 && (
+            <Card className="p-4 border-danger-500/30 bg-danger-500/5">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-danger-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-danger-700 dark:text-danger-400">
+                    Outstanding dues must be paid before you can register
+                  </p>
+                  <p className="text-xs text-danger-600/80 dark:text-danger-400/80 mt-0.5">
+                    Unpaid: {unpaidDues.join(', ')}
+                  </p>
+                </div>
+                <Link to="/payments">
+                  <Button size="sm" variant="danger" leftIcon={<CreditCard className="w-4 h-4" />}>
+                    Go to Payments
+                  </Button>
+                </Link>
+              </div>
+            </Card>
+          )}
+
           {registeredCourseIds.size > 0 && (
             <div className="flex items-center gap-2 p-3 bg-success-500/5 border border-success-500/20 rounded-lg text-xs text-success-600">
               <Check className="w-4 h-4 shrink-0" />
@@ -307,19 +375,18 @@ const CourseRegistrationPage = () => {
                       );
                     })}
                   {!loading && !loadError && availableCourses.length === 0 && (
-                    <div className="text-center py-12">
-                      <BookOpen className="w-10 h-10 text-surface-300 mx-auto mb-3" />
-                      <p className="text-sm text-surface-500">
-                        {registeredCourseIds.size > 0
+                    <EmptyState
+                      title={
+                        registeredCourseIds.size > 0
                           ? 'All available courses are already registered.'
-                          : 'No courses available for registration.'}
-                      </p>
-                      <p className="text-xs text-surface-400 mt-1">
-                        {registeredCourseIds.size > 0
+                          : 'No courses available for registration.'
+                      }
+                      description={
+                        registeredCourseIds.size > 0
                           ? 'Check the "My Registrations" tab to see your registered courses.'
-                          : 'Courses may not be set up for your level yet.'}
-                      </p>
-                    </div>
+                          : 'Courses may not be set up for your level yet.'
+                      }
+                    />
                   )}
                 </div>
               </Card>
@@ -417,12 +484,11 @@ const CourseRegistrationPage = () => {
               <span className="ml-2 text-sm text-surface-500">Loading registrations...</span>
             </div>
           ) : registrations.length === 0 ? (
-            <Card className="p-8 text-center">
-              <ClipboardList className="w-10 h-10 text-surface-300 mx-auto mb-3" />
-              <p className="text-sm text-surface-500">No course registrations found.</p>
-              <p className="text-xs text-surface-400 mt-1">
-                Switch to the "Register Courses" tab to register for courses.
-              </p>
+            <Card className="p-8">
+              <EmptyState
+                title="No course registrations found."
+                description='Switch to the "Register Courses" tab to register for courses.'
+              />
             </Card>
           ) : (
             registrations.map((reg, idx: number) => (

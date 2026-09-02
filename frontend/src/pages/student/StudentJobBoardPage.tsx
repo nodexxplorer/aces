@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import EmptyState from '../../components/ui/EmptyState';
 import Modal from '../../components/ui/Modal';
 import { useNotification } from '../../hooks/useNotification';
 import { Search, MapPin, Briefcase, ExternalLink, Send } from 'lucide-react';
@@ -120,7 +121,7 @@ const StudentJobBoardPage = () => {
         </Card>
       ) : filtered.length === 0 ? (
         <Card>
-          <div className="p-12 text-center text-sm text-surface-400">No job listings available</div>
+          <EmptyState title="No job listings available" />
         </Card>
       ) : (
         <div className="space-y-4">

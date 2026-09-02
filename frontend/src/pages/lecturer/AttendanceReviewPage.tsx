@@ -3,6 +3,7 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
+import EmptyState from '../../components/ui/EmptyState';
 import { useNotification } from '../../hooks/useNotification';
 import { CheckCircle, XCircle, AlertCircle, FileText, History, Download } from 'lucide-react';
 import {
@@ -159,12 +160,12 @@ const LecturerAttendanceReviewPage = () => {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500" />
           </div>
         ) : history.length === 0 ? (
-          <Card className="p-8 text-center">
-            <History className="w-12 h-12 text-surface-300 dark:text-surface-600 mx-auto mb-3" />
-            <h3 className="text-lg font-semibold text-surface-900 dark:text-white">No History Yet</h3>
-            <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-              Attendance sheets you've reviewed will show up here.
-            </p>
+          <Card className="p-8">
+            <EmptyState
+              icon={<History className="w-8 h-8 text-surface-400" />}
+              title="No History Yet"
+              description="Attendance sheets you've reviewed will show up here."
+            />
           </Card>
         ) : (
           <div className="grid grid-cols-1 gap-4">
@@ -205,12 +206,11 @@ const LecturerAttendanceReviewPage = () => {
           </div>
         )
       ) : reviews.length === 0 ? (
-        <Card className="p-8 text-center">
-          <CheckCircle className="w-12 h-12 text-success-500 mx-auto mb-3 opacity-80" />
-          <h3 className="text-lg font-semibold text-surface-900 dark:text-white">All Caught Up!</h3>
-          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-            There are no pending attendance sheets requiring your review right now.
-          </p>
+        <Card className="p-8">
+          <EmptyState
+            title="All Caught Up!"
+            description="There are no pending attendance sheets requiring your review right now."
+          />
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-4">

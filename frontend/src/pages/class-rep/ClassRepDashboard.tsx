@@ -3,6 +3,7 @@ import Card, { CardHeader, CardTitle } from '../../components/ui/Card';
 import KpiCard from '../../components/data-display/KpiCard';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import EmptyState from '../../components/ui/EmptyState';
 import { Users, ClipboardList, Plus, Send, FileText, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useNotification } from '../../hooks/useNotification';
@@ -100,9 +101,7 @@ const ClassRepDashboard = () => {
             </CardHeader>
             <div className="p-4 pt-0">
               {sessions.length === 0 ? (
-                <p className="text-xs text-surface-400 text-center py-6">
-                  No attendance sessions yet. Click "New Session" to start.
-                </p>
+                <EmptyState title='No attendance sessions yet. Click "New Session" to start.' className="py-6" />
               ) : (
                 <div className="divide-y divide-surface-150 dark:divide-surface-800">
                   {sessions.slice(0, 5).map((s) => (
@@ -186,7 +185,7 @@ const ClassRepDashboard = () => {
             </CardHeader>
             <div className="space-y-2 p-4 pt-0">
               {reports.length === 0 ? (
-                <p className="text-xs text-surface-400 text-center py-4">No reports submitted yet.</p>
+                <EmptyState title="No reports submitted yet." className="py-4" />
               ) : (
                 reports.slice(0, 3).map((r) => (
                   <div key={r.id} className="p-2 rounded-lg border border-surface-100 dark:border-surface-800">

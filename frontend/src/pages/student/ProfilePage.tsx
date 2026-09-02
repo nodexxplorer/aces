@@ -4,6 +4,7 @@ import { getMediaUrl } from '../../api/client';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import EmptyState from '../../components/ui/EmptyState';
 import Badge from '../../components/ui/Badge';
 import {
   updateBasicInfo,
@@ -321,7 +322,7 @@ const ProfilePage = () => {
               </div>
               {loadingDocs && <p className="text-xs text-surface-400">Loading documents...</p>}
               {!loadingDocs && documents.length === 0 && (
-                <p className="text-xs text-surface-400">No documents uploaded yet.</p>
+                <EmptyState title="No documents uploaded yet." className="py-0" />
               )}
               {documents.map((doc) => (
                 <div

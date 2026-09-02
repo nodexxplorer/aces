@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import EmptyState from '../../components/ui/EmptyState';
 import Input from '../../components/ui/Input';
 import DataTable from '../../components/data-display/DataTable';
 import StatusBadge from '../../components/data-display/StatusBadge';
@@ -274,7 +275,7 @@ const AlumniManagementPage = () => {
               </CardHeader>
               <div className="space-y-2 p-4 pt-0">
                 {recentDonations.length === 0 ? (
-                  <p className="text-xs text-surface-400 text-center py-4">No donations yet</p>
+                  <EmptyState title="No donations yet" className="py-4" />
                 ) : (
                   recentDonations.slice(0, 5).map((d) => (
                     <div
@@ -303,7 +304,7 @@ const AlumniManagementPage = () => {
               </CardHeader>
               <div className="space-y-2 p-4 pt-0">
                 {upcomingEvents.length === 0 ? (
-                  <p className="text-xs text-surface-400 text-center py-4">No upcoming events</p>
+                  <EmptyState title="No upcoming events" className="py-4" />
                 ) : (
                   upcomingEvents.slice(0, 5).map((e) => (
                     <div
@@ -366,7 +367,7 @@ const AlumniManagementPage = () => {
           </CardHeader>
           <div className="space-y-2 p-4 pt-0">
             {recentDonations.length === 0 ? (
-              <p className="text-xs text-surface-400 text-center py-8">No donations recorded</p>
+              <EmptyState title="No donations recorded" className="py-8" />
             ) : (
               recentDonations.map((d) => (
                 <div

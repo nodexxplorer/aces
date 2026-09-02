@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import EmptyState from '../../components/ui/EmptyState';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import { useNotification } from '../../hooks/useNotification';
@@ -355,11 +356,11 @@ const AlumniJobsPage = () => {
             </Card>
           ) : myJobs.length === 0 ? (
             <Card>
-              <div className="p-12 text-center text-sm text-surface-400">You haven't posted any jobs yet</div>
+              <EmptyState title="You haven't posted any jobs yet" />
             </Card>
           ) : allMyApplications.length === 0 ? (
             <Card>
-              <div className="p-12 text-center text-sm text-surface-400">No applications found</div>
+              <EmptyState title="No applications found" />
             </Card>
           ) : (
             <div className="space-y-3">
@@ -437,7 +438,7 @@ const AlumniJobsPage = () => {
         </Card>
       ) : filtered.length === 0 ? (
         <Card>
-          <div className="p-12 text-center text-sm text-surface-400">No job listings found</div>
+          <EmptyState title="No job listings found" />
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -515,7 +516,7 @@ const AlumniJobsPage = () => {
                     {loadingApps ? (
                       <p className="text-xs text-surface-400">Loading applications...</p>
                     ) : apps.length === 0 ? (
-                      <p className="text-xs text-surface-400">No applications yet</p>
+                      <EmptyState title="No applications yet" className="py-0" />
                     ) : (
                       apps.map((app: JobApplicationEntry) => (
                         <div key={app.id} className="p-2 bg-surface-50 dark:bg-surface-800/50 rounded-lg">

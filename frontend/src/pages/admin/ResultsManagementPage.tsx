@@ -3,6 +3,7 @@ import Button from '../../components/ui/Button';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import DataTable, { type Column } from '../../components/data-display/DataTable';
 import Select from '../../components/ui/Select';
+import EmptyState from '../../components/ui/EmptyState';
 import { useNotification } from '../../hooks/useNotification';
 import {
   Search,
@@ -300,7 +301,7 @@ function ManageTab() {
                 </p>
               </button>
             ))}
-            {filtStu.length === 0 && <p className="text-xs text-center text-surface-400 py-4">No students found</p>}
+            {filtStu.length === 0 && <EmptyState title="No students found" className="py-4" />}
           </div>
         )}
       </Card>
@@ -328,7 +329,9 @@ function ManageTab() {
               </p>
             </Card>
             {sections.length === 0 ? (
-              <Card className="p-8 text-center text-sm text-surface-400">No results found for this student.</Card>
+              <Card className="p-8">
+                <EmptyState title="No results found for this student." />
+              </Card>
             ) : (
               <Card>
                 <div className="overflow-x-auto">
@@ -997,12 +1000,11 @@ function BulkUploadTab() {
       {validatedRows.length === 0 && rawRows.length === 0 && (
         <Card>
           <div className="p-12 flex flex-col items-center text-center">
-            <FileSpreadsheet className="w-12 h-12 text-surface-300 dark:text-surface-600 mb-4" />
-            <h3 className="text-lg font-semibold text-surface-700 dark:text-surface-300 mb-2">No Results Loaded</h3>
-            <p className="text-sm text-surface-500 max-w-sm mb-4">
-              Download the CSV template, fill in student matric numbers, course codes, CA and exam scores, then upload
-              the file.
-            </p>
+            <EmptyState
+              title="No Results Loaded"
+              description="Download the CSV template, fill in student matric numbers, course codes, CA and exam scores, then upload the file."
+              className="py-0 mb-4"
+            />
             <div className="bg-surface-50 dark:bg-surface-800 rounded-lg p-4 text-left text-xs font-mono text-surface-600 dark:text-surface-400">
               <p className="mb-1 text-[10px] text-surface-400 uppercase tracking-wider">CSV Format</p>
               <p>matric_number,course_code,ca_score,exam_score</p>

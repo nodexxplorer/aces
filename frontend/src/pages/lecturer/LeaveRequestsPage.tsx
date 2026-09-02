@@ -3,10 +3,11 @@ import Card, { CardHeader, CardTitle, CardDescription } from '../../components/u
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Badge from '../../components/ui/Badge';
+import EmptyState from '../../components/ui/EmptyState';
 import { useNotification } from '../../hooks/useNotification';
 import { createLeaveRequest, listMyLeaveRequests, type LecturerLeave } from '../../api/lecturers';
 import { getErrorMessage } from '../../utils/errors';
-import { Send, Loader2, CalendarClock } from 'lucide-react';
+import { Send, Loader2 } from 'lucide-react';
 
 const STATUS_VARIANT: Record<string, 'success' | 'danger' | 'warning' | 'default'> = {
   approved: 'success',
@@ -150,11 +151,7 @@ const LeaveRequestsPage = () => {
                 <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
               </div>
             ) : leaves.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <CalendarClock className="w-10 h-10 text-surface-300 dark:text-surface-600 mb-2" />
-                <p className="text-sm font-medium text-surface-600 dark:text-surface-300">No leave requests yet</p>
-                <p className="text-xs text-surface-400 dark:text-surface-500">Submit one using the form.</p>
-              </div>
+              <EmptyState title="No leave requests yet" description="Submit one using the form." />
             ) : (
               <div className="divide-y divide-surface-100 dark:divide-surface-800">
                 {leaves.map((lv) => (

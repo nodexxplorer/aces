@@ -3,6 +3,7 @@ import { getMediaUrl } from '../../api/client';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import EmptyState from '../../components/ui/EmptyState';
 import Modal from '../../components/ui/Modal';
 import Select from '../../components/ui/Select';
 import { useNotification } from '../../hooks/useNotification';
@@ -204,7 +205,7 @@ const LecturerManagementPage = () => {
               <span className="ml-2 text-sm text-surface-500">Loading lecturers...</span>
             </div>
           ) : filteredLecturers.length === 0 ? (
-            <p className="text-center text-sm text-surface-500 py-8">No lecturers found.</p>
+            <EmptyState title="No lecturers found." />
           ) : (
             <div className="overflow-x-auto rounded-lg border border-surface-200 dark:border-surface-700">
               <table className="w-full text-sm">
@@ -354,7 +355,7 @@ const LecturerManagementPage = () => {
                   <span className="ml-2 text-sm text-surface-500">Loading assignments...</span>
                 </div>
               ) : assignments.length === 0 ? (
-                <p className="text-center text-sm text-surface-500 py-12">No courses assigned to this lecturer yet.</p>
+                <EmptyState title="No courses assigned to this lecturer yet." />
               ) : (
                 <div className="space-y-2">
                   {assignments.map((a) => (
@@ -411,7 +412,7 @@ const LecturerManagementPage = () => {
               <span className="ml-2 text-sm text-surface-500">Loading leave requests...</span>
             </div>
           ) : leaveRequests.length === 0 ? (
-            <p className="text-center text-sm text-surface-500 py-8">No leave requests found.</p>
+            <EmptyState title="No leave requests found." />
           ) : (
             <div className="overflow-x-auto rounded-lg border border-surface-200 dark:border-surface-700">
               <table className="w-full text-sm">

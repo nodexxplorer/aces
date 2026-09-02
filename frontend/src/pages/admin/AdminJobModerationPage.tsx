@@ -3,6 +3,7 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
+import EmptyState from '../../components/ui/EmptyState';
 import { useNotification } from '../../hooks/useNotification';
 import { getJobPosts, archiveJobPost, listJobApplications } from '../../api/alumni';
 import { Briefcase, Clock, Users, Trash2, Search } from 'lucide-react';
@@ -142,7 +143,7 @@ const AdminJobModerationPage = () => {
         </Card>
       ) : filtered.length === 0 ? (
         <Card>
-          <div className="p-12 text-center text-sm text-surface-400">No job listings found</div>
+          <EmptyState title="No job listings found" />
         </Card>
       ) : (
         <div className="space-y-4">
@@ -226,7 +227,7 @@ const AdminJobModerationPage = () => {
         {appsLoading ? (
           <div className="p-8 text-center text-sm text-surface-500">Loading applications...</div>
         ) : apps.length === 0 ? (
-          <div className="p-8 text-center text-sm text-surface-400">No applications yet</div>
+          <EmptyState title="No applications yet" />
         ) : (
           <div className="space-y-3 max-h-96 overflow-y-auto">
             {apps.map((app) => (
