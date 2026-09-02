@@ -2,7 +2,7 @@ import type { UserRole } from '../types';
 
 export const APP_NAME = 'Aces Zone';
 export const APP_TAGLINE = 'Connecting Minds, Building Futures';
-export const APP_DESCRIPTION = 'Association of Computer Engineering Students (ACES) — Uniuyo Chapter';
+export const APP_DESCRIPTION = 'Association of Computer Engineering Students (ACES), Uniuyo Chapter';
 
 export const COLORS = {
   primary: '#0066CC',
@@ -14,12 +14,21 @@ export const LEVELS = [1, 2, 3, 4, 5] as const;
 export const SEMESTERS = ['first', 'second'] as const;
 
 export const GRADE_POINTS: Record<string, number> = {
-  A: 5.0, B: 4.0, C: 3.0, D: 2.0, E: 1.0, F: 0.0,
+  A: 5.0,
+  B: 4.0,
+  C: 3.0,
+  D: 2.0,
+  E: 1.0,
+  F: 0.0,
 };
 
 export const GRADE_LABELS: Record<string, string> = {
-  A: '70-100 (Excellent)', B: '60-69 (Very Good)', C: '50-59 (Good)',
-  D: '45-49 (Fair)', E: '40-44 (Pass)', F: '0-39 (Fail)',
+  A: '70-100 (Excellent)',
+  B: '60-69 (Very Good)',
+  C: '50-59 (Good)',
+  D: '45-49 (Fair)',
+  E: '40-44 (Pass)',
+  F: '0-39 (Fail)',
 };
 
 export const ROLE_LABELS: Record<UserRole, string> = {
@@ -66,13 +75,23 @@ export const SKILL_CATEGORIES = [
 ] as const;
 
 export const PAYMENT_PURPOSES = [
-  'Department Dues', 'Class Dues', 'Manual Purchase', 'Transcript Request',
-  'Lab Fee', 'Association Fee', 'Event Registration',
+  'Department Dues',
+  'Class Dues',
+  'Manual Purchase',
+  'Transcript Request',
+  'Lab Fee',
+  'Association Fee',
+  'Event Registration',
 ] as const;
 
 export const COMPLAINT_CATEGORIES = [
-  'Result Error', 'Payment Issue', 'Account Access', 'Course Registration',
-  'Timetable Conflict', 'Manual Issue', 'Other',
+  'Result Error',
+  'Payment Issue',
+  'Account Access',
+  'Course Registration',
+  'Timetable Conflict',
+  'Manual Issue',
+  'Other',
 ] as const;
 
 export const PER_PAGE_OPTIONS = [10, 20, 50, 100] as const;

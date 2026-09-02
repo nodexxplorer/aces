@@ -47,14 +47,6 @@ interface Message {
   suggestions?: string[];
 }
 
-// The AI backend replies in a light markdown dialect (**bold**, "* [Label](..)"
-// bullet/link lines) meant for a real markdown renderer — plain RN <Text>
-// shows the raw asterisks/brackets verbatim. There's no navigable target
-// behind those placeholder links (web's own chatbot doesn't render them as
-// real links either, just bolds **text**), so this strips each bullet/link
-// down to its readable label and renders **bold** spans as actual bold text,
-// via nested <Text> — RN natively respects literal \n as line breaks, so no
-// special handling needed there.
 function MarkdownText({ content, style }: { content: string; style: StyleProp<TextStyle> }) {
   const cleaned = content
     .split('\n')
@@ -104,9 +96,7 @@ export default function ChatbotFAB() {
   const listRef = useRef<FlatList>(null);
   const scale = useSharedValue(1);
 
-  // Absolute screen position (top-left of the bubble) — resets to the
-  // default bottom-right spot on every mount, per product decision (no
-  // persisted drag position across app launches).
+
   const defaultX = screenWidth - EDGE_MARGIN - FAB_SIZE;
   const defaultY = screenHeight - insets.bottom - DEFAULT_BOTTOM_OFFSET - FAB_SIZE;
   const posX = useSharedValue(defaultX);
@@ -120,9 +110,7 @@ export default function ChatbotFAB() {
   };
 
   const panGesture = Gesture.Pan()
-    // Without this, Pan requires a small minimum finger movement before it
-    // "activates" — a true zero-movement tap can fail to activate at all,
-    // so onEnd (and the tap-to-open logic inside it) never fires.
+
     .minDistance(0)
     .onBegin(() => {
       dragStartX.value = posX.value;
@@ -140,9 +128,7 @@ export default function ChatbotFAB() {
         runOnJS(openChat)();
         return;
       }
-      // Clamp vertically so a drag can't strand the bubble under the status
-      // bar or behind the tab bar; snap horizontally to whichever edge it's
-      // closer to, chat-head style.
+    
       const minY = insets.top + spacing.lg;
       const maxY = screenHeight - insets.bottom - FAB_SIZE - spacing.lg;
       const clampedY = Math.min(Math.max(posY.value, minY), maxY);
@@ -168,7 +154,7 @@ export default function ChatbotFAB() {
           id: 'welcome',
           role: 'assistant',
           content:
-            "Hi! I'm your ACES Assistant. I can help with schedules, grades, dues, courses, and more — what do you need?",
+            "Hi! I'm your ACES Assistant. I can help with schedules, grades, dues, courses, and more, what do you need?",
           suggestions: ['Check my grades', 'How to pay dues'],
         },
       ]);
