@@ -14,6 +14,7 @@ import {
 } from '../../api/profile-edit';
 import type { StudentDocument } from '../../api/profile-edit';
 import { useNotification } from '../../hooks/useNotification';
+import { getInitials } from '../../utils/formatters';
 import {
   User,
   Phone,
@@ -167,8 +168,8 @@ const ProfilePage = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6 min-w-0">
           {/* Basic Information — EDITABLE */}
           <Card>
             <CardHeader>
@@ -356,15 +357,18 @@ const ProfilePage = () => {
             <h4 className="text-sm font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider mb-4">
               Profile Photo
             </h4>
-            <div className="relative group">
-              <img
-                src={getMediaUrl(u?.avatar || u?.avatarUrl) ?? ''}
-                alt="Profile"
-                className="w-32 h-32 rounded-full object-cover border-4 border-surface-200 dark:border-surface-700"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = '';
-                }}
-              />
+            <div className="relative group shrink-0">
+              {u?.avatar || u?.avatarUrl ? (
+                <img
+                  src={getMediaUrl(u.avatar || u.avatarUrl) ?? ''}
+                  alt="Profile"
+                  className="w-32 h-32 rounded-full object-cover border-4 border-surface-200 dark:border-surface-700"
+                />
+              ) : (
+                <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-3xl font-semibold border-4 border-surface-200 dark:border-surface-700">
+                  {getInitials(u?.firstName || 'U', u?.lastName || 'U')}
+                </div>
+              )}
               <button
                 onClick={() => fileRef.current?.click()}
                 className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
