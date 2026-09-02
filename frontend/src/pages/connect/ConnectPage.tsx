@@ -1327,8 +1327,8 @@ export default function ConnectPage() {
         <div className="flex gap-2">
           {(
             [
-              { key: 'chats' as View, label: 'Chats', icon: MessageCircle },
-              { key: 'discover' as View, label: 'Discover', icon: Users },
+              { key: 'chats' as View, label: 'Chats', icon: MessageCircle, badge: undefined as number | undefined },
+              { key: 'discover' as View, label: 'Discover', icon: Users, badge: undefined as number | undefined },
               { key: 'requests' as View, label: 'Requests', icon: UserPlus, badge: pendingCount },
             ] as const
           ).map(({ key, label, icon: Icon, badge }) => (
