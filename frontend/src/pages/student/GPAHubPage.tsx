@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calculator, Sparkles } from 'lucide-react';
+import { Calculator } from 'lucide-react';
 import Tabs from '../../components/ui/Tabs';
 import GPACalculatorTab from './GPACalculatorPage';
 import WhatIfSimulatorTab from './WhatIfSimulatorPage';

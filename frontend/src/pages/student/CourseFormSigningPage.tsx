@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import SignaturePlacementCanvas from '../../components/crf/SignaturePlacementCanvas';
-import { FileSignature, Download, CheckCircle2, Info, History, CreditCard, Eye, Save, Loader2 } from 'lucide-react';
+import { FileSignature, Download, CheckCircle2, Info, History, CreditCard, Eye, Save } from 'lucide-react';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../hooks/useAuth';
 import { getErrorMessage } from '../../utils/errors';
@@ -112,7 +112,9 @@ export default function CourseFormSigningPage() {
 
     getSessions()
       .then(async (sessions) => {
-        const lists = await Promise.all(sessions.map((s) => listSessionSemesters(s.id).catch(() => [] as SemesterEntry[])));
+        const lists = await Promise.all(
+          sessions.map((s) => listSessionSemesters(s.id).catch(() => [] as SemesterEntry[])),
+        );
         const past = lists.flat().filter((sem) => !sem.is_active);
         setPastSemesters(past);
       })
@@ -126,7 +128,7 @@ export default function CourseFormSigningPage() {
         if (drafts.length > 0) {
           const current = drafts[0];
           setSubmission((prev) => prev ?? current);
-          setPlacements((prev) => (Object.keys(prev).length > 0 ? prev : current.placements ?? {}));
+          setPlacements((prev) => (Object.keys(prev).length > 0 ? prev : (current.placements ?? {})));
         }
       })
       .catch(() => {});
@@ -283,8 +285,8 @@ export default function CourseFormSigningPage() {
         <div>
           <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Course Form Signing</h1>
           <p className="text-sm text-surface-500 dark:text-surface-400">
-            Upload your course registration form, place the HOD and Exam Officer signatures exactly where your form
-            asks for them, check the preview, then approve.
+            Upload your course registration form, place the HOD and Exam Officer signatures exactly where your form asks
+            for them, check the preview, then approve.
           </p>
         </div>
       </div>
@@ -297,7 +299,9 @@ export default function CourseFormSigningPage() {
               <p className="text-sm font-semibold text-danger-700 dark:text-danger-400">
                 Outstanding dues must be paid before your course form can be signed
               </p>
-              <p className="text-xs text-danger-600/80 dark:text-danger-400/80 mt-0.5">Unpaid: {unpaidDues.join(', ')}</p>
+              <p className="text-xs text-danger-600/80 dark:text-danger-400/80 mt-0.5">
+                Unpaid: {unpaidDues.join(', ')}
+              </p>
             </div>
             <Link to="/payments">
               <Button size="sm" variant="danger" leftIcon={<CreditCard className="w-4 h-4" />}>
@@ -351,24 +355,52 @@ export default function CourseFormSigningPage() {
           <Card>
             <CardHeader>
               <CardTitle>2. Preview &amp; Approve</CardTitle>
-              <CardDescription>The preview is rendered by the same server stamper used at signing — what you see is exactly what you get.</CardDescription>
+              <CardDescription>
+                The preview is rendered by the same server stamper used at signing — what you see is exactly what you
+                get.
+              </CardDescription>
             </CardHeader>
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" leftIcon={<Save className="w-4 h-4" />} isLoading={savingPlacements} onClick={handleSavePlacements}>
+              <Button
+                variant="outline"
+                leftIcon={<Save className="w-4 h-4" />}
+                isLoading={savingPlacements}
+                onClick={handleSavePlacements}
+              >
                 Save Placement
               </Button>
-              <Button leftIcon={<Eye className="w-4 h-4" />} isLoading={previewing} onClick={handlePreview} disabled={Object.keys(placements).length === 0}>
+              <Button
+                leftIcon={<Eye className="w-4 h-4" />}
+                isLoading={previewing}
+                onClick={handlePreview}
+                disabled={Object.keys(placements).length === 0}
+              >
                 Preview Signed Form
               </Button>
-              <Button variant="success" leftIcon={<CheckCircle2 className="w-4 h-4" />} isLoading={approving} onClick={handleApprove} disabled={Object.keys(placements).length === 0}>
+              <Button
+                variant="success"
+                leftIcon={<CheckCircle2 className="w-4 h-4" />}
+                isLoading={approving}
+                onClick={handleApprove}
+                disabled={Object.keys(placements).length === 0}
+              >
                 Approve &amp; Sign
               </Button>
             </div>
             {previewUrl && (
               <div className="mt-4">
                 <p className="text-xs font-semibold text-surface-500 mb-2">Preview — scroll to check every page:</p>
-                <iframe title="Signed form preview" src={previewUrl} className="w-full h-[600px] border border-surface-200 dark:border-surface-700 rounded-lg" />
-                <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary-500 hover:underline mt-1 inline-block">
+                <iframe
+                  title="Signed form preview"
+                  src={previewUrl}
+                  className="w-full h-[600px] border border-surface-200 dark:border-surface-700 rounded-lg"
+                />
+                <a
+                  href={previewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary-500 hover:underline mt-1 inline-block"
+                >
                   Open preview in a new tab
                 </a>
               </div>
@@ -423,27 +455,38 @@ export default function CourseFormSigningPage() {
               />
               <span className="text-sm text-surface-500">
                 Total:{' '}
-                <span className="font-semibold text-surface-900 dark:text-white">₦{(requestCount * backlogPrice).toLocaleString()}</span>
+                <span className="font-semibold text-surface-900 dark:text-white">
+                  ₦{(requestCount * backlogPrice).toLocaleString()}
+                </span>
               </span>
             </div>
-            <Button isLoading={requestingBacklog} onClick={handlePayForBacklog} leftIcon={<CreditCard className="w-4 h-4" />}>
+            <Button
+              isLoading={requestingBacklog}
+              onClick={handlePayForBacklog}
+              leftIcon={<CreditCard className="w-4 h-4" />}
+            >
               Pay &amp; Unlock Upload Slot{requestCount > 1 ? 's' : ''}
             </Button>
           </div>
         ) : backlog.status === 'pending_payment' ? (
           <div className="space-y-3">
             <p className="text-sm text-warning-600 dark:text-warning-400">
-              You have a pending backlog payment of ₦{Number(backlog.amount).toLocaleString()} for {backlog.requested_count} form(s).
-              Complete payment to unlock uploading.
+              You have a pending backlog payment of ₦{Number(backlog.amount).toLocaleString()} for{' '}
+              {backlog.requested_count} form(s). Complete payment to unlock uploading.
             </p>
-            <Button isLoading={requestingBacklog} onClick={handleResumeBacklogPayment} leftIcon={<CreditCard className="w-4 h-4" />}>
+            <Button
+              isLoading={requestingBacklog}
+              onClick={handleResumeBacklogPayment}
+              leftIcon={<CreditCard className="w-4 h-4" />}
+            >
               Complete Payment
             </Button>
           </div>
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-success-600 dark:text-success-400">
-              {backlog.forms_submitted} of {backlog.requested_count} backlog form(s) submitted, {remainingSlots} slot(s) remaining.
+              {backlog.forms_submitted} of {backlog.requested_count} backlog form(s) submitted, {remainingSlots} slot(s)
+              remaining.
             </p>
             <label className="block text-xs font-semibold text-surface-500 mb-1">Which semester is this for?</label>
             <select
@@ -464,7 +507,11 @@ export default function CourseFormSigningPage() {
               onChange={(e) => setBacklogFile(e.target.files?.[0] || null)}
               className="w-full text-sm text-surface-600 dark:text-surface-400"
             />
-            <Button isLoading={uploadingBacklog} disabled={!backlogFile || !selectedSemesterId} onClick={handleSubmitBacklogForm}>
+            <Button
+              isLoading={uploadingBacklog}
+              disabled={!backlogFile || !selectedSemesterId}
+              onClick={handleSubmitBacklogForm}
+            >
               Upload &amp; Continue to Signing
             </Button>
           </div>

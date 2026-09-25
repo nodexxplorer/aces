@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, Award, CreditCard, Megaphone, AlertTriangle, TrendingUp, Bell } from 'lucide-react';
+import { CreditCard, Megaphone, AlertTriangle, TrendingUp, Bell } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import KpiCard from '../../components/data-display/KpiCard';
 import Card, { CardHeader, CardTitle } from '../../components/ui/Card';
@@ -7,7 +7,6 @@ import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import EmptyState from '../../components/ui/EmptyState';
 import { useAuth } from '../../hooks/useAuth';
-import { formatGPA } from '../../utils/formatters';
 import { getStudentDashboard, type StudentDashboard as DashboardData } from '../../api/dashboard';
 
 const StudentDashboard = () => {

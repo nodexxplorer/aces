@@ -116,7 +116,7 @@ function QuickConnectBanner({ userId, myId, onDismiss }: { userId: string; myId:
       })
       .catch(() => notifyError('Error', 'Could not look up this student'))
       .finally(() => setLoading(false));
-  }, [userId]);
+  }, [userId, notifyError]);
 
   const handleConnect = async () => {
     try {
@@ -191,7 +191,7 @@ function DiscoverTab({ myId }: { myId: string }) {
       })
       .catch(() => notifyError('Error', 'Could not load directory'))
       .finally(() => setLoading(false));
-  }, [myId]);
+  }, [myId, notifyError]);
 
   const handleConnect = async (user: DirectoryUser) => {
     try {
@@ -272,7 +272,7 @@ function RequestsTab({ onAccepted }: { onAccepted: () => void }) {
       .then((data) => setRequests(Array.isArray(data) ? data : []))
       .catch(() => notifyError('Error', 'Could not load requests'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [notifyError]);
 
   const handleRespond = async (id: string, status: 'accepted' | 'rejected') => {
     setRespondingId(id);
@@ -434,29 +434,31 @@ function ChatListPanel({
             <div>
               <p className="px-2 mb-2 text-[11px] font-semibold uppercase tracking-wider text-surface-400">Groups</p>
               <div className="grid grid-cols-3 gap-2 px-1 mb-2">
-                {([
-                  {
-                    label: 'Discover',
-                    title: 'Discover public groups',
-                    icon: Compass,
-                    gradient: 'from-primary-500 to-indigo-500',
-                    onClick: onBrowseGroups,
-                  },
-                  {
-                    label: 'Join link',
-                    title: 'Join via invite link',
-                    icon: Link2,
-                    gradient: 'from-violet-500 to-purple-600',
-                    onClick: onJoinByLink,
-                  },
-                  {
-                    label: 'New group',
-                    title: 'Create a new group',
-                    icon: Plus,
-                    gradient: 'from-emerald-500 to-teal-600',
-                    onClick: onCreateGroup,
-                  },
-                ] as const).map(({ label, title, icon: Icon, gradient, onClick }) => (
+                {(
+                  [
+                    {
+                      label: 'Discover',
+                      title: 'Discover public groups',
+                      icon: Compass,
+                      gradient: 'from-primary-500 to-indigo-500',
+                      onClick: onBrowseGroups,
+                    },
+                    {
+                      label: 'Join link',
+                      title: 'Join via invite link',
+                      icon: Link2,
+                      gradient: 'from-violet-500 to-purple-600',
+                      onClick: onJoinByLink,
+                    },
+                    {
+                      label: 'New group',
+                      title: 'Create a new group',
+                      icon: Plus,
+                      gradient: 'from-emerald-500 to-teal-600',
+                      onClick: onCreateGroup,
+                    },
+                  ] as const
+                ).map(({ label, title, icon: Icon, gradient, onClick }) => (
                   <button
                     key={label}
                     onClick={onClick}
@@ -890,12 +892,14 @@ function CreateGroupModal({
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Category</label>
           <div className="grid grid-cols-2 gap-2">
-            {([
-              { value: 'study', label: 'Study Group' },
-              { value: 'project', label: 'Project' },
-              { value: 'interest', label: 'Interest' },
-              { value: 'class', label: 'Class' },
-            ] as const).map((opt) => (
+            {(
+              [
+                { value: 'study', label: 'Study Group' },
+                { value: 'project', label: 'Project' },
+                { value: 'interest', label: 'Interest' },
+                { value: 'class', label: 'Class' },
+              ] as const
+            ).map((opt) => (
               <button
                 key={opt.value}
                 type="button"

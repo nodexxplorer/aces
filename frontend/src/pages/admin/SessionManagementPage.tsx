@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import EmptyState from '../../components/ui/EmptyState';
 import Button from '../../components/ui/Button';
@@ -86,7 +86,7 @@ const RollOverCard = ({ sessions }: { sessions: Session[] }) => {
         'Proposal Ready',
         res.created > 0
           ? `${res.created} new proposal${res.created === 1 ? '' : 's'} generated (${res.total} total).`
-          : `Proposal up to date (${res.total} students).`
+          : `Proposal up to date (${res.total} students).`,
       );
       await load(sessionId);
     } catch (err: unknown) {
@@ -114,7 +114,7 @@ const RollOverCard = ({ sessions }: { sessions: Session[] }) => {
       const res = await confirmRollOver(sessionId);
       success(
         'Roll-over Complete',
-        `${res.promoted} promoted, ${res.rolled} student${res.rolled === 1 ? '' : 's'} rolled into the new session.`
+        `${res.promoted} promoted, ${res.rolled} student${res.rolled === 1 ? '' : 's'} rolled into the new session.`,
       );
       setConfirmOpen(false);
       await load(sessionId);
@@ -169,8 +169,8 @@ const RollOverCard = ({ sessions }: { sessions: Session[] }) => {
           <CardTitle>Session Roll-over & Promotion</CardTitle>
         </div>
         <CardDescription>
-          Review who advances a level and who carries over, then confirm the batch. Results stay on hold, eligibility
-          is based on dues and course-form completion.
+          Review who advances a level and who carries over, then confirm the batch. Results stay on hold, eligibility is
+          based on dues and course-form completion.
         </CardDescription>
       </CardHeader>
       <div className="p-4 pt-0 space-y-4">
@@ -213,7 +213,11 @@ const RollOverCard = ({ sessions }: { sessions: Session[] }) => {
                 ))}
               </div>
             ) : (
-              <EmptyState title="No proposals yet." description="Click Prepare to generate the promotion proposal." className="py-6" />
+              <EmptyState
+                title="No proposals yet."
+                description="Click Prepare to generate the promotion proposal."
+                className="py-6"
+              />
             )}
 
             {visible.length > 0 && (
@@ -221,7 +225,9 @@ const RollOverCard = ({ sessions }: { sessions: Session[] }) => {
                 {visible.map((p) => (
                   <div key={p.id} className="flex items-center gap-3 p-3">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-surface-900 dark:text-surface-100 truncate">{p.full_name}</p>
+                      <p className="text-sm font-medium text-surface-900 dark:text-surface-100 truncate">
+                        {p.full_name}
+                      </p>
                       <p className="text-xs text-surface-400">
                         {p.matric_number} · {p.from_level}L → {p.to_level}L
                       </p>
@@ -291,7 +297,8 @@ const RollOverCard = ({ sessions }: { sessions: Session[] }) => {
               <span className="font-semibold">{sessions.find((s) => s.id === sessionId)?.name}</span>:
             </p>
             <ul className="text-sm text-surface-600 dark:text-surface-300 space-y-1.5 list-disc pl-5">
-              <li>Every pending student is promoted one level (carryovers keep their level).</li>              <li>All active students move to this session (including carryovers).</li>
+              <li>Every pending student is promoted one level (carryovers keep their level).</li>{' '}
+              <li>All active students move to this session (including carryovers).</li>
               <li>This session becomes the active one; the previous session is deactivated.</li>
               <li>Promoted students get a notification.</li>
             </ul>
@@ -328,18 +335,14 @@ const SessionManagementPage = () => {
   const [semesters, setSemesters] = useState<Record<string, SemesterEntry[]>>({});
   const [semSaving, setSemSaving] = useState(false);
 
-  useEffect(() => {
-    fetchSessions();
-  }, []);
-
-  const fetchSessions = async () => {
+  const fetchSessions = useCallback(async () => {
     try {
       setLoading(true);
       const items = await getSessions();
       const list = Array.isArray(items) ? items : [];
       setSessions(list);
-      if (list.length > 0 && !semesterSessionId) {
-        setSemesterSessionId(list[0].id);
+      if (list.length > 0) {
+        setSemesterSessionId((prev) => prev || list[0].id);
       }
       // Load semesters for all sessions
       for (const s of list) {
@@ -355,7 +358,11 @@ const SessionManagementPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [notifyError]);
+
+  useEffect(() => {
+    fetchSessions();
+  }, [fetchSessions]);
 
   const handleCreateSession = async (e: React.FormEvent) => {
     e.preventDefault();

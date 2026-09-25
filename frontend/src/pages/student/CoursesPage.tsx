@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BookMarked, FolderOpen } from 'lucide-react';
+import { BookMarked } from 'lucide-react';
 import CourseRegistrationPage from './CourseRegistrationPage';
 import StudentCourseMaterialsPage from './CourseMaterialsPage';
 
