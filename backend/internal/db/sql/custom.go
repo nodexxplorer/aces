@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"database/sql/driver"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -497,8 +499,10 @@ func (q *Queries) ListBackups(ctx context.Context) ([]BackupListItem, error) {
 func (q *Queries) CreateBackup(ctx context.Context, fileName, s3URL string, createdBy uuid.UUID) (uuid.UUID, error) {
 	var id uuid.UUID
 	err := q.db.QueryRow(ctx, `
-		INSERT INTO backups (file_name, s3_url, status, created_by)
-		VALUES ($1, $2, 'completed', $3)
+		INSERT INTO backups (file_name, s3_url, status, size_mb, created_by)
+		SELECT $1, $2, 'completed',
+		       ROUND(pg_database_size(current_database()) / 1048576.0, 2),
+		       $3
 		RETURNING id
 	`, fileName, s3URL, createdBy).Scan(&id)
 	return id, err
@@ -1210,13 +1214,16 @@ type BackupSummary struct {
 
 func (q *Queries) GetBackupSummary(ctx context.Context) (*BackupSummary, error) {
 	var s BackupSummary
-	q.db.QueryRow(ctx, `
+	err := q.db.QueryRow(ctx, `
 		SELECT COUNT(*),
 		       COUNT(*) FILTER (WHERE status = 'completed'),
 		       COUNT(*) FILTER (WHERE status = 'failed'),
 		       COALESCE(SUM(size_mb), 0)
 		FROM backups
 	`).Scan(&s.TotalBackups, &s.CompletedCount, &s.FailedCount, &s.TotalSizeMB)
+	if err != nil {
+		return nil, err
+	}
 	return &s, nil
 }
 
@@ -2074,73 +2081,42 @@ func (q *Queries) GetStudentRegisteredCourseDetails(ctx context.Context, student
 
 
 type CRFSignatureAsset struct {
-	ID           uuid.UUID `json:"id"`
-	Kind         string    `json:"kind"`
-	FilePath     string    `json:"file_path"`
-	PageNumber   int32     `json:"page_number"`
-	XPt          float64   `json:"x_pt"`
-	YPt          float64   `json:"y_pt"`
-	WidthPt      float64   `json:"width_pt"`
-	MaxHeightPt  float64   `json:"max_height_pt"`
-	ShowDate     bool      `json:"show_date"`
-	DateXPt      *float64  `json:"date_x_pt"`
-	DateYPt      *float64  `json:"date_y_pt"`
-	DateFontSize float64   `json:"date_font_size"`
-	UploadedBy   uuid.UUID `json:"uploaded_by"`
-	UploadedAt   time.Time `json:"uploaded_at"`
+	ID         uuid.UUID `json:"id"`
+	Kind       string    `json:"kind"`
+	FilePath   string    `json:"file_path"`
+	UploadedBy uuid.UUID `json:"uploaded_by"`
+	UploadedAt time.Time `json:"uploaded_at"`
 }
 
+// UpsertCRFSignatureAssetParams carries just the signer's signature image —
+// where it lands on a student's form is decided by that student at signing
+// time, not configured here.
 type UpsertCRFSignatureAssetParams struct {
-	Kind         string
-	FilePath     string
-	PageNumber   int32
-	XPt          float64
-	YPt          float64
-	WidthPt      float64
-	MaxHeightPt  float64
-	ShowDate     bool
-	DateXPt      *float64
-	DateYPt      *float64
-	DateFontSize float64
-	UploadedBy   uuid.UUID
+	Kind       string
+	FilePath   string
+	UploadedBy uuid.UUID
 }
 
-var crfSignatureAssetColumns = `id, kind, file_path, page_number, x_pt, y_pt, width_pt, max_height_pt,
-	show_date, date_x_pt, date_y_pt, date_font_size, uploaded_by, uploaded_at`
+var crfSignatureAssetColumns = `id, kind, file_path, uploaded_by, uploaded_at`
 
 func scanCRFSignatureAsset(row pgx.Row) (CRFSignatureAsset, error) {
 	var a CRFSignatureAsset
 	err := row.Scan(
-		&a.ID, &a.Kind, &a.FilePath, &a.PageNumber, &a.XPt, &a.YPt, &a.WidthPt, &a.MaxHeightPt,
-		&a.ShowDate, &a.DateXPt, &a.DateYPt, &a.DateFontSize, &a.UploadedBy, &a.UploadedAt,
+		&a.ID, &a.Kind, &a.FilePath, &a.UploadedBy, &a.UploadedAt,
 	)
 	return a, err
 }
 
-
 func (q *Queries) UpsertCRFSignatureAsset(ctx context.Context, arg UpsertCRFSignatureAssetParams) (CRFSignatureAsset, error) {
 	row := q.db.QueryRow(ctx, `
-		INSERT INTO crf_signature_assets (
-			kind, file_path, page_number, x_pt, y_pt, width_pt, max_height_pt,
-			show_date, date_x_pt, date_y_pt, date_font_size, uploaded_by
-		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		INSERT INTO crf_signature_assets (kind, file_path, uploaded_by)
+		VALUES ($1, $2, $3)
 		ON CONFLICT (kind) DO UPDATE SET
 			file_path = EXCLUDED.file_path,
-			page_number = EXCLUDED.page_number,
-			x_pt = EXCLUDED.x_pt,
-			y_pt = EXCLUDED.y_pt,
-			width_pt = EXCLUDED.width_pt,
-			max_height_pt = EXCLUDED.max_height_pt,
-			show_date = EXCLUDED.show_date,
-			date_x_pt = EXCLUDED.date_x_pt,
-			date_y_pt = EXCLUDED.date_y_pt,
-			date_font_size = EXCLUDED.date_font_size,
 			uploaded_by = EXCLUDED.uploaded_by,
 			uploaded_at = NOW()
 		RETURNING `+crfSignatureAssetColumns,
-		arg.Kind, arg.FilePath, arg.PageNumber, arg.XPt, arg.YPt, arg.WidthPt, arg.MaxHeightPt,
-		arg.ShowDate, arg.DateXPt, arg.DateYPt, arg.DateFontSize, arg.UploadedBy,
+		arg.Kind, arg.FilePath, arg.UploadedBy,
 	)
 	return scanCRFSignatureAsset(row)
 }
@@ -2179,13 +2155,66 @@ func (q *Queries) DeleteCRFSignatureAsset(ctx context.Context, kind string) erro
 }
 
 type CRFSigningSubmission struct {
-	ID               uuid.UUID `json:"id"`
-	UserID           uuid.UUID `json:"user_id"`
-	SemesterID       uuid.UUID `json:"semester_id"`
-	OriginalFilePath string    `json:"original_file_path"`
-	SignedFilePath   string    `json:"signed_file_path"`
-	Status           string    `json:"status"`
-	CreatedAt        time.Time `json:"created_at"`
+	ID               uuid.UUID      `json:"id"`
+	UserID           uuid.UUID      `json:"user_id"`
+	SemesterID       uuid.UUID      `json:"semester_id"`
+	OriginalFilePath string         `json:"original_file_path"`
+	SignedFilePath   string         `json:"signed_file_path"`
+	Placements       CRFPlacements  `json:"placements"`
+	Status           string         `json:"status"`
+	CreatedAt        time.Time      `json:"created_at"`
+}
+
+// CRFPlacements maps each signer kind to where the student placed that
+// signature on their own form. Persisted with the submission at approve time
+// so the stamping is auditable and reproducible.
+type CRFPlacement struct {
+	Page         int32    `json:"page"`
+	X            float64  `json:"x"`
+	Y            float64  `json:"y"`
+	Width        float64  `json:"width"`
+	MaxHeight    float64  `json:"max_height,omitempty"`
+	ShowDate     bool     `json:"show_date,omitempty"`
+	DateX        *float64 `json:"date_x,omitempty"`
+	DateY        *float64 `json:"date_y,omitempty"`
+	DateFontSize float64  `json:"date_font_size,omitempty"`
+}
+
+type CRFPlacements map[string]CRFPlacement
+
+func (p CRFPlacements) Value() (driver.Value, error) {
+	if p == nil {
+		return []byte(`{}`), nil
+	}
+	return json.Marshal(p)
+}
+
+func (p *CRFPlacements) Scan(src any) error {
+	if src == nil {
+		*p = CRFPlacements{}
+		return nil
+	}
+	var b []byte
+	switch v := src.(type) {
+	case []byte:
+		b = v
+	case string:
+		b = []byte(v)
+	default:
+		return fmt.Errorf("unsupported placements type %T", src)
+	}
+	return json.Unmarshal(b, p)
+}
+
+var crfSubmissionColumns = `id, user_id, semester_id, original_file_path, signed_file_path, placements, status, created_at`
+
+func scanCRFSigningSubmission(row pgx.Row) (CRFSigningSubmission, error) {
+	var s CRFSigningSubmission
+	err := row.Scan(
+		&s.ID, &s.UserID, &s.SemesterID, &s.OriginalFilePath, &s.SignedFilePath,
+		&s.Placements, &s.Status, &s.CreatedAt,
+	)
+	return s, err
 }
 
 // GetCRFSubmissionForUserSemester returns pgx.ErrNoRows when the student
@@ -2193,38 +2222,90 @@ type CRFSigningSubmission struct {
 // whether to show the upload form or the existing signed copy.
 func (q *Queries) GetCRFSubmissionForUserSemester(ctx context.Context, userID, semesterID uuid.UUID) (CRFSigningSubmission, error) {
 	row := q.db.QueryRow(ctx, `
-		SELECT id, user_id, semester_id, original_file_path, signed_file_path, status, created_at
+		SELECT `+crfSubmissionColumns+`
 		FROM crf_signing_submissions
 		WHERE user_id = $1 AND semester_id = $2
 	`, userID, semesterID)
-
-	var s CRFSigningSubmission
-	err := row.Scan(&s.ID, &s.UserID, &s.SemesterID, &s.OriginalFilePath, &s.SignedFilePath, &s.Status, &s.CreatedAt)
-	return s, err
+	return scanCRFSigningSubmission(row)
 }
 
-func (q *Queries) CreateCRFSigningSubmission(ctx context.Context, userID, semesterID uuid.UUID, originalFilePath, signedFilePath string) (CRFSigningSubmission, error) {
+func (q *Queries) CreateCRFSigningSubmission(ctx context.Context, userID, semesterID uuid.UUID, originalFilePath string) (CRFSigningSubmission, error) {
 	row := q.db.QueryRow(ctx, `
-		INSERT INTO crf_signing_submissions (user_id, semester_id, original_file_path, signed_file_path, status)
-		VALUES ($1, $2, $3, $4, 'completed')
-		RETURNING id, user_id, semester_id, original_file_path, signed_file_path, status, created_at
-	`, userID, semesterID, originalFilePath, signedFilePath)
+		INSERT INTO crf_signing_submissions (user_id, semester_id, original_file_path, signed_file_path, placements, status)
+		VALUES ($1, $2, $3, '', '{}'::jsonb, 'draft')
+		RETURNING `+crfSubmissionColumns,
+		userID, semesterID, originalFilePath)
+	return scanCRFSigningSubmission(row)
+}
 
-	var s CRFSigningSubmission
-	err := row.Scan(&s.ID, &s.UserID, &s.SemesterID, &s.OriginalFilePath, &s.SignedFilePath, &s.Status, &s.CreatedAt)
-	return s, err
+// SaveCRFPlacements records the student's per-signer alignment on their own
+// form while the submission is still a draft, returning the updated row.
+func (q *Queries) SaveCRFPlacements(ctx context.Context, id uuid.UUID, placements CRFPlacements) (CRFSigningSubmission, error) {
+	row := q.db.QueryRow(ctx, `
+		UPDATE crf_signing_submissions
+		SET placements = $2
+		WHERE id = $1 AND status = 'draft'
+		RETURNING `+crfSubmissionColumns,
+		id, placements)
+	return scanCRFSigningSubmission(row)
+}
+
+// ApproveCRFSigningSubmission stamps the server-rendered PDF path and flips
+// the submission to 'completed'. Only a draft can be approved — a completed
+// submission is final (the one-upload-per-semester rule).
+func (q *Queries) ApproveCRFSigningSubmission(ctx context.Context, id uuid.UUID, signedFilePath string) (CRFSigningSubmission, error) {
+	row := q.db.QueryRow(ctx, `
+		UPDATE crf_signing_submissions
+		SET signed_file_path = $2, status = 'completed'
+		WHERE id = $1 AND status = 'draft'
+		RETURNING `+crfSubmissionColumns,
+		id, signedFilePath)
+	return scanCRFSigningSubmission(row)
+}
+
+// GetCRFDraftSubmission returns the student's draft (placement-in-progress)
+// submission for the active semester, pgx.ErrNoRows if none.
+func (q *Queries) GetCRFDraftSubmission(ctx context.Context, userID, semesterID uuid.UUID) (CRFSigningSubmission, error) {
+	row := q.db.QueryRow(ctx, `
+		SELECT `+crfSubmissionColumns+`
+		FROM crf_signing_submissions
+		WHERE user_id = $1 AND semester_id = $2 AND status = 'draft'
+	`, userID, semesterID)
+	return scanCRFSigningSubmission(row)
+}
+
+// ListCRFDraftsForUser lists the student's unfinished submissions (current
+// semester + backlog drafts) so a saved alignment can be resumed.
+func (q *Queries) ListCRFDraftsForUser(ctx context.Context, userID uuid.UUID) ([]CRFSigningSubmission, error) {
+	rows, err := q.db.Query(ctx, `
+		SELECT `+crfSubmissionColumns+`
+		FROM crf_signing_submissions
+		WHERE user_id = $1 AND status = 'draft'
+		ORDER BY created_at DESC
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := []CRFSigningSubmission{}
+	for rows.Next() {
+		s, err := scanCRFSigningSubmission(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, s)
+	}
+	return items, rows.Err()
 }
 
 func (q *Queries) GetCRFSigningSubmission(ctx context.Context, id uuid.UUID) (CRFSigningSubmission, error) {
 	row := q.db.QueryRow(ctx, `
-		SELECT id, user_id, semester_id, original_file_path, signed_file_path, status, created_at
+		SELECT `+crfSubmissionColumns+`
 		FROM crf_signing_submissions
 		WHERE id = $1
 	`, id)
-
-	var s CRFSigningSubmission
-	err := row.Scan(&s.ID, &s.UserID, &s.SemesterID, &s.OriginalFilePath, &s.SignedFilePath, &s.Status, &s.CreatedAt)
-	return s, err
+	return scanCRFSigningSubmission(row)
 }
 
 // ─── CRF backlog (old/unsigned course forms from past semesters) ───
@@ -2505,4 +2586,209 @@ func (q *Queries) ListGroupConversations(ctx context.Context, userID uuid.UUID) 
 		results = append(results, r)
 	}
 	return results, rows.Err()
+}
+
+// ─── Graduation path (500L) ──────────────────────────────────────────────
+// Final-year students don't pay the regular dues cycle; they pay a one-off
+// CRF signing fee (admin-editable) instead, then get their course form
+// signed. Same singleton-price + payment-pipeline pattern as CRF backlog.
+
+type GraduationRequest struct {
+	ID            uuid.UUID       `json:"id"`
+	UserID        uuid.UUID       `json:"user_id"`
+	AmountCharged decimal.Decimal `json:"amount_charged"`
+	PaymentID     *uuid.UUID      `json:"payment_id"`
+	Status        string          `json:"status"`
+	Waived        bool            `json:"waived"`
+	CreatedBy     uuid.UUID       `json:"created_by"`
+	CreatedAt     time.Time       `json:"created_at"`
+	PaidAt        *time.Time      `json:"paid_at"`
+	ClearedBy     *uuid.UUID      `json:"cleared_by"`
+	ClearedAt     *time.Time      `json:"cleared_at"`
+}
+
+const graduationRequestColumns = `id, user_id, amount_charged, payment_id, status, waived, created_by, created_at, paid_at, cleared_by, cleared_at`
+
+func scanGraduationRequest(row pgx.Row) (GraduationRequest, error) {
+	var g GraduationRequest
+	err := row.Scan(
+		&g.ID, &g.UserID, &g.AmountCharged, &g.PaymentID, &g.Status,
+		&g.Waived, &g.CreatedBy, &g.CreatedAt, &g.PaidAt, &g.ClearedBy, &g.ClearedAt,
+	)
+	return g, err
+}
+
+type GraduationFee struct {
+	Amount    decimal.Decimal `json:"amount"`
+	UpdatedBy *uuid.UUID      `json:"updated_by"`
+	UpdatedAt time.Time       `json:"updated_at"`
+}
+
+func (q *Queries) GetGraduationFee(ctx context.Context) (GraduationFee, error) {
+	row := q.db.QueryRow(ctx, `SELECT amount, updated_by, updated_at FROM graduation_fee WHERE id = 1`)
+	var f GraduationFee
+	err := row.Scan(&f.Amount, &f.UpdatedBy, &f.UpdatedAt)
+	return f, err
+}
+
+func (q *Queries) UpdateGraduationFee(ctx context.Context, amount decimal.Decimal, updatedBy uuid.UUID) (GraduationFee, error) {
+	row := q.db.QueryRow(ctx, `
+		UPDATE graduation_fee
+		SET amount = $1, updated_by = $2, updated_at = NOW()
+		WHERE id = 1
+		RETURNING amount, updated_by, updated_at
+	`, amount, updatedBy)
+	var f GraduationFee
+	err := row.Scan(&f.Amount, &f.UpdatedBy, &f.UpdatedAt)
+	return f, err
+}
+
+
+
+// CreateGraduationRequest inserts the student's graduation request, or
+// returns the existing one unchanged (ON CONFLICT DO NOTHING + re-select)
+// so repeated clicks can't stack duplicate fees. The fee amount is
+// snapshotted so a later admin price change doesn't retroactively change
+// what an existing request owes.
+func (q *Queries) CreateGraduationRequest(ctx context.Context, userID uuid.UUID, amount decimal.Decimal, createdBy uuid.UUID) (GraduationRequest, error) {
+	tag, err := q.db.Exec(ctx, `
+		INSERT INTO graduation_requests (user_id, amount_charged, created_by)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (user_id) DO NOTHING
+	`, userID, amount, createdBy)
+	if err != nil {
+		return GraduationRequest{}, fmt.Errorf("create graduation request: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return q.GetGraduationRequest(ctx, userID)
+	}
+	row := q.db.QueryRow(ctx, `SELECT `+graduationRequestColumns+` FROM graduation_requests WHERE user_id = $1`, userID)
+	return scanGraduationRequest(row)
+}
+
+func (q *Queries) GetGraduationRequest(ctx context.Context, userID uuid.UUID) (GraduationRequest, error) {
+	row := q.db.QueryRow(ctx, `SELECT `+graduationRequestColumns+` FROM graduation_requests WHERE user_id = $1`, userID)
+	return scanGraduationRequest(row)
+}
+
+func (q *Queries) GetGraduationRequestByPaymentID(ctx context.Context, paymentID uuid.UUID) (GraduationRequest, error) {
+	row := q.db.QueryRow(ctx, `SELECT `+graduationRequestColumns+` FROM graduation_requests WHERE payment_id = $1`, paymentID)
+	return scanGraduationRequest(row)
+}
+
+// SetGraduationRequestPayment links the request to the one-off payment the
+// student checks out through. Only a pending_payment request can be linked.
+func (q *Queries) SetGraduationRequestPayment(ctx context.Context, id, paymentID uuid.UUID) (GraduationRequest, error) {
+	row := q.db.QueryRow(ctx, `
+		UPDATE graduation_requests
+		SET payment_id = $2
+		WHERE id = $1 AND status = 'pending_payment'
+		RETURNING `+graduationRequestColumns, id, paymentID)
+	return scanGraduationRequest(row)
+}
+
+// MarkGraduationRequestPaid flips pending_payment -> paid when the linked
+// payment completes through the shared pipeline (webhook or redirect
+// confirmation).
+func (q *Queries) MarkGraduationRequestPaid(ctx context.Context, id uuid.UUID) (GraduationRequest, error) {
+	row := q.db.QueryRow(ctx, `
+		UPDATE graduation_requests
+		SET status = 'paid', paid_at = NOW()
+		WHERE id = $1 AND status = 'pending_payment'
+		RETURNING `+graduationRequestColumns, id)
+	return scanGraduationRequest(row)
+}
+
+// MarkGraduationRequestCleared flips paid -> cleared (or any -> cleared for
+// a waived request, which never has a payment). Cleared is terminal — the
+// student is done with the graduation path.
+func (q *Queries) MarkGraduationRequestCleared(ctx context.Context, id uuid.UUID, clearedBy uuid.UUID) (GraduationRequest, error) {
+	row := q.db.QueryRow(ctx, `
+		UPDATE graduation_requests
+		SET status = 'cleared', cleared_by = $2, cleared_at = NOW()
+		WHERE id = $1 AND (status = 'paid' OR (status = 'pending_payment' AND waived = true))
+		RETURNING `+graduationRequestColumns, id, clearedBy)
+	return scanGraduationRequest(row)
+}
+
+// GetGraduationClearancesForUsers returns the graduation status for a set
+// of user IDs, keyed by user_id — used by batch flows that need to know who
+// is on the graduation path.
+func (q *Queries) GetGraduationClearancesForUsers(ctx context.Context, userIDs []uuid.UUID) ([]GraduationRequest, error) {
+	rows, err := q.db.Query(ctx, `
+		SELECT `+graduationRequestColumns+`
+		FROM graduation_requests
+		WHERE user_id = ANY($1)
+	`, userIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []GraduationRequest{}
+	for rows.Next() {
+		g, err := scanGraduationRequest(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, g)
+	}
+	return out, rows.Err()
+}
+
+// GraduationRequestRow is the staff-facing view of a graduation request —
+// it joins the student's name/matric/level so admin/HOD can see who is on
+// the graduation path without a second lookup.
+type GraduationRequestRow struct {
+	GraduationRequest
+	FullName     string          `json:"full_name"`
+	MatricNumber string          `json:"matric_number"`
+	Level        int32           `json:"level"`
+	Email        string          `json:"email"`
+}
+
+// ListGraduationRequests returns every graduation request, newest first.
+func (q *Queries) ListGraduationRequests(ctx context.Context) ([]GraduationRequestRow, error) {
+	rows, err := q.db.Query(ctx, `
+		SELECT `+graduationRequestColumns+`, u.full_name, s.matric_number, s.level, u.email
+		FROM graduation_requests gr
+		JOIN users u ON u.id = gr.user_id
+		JOIN students s ON s.user_id = gr.user_id
+		ORDER BY gr.created_at DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []GraduationRequestRow{}
+	for rows.Next() {
+		var g GraduationRequestRow
+		if err := rows.Scan(
+			&g.ID, &g.UserID, &g.AmountCharged, &g.PaymentID, &g.Status,
+			&g.Waived, &g.CreatedBy, &g.CreatedAt, &g.PaidAt, &g.ClearedBy, &g.ClearedAt,
+			&g.FullName, &g.MatricNumber, &g.Level, &g.Email,
+		); err != nil {
+			return nil, err
+		}
+		out = append(out, g)
+	}
+	return out, rows.Err()
+}
+
+// CreateWaivedGraduationRequest creates a fee-waived graduation request for
+// a student (admin-granted exemption). The dues/signing exemption applies
+// the moment the request exists. Errors if one already exists.
+func (q *Queries) CreateWaivedGraduationRequest(ctx context.Context, userID, createdBy uuid.UUID) (GraduationRequest, error) {
+	row := q.db.QueryRow(ctx, `
+		INSERT INTO graduation_requests (user_id, amount_charged, waived, created_by)
+		VALUES ($1, 0, true, $2)
+		ON CONFLICT (user_id) DO NOTHING
+		RETURNING `+graduationRequestColumns, userID, createdBy)
+	g, err := scanGraduationRequest(row)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return GraduationRequest{}, fmt.Errorf("student already has a graduation request")
+		}
+		return GraduationRequest{}, err
+	}
+	return g, nil
 }

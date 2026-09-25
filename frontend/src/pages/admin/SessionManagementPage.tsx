@@ -1,8 +1,22 @@
 import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import EmptyState from '../../components/ui/EmptyState';
+import Button from '../../components/ui/Button';
+import Modal from '../../components/ui/Modal';
 import { useNotification } from '../../hooks/useNotification';
-import { Save, CalendarRange, Loader2, CheckCircle, AlertCircle, Plus, Trash2 } from 'lucide-react';
+import {
+  Save,
+  CalendarRange,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+  Plus,
+  Trash2,
+  TrendingUp,
+  RotateCcw,
+  PauseCircle,
+  ShieldCheck,
+} from 'lucide-react';
 import {
   getSessions,
   createSession,
@@ -11,9 +25,290 @@ import {
   listSessionSemesters,
   createSemester,
   deleteSemester,
+  prepareRollOver,
+  getRollOverOverview,
+  flipRollOverStudent,
+  confirmRollOver,
+  type RollOverOverview,
+  type LevelPromotion,
+  type LevelPromotionSummary,
 } from '../../api/sessions';
 import { getErrorMessage } from '../../utils/errors';
 import type { Session, SemesterEntry } from '../../types';
+
+const statusLabel: Record<LevelPromotion['status'], string> = {
+  proposed: 'Proposed',
+  confirmed: 'Promoted',
+  carried_over: 'Carried over',
+  held_back: 'Held back',
+};
+
+const statusStyle: Record<LevelPromotion['status'], string> = {
+  proposed: 'bg-primary-50 text-primary-600 dark:bg-primary-950/40 dark:text-primary-400',
+  confirmed: 'bg-success-50 text-success-600 dark:bg-success-950/40 dark:text-success-400',
+  carried_over: 'bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400',
+  held_back: 'bg-warning-50 text-warning-600 dark:bg-warning-950/40 dark:text-warning-400',
+};
+
+// RollOverCard lets HOD/admin review the promotion proposal for a session,
+// flip individual students, then confirm the batch — which bumps levels
+// and rolls everyone into the new session atomically.
+const RollOverCard = ({ sessions }: { sessions: Session[] }) => {
+  const { success, error: notifyError } = useNotification();
+  const [sessionId, setSessionId] = useState('');
+  const [overview, setOverview] = useState<RollOverOverview | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [preparing, setPreparing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [flippingId, setFlippingId] = useState<string | null>(null);
+  const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const load = async (id: string) => {
+    if (!id) return;
+    try {
+      setLoading(true);
+      setOverview(await getRollOverOverview(id));
+    } catch (err: unknown) {
+      setOverview(null);
+      notifyError('Load Failed', getErrorMessage(err, 'No roll-over proposal for this session yet — click Prepare.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePrepare = async () => {
+    if (!sessionId) return;
+    try {
+      setPreparing(true);
+      const res = await prepareRollOver(sessionId);
+      success(
+        'Proposal Ready',
+        res.created > 0
+          ? `${res.created} new proposal${res.created === 1 ? '' : 's'} generated (${res.total} total).`
+          : `Proposal up to date (${res.total} students).`
+      );
+      await load(sessionId);
+    } catch (err: unknown) {
+      notifyError('Failed', getErrorMessage(err, 'Could not prepare roll-over'));
+    } finally {
+      setPreparing(false);
+    }
+  };
+
+  const handleFlip = async (p: LevelPromotion, status: 'promote' | 'carryover' | 'held_back') => {
+    try {
+      setFlippingId(p.id);
+      await flipRollOverStudent(sessionId, p.id, status);
+      await load(sessionId);
+    } catch (err: unknown) {
+      notifyError('Failed', getErrorMessage(err, 'Could not update student'));
+    } finally {
+      setFlippingId(null);
+    }
+  };
+
+  const handleConfirm = async () => {
+    try {
+      setConfirming(true);
+      const res = await confirmRollOver(sessionId);
+      success(
+        'Roll-over Complete',
+        `${res.promoted} promoted, ${res.rolled} student${res.rolled === 1 ? '' : 's'} rolled into the new session.`
+      );
+      setConfirmOpen(false);
+      await load(sessionId);
+    } catch (err: unknown) {
+      notifyError('Failed', getErrorMessage(err, 'Could not confirm roll-over'));
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  const proposals = overview?.proposals ?? [];
+  const visible = selectedLevel === null ? proposals : proposals.filter((p) => p.level === selectedLevel);
+  const pendingCount = proposals.filter((p) => p.status === 'proposed').length;
+  const anyProposed = pendingCount > 0;
+
+  const SummaryChip = ({ s }: { s: LevelPromotionSummary }) => {
+    const active = selectedLevel === s.level;
+    return (
+      <button
+        onClick={() => setSelectedLevel(active ? null : s.level)}
+        className={`rounded-xl border p-3 text-left transition-all ${
+          active
+            ? 'border-primary-400 bg-primary-50/60 dark:border-primary-500/50 dark:bg-primary-950/30'
+            : 'border-surface-200 hover:border-primary-300 dark:border-surface-700 dark:hover:border-primary-500/40'
+        }`}
+      >
+        <p className="text-xs font-semibold text-surface-500 dark:text-surface-400">{s.level}L</p>
+        <div className="mt-1 flex items-baseline gap-1">
+          <TrendingUp className="w-3.5 h-3.5 text-success-500" />
+          <span className="text-lg font-bold text-surface-900 dark:text-white">{s.proposed + s.confirmed}</span>
+          <span className="text-xs text-surface-400">up</span>
+          <RotateCcw className="w-3.5 h-3.5 ml-2 text-surface-400" />
+          <span className="text-lg font-bold text-surface-900 dark:text-white">{s.carryover}</span>
+          <span className="text-xs text-surface-400">carry</span>
+        </div>
+        {(s.held_back > 0 || s.confirmed > 0) && (
+          <p className="mt-0.5 text-[11px] text-surface-400">
+            {s.confirmed > 0 && `${s.confirmed} confirmed`}
+            {s.confirmed > 0 && s.held_back > 0 && ' · '}
+            {s.held_back > 0 && `${s.held_back} held back`}
+          </p>
+        )}
+      </button>
+    );
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <TrendingUp className="w-5 h-5 text-primary-500" />
+          <CardTitle>Session Roll-over & Promotion</CardTitle>
+        </div>
+        <CardDescription>
+          Review who advances a level and who carries over, then confirm the batch. Results stay on hold, eligibility
+          is based on dues and course-form completion.
+        </CardDescription>
+      </CardHeader>
+      <div className="p-4 pt-0 space-y-4">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <select
+            className="flex-1 px-3 py-2 border rounded-lg dark:bg-surface-800 dark:border-surface-600 text-sm"
+            value={sessionId}
+            onChange={(e) => {
+              setSessionId(e.target.value);
+              setOverview(null);
+              setSelectedLevel(null);
+              if (e.target.value) load(e.target.value);
+            }}
+          >
+            <option value="">Select the new session…</option>
+            {sessions.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+                {s.is_active ? ' (active)' : ''}
+              </option>
+            ))}
+          </select>
+          <Button onClick={handlePrepare} disabled={!sessionId || preparing} isLoading={preparing}>
+            Prepare / Refresh Proposal
+          </Button>
+        </div>
+
+        {loading && (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-5 h-5 animate-spin text-primary-500" />
+          </div>
+        )}
+
+        {!loading && overview && (
+          <>
+            {(overview.summary?.length ?? 0) > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {overview.summary.map((s) => (
+                  <SummaryChip key={s.level} s={s} />
+                ))}
+              </div>
+            ) : (
+              <EmptyState title="No proposals yet." description="Click Prepare to generate the promotion proposal." className="py-6" />
+            )}
+
+            {visible.length > 0 && (
+              <div className="rounded-xl border border-surface-200 dark:border-surface-700 divide-y divide-surface-100 dark:divide-surface-800 max-h-96 overflow-y-auto">
+                {visible.map((p) => (
+                  <div key={p.id} className="flex items-center gap-3 p-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-surface-900 dark:text-surface-100 truncate">{p.full_name}</p>
+                      <p className="text-xs text-surface-400">
+                        {p.matric_number} · {p.from_level}L → {p.to_level}L
+                      </p>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${statusStyle[p.status]}`}>
+                      {statusLabel[p.status]}
+                    </span>
+                    {p.status === 'proposed' && (
+                      <div className="flex items-center gap-1">
+                        {p.to_level > p.from_level ? (
+                          <>
+                            <button
+                              onClick={() => handleFlip(p, 'carryover')}
+                              disabled={flippingId === p.id}
+                              title="Hold at current level (carry over)"
+                              className="p-1.5 rounded-lg text-surface-400 hover:text-surface-600 hover:bg-surface-100 dark:hover:bg-surface-800 disabled:opacity-50"
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleFlip(p, 'held_back')}
+                              disabled={flippingId === p.id}
+                              title="Hold back (excluded from roll)"
+                              className="p-1.5 rounded-lg text-surface-400 hover:text-warning-500 hover:bg-warning-50 dark:hover:bg-warning-950/30 disabled:opacity-50"
+                            >
+                              <PauseCircle className="w-4 h-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => handleFlip(p, 'promote')}
+                            disabled={flippingId === p.id}
+                            title="Promote to next level"
+                            className="p-1.5 rounded-lg text-surface-400 hover:text-success-600 hover:bg-success-50 dark:hover:bg-success-950/30 disabled:opacity-50"
+                          >
+                            <TrendingUp className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-surface-400">
+                {anyProposed
+                  ? `${pendingCount} student${pendingCount === 1 ? '' : 's'} pending confirmation. Confirming locks levels, rolls everyone into the session and activates it.`
+                  : 'Nothing pending — confirm again to re-run the session roll for any students added later.'}
+              </p>
+              <Button
+                onClick={() => setConfirmOpen(true)}
+                disabled={!sessionId}
+                leftIcon={<ShieldCheck className="w-4 h-4" />}
+              >
+                Confirm Roll-over
+              </Button>
+            </div>
+          </>
+        )}
+
+        <Modal isOpen={confirmOpen} onClose={() => setConfirmOpen(false)} title="Confirm Session Roll-over" size="sm">
+          <div className="space-y-4">
+            <p className="text-sm text-surface-600 dark:text-surface-300">
+              This will apply the proposal for{' '}
+              <span className="font-semibold">{sessions.find((s) => s.id === sessionId)?.name}</span>:
+            </p>
+            <ul className="text-sm text-surface-600 dark:text-surface-300 space-y-1.5 list-disc pl-5">
+              <li>Every pending student is promoted one level (carryovers keep their level).</li>              <li>All active students move to this session (including carryovers).</li>
+              <li>This session becomes the active one; the previous session is deactivated.</li>
+              <li>Promoted students get a notification.</li>
+            </ul>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleConfirm} isLoading={confirming}>
+                Confirm & Apply
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      </div>
+    </Card>
+  );
+};
 
 const SessionManagementPage = () => {
   const { success, error: notifyError } = useNotification();
@@ -294,6 +589,9 @@ const SessionManagementPage = () => {
           </button>
         </form>
       </Card>
+
+      {/* Session Roll-over (batch level promotion) */}
+      <RollOverCard sessions={sessions} />
 
       {/* Sessions List */}
       <Card>

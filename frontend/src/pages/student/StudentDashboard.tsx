@@ -57,8 +57,8 @@ const StudentDashboard = () => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
+        {/* <KpiCard
           title="Current CGPA"
           value={student.cgpa != null ? formatGPA(student.cgpa) : 'N/A'}
           icon={<Award className="w-5 h-5" />}
@@ -67,7 +67,7 @@ const StudentDashboard = () => {
           title="Attendance Rate"
           value={attendance?.total_classes > 0 ? `${Math.round(attendance.attendance_rate)}%` : 'No data'}
           icon={<BookOpen className="w-5 h-5" />}
-        />
+        /> */}
         <KpiCard
           title="Outstanding Dues"
           value={payments?.dues_outstanding > 0 ? `${payments.dues_outstanding} due` : 'Cleared'}
@@ -181,11 +181,11 @@ const StudentDashboard = () => {
                   Pay Dues
                 </Button>
               </Link>
-              <Link to="/results" className="block">
+              {/* <Link to="/results" className="block">
                 <Button variant="outline" className="w-full justify-start" leftIcon={<Award className="w-4 h-4" />}>
                   View Results
                 </Button>
-              </Link>
+              </Link> */}
               <Link to="/notifications" className="block">
                 <Button variant="outline" className="w-full justify-start" leftIcon={<Bell className="w-4 h-4" />}>
                   Notifications {notifications?.unread ? `(${notifications.unread})` : ''}

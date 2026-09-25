@@ -211,7 +211,11 @@ type Querier interface {
 	ListCRFSignatureAssets(ctx context.Context) ([]CRFSignatureAsset, error)
 	DeleteCRFSignatureAsset(ctx context.Context, kind string) error
 	GetCRFSubmissionForUserSemester(ctx context.Context, userID, semesterID uuid.UUID) (CRFSigningSubmission, error)
-	CreateCRFSigningSubmission(ctx context.Context, userID, semesterID uuid.UUID, originalFilePath, signedFilePath string) (CRFSigningSubmission, error)
+	GetCRFDraftSubmission(ctx context.Context, userID, semesterID uuid.UUID) (CRFSigningSubmission, error)
+	ListCRFDraftsForUser(ctx context.Context, userID uuid.UUID) ([]CRFSigningSubmission, error)
+	CreateCRFSigningSubmission(ctx context.Context, userID, semesterID uuid.UUID, originalFilePath string) (CRFSigningSubmission, error)
+	SaveCRFPlacements(ctx context.Context, id uuid.UUID, placements CRFPlacements) (CRFSigningSubmission, error)
+	ApproveCRFSigningSubmission(ctx context.Context, id uuid.UUID, signedFilePath string) (CRFSigningSubmission, error)
 	GetCRFSigningSubmission(ctx context.Context, id uuid.UUID) (CRFSigningSubmission, error)
 	ListTodaysBirthdays(ctx context.Context) ([]BirthdayGreetingRow, error)
 	MarkBirthdayGreeted(ctx context.Context, userID uuid.UUID) error

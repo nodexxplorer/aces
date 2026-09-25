@@ -155,6 +155,40 @@ func unpaidRequiredDues(ctx context.Context, store db.Querier, studentID uuid.UU
 	return unpaid, nil
 }
 
+// finalYearLevel is the terminal level: final-year students are on the
+// graduation path instead of the regular dues cycle.
+const finalYearLevel = int32(500)
+
+// blockOnUnpaidDues writes the gating error response and returns true when
+// the student may not proceed with course-form signing / registration.
+// Final-year (500 level) students never answer for level dues — they settle
+// the graduation signing fee (or get it waived) instead; everyone else must
+// clear their active dept/class dues.
+func (server *Server) blockOnUnpaidDues(ctx *gin.Context, student db.Student, action string) bool {
+	if student.Level >= finalYearLevel {
+		if queries, ok := server.store.(*db.Queries); ok {
+			if gr, err := queries.GetGraduationRequest(ctx, student.UserID); err == nil &&
+				(gr.Status == "paid" || gr.Status == "cleared" || gr.Waived) {
+				return false
+			}
+		}
+		ctx.JSON(http.StatusForbidden, gin.H{
+			"error":               "final-year students pay the graduation course-form signing fee instead of dues — settle it before " + action,
+			"graduation_required": true,
+		})
+		return true
+	}
+
+	if unpaid, err := unpaidRequiredDues(ctx, server.store, student.ID, student.Level); err == nil && len(unpaid) > 0 {
+		ctx.JSON(http.StatusForbidden, gin.H{
+			"error":       "you must pay your outstanding dues before " + action,
+			"unpaid_dues": unpaid,
+		})
+		return true
+	}
+	return false
+}
+
 func (server *Server) notifyUser(
 	ctx context.Context,
 	userID uuid.UUID,

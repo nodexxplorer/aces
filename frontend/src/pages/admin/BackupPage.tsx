@@ -30,6 +30,7 @@ const BackupPage = () => {
   const [backups, setBackups] = useState<BackupRecord[]>([]);
   const [summary, setSummary] = useState<BackupSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [backing, setBacking] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [selectedBackup, setSelectedBackup] = useState<string>('');
@@ -42,6 +43,7 @@ const BackupPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const [b, s] = await Promise.allSettled([getBackups(), getBackupSummary()]);
       if (b.status === 'fulfilled') {
         const items = Array.isArray(b.value)
@@ -50,8 +52,13 @@ const BackupPage = () => {
         setBackups(items);
       }
       if (s.status === 'fulfilled') setSummary(s.value);
-    } catch {
-      // silent
+      if (b.status === 'rejected' && s.status === 'rejected') {
+        setLoadError(
+          getErrorMessage(b.reason, getErrorMessage(s.reason, 'Failed to load backups'))
+        );
+      }
+    } catch (err: unknown) {
+      setLoadError(getErrorMessage(err, 'Failed to load backups'));
     } finally {
       setLoading(false);
     }
@@ -116,6 +123,22 @@ const BackupPage = () => {
         </div>
       ) : (
         <>
+          {loadError && (
+            <div className="p-3 rounded-lg bg-danger-50 dark:bg-danger-900/10 border border-danger-200 dark:border-danger-800 flex items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-danger-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-danger-800 dark:text-danger-300">
+                    Could not load backups
+                  </p>
+                  <p className="text-[10px] text-danger-600 dark:text-danger-400">{loadError}</p>
+                </div>
+              </div>
+              <Button size="xs" variant="outline" onClick={fetchData}>
+                Retry
+              </Button>
+            </div>
+          )}
           {/* Summary Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card className="p-4 flex items-center gap-3">

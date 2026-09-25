@@ -16,6 +16,9 @@ import (
 
 type SignatureStamp struct {
 	ImagePath    string
+	// ImageData, when non-nil, is used instead of reading ImagePath from
+	// disk (e.g. for the department stamp PNG rendered in memory).
+	ImageData    []byte
 	Page         int
 	X, Y         float64
 	Width        float64
@@ -29,9 +32,15 @@ func StampSignatures(pdfBytes []byte, stamps []SignatureStamp) ([]byte, error) {
 	pageWatermarks := map[int][]*model.Watermark{}
 
 	for _, s := range stamps {
-		imgBytes, err := os.ReadFile(s.ImagePath)
-		if err != nil {
-			return nil, fmt.Errorf("read signature image %s: %w", s.ImagePath, err)
+		var imgBytes []byte
+		if len(s.ImageData) > 0 {
+			imgBytes = s.ImageData
+		} else {
+			var err error
+			imgBytes, err = os.ReadFile(s.ImagePath)
+			if err != nil {
+				return nil, fmt.Errorf("read signature image %s: %w", s.ImagePath, err)
+			}
 		}
 
 		cfg, _, err := image.DecodeConfig(bytes.NewReader(imgBytes))

@@ -2,7 +2,6 @@ package api
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -223,31 +222,16 @@ func (server *Server) submitCRFBacklogForm(ctx *gin.Context) {
 		return
 	}
 
-	pdfBytes, err := io.ReadAll(file)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-		return
-	}
-
-	stamped, err := server.stampCRFPDF(ctx, queries, pdfBytes)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
+	// The slot is consumed at upload; the student then aligns the signatures
+	// on their own form (same placement flow as the current-semester CRF)
+	// and approves, which renders the signed PDF.
 	originalPath, err := server.storage.SaveFile(header, "crf-signing/original")
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	signedPath, err := server.storage.SaveBytes(stamped, "crf-signing/signed", ".pdf")
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-		return
-	}
-
-	submission, err := queries.CreateCRFSigningSubmission(ctx, userID, semesterID, originalPath, signedPath)
+	submission, err := queries.CreateCRFSigningSubmission(ctx, userID, semesterID, originalPath)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return

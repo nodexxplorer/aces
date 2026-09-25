@@ -1,23 +1,33 @@
-import apiClient, { unwrap } from './client';
+import apiClient, { unwrap, getMediaUrl } from './client';
 
 export type CRFSignatureKind = 'hod' | 'exam_officer';
 
+// What the admin manages — just the signer's signature image. Where it lands
+// on a student's form is decided by that student at signing time.
 export interface CRFSignatureAsset {
   id: string;
   kind: CRFSignatureKind;
   file_path: string;
-  page_number: number;
-  x_pt: number;
-  y_pt: number;
-  width_pt: number;
-  max_height_pt: number;
-  show_date: boolean;
-  date_x_pt: number | null;
-  date_y_pt: number | null;
-  date_font_size: number;
   uploaded_by: string;
   uploaded_at: string;
 }
+
+export const getCRFSignatureImageUrl = (filePath: string) =>
+  getMediaUrl(`/uploads/${filePath.replace(/^\/+/, '')}`);
+
+export interface CRFPlacement {
+  page: number;
+  x: number;
+  y: number;
+  width: number;
+  max_height?: number;
+  show_date?: boolean;
+  date_x?: number | null;
+  date_y?: number | null;
+  date_font_size?: number;
+}
+
+export type CRFPlacements = Partial<Record<CRFSignatureKind, CRFPlacement>>;
 
 export interface CRFSigningSubmission {
   id: string;
@@ -25,42 +35,21 @@ export interface CRFSigningSubmission {
   semester_id: string;
   original_file_path: string;
   signed_file_path: string;
-  status: string;
+  placements: CRFPlacements;
+  status: 'draft' | 'completed';
   created_at: string;
 }
 
-export interface CRFPlacement {
-  page_number: number;
-  x_pt: number;
-  y_pt: number;
-  width_pt: number;
-  max_height_pt: number;
-  show_date: boolean;
-  date_x_pt: number | null;
-  date_y_pt: number | null;
-  date_font_size: number;
-}
-
-// ─── HOD/admin: signature asset management ─────────────────────────────────
+// ─── Admin: signature asset management ──────────────────────────────────────
 
 export const listCRFSignatureAssets = async () => {
   const res = await apiClient.get('/crf-signatures');
-  return unwrap<CRFSignatureAsset[]>(res);
+  return (unwrap<CRFSignatureAsset[]>(res) ?? []) as CRFSignatureAsset[];
 };
 
-export const uploadCRFSignatureAsset = async (kind: CRFSignatureKind, file: File | null, placement: CRFPlacement) => {
+export const uploadCRFSignatureAsset = async (kind: CRFSignatureKind, file: File) => {
   const formData = new FormData();
-  if (file) formData.append('file', file);
-  formData.append('page_number', String(placement.page_number));
-  formData.append('x_pt', String(placement.x_pt));
-  formData.append('y_pt', String(placement.y_pt));
-  formData.append('width_pt', String(placement.width_pt));
-  formData.append('max_height_pt', String(placement.max_height_pt));
-  formData.append('show_date', String(placement.show_date));
-  if (placement.date_x_pt != null) formData.append('date_x_pt', String(placement.date_x_pt));
-  if (placement.date_y_pt != null) formData.append('date_y_pt', String(placement.date_y_pt));
-  formData.append('date_font_size', String(placement.date_font_size));
-
+  formData.append('file', file);
   const res = await apiClient.post(`/crf-signatures/${kind}`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
@@ -71,38 +60,54 @@ export const deleteCRFSignatureAsset = async (kind: CRFSignatureKind) => {
   await apiClient.delete(`/crf-signatures/${kind}`);
 };
 
-export const testStampCRF = async (file: File): Promise<Blob> => {
+// ─── Student: upload → place → preview → approve ────────────────────────────
+
+export const uploadCRF = async (file: File) => {
   const formData = new FormData();
   formData.append('file', file);
-
-  const res = await apiClient.post('/crf-signatures/test-stamp', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-    responseType: 'blob',
-  });
-  return res.data as Blob;
-};
-
-// ─── Student: upload + retrieve own CRF ─────────────────────────────────────
-
-export const submitCRFForSigning = async (file: File) => {
-  const formData = new FormData();
-  formData.append('file', file);
-
   const res = await apiClient.post('/crf-signing/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return unwrap<CRFSigningSubmission>(res);
 };
 
-export const getMyCRFSubmission = async () => {
+export const getMyCRFSubmission = async (): Promise<CRFSigningSubmission | null> => {
   const res = await apiClient.get('/crf-signing/mine');
   const body = res.data?.data ?? res.data;
   return (body ?? null) as CRFSigningSubmission | null;
 };
 
+export const listMyCRFDrafts = async () => {
+  const res = await apiClient.get('/crf-signing/drafts');
+  return (unwrap<CRFSigningSubmission[]>(res) ?? []) as CRFSigningSubmission[];
+};
+
+export const saveCRFPlacements = async (id: string, placements: CRFPlacements) => {
+  const res = await apiClient.put(`/crf-signing/${id}/placements`, { placements });
+  return unwrap<CRFSigningSubmission>(res);
+};
+
+// Server-rendered preview of exactly what the approved form will look like.
+export const previewCRFSubmission = async (id: string): Promise<Blob> => {
+  const res = await apiClient.post(`/crf-signing/${id}/preview`, {}, { responseType: 'blob' });
+  return res.data as Blob;
+};
+
+export const approveCRFSubmission = async (id: string) => {
+  const res = await apiClient.post(`/crf-signing/${id}/approve`);
+  return unwrap<CRFSigningSubmission>(res);
+};
+
 export const getCRFDownloadUrl = (id: string) => {
   const base = apiClient.defaults.baseURL || '/api/v1';
   return `${base}/crf-signing/${id}/download`;
+};
+
+// Serves the student's stored ORIGINAL (unstamped) PDF for the placement
+// canvas — drafts have no signed copy to download yet.
+export const getCRFOriginalUrl = (id: string) => {
+  const base = apiClient.defaults.baseURL || '/api/v1';
+  return `${base}/crf-signing/${id}/original`;
 };
 
 // ─── CRF backlog: paid catch-up submissions for old/unsigned course forms ──
@@ -150,7 +155,6 @@ export const submitCRFBacklogForm = async (file: File, semesterId: string) => {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('semester_id', semesterId);
-
   const res = await apiClient.post('/crf-backlog/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });

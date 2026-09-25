@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import { FileSignature, Download, CheckCircle2, Info, History, CreditCard } from 'lucide-react';
+import SignaturePlacementCanvas from '../../components/crf/SignaturePlacementCanvas';
+import { FileSignature, Download, CheckCircle2, Info, History, CreditCard, Eye, Save, Loader2 } from 'lucide-react';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../hooks/useAuth';
 import { getErrorMessage } from '../../utils/errors';
@@ -11,24 +12,43 @@ import { getSessions, listSessionSemesters } from '../../api/sessions';
 import type { SemesterEntry } from '../../types';
 import {
   getMyCRFSubmission,
-  submitCRFForSigning,
+  uploadCRF,
+  listMyCRFDrafts,
+  saveCRFPlacements,
+  previewCRFSubmission,
+  approveCRFSubmission,
   getCRFDownloadUrl,
+  getCRFOriginalUrl,
+  listCRFSignatureAssets,
   getCRFBacklogPrice,
   createCRFBacklogRequest,
   getMyCRFBacklogStatus,
   submitCRFBacklogForm,
   type CRFSigningSubmission,
   type CRFBacklogRequest,
+  type CRFSignatureAsset,
+  type CRFPlacements,
 } from '../../api/crf-signing';
 
 export default function CourseFormSigningPage() {
   const { success, error: notifyError } = useNotification();
   const { user } = useAuth();
+
+  // Current-semester CRF: a draft while the student is placing signatures,
+  // completed once they approve.
   const [submission, setSubmission] = useState<CRFSigningSubmission | null>(null);
   const [loading, setLoading] = useState(true);
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
+  const [assets, setAssets] = useState<CRFSignatureAsset[]>([]);
+  const [placements, setPlacements] = useState<CRFPlacements>({});
+  const [savingPlacements, setSavingPlacements] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  const [approving, setApproving] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // Backlog: old/unsigned course forms from past semesters.
   const [backlogPrice, setBacklogPrice] = useState(1000);
   const [backlog, setBacklog] = useState<CRFBacklogRequest | null>(null);
   const [requestCount, setRequestCount] = useState(1);
@@ -71,9 +91,16 @@ export default function CourseFormSigningPage() {
 
   useEffect(() => {
     getMyCRFSubmission()
-      .then(setSubmission)
+      .then((sub) => {
+        setSubmission(sub);
+        if (sub) setPlacements(sub.placements ?? {});
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
+
+    listCRFSignatureAssets()
+      .then(setAssets)
+      .catch(() => {});
 
     getCRFBacklogPrice()
       .then((p) => setBacklogPrice(Number(p.amount_per_backlog)))
@@ -85,16 +112,27 @@ export default function CourseFormSigningPage() {
 
     getSessions()
       .then(async (sessions) => {
-        const lists = await Promise.all(
-          sessions.map((s) => listSessionSemesters(s.id).catch(() => [] as SemesterEntry[])),
-        );
+        const lists = await Promise.all(sessions.map((s) => listSessionSemesters(s.id).catch(() => [] as SemesterEntry[])));
         const past = lists.flat().filter((sem) => !sem.is_active);
         setPastSemesters(past);
       })
       .catch(() => {});
+
+    // Surface any stray drafts (e.g. a backlog upload made earlier) so the
+    // student can resume aligning them. The current-semester draft, if any,
+    // is already loaded via /mine.
+    listMyCRFDrafts()
+      .then((drafts) => {
+        if (drafts.length > 0) {
+          const current = drafts[0];
+          setSubmission((prev) => prev ?? current);
+          setPlacements((prev) => (Object.keys(prev).length > 0 ? prev : current.placements ?? {}));
+        }
+      })
+      .catch(() => {});
   }, []);
 
-  const handleSubmit = async () => {
+  const handleUpload = async () => {
     if (!file) return;
     if (unpaidDues.length > 0) {
       notifyError('Outstanding Dues', 'Pay your outstanding dues before your course form can be signed.');
@@ -102,13 +140,73 @@ export default function CourseFormSigningPage() {
     }
     setUploading(true);
     try {
-      const result = await submitCRFForSigning(file);
-      setSubmission(result);
-      success('Signed', 'Your course form has been signed.');
+      const draft = await uploadCRF(file);
+      setSubmission(draft);
+      setPlacements(draft.placements ?? {});
+      setFile(null);
+      success('Form Uploaded', 'Now drag each signature to the right spot on your form.');
+    } catch (err: unknown) {
+      notifyError('Could Not Upload Form', getErrorMessage(err, 'Please try again'));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSavePlacements = async () => {
+    if (!submission) return;
+    if (Object.keys(placements).length === 0) {
+      notifyError('Nothing Placed Yet', 'Add at least one signature to your form first.');
+      return;
+    }
+    setSavingPlacements(true);
+    try {
+      const updated = await saveCRFPlacements(submission.id, placements);
+      setSubmission(updated);
+      success('Placement Saved', 'Your signature alignment has been saved.');
+    } catch (err: unknown) {
+      notifyError('Could Not Save', getErrorMessage(err, 'Please try again'));
+    } finally {
+      setSavingPlacements(false);
+    }
+  };
+
+  const handlePreview = async () => {
+    if (!submission) return;
+    setPreviewing(true);
+    try {
+      // Make sure the server stamps from the current on-screen alignment.
+      await saveCRFPlacements(submission.id, placements);
+      const blob = await previewCRFSubmission(submission.id);
+      setPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return URL.createObjectURL(blob);
+      });
+    } catch (err: unknown) {
+      notifyError('Preview Failed', getErrorMessage(err, 'Could not generate the preview'));
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!submission) return;
+    if (!window.confirm('Approve and sign this form? This is final — one signed form per semester.')) return;
+    setApproving(true);
+    try {
+      // The preview already saved these placements; save again defensively in
+      // case the student tweaked positions after previewing.
+      await saveCRFPlacements(submission.id, placements);
+      const final = await approveCRFSubmission(submission.id);
+      setSubmission(final);
+      setPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      success('Signed', 'Your course form has been signed and submitted.');
     } catch (err: unknown) {
       notifyError('Could Not Sign Form', getErrorMessage(err, 'Please try again'));
     } finally {
-      setUploading(false);
+      setApproving(false);
     }
   };
 
@@ -156,23 +254,28 @@ export default function CourseFormSigningPage() {
     if (!backlogFile || !selectedSemesterId) return;
     setUploadingBacklog(true);
     try {
-      await submitCRFBacklogForm(backlogFile, selectedSemesterId);
-      success('Signed', 'Your backlog course form has been signed.');
+      const draft = await submitCRFBacklogForm(backlogFile, selectedSemesterId);
+      success('Form Uploaded', 'Now drag each signature to the right spot, then preview and approve.');
       setBacklogFile(null);
       setSelectedSemesterId('');
       const updated = await getMyCRFBacklogStatus();
       setBacklog(updated);
+      // Jump into the placement flow for this backlog draft.
+      setSubmission(draft);
+      setPlacements(draft.placements ?? {});
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: unknown) {
-      notifyError('Could Not Sign Form', getErrorMessage(err, 'Please try again'));
+      notifyError('Could Not Upload Form', getErrorMessage(err, 'Please try again'));
     } finally {
       setUploadingBacklog(false);
     }
   };
 
   const remainingSlots = backlog ? backlog.requested_count - backlog.forms_submitted : 0;
+  const isDraft = submission?.status === 'draft';
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-6 max-w-4xl mx-auto">
       <div className="flex items-center gap-3">
         <div className="p-2 bg-surface-100 dark:bg-surface-800 rounded-xl">
           <FileSignature className="w-6 h-6 text-surface-600 dark:text-surface-400" />
@@ -180,7 +283,8 @@ export default function CourseFormSigningPage() {
         <div>
           <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Course Form Signing</h1>
           <p className="text-sm text-surface-500 dark:text-surface-400">
-            Upload your course registration form to get the HOD and Exam Officer signatures stamped on automatically.
+            Upload your course registration form, place the HOD and Exam Officer signatures exactly where your form
+            asks for them, check the preview, then approve.
           </p>
         </div>
       </div>
@@ -193,9 +297,7 @@ export default function CourseFormSigningPage() {
               <p className="text-sm font-semibold text-danger-700 dark:text-danger-400">
                 Outstanding dues must be paid before your course form can be signed
               </p>
-              <p className="text-xs text-danger-600/80 dark:text-danger-400/80 mt-0.5">
-                Unpaid: {unpaidDues.join(', ')}
-              </p>
+              <p className="text-xs text-danger-600/80 dark:text-danger-400/80 mt-0.5">Unpaid: {unpaidDues.join(', ')}</p>
             </div>
             <Link to="/payments">
               <Button size="sm" variant="danger" leftIcon={<CreditCard className="w-4 h-4" />}>
@@ -206,23 +308,9 @@ export default function CourseFormSigningPage() {
         </Card>
       )}
 
-      <Card className="border-primary-200 dark:border-primary-800 bg-primary-50/50 dark:bg-primary-950/20">
-        <div className="flex gap-3">
-          <Info className="w-5 h-5 text-primary-500 shrink-0 mt-0.5" />
-          <div className="text-sm text-surface-700 dark:text-surface-300">
-            <p className="font-semibold text-surface-900 dark:text-white">Current semester is free</p>
-            <p className="mt-1 text-surface-600 dark:text-surface-400">
-              This service signs your current-semester course form for free, one upload per semester. Have an old,
-              unsigned form from a previous semester? Use "Upload Old Course Form" below, a small per-form fee applies
-              (₦{backlogPrice.toLocaleString()} per backlog form), payable before the upload slot opens up.
-            </p>
-          </div>
-        </div>
-      </Card>
-
       {loading ? (
         <div className="animate-pulse text-sm text-surface-400">Loading...</div>
-      ) : submission ? (
+      ) : submission && submission.status === 'completed' ? (
         <Card className="text-center py-8 space-y-4">
           <CheckCircle2 className="w-12 h-12 text-success-500 mx-auto" />
           <div>
@@ -235,11 +323,63 @@ export default function CourseFormSigningPage() {
             <Button leftIcon={<Download className="w-4 h-4" />}>Download Signed Form</Button>
           </a>
         </Card>
+      ) : submission && isDraft ? (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>1. Align the Signatures on Your Form</CardTitle>
+              <CardDescription>
+                Every form year is different — drag each signature to the exact signing spot on YOUR form, resize it to
+                fit, and place the date where the form asks for it.
+              </CardDescription>
+            </CardHeader>
+            {assets.length === 0 ? (
+              <p className="text-sm text-warning-600">
+                No signatures have been uploaded by the department yet — check back once the HOD's and Exam Officer's
+                signatures are configured.
+              </p>
+            ) : (
+              <SignaturePlacementCanvas
+                pdfUrl={getCRFOriginalUrl(submission.id)}
+                assets={assets}
+                value={placements}
+                onChange={setPlacements}
+              />
+            )}
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>2. Preview &amp; Approve</CardTitle>
+              <CardDescription>The preview is rendered by the same server stamper used at signing — what you see is exactly what you get.</CardDescription>
+            </CardHeader>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" leftIcon={<Save className="w-4 h-4" />} isLoading={savingPlacements} onClick={handleSavePlacements}>
+                Save Placement
+              </Button>
+              <Button leftIcon={<Eye className="w-4 h-4" />} isLoading={previewing} onClick={handlePreview} disabled={Object.keys(placements).length === 0}>
+                Preview Signed Form
+              </Button>
+              <Button variant="success" leftIcon={<CheckCircle2 className="w-4 h-4" />} isLoading={approving} onClick={handleApprove} disabled={Object.keys(placements).length === 0}>
+                Approve &amp; Sign
+              </Button>
+            </div>
+            {previewUrl && (
+              <div className="mt-4">
+                <p className="text-xs font-semibold text-surface-500 mb-2">Preview — scroll to check every page:</p>
+                <iframe title="Signed form preview" src={previewUrl} className="w-full h-[600px] border border-surface-200 dark:border-surface-700 rounded-lg" />
+                <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary-500 hover:underline mt-1 inline-block">
+                  Open preview in a new tab
+                </a>
+              </div>
+            )}
+          </Card>
+        </>
       ) : (
         <Card>
           <CardHeader>
             <CardTitle>Upload Your Course Form</CardTitle>
-            <CardDescription>Only PDF files are accepted. You can only upload once per semester.</CardDescription>
+            <CardDescription>Only PDF files are accepted. You can only sign one form per semester.</CardDescription>
           </CardHeader>
           <input
             type="file"
@@ -247,8 +387,8 @@ export default function CourseFormSigningPage() {
             onChange={(e) => setFile(e.target.files?.[0] || null)}
             className="w-full text-sm text-surface-600 dark:text-surface-400 mb-4"
           />
-          <Button isLoading={uploading} disabled={!file || unpaidDues.length > 0} onClick={handleSubmit}>
-            Sign My Course Form
+          <Button isLoading={uploading} disabled={!file || unpaidDues.length > 0} onClick={handleUpload}>
+            Upload &amp; Continue to Signing
           </Button>
         </Card>
       )}
@@ -283,38 +423,27 @@ export default function CourseFormSigningPage() {
               />
               <span className="text-sm text-surface-500">
                 Total:{' '}
-                <span className="font-semibold text-surface-900 dark:text-white">
-                  ₦{(requestCount * backlogPrice).toLocaleString()}
-                </span>
+                <span className="font-semibold text-surface-900 dark:text-white">₦{(requestCount * backlogPrice).toLocaleString()}</span>
               </span>
             </div>
-            <Button
-              isLoading={requestingBacklog}
-              onClick={handlePayForBacklog}
-              leftIcon={<CreditCard className="w-4 h-4" />}
-            >
-              Pay & Unlock Upload Slot{requestCount > 1 ? 's' : ''}
+            <Button isLoading={requestingBacklog} onClick={handlePayForBacklog} leftIcon={<CreditCard className="w-4 h-4" />}>
+              Pay &amp; Unlock Upload Slot{requestCount > 1 ? 's' : ''}
             </Button>
           </div>
         ) : backlog.status === 'pending_payment' ? (
           <div className="space-y-3">
             <p className="text-sm text-warning-600 dark:text-warning-400">
-              You have a pending backlog payment of ₦{Number(backlog.amount).toLocaleString()} for{' '}
-              {backlog.requested_count} form(s). Complete payment to unlock uploading.
+              You have a pending backlog payment of ₦{Number(backlog.amount).toLocaleString()} for {backlog.requested_count} form(s).
+              Complete payment to unlock uploading.
             </p>
-            <Button
-              isLoading={requestingBacklog}
-              onClick={handleResumeBacklogPayment}
-              leftIcon={<CreditCard className="w-4 h-4" />}
-            >
+            <Button isLoading={requestingBacklog} onClick={handleResumeBacklogPayment} leftIcon={<CreditCard className="w-4 h-4" />}>
               Complete Payment
             </Button>
           </div>
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-success-600 dark:text-success-400">
-              {backlog.forms_submitted} of {backlog.requested_count} backlog form(s) submitted, {remainingSlots} slot(s)
-              remaining.
+              {backlog.forms_submitted} of {backlog.requested_count} backlog form(s) submitted, {remainingSlots} slot(s) remaining.
             </p>
             <label className="block text-xs font-semibold text-surface-500 mb-1">Which semester is this for?</label>
             <select
@@ -335,12 +464,8 @@ export default function CourseFormSigningPage() {
               onChange={(e) => setBacklogFile(e.target.files?.[0] || null)}
               className="w-full text-sm text-surface-600 dark:text-surface-400"
             />
-            <Button
-              isLoading={uploadingBacklog}
-              disabled={!backlogFile || !selectedSemesterId}
-              onClick={handleSubmitBacklogForm}
-            >
-              Upload & Sign
+            <Button isLoading={uploadingBacklog} disabled={!backlogFile || !selectedSemesterId} onClick={handleSubmitBacklogForm}>
+              Upload &amp; Continue to Signing
             </Button>
           </div>
         )}

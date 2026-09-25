@@ -217,7 +217,7 @@ const LoginCelebrationPage = () => {
 
         {/* Footer */}
         <motion.p className="text-center text-xs text-white/20 mt-6 tracking-wider uppercase" variants={itemVariants}>
-          &copy; {new Date().getFullYear()} ACES Zone &mdash; All rights reserved
+          &copy; {new Date().getFullYear()} ACES Zone, All rights reserved
         </motion.p>
       </motion.div>
     </div>

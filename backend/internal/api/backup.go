@@ -72,7 +72,10 @@ func (server *Server) restoreBackup(ctx *gin.Context) {
 		return
 	}
 
-	_ = queries.UpdateBackupStatus(ctx, id, "restoring")
+	if err := queries.UpdateBackupStatus(ctx, id, "in_progress"); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
 
 	ctx.JSON(http.StatusOK, gin.H{"data": gin.H{"message": "restore initiated successfully"}})
 }

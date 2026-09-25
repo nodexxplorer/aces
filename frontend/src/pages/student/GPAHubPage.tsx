@@ -5,7 +5,7 @@ import GPACalculatorTab from './GPACalculatorPage';
 import WhatIfSimulatorTab from './WhatIfSimulatorPage';
 
 const gpaTabs = [
-  { id: 'whatif', label: 'What-If Simulator', icon: <Sparkles className="w-4 h-4" /> },
+  // { id: 'whatif', label: 'What-If Simulator', icon: <Sparkles className="w-4 h-4" /> },
   { id: 'calculator', label: 'GPA Calculator', icon: <Calculator className="w-4 h-4" /> },
 ];
 

@@ -6,7 +6,6 @@ import Badge from '../../components/ui/Badge';
 import EmptyState from '../../components/ui/EmptyState';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
-import Select from '../../components/ui/Select';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
 import { getErrorMessage } from '../../utils/errors';
@@ -309,27 +308,29 @@ function RequestsTab({ onAccepted }: { onAccepted: () => void }) {
               {req.message && <p className="text-xs text-surface-500 truncate mt-0.5">"{req.message}"</p>}
               <p className="text-xs text-surface-400 mt-0.5">{new Date(req.created_at).toLocaleDateString()}</p>
             </div>
-            <div className="flex gap-2 shrink-0">
-              <Button
-                size="xs"
-                variant="ghost"
-                className="text-success-600 hover:bg-success-50"
-                leftIcon={<Check className="w-3.5 h-3.5" />}
+            <div className="flex gap-3 shrink-0 pt-2">
+              <button
+                type="button"
                 disabled={respondingId === req.id}
                 onClick={() => handleRespond(req.id, 'accepted')}
+                className="relative flex items-center justify-center rounded-full border-2 border-success-500 bg-white dark:bg-surface-900 px-5 py-1.5 text-sm font-bold text-success-600 shadow-sm transition-all hover:bg-success-50 hover:shadow-md active:scale-95 disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-success-500/40"
               >
-                Accept
-              </Button>
-              <Button
-                size="xs"
-                variant="ghost"
-                className="text-danger-600 hover:bg-danger-50"
-                leftIcon={<X className="w-3.5 h-3.5" />}
+                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 flex h-5 w-5 items-center justify-center rounded-full bg-success-500 shadow-sm ring-2 ring-white dark:ring-surface-900">
+                  <Check className="h-3 w-3 text-white" strokeWidth={3.5} />
+                </span>
+                {respondingId === req.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Accept'}
+              </button>
+              <button
+                type="button"
                 disabled={respondingId === req.id}
                 onClick={() => handleRespond(req.id, 'rejected')}
+                className="relative flex items-center justify-center rounded-full border-2 border-danger-500 bg-white dark:bg-surface-900 px-5 py-1.5 text-sm font-bold text-danger-600 shadow-sm transition-all hover:bg-danger-50 hover:shadow-md active:scale-95 disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-danger-500/40"
               >
-                Reject
-              </Button>
+                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 flex h-5 w-5 items-center justify-center rounded-full bg-danger-500 shadow-sm ring-2 ring-white dark:ring-surface-900">
+                  <X className="h-3 w-3 text-white" strokeWidth={3.5} />
+                </span>
+                {respondingId === req.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Reject'}
+              </button>
             </div>
           </div>
         ))
@@ -431,34 +432,48 @@ function ChatListPanel({
         ) : (
           <>
             <div>
-              <div className="flex items-center justify-between px-2 mb-1.5">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-surface-400">Groups</p>
-                <div className="flex items-center gap-0.5">
+              <p className="px-2 mb-2 text-[11px] font-semibold uppercase tracking-wider text-surface-400">Groups</p>
+              <div className="grid grid-cols-3 gap-2 px-1 mb-2">
+                {([
+                  {
+                    label: 'Discover',
+                    title: 'Discover public groups',
+                    icon: Compass,
+                    gradient: 'from-primary-500 to-indigo-500',
+                    onClick: onBrowseGroups,
+                  },
+                  {
+                    label: 'Join link',
+                    title: 'Join via invite link',
+                    icon: Link2,
+                    gradient: 'from-violet-500 to-purple-600',
+                    onClick: onJoinByLink,
+                  },
+                  {
+                    label: 'New group',
+                    title: 'Create a new group',
+                    icon: Plus,
+                    gradient: 'from-emerald-500 to-teal-600',
+                    onClick: onCreateGroup,
+                  },
+                ] as const).map(({ label, title, icon: Icon, gradient, onClick }) => (
                   <button
-                    onClick={onBrowseGroups}
-                    className="p-1 rounded-md text-surface-400 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-950/30"
-                    title="Discover public groups"
-                    aria-label="Discover public groups"
+                    key={label}
+                    onClick={onClick}
+                    title={title}
+                    aria-label={title}
+                    className="group flex flex-col items-center gap-1.5 rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800/60 px-2 py-2.5 transition-all hover:-translate-y-0.5 hover:border-primary-300 dark:hover:border-primary-500/40 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                   >
-                    <Compass className="w-3.5 h-3.5" />
+                    <span
+                      className={`flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br ${gradient} text-white shadow-sm transition-transform group-hover:scale-110`}
+                    >
+                      <Icon className="h-4 w-4" strokeWidth={2.2} />
+                    </span>
+                    <span className="text-[10.5px] font-semibold text-surface-600 dark:text-surface-300 leading-none">
+                      {label}
+                    </span>
                   </button>
-                  <button
-                    onClick={onJoinByLink}
-                    className="p-1 rounded-md text-surface-400 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-950/30"
-                    title="Join via invite link"
-                    aria-label="Join via invite link"
-                  >
-                    <Link2 className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={onCreateGroup}
-                    className="p-1 rounded-md text-surface-400 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-950/30"
-                    title="New group"
-                    aria-label="New group"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                ))}
               </div>
               {filteredGroups.length === 0 ? (
                 <p className="px-2 py-2 text-xs text-surface-400">No groups yet.</p>
@@ -846,6 +861,15 @@ function CreateGroupModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="New Group" size="sm">
       <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="flex items-center gap-3 rounded-xl bg-gradient-to-r from-primary-500 to-indigo-500 p-4 text-white shadow-sm">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20">
+            <Users className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold leading-tight">Create a new group</p>
+            <p className="text-xs text-white/80 mt-0.5">Bring people together around a class, project, or interest.</p>
+          </div>
+        </div>
         <Input
           label="Group Name"
           placeholder="e.g. CPE 500 Study Group"
@@ -863,25 +887,59 @@ function CreateGroupModal({
             className="w-full rounded-lg border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-900 text-sm text-surface-900 dark:text-surface-100 p-2.5 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 resize-none"
           />
         </div>
-        <Select
-          label="Category"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          options={[
-            { value: 'study', label: 'Study Group' },
-            { value: 'project', label: 'Project' },
-            { value: 'interest', label: 'Interest' },
-            { value: 'class', label: 'Class' },
-          ]}
-        />
-        <label className="flex items-center gap-2 text-sm text-surface-700 dark:text-surface-300">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Category</label>
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              { value: 'study', label: 'Study Group' },
+              { value: 'project', label: 'Project' },
+              { value: 'interest', label: 'Interest' },
+              { value: 'class', label: 'Class' },
+            ] as const).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setCategory(opt.value)}
+                aria-pressed={category === opt.value}
+                className={`rounded-xl border px-3 py-2 text-sm font-medium transition-all ${
+                  category === opt.value
+                    ? 'border-primary-500 bg-primary-50 text-primary-600 shadow-sm dark:bg-primary-950/40 dark:text-primary-400'
+                    : 'border-surface-200 text-surface-600 hover:bg-surface-50 dark:border-surface-700 dark:text-surface-300 dark:hover:bg-surface-800/60'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <label
+          className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors ${
+            isPrivate
+              ? 'border-primary-400 bg-primary-50/60 dark:border-primary-500/50 dark:bg-primary-950/20'
+              : 'border-surface-200 hover:bg-surface-50 dark:border-surface-700 dark:hover:bg-surface-800/60'
+          }`}
+        >
           <input
             type="checkbox"
             checked={isPrivate}
             onChange={(e) => setIsPrivate(e.target.checked)}
-            className="rounded border-surface-300"
+            className="sr-only"
           />
-          Private group (invite only)
+          <span
+            className={`flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors ${
+              isPrivate ? 'bg-primary-500' : 'bg-surface-300 dark:bg-surface-600'
+            }`}
+          >
+            <span
+              className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                isPrivate ? 'translate-x-4' : 'translate-x-0'
+              }`}
+            />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-medium text-surface-800 dark:text-surface-200">Private group</span>
+            <span className="block text-xs text-surface-400">Invite only — people join with the invite link.</span>
+          </span>
         </label>
 
         {connections.length > 0 && (
@@ -1046,29 +1104,48 @@ function BrowsePublicGroupsModal({
       ) : groups.length === 0 ? (
         <EmptyState title="No public groups yet." className="py-6" />
       ) : (
-        <div className="max-h-80 overflow-y-auto divide-y divide-surface-100 dark:divide-surface-800">
-          {groups.map((g) => {
-            const alreadyIn = myGroupIds.has(g.id);
-            return (
-              <div key={g.id} className="flex items-center gap-3 py-2.5">
-                <Avatar name={g.name} url={g.avatar_url} className="w-9 h-9 text-xs" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-surface-800 dark:text-surface-200 truncate">{g.name}</p>
-                  <p className="text-xs text-surface-400">
-                    {g.member_count} member{g.member_count === 1 ? '' : 's'}
-                  </p>
+        <>
+          <div className="flex items-center gap-3 rounded-xl bg-gradient-to-r from-primary-500 to-indigo-500 p-4 text-white shadow-sm mb-4">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20">
+              <Compass className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold leading-tight">Find your community</p>
+              <p className="text-xs text-white/80 mt-0.5">Browse public groups and join with one tap.</p>
+            </div>
+          </div>
+          <div className="max-h-80 overflow-y-auto space-y-2">
+            {groups.map((g) => {
+              const alreadyIn = myGroupIds.has(g.id);
+              return (
+                <div
+                  key={g.id}
+                  className="flex items-center gap-3 rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 p-3 transition-colors hover:border-primary-300 dark:hover:border-primary-500/40"
+                >
+                  <Avatar name={g.name} url={g.avatar_url} className="w-10 h-10 text-xs" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-surface-900 dark:text-surface-100 truncate">{g.name}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="inline-flex items-center rounded-full bg-primary-50 dark:bg-primary-950/40 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-600 dark:text-primary-400">
+                        {g.category}
+                      </span>
+                      <span className="text-xs text-surface-400">
+                        {g.member_count} member{g.member_count === 1 ? '' : 's'}
+                      </span>
+                    </div>
+                  </div>
+                  {alreadyIn ? (
+                    <Badge variant="success">Joined</Badge>
+                  ) : (
+                    <Button size="sm" isLoading={joiningId === g.id} onClick={() => handleJoin(g)}>
+                      Join
+                    </Button>
+                  )}
                 </div>
-                {alreadyIn ? (
-                  <Badge variant="success">Joined</Badge>
-                ) : (
-                  <Button size="xs" isLoading={joiningId === g.id} onClick={() => handleJoin(g)}>
-                    Join
-                  </Button>
-                )}
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        </>
       )}
     </Modal>
   );
@@ -1193,13 +1270,25 @@ function JoinByLinkModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Join a Group" size="sm">
       <form onSubmit={handleSubmit} className="space-y-4">
-        <Input
-          label="Invite link or code"
-          placeholder="Paste an invite link or code"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          autoFocus
-        />
+        <div className="flex items-center gap-3 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 p-4 text-white shadow-sm">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20">
+            <Link2 className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold leading-tight">Join with an invite</p>
+            <p className="text-xs text-white/80 mt-0.5">Paste the link or code a group admin shared with you.</p>
+          </div>
+        </div>
+        <div>
+          <Input
+            label="Invite link or code"
+            placeholder="e.g. https://…/connect?g=ABC123 or ABC123"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            autoFocus
+          />
+          <p className="mt-1.5 text-xs text-surface-400">Full links and bare invite codes both work.</p>
+        </div>
         <Button type="submit" className="w-full" disabled={!value.trim()}>
           Continue
         </Button>

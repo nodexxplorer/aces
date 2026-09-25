@@ -249,6 +249,15 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		sessions.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteSession)
 	}
 
+	// ── Session roll-over: HOD/admin-confirmed batch level promotion ──
+	rollover := api.Group("/session-rollover")
+	{
+		rollover.POST("/prepare", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.prepareLevelPromotion)
+		rollover.GET("/:sessionId", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listLevelPromotions)
+		rollover.PATCH("/:sessionId/promotions/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.flipLevelPromotion)
+		rollover.POST("/:sessionId/confirm", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.confirmLevelPromotion)
+	}
+
 	semesters := api.Group("/semesters")
 	{
 		semesters.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createSemester)
@@ -709,22 +718,31 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		reports.GET("", server.listReports)
 	}
 
-	// ── CRF signing: auto-stamp a pre-authorized signature onto students'
-	// uploaded course registration forms. Standalone document-signing
-	// utility, unrelated to the course-registration data elsewhere in the app.
+	// ── CRF signing: the admin uploads each authorized signer's signature
+	// image; the student places/aligns the signatures on their own uploaded
+	// course form, previews the stamped result, then approves. Standalone
+	// document-signing utility, unrelated to the course-registration data
+	// elsewhere in the app.
 	crfSignatures := api.Group("/crf-signatures")
 	crfSignatures.Use(middleware.RequireRoles("hod", "delegated_admin", "admin"))
 	{
-		crfSignatures.POST("/test-stamp", server.testStampCRF)
 		crfSignatures.POST("/:kind", server.uploadCRFSignatureAsset)
-		crfSignatures.GET("", server.listCRFSignatureAssets)
 		crfSignatures.DELETE("/:kind", server.deleteCRFSignatureAsset)
 	}
+	// The configured signature list is needed by staff (admin settings
+	// page) and by students (to render the images on the placement
+	// canvas), so it is registered once for any authenticated user.
+	api.GET("/crf-signatures", server.listCRFSignatureAssets)
 
 	crfSigning := api.Group("/crf-signing")
 	{
-		crfSigning.POST("/upload", server.submitCRFForSigning)
+		crfSigning.POST("/upload", server.uploadCRF)
 		crfSigning.GET("/mine", server.getMyCRFSubmission)
+		crfSigning.GET("/drafts", server.listMyCRFDrafts)
+		crfSigning.PUT("/:id/placements", server.saveCRFPlacements)
+		crfSigning.POST("/:id/preview", server.previewCRFSubmission)
+		crfSigning.POST("/:id/approve", server.approveCRF)
+		crfSigning.GET("/:id/original", server.getCRFOriginal)
 		crfSigning.GET("/:id/download", server.downloadCRFSubmission)
 	}
 
@@ -737,6 +755,19 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		crfBacklog.POST("/request", middleware.RequireRoles("student"), server.createCRFBacklogRequest)
 		crfBacklog.GET("/mine", middleware.RequireRoles("student"), server.getMyCRFBacklogStatus)
 		crfBacklog.POST("/upload", middleware.RequireRoles("student"), server.submitCRFBacklogForm)
+	}
+
+	// ── Graduation path (500L): dues-exempt CRF signing behind a one-off
+	// admin-priced signing fee.
+	graduation := api.Group("/graduation")
+	{
+		graduation.GET("/fee", server.getGraduationFee)
+		graduation.PUT("/fee", middleware.RequireRoles("hod", "delegated_admin", "admin"), server.updateGraduationFee)
+		graduation.POST("/request", middleware.RequireRoles("student"), server.createGraduationRequest)
+		graduation.GET("/mine", middleware.RequireRoles("student"), server.getMyGraduationStatus)
+		graduation.GET("/requests", middleware.RequireRoles("hod", "delegated_admin", "admin"), server.listGraduationRequests)
+		graduation.POST("/requests", middleware.RequireRoles("hod", "delegated_admin", "admin"), server.createWaivedGraduationRequest)
+		graduation.POST("/requests/:id/clear", middleware.RequireRoles("hod", "delegated_admin", "admin"), server.clearGraduationRequest)
 	}
 
 	// ── Security: Sessions ──

@@ -12,7 +12,7 @@ const TAB_FROM_PARAM: Record<string, Tab> = {
 
 const tabs: { key: Tab; label: string; icon: typeof BookMarked }[] = [
   { key: 'register', label: 'Course Registration', icon: BookMarked },
-  { key: 'materials', label: 'Course Materials', icon: FolderOpen },
+  // { key: 'materials', label: 'Course Materials', icon: FolderOpen },
 ];
 
 export default function CoursesPage() {

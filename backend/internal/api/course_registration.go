@@ -410,11 +410,7 @@ func (server *Server) submitRegistration(ctx *gin.Context) {
 		return
 	}
 
-	if unpaid, err := unpaidRequiredDues(ctx, server.store, student.ID, student.Level); err == nil && len(unpaid) > 0 {
-		ctx.JSON(http.StatusForbidden, gin.H{
-			"error":       "you must pay your outstanding dues before registering for courses",
-			"unpaid_dues": unpaid,
-		})
+	if server.blockOnUnpaidDues(ctx, student, "registering for courses") {
 		return
 	}
 

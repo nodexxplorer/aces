@@ -184,6 +184,14 @@ func (server *Server) completePaymentsForReference(ctx *gin.Context, reference s
 					log.Printf("[payment-confirm] Failed to mark CRF backlog request %s paid: %v", backlog.ID, err)
 				}
 			}
+
+			// A graduation signing fee pays through the same pipeline too —
+			// once its linked payment completes, unlock the graduation path.
+			if gr, err := queries.GetGraduationRequestByPaymentID(ctx, p.ID); err == nil && gr.Status == "pending_payment" {
+				if _, err := queries.MarkGraduationRequestPaid(ctx, gr.ID); err != nil {
+					log.Printf("[payment-confirm] Failed to mark graduation request %s paid: %v", gr.ID, err)
+				}
+			}
 		}
 	}
 
