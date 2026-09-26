@@ -1,1 +1,0 @@
-ALTER TABLE notification_preferences DROP COLUMN web_push_subscription;

@@ -1,1 +1,0 @@
--- Skill categories feature was removed. This migration is now a no-op.

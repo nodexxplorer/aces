@@ -1,1 +1,0 @@
--- No rollback needed for enum value additions

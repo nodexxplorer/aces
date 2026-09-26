@@ -1,2 +1,0 @@
--- Down migration (recreation placeholder if needed)
--- Note: Dropped tables were permanently removed features.
