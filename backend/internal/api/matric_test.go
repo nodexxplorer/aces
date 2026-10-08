@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
@@ -105,5 +106,80 @@ func TestMatricProblem(t *testing.T) {
 				t.Errorf("accepted matric should have no message, got %q", msg)
 			}
 		})
+	}
+}
+
+func TestMatchingDepartment(t *testing.T) {
+	ce, _, _, active := testDepartments()
+
+	cases := []struct {
+		name   string
+		matric string
+		want   string // slug of the owning department; empty means none
+	}{
+		{name: "electrical number belongs to electrical", matric: "20/EG/EE/1234", want: "dept-ee"},
+		{name: "chemical number belongs to chemical", matric: "20/EG/CE/0042", want: "dept-che"},
+		{name: "own code is not another owner", matric: "20/EG/CO/1234", want: ""},
+		{name: "unknown code has no owner", matric: "20/EG/XX/1234", want: ""},
+		{name: "malformed number has no owner", matric: "EG/EE", want: ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			owner, found := matchingDepartment(ce, c.matric, active)
+			if c.want == "" {
+				if found {
+					t.Fatalf("owner = %q, want none", owner.Slug)
+				}
+				return
+			}
+			if !found || owner.Slug != c.want {
+				t.Fatalf("owner = %q (found %v), want %q", owner.Slug, found, c.want)
+			}
+		})
+	}
+}
+
+func TestMatricRefusalBodyNamesOwner(t *testing.T) {
+	_, ee, _, _ := testDepartments()
+	msg := "This matric number belongs to Department of Electrical Engineering. Choose that department to continue."
+
+	raw, err := json.Marshal(matricRefusalBody(msg, ee, true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		Error      string `json:"error"`
+		Department *struct {
+			Slug string `json:"slug"`
+			Name string `json:"name"`
+		} `json:"department"`
+	}
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Error != msg {
+		t.Fatalf("error = %q, want %q", got.Error, msg)
+	}
+	if got.Department == nil || got.Department.Slug != "dept-ee" || got.Department.Name != ee.Name {
+		t.Fatalf("department = %+v, want dept-ee named %q", got.Department, ee.Name)
+	}
+}
+
+func TestMatricRefusalBodyOmitsDepartmentWithoutOwner(t *testing.T) {
+	msg := "Matric numbers for Department of Computer Engineering look like 20/EG/CO/1234."
+
+	raw, err := json.Marshal(matricRefusalBody(msg, tenant.Tenant{}, false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	if _, present := got["department"]; present {
+		t.Fatalf("body has a department without an owner: %s", raw)
+	}
+	if got["error"] != msg {
+		t.Fatalf("error = %v, want %q", got["error"], msg)
 	}
 }

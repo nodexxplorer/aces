@@ -2,7 +2,7 @@
 
 One ACES deployment can serve several departments. Each department is a **tenant**. It has its own accounts, students, courses, results, announcements, payments and receipt numbers, and no department can read or change another department's data.
 
-**Status:** the backend, the database, the web app and the mobile app are department-aware (see [Mobile app](#mobile-app)). Modools sign-in does not yet derive the department from the registration number (see [Known gaps](#known-gaps)).
+**Status:** the backend, the database, the web app and the mobile app are department-aware (see [Mobile app](#mobile-app)). Modools sign-in creates the account in the department the person picks. If onboarding finds that the registration number belongs to another department, the student is sent there to finish (see [Modools onboarding](#modools-onboarding) and [Known gaps](#known-gaps)).
 
 ## Decisions
 
@@ -84,8 +84,19 @@ Migration `000005` sets `EG/CO` on `uniuyo-ce`, so its students are checked exac
 
 | Endpoint | Used by |
 |---|---|
-| `POST /api/v1/auth/onboarding` | The web app's onboarding page, after a Modools sign-in. The department is the one the student signed in to. |
+| `POST /api/v1/auth/onboarding` | The web app's onboarding page, after a Modools sign-in. The department is the one the student signed in to. A matric number that belongs to another department is refused with `400` and a `department` object (see [Modools onboarding](#modools-onboarding)). |
 | `POST /api/v1/auth/signup/student` | Email sign-up. The web app's sign-up page uses Modools only, so this is the mobile app's path. Mobile sends no department, so it is checked against the default department. |
+
+## Modools onboarding
+
+Modools sign-in creates the account in the department the person picked on the sign-in page, or in the default department. A Modools account has no registration number, so onboarding asks for it.
+
+1. The student completes onboarding with a matric number.
+2. If the number belongs to the department they are in, onboarding completes.
+3. If the number belongs to another department, onboarding is refused with `400`. The body has the usual `error` and a `department` object with that department's `slug` and `name`. The web page shows the department and a button that starts Modools sign-in for it.
+4. The student signs in to that department and completes onboarding there with the same matric number. The dashboard is then that department's.
+
+The account created in the first department stays, with onboarding incomplete and no matric number. Nothing removes it, and nothing moves the student. Accounts are per department, so the two accounts are separate. A seamless redirect would need deferred account creation or a move between departments, which are not in place (see [Known gaps](#known-gaps)).
 
 ## Branding
 
@@ -197,6 +208,7 @@ The sign-in and sign-up pages list the active departments from `GET /api/v1/tena
 - The `user` object in every auth response, and `GET /api/v1/auth/me`, carry a `tenant` object with the user's department.
 - Login and auth responses' `tenant` object may carry `matricCode`.
 - Onboarding and email sign-up now check the matric number against the department (see [Matric numbers](#matric-numbers)). Their error messages changed: `wrong reg no` is replaced by the messages in that section, and a department without a code returns `422`.
+- `POST /api/v1/auth/onboarding` refusals for a matric number that belongs to another department carry `department: {slug, name}`. The status is still `400`.
 - Access and refresh tokens carry `tenant_id` and `tenant_slug`.
 - Some JSON responses that serialize database rows gain a `tenant_id` field. The change is additive.
 - `GET /api/v1/auth/modools/login` accepts `?tenant=`.
@@ -218,12 +230,12 @@ These are not fixed by this change.
 1. **Some wording is still fixed.** The web app's waiting and rejection pages still name ACES in places. The mobile app shows its own branding, not the department's.
 2. **Uploaded files are public and shared.** `/uploads` is a static directory with no authentication and no department prefix. Anyone with a file's URL can read it, whichever department owns the file. Serve files through an authorized endpoint and store them per department before departments with sensitive files share this server.
 3. **Modools sign-in uses one OAuth client** (the `MODOOLS_*` settings). The department the person picks decides where the account is created. If departments use different Modools sites, each needs its own client.
-4. **Modools does not derive the department from the registration number.** The department is the one the person picked. Deriving it needs the name of the claim that carries the registration number, which Modools must supply. Staff without a registration number would also need a rule.
+4. **Modools onboarding does not move the student.** A student whose matric number belongs to another department is sent to sign in there (see [Modools onboarding](#modools-onboarding)). The first account stays incomplete and is not removed. A seamless redirect needs deferred account creation or a move of the account between departments, both larger changes. Reading the department from the sign-in itself also needs the name of the claim that carries the registration number, which Modools must supply. Staff without a registration number would also need a rule.
 
 ## Testing
 
 - **Backend.** `DB_SOURCE=<a role that may create databases and roles> go test ./...` runs the unit tests and the database integration tests. The integration tests cover row-level security, composite foreign keys, token and reference lookups, the runtime-role check and deactivation.
-- **Web app.** Vitest covers the department picker, the department hook, the Modools URL builder and the sign-in page.
+- **Web app.** Vitest covers the department picker, the department hook, the Modools URL builder, the sign-in page and the helper that reads a matric refusal's `department`.
 - **Branding checks.** A run of the API showed: a logo served with its image type, the cache and sandbox headers, and the exact uploaded bytes; `404` for a department without a logo, an unknown department, a removed logo, and an inactive department; a sign-up response and `GET /auth/me` both carrying the department's `tenant`; `cmd/tenant` refusing SVG, GIF and oversize files.
-- **Matric checks.** A run of the API against a freshly migrated database, with departments created by `cmd/tenant`, covered: mobile sign-up refused for another department's matric and accepted for the default department's; sign-up in a chosen department accepted for its own code and refused for another's, with the other department named; a department without a code refused with `422` at sign-up and onboarding; onboarding refused for another department's matric; a lowercase matric accepted; and an unset code refusing onboarding once the one-minute cache expired.
+- **Matric checks.** A run of the API against a freshly migrated database, with departments created by `cmd/tenant`, covered: mobile sign-up refused for another department's matric and accepted for the default department's; sign-up in a chosen department accepted for its own code and refused for another's, with the other department named; a department without a code refused with `422` at sign-up and onboarding; onboarding refused for another department's matric with `department` naming it, and then accepted in that department with the same matric number; a lowercase matric accepted; and an unset code refusing onboarding once the one-minute cache expired.
 - **Scratch-environment checks.** A run against a freshly migrated database covered: the same email signing in to two departments with different passwords; a password from one department rejected by the other; unknown and forged departments rejected; refresh keeping the department; the same student signing up in two departments; and a deactivated department refusing sign-in and then existing tokens.

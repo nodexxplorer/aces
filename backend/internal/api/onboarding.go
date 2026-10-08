@@ -71,7 +71,8 @@ func (server *Server) studentOnboarding(ctx *gin.Context) {
 
 	matric := strings.ToUpper(strings.TrimSpace(req.MatricNumber))
 	if status, msg := server.departmentMatricProblem(ctx, matric); status != 0 {
-		ctx.JSON(status, gin.H{"error": msg})
+		owner, found := server.matricOwner(ctx, matric)
+		ctx.JSON(status, matricRefusalBody(msg, owner, found))
 		return
 	}
 	if q, ok := server.store.(*db.Queries); ok {

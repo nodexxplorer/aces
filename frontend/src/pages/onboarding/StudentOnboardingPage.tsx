@@ -23,8 +23,9 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { isValidPhone } from '../../utils/validators';
-import { getErrorMessage } from '../../utils/errors';
+import { getErrorDepartment, getErrorMessage, type ErrorDepartment } from '../../utils/errors';
 import apiClient from '../../api/client';
+import { modoolsLoginUrl } from '../../api/modools';
 
 const onboardingSchema = z.object({
   matricNumber: z
@@ -69,6 +70,9 @@ const StudentOnboardingPage = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  // Set when the matric number belongs to another department. Accounts are kept
+  // per department, so the student finishes setup by signing in to that one.
+  const [otherDepartment, setOtherDepartment] = useState<ErrorDepartment | null>(null);
   const totalSteps = 4;
 
   const {
@@ -135,6 +139,7 @@ const StudentOnboardingPage = () => {
       success('Profile Set Up Complete', 'Welcome aboard! Your registration is now pending verification.');
       navigate('/dashboard');
     } catch (err) {
+      setOtherDepartment(getErrorDepartment(err));
       error('Could Not Complete Setup', getErrorMessage(err));
     } finally {
       setSubmitting(false);
@@ -179,6 +184,35 @@ const StudentOnboardingPage = () => {
             </div>
           </div>
         </CardHeader>
+
+        {otherDepartment && (
+          <div
+            role="alert"
+            className="mb-4 flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/20"
+          >
+            <div className="flex items-start gap-2">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                  This matric number belongs to {otherDepartment.name}.
+                </p>
+                <p className="text-xs text-amber-800 dark:text-amber-200">
+                  Each department keeps its own account. Sign in to {otherDepartment.name} with Modools and finish setup
+                  there, using the same matric number.
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              className="w-full"
+              onClick={() => {
+                window.location.href = modoolsLoginUrl(otherDepartment.slug);
+              }}
+            >
+              Sign in to {otherDepartment.name}
+            </Button>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <AnimatePresence mode="wait">

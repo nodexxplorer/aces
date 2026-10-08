@@ -21,3 +21,19 @@ export function getErrorMessage(error: unknown, fallback = 'An unexpected error 
   }
   return fallback;
 }
+
+export interface ErrorDepartment {
+  slug: string;
+  name: string;
+}
+
+// The department a refusal names, when the server reports that a matric number
+// belongs to another department. It is null for any other error.
+export function getErrorDepartment(error: unknown): ErrorDepartment | null {
+  const data = (error as { response?: { data?: { department?: unknown } } } | null | undefined)?.response?.data;
+  const dept = data?.department as Partial<ErrorDepartment> | undefined;
+  if (dept && typeof dept.slug === 'string' && dept.slug && typeof dept.name === 'string' && dept.name) {
+    return { slug: dept.slug, name: dept.name };
+  }
+  return null;
+}
