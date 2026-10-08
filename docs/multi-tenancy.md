@@ -2,7 +2,7 @@
 
 One ACES deployment can serve several departments. Each department is a **tenant**. It has its own accounts, students, courses, results, announcements, payments and receipt numbers, and no department can read or change another department's data.
 
-**Status:** the backend, the database and the web app are implemented. The mobile app is not department-aware yet, and it signs in to the default department (see [Mobile app](#mobile-app)).
+**Status:** the backend, the database, the web app and the mobile app are department-aware (see [Mobile app](#mobile-app)). Modools sign-in does not yet derive the department from the registration number (see [Known gaps](#known-gaps)).
 
 ## Decisions
 
@@ -93,14 +93,17 @@ Each department has its own name, description and logo. The sign-in and sign-up 
 
 | Field | Set with | Where it shows |
 |---|---|---|
-| `name` | `cmd/tenant update -name` | Sign-in and sign-up pages, navbar, sidebar, footer |
+| `name` | `cmd/tenant update -name` | Sign-in and sign-up pages, navbar, sidebar, footer, emails, receipts, PDFs, calendar feed, assistant |
 | `description` | `cmd/tenant update -description`, up to 500 characters | Sign-in and sign-up pages, navbar, sidebar, footer |
-| `logo` | `cmd/tenant update -logo <file>` | Sign-in and sign-up pages, navbar, sidebar, footer |
+| `logo` | `cmd/tenant update -logo <file>`, or all departments at once with `cmd/tenant logos -dir branding/department-logos` | Sign-in and sign-up pages, navbar, sidebar, footer, emails, dues receipts |
+| `contact_email` | `cmd/tenant update -contact-email <address>` (`""` clears it) | Dues receipts |
 
 - **Logo rules.** The file must be a PNG, JPEG or WebP image of at most 256 KiB. The server checks the file's contents, not its extension. SVG is refused because it can carry script, and GIF is refused as well. `-remove-logo` removes it. A department without a logo shows a neutral building icon in its place, never another organisation's mark.
 - **Serving.** `GET /api/v1/tenants/:slug/logo` returns the logo with its image type. It is public, because the sign-in page shows the logo before anyone has signed in. It is cached for five minutes. A missing, inactive or logo-less department gets `404`.
 - **Where the user's department comes from.** The `user` object in every auth response, and `GET /api/v1/auth/me`, carry the user's `tenant` (slug, name, institution, faculty, matric code, description and `logoUrl`). The dashboard reads it from there.
-- **Not branded yet.** Receipts, printed result slips, PDFs, emails and the AI assistant's prompt still use the University of Uyo and ACES wording. See [Known gaps](#known-gaps).
+- **Department output.** Emails, the password-reset email, dues receipts, result slips, attendance sheets, calendar feeds, the assistant's replies and the welcome, sign-in and approval messages name the department. Each email is sent from the department's name, and each recipient gets the brand of their own department. Emails and dues receipts show the logo; a department without one gets its name only. Emails link the logo from `API_PUBLIC_URL`, which defaults to `FRONTEND_PUBLIC_URL`.
+- **Admin Pack.** The platform's name appears only where no department applies: the mobile app's refusals, the help center, and mail sent with no department bound. The faculty stamp on receipts, the `aces.zone` UID domain and the `ACES-` payment references are left as they are. The stamp is the faculty's, and every department is in faculty EG. The references and UIDs are identifiers, not display text.
+- **Logo folder.** `branding/department-logos/` holds one file per department, named after its matric code: `EG-EE.png` is the logo for `EG/EE`. `EG-CO.png` is the ACES logo. The other files are placeholders, which the apply step skips until they are replaced. See the README in that folder.
 
 ## Database roles
 
@@ -166,7 +169,7 @@ Pass the owner's DSN on the command line for owner-level steps. Keep only the ru
 - **List departments.** `go run ./cmd/tenant list`. It shows each department's matric code.
 - **Add a department.** Create it with `cmd/tenant create -matric-code EG/XX` (owner connection), then seed its first admin with `cmd/seed_admin -tenant <slug>` (runtime connection). It appears in `GET /api/v1/tenants` straight away.
 - **Set or change a matric code.** `go run ./cmd/tenant update -slug <slug> -matric-code EG/EE` (owner connection). The code is the faculty and department pair, such as `EG/EE`, not `EE`. `-matric-code ""` clears it, and the department then refuses matric-based sign-up and onboarding. The change takes effect within about a minute.
-- **Change a department's name, details or branding.** `go run ./cmd/tenant update -slug <slug> [-name ...] [-institution ...] [-faculty ...] [-description ...] [-logo file.png] [-remove-logo]`. Only the flags you pass are changed. `-institution ""`, `-faculty ""` and `-description ""` clear those fields. See [Branding](#branding) for the logo rules.
+- **Change a department's name, details or branding.** `go run ./cmd/tenant update -slug <slug> [-name ...] [-institution ...] [-faculty ...] [-description ...] [-contact-email ...] [-logo file.png] [-remove-logo]`. Only the flags you pass are changed. `-institution ""`, `-faculty ""` and `-description ""` clear those fields. See [Branding](#branding) for the logo rules.
 - **Deactivate a department.** `go run ./cmd/tenant deactivate -slug <slug>`. Sign-in is refused at once, and existing access tokens stop working within about a minute, which is the registry cache lifetime. Use `activate` to reverse it. There is no delete command. Deactivate instead, because the department's rows still reference it.
 - **Connection budget.** Each department's pool opens connections when the department is first used, and holds up to `DB_MAX_CONNS_PER_TENANT` (default 4). Budget roughly `departments in use × DB_MAX_CONNS_PER_TENANT + 4` connections, and size PostgreSQL `max_connections` to match.
 - **Connection poolers.** Use session pooling or direct connections. A transaction-pooling PgBouncer could hand a request a connection that is not bound to its department.
@@ -197,26 +200,25 @@ The sign-in and sign-up pages list the active departments from `GET /api/v1/tena
 - Access and refresh tokens carry `tenant_id` and `tenant_slug`.
 - Some JSON responses that serialize database rows gain a `tenant_id` field. The change is additive.
 - `GET /api/v1/auth/modools/login` accepts `?tenant=`.
+- `POST /api/v1/auth/signup/student` and the lecturer sign-up return `409` when the email or the matric number is already registered in the department. The `error` says which.
+- `GET /api/v1/users/:id` returns `404` for an unknown ID. It used to return `500`.
 
 ## Mobile app
 
-The mobile app sends no department, so it signs in to `DEFAULT_TENANT_SLUG`. It keeps working as long as the default department is active. Making the mobile app department-aware is a follow-up.
+The mobile app is department-aware for sign-in, sign-up and onboarding. Sign-in and sign-up list the active departments from `GET /api/v1/tenants` and remember the choice on the device. The department's slug goes with the login and the student sign-up, so the session belongs to that department.
 
-Because mobile signs up to the default department, a mobile sign-up whose matric number belongs to another department is refused until the app has a department picker. Mobile onboarding (`POST /auth/onboarding`) does not send `matric_number` at all, so the server refuses it. That predates this change, and the mobile app needs a fix before onboarding works there.
+Sign-up sends the matric number, and the server checks it against the department. A matric number from another department is refused, and the message names the department it belongs to. Onboarding sends `matric_number`, which the server checks the same way.
+
+The app does not show a department's name or logo outside the picker yet. Its own branding is unchanged.
 
 ## Known gaps
 
 These are not fixed by this change.
 
-1. **Some output is still branded for Uyo and ACES.** The sign-in and sign-up pages, the dashboard and the app name now come from the department and Admin Pack (see [Branding](#branding)). These still use fixed wording and should read from the tenant record:
-   - backend: the email footers and greetings (`service/notification_service_full.go`), the department stamp, receipts and printed result slips, which embed the University of Uyo logo (`utils/dept_stamp.go`, `utils/duesreceipt.go`, `utils/result_slip_printer.go`), and the AI assistant's system prompt (`service/ai_service.go`);
-   - web app: the waiting and rejection pages (`WaitingDashboardPage.tsx`, `ApprovalRejectedPage.tsx`) still name ACES in places.
-
-   Mobile still shows its own branding.
+1. **Some wording is still fixed.** The web app's waiting and rejection pages still name ACES in places. The mobile app shows its own branding, not the department's.
 2. **Uploaded files are public and shared.** `/uploads` is a static directory with no authentication and no department prefix. Anyone with a file's URL can read it, whichever department owns the file. Serve files through an authorized endpoint and store them per department before departments with sensitive files share this server.
 3. **Modools sign-in uses one OAuth client** (the `MODOOLS_*` settings). The department the person picks decides where the account is created. If departments use different Modools sites, each needs its own client.
-4. **The mobile app** is not department-aware (see above). Its sign-up refuses students from other departments, and its onboarding request has no matric number, so the server refuses it.
-5. **Existing issues, not caused by this change.** `GET /users/:id` returns 500 for an unknown ID. A foreign ID gets the same response, so this does not leak data. The web app's `forgotPassword` and `resetPassword` helpers in `src/api/auth.ts` call endpoints that do not exist, and nothing uses them.
+4. **Modools does not derive the department from the registration number.** The department is the one the person picked. Deriving it needs the name of the claim that carries the registration number, which Modools must supply. Staff without a registration number would also need a rule.
 
 ## Testing
 

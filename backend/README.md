@@ -18,6 +18,7 @@ Copy `.env.example` to `.env` and adjust the values. The variables that matter m
 | `JWT_SECRET` | Token signing secret, at least 32 characters | none (required) |
 | `SERVER_ADDRESS` | Listen address | `0.0.0.0:8080` |
 | `DEFAULT_TENANT_SLUG` | Department used when a request names none. Mobile clients rely on it. | `uniuyo-ce` |
+| `API_PUBLIC_URL` | Where the API is reachable from outside, for logo links in emails. | `FRONTEND_PUBLIC_URL` |
 | `DB_MAX_CONNS_PER_TENANT` | Connections each department's pool may hold | `4` |
 | `DB_ALLOW_RLS_BYPASS` | Development only. Lets the server run as a role that bypasses row-level security, which turns department isolation off. | `false` |
 
@@ -47,7 +48,7 @@ DB_SOURCE='postgresql://aces_app:…@localhost:5432/aces_zone?sslmode=disable' \
   ADMIN_EMAIL=admin@example.edu ADMIN_PASSWORD='…' make seed-admin ARGS="-tenant unilag-ce"
 ```
 
-`cmd/tenant` also supports `list`, `update`, `activate` and `deactivate`. `update` changes only the flags you pass:
+`cmd/tenant` also supports `list`, `logos`, `activate` and `deactivate`. `update` changes only the flags you pass:
 
 ```bash
 # Set or change a department's matric code (EG/EE for 20/EG/EE/1234). "" clears it.
@@ -58,6 +59,15 @@ DB_SOURCE='postgresql://aces_user:…@localhost:5432/aces_zone?sslmode=disable' 
 # (PNG, JPEG or WebP, at most 256 KiB). -remove-logo removes the logo.
 DB_SOURCE='postgresql://aces_user:…@localhost:5432/aces_zone?sslmode=disable' \
   go run ./cmd/tenant update -slug unilag-ce -description "Computer engineering students" -logo ./logo.png
+
+# Set every department's logo from the folder. Each file is named after its matric code:
+# EG-EE.png is the logo for EG/EE. -dry-run lists what would change. Placeholder files are skipped.
+DB_SOURCE='postgresql://aces_user:…@localhost:5432/aces_zone?sslmode=disable' \
+  go run ./cmd/tenant logos -dir ../branding/department-logos -dry-run
+
+# The email printed on a department's dues receipts. "" clears it.
+DB_SOURCE='postgresql://aces_user:…@localhost:5432/aces_zone?sslmode=disable' \
+  go run ./cmd/tenant update -slug unilag-ce -contact-email receipts@example.edu
 ```
 
 The migrations create the default department `uniuyo-ce`, which holds all data from before multi-tenancy. Migration `000005` gives it the matric code `EG/CO`. See [docs/multi-tenancy.md](../docs/multi-tenancy.md#matric-numbers) for how matric numbers are checked.
