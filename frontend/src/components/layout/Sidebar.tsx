@@ -483,13 +483,21 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
         )}
       >
         {/* Mobile header */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-surface-200 dark:border-surface-800">
+        <div className="flex items-center justify-between min-h-[4rem] py-3 px-4 border-b border-surface-200 dark:border-surface-800">
           <div className="flex items-center gap-2 min-w-0">
             <DepartmentLogo department={department} className="w-8 h-8 shadow-md" />
             <div className="min-w-0">
               <p className="font-bold text-base leading-tight text-surface-900 dark:text-white line-clamp-2">
                 {department?.name ?? APP_NAME}
               </p>
+              {department?.description && (
+                <p
+                  className="mt-0.5 text-[11px] leading-snug text-surface-500 dark:text-surface-400 line-clamp-2"
+                  title={department.description}
+                >
+                  {department.description}
+                </p>
+              )}
               <p className="text-[10px] uppercase tracking-wider text-surface-400">{APP_NAME}</p>
             </div>
           </div>
@@ -682,7 +690,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
       >
         <div
           className={cn(
-            'h-16 flex items-center justify-center border-b border-surface-200 dark:border-surface-800',
+            'min-h-[4rem] py-3 flex items-center justify-center border-b border-surface-200 dark:border-surface-800',
             !collapsed && 'md:justify-start md:px-6',
           )}
         >
@@ -693,6 +701,14 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
                 <p className="font-bold text-base leading-tight text-surface-900 dark:text-white line-clamp-2">
                   {department?.name ?? APP_NAME}
                 </p>
+                {department?.description && (
+                  <p
+                    className="mt-0.5 text-[11px] leading-snug text-surface-500 dark:text-surface-400 line-clamp-2"
+                    title={department.description}
+                  >
+                    {department.description}
+                  </p>
+                )}
                 <p className="text-[10px] uppercase tracking-wider text-surface-400">{APP_NAME}</p>
               </div>
             )}

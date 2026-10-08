@@ -94,7 +94,7 @@ Each department has its own name, description and logo. The sign-in and sign-up 
 | Field | Set with | Where it shows |
 |---|---|---|
 | `name` | `cmd/tenant update -name` | Sign-in and sign-up pages, navbar, sidebar, footer |
-| `description` | `cmd/tenant update -description`, up to 500 characters | Sign-in and sign-up pages, dashboard footer |
+| `description` | `cmd/tenant update -description`, up to 500 characters | Sign-in and sign-up pages, navbar, sidebar, footer |
 | `logo` | `cmd/tenant update -logo <file>` | Sign-in and sign-up pages, navbar, sidebar, footer |
 
 - **Logo rules.** The file must be a PNG, JPEG or WebP image of at most 256 KiB. The server checks the file's contents, not its extension. SVG is refused because it can carry script, and GIF is refused as well. `-remove-logo` removes it. A department without a logo shows a neutral building icon in its place, never another organisation's mark.
