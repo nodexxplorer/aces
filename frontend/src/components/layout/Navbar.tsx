@@ -56,7 +56,7 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
         >
           <Menu className="w-5 h-5" />
         </button>
-        <div className="hidden md:flex items-center gap-2 min-w-0">
+        <div className="hidden xl:flex items-center gap-2 min-w-0">
           <DepartmentLogo department={department} className="w-7 h-7" />
           <span className="text-sm font-semibold text-surface-800 dark:text-surface-100 truncate max-w-[14rem]">
             {department?.name ?? APP_NAME}
