@@ -12,8 +12,6 @@ import { useAuthStore } from '../src/store/authStore';
 import { getMe, logoutRequest } from '../src/api/auth';
 import { haptics } from '../src/utils/haptics';
 
-const HOD_EMAIL = 'hod@computer.engineering.uniuyo.edu.ng';
-
 type ApprovalStatus = 'pending' | 'rejected' | 'approved';
 
 export default function WaitingScreen() {
@@ -63,9 +61,15 @@ export default function WaitingScreen() {
     await logout();
   };
 
-  const contactHOD = (subject: string, body?: string) => {
-    const params = new URLSearchParams({ subject, ...(body ? { body } : {}) });
-    Linking.openURL(`mailto:${HOD_EMAIL}?${params.toString()}`).catch(() => {});
+  // The student's own department: its name, and the contact address it has set.
+  const department = user?.tenant;
+  const departmentName = department?.name ?? 'your department';
+  const contactDepartment = (subject: string, body?: string) => {
+    if (!department?.contactEmail) return;
+    const query = [`subject=${encodeURIComponent(subject)}`, body ? `body=${encodeURIComponent(body)}` : null]
+      .filter(Boolean)
+      .join('&');
+    Linking.openURL(`mailto:${department.contactEmail}?${query}`).catch(() => {});
   };
 
   const displayName = user?.fullName || [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Student';
@@ -96,8 +100,8 @@ export default function WaitingScreen() {
             {status === 'approved'
               ? 'Redirecting you to your dashboard...'
               : status === 'rejected'
-                ? 'Your registration was not approved. Reach out to the HOD to find out why.'
-                : 'Your account is being reviewed by the Department of Computer Engineering.'}
+                ? 'Your registration was not approved. Reach out to the department to find out why.'
+                : `Your account is being reviewed by ${departmentName}.`}
           </Text>
 
           <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
@@ -118,29 +122,35 @@ export default function WaitingScreen() {
         {status === 'pending' && (
           <Button label="Check Status" onPress={handleCheckStatus} loading={checking} fullWidth size="lg" />
         )}
-        {status === 'rejected' && (
+        {Boolean(department?.contactEmail) && status === 'rejected' && (
           <Button
-            label="Contact HOD"
+            label="Appeal by email"
             variant="danger"
             icon={<Ionicons name="mail-outline" size={18} color={theme.onPrimary} />}
             onPress={() =>
-              contactHOD(
-                'ACES Zone Registration Appeal',
-                `Hello HOD,\n\nI am writing regarding my rejected registration on ACES Zone.\n\nMy name: ${displayName}\nMatric Number: ${user?.matricNumber || 'N/A'}\n\nPlease let me know if there are any issues I can address.\n\nThank you.`,
+              contactDepartment(
+                `Registration appeal - ${departmentName}`,
+                `Hello,\n\nI am writing regarding my rejected registration on ${departmentName}.\n\nMy name: ${displayName}\nMatric Number: ${user?.matricNumber || 'N/A'}\n\nPlease let me know if there are any issues I can address.\n\nThank you.`,
               )
             }
             fullWidth
             size="lg"
           />
         )}
-        <Button
-          label="Contact HOD (General Inquiry)"
-          variant="outline"
-          icon={<Ionicons name="mail-outline" size={18} color={theme.text} />}
-          onPress={() => contactHOD('ACES Zone Registration Inquiry')}
-          fullWidth
-          size="lg"
-        />
+        {department?.contactEmail ? (
+          <Button
+            label="Contact the department"
+            variant="outline"
+            icon={<Ionicons name="mail-outline" size={18} color={theme.text} />}
+            onPress={() => contactDepartment(`Registration inquiry - ${departmentName}`)}
+            fullWidth
+            size="lg"
+          />
+        ) : (
+          <Text style={[styles.subtitle, { color: theme.textMuted, textAlign: 'center' }]}>
+            Contact your department office for help.
+          </Text>
+        )}
         <Button label="Log Out" variant="ghost" onPress={handleLogout} loading={loggingOut} fullWidth size="md" />
       </Animated.View>
     </ScrollView>

@@ -3,10 +3,20 @@ import { Clock, Mail, RefreshCw, ExternalLink } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
 import { getMe } from '../../api/auth';
+import { useCurrentDepartment } from '../../components/branding/department';
+import { DepartmentLogo } from '../../components/branding/DepartmentBrand';
+
+// A mailto link to the department's contact address, with a prefilled subject
+// and, optionally, body.
+const contactLink = (email: string, subject: string, body?: string) =>
+  `mailto:${email}?subject=${encodeURIComponent(subject)}${body ? `&body=${encodeURIComponent(body)}` : ''}`;
 
 const WaitingDashboardPage = () => {
   const { user, updateUser } = useAuth();
   const { error: notifyError, success: notifySuccess } = useNotification();
+  const department = useCurrentDepartment();
+  const departmentName = department?.name ?? 'your department';
+  const contact = department?.contactEmail;
   const [loading, setLoading] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState<string>(
     user?.isApproved === false && user?.isActive !== false
@@ -88,9 +98,7 @@ const WaitingDashboardPage = () => {
 
           <div className="p-8 md:p-10 text-center">
             <div className="mx-auto w-16 h-16 rounded-2xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-500 flex items-center justify-center mb-5">
-              <div className="w-10 h-10 rounded-xl bg-surface-200/80 dark:bg-surface-700/80 flex items-center justify-center text-sm font-bold text-surface-500 dark:text-surface-300">
-                ACES
-              </div>
+              <DepartmentLogo department={department} className="w-10 h-10" />
             </div>
 
             <h2 className="text-xl font-bold text-surface-900 dark:text-white flex items-center justify-center gap-2 mb-2">
@@ -99,7 +107,7 @@ const WaitingDashboardPage = () => {
             </h2>
 
             <p className="text-sm text-surface-500 dark:text-surface-400 max-w-sm mx-auto leading-relaxed">
-              Your account is being reviewed by the Department of Computer Engineering.
+              Your account is being reviewed by {departmentName}.
             </p>
 
             <div className="my-6 border-t border-surface-200/60 dark:border-surface-700/60" />
@@ -169,33 +177,45 @@ const WaitingDashboardPage = () => {
                 </button>
               )}
 
-              {approvalStatus === 'rejected' && (
+              {approvalStatus === 'rejected' && contact && (
                 <a
-                  href="mailto:hod@computer.engineering.uniuyo.edu.ng?subject=ACES%20Zone%20Registration%20Appeal&body=Hello%20HOD%2C%0A%0AI%20am%20writing%20regarding%20my%20rejected%20registration%20on%20ACES%20Zone.%0A%0AMy%20name%3A%20${encodeURIComponent(displayName)}%0AMatric%20Number%3A%20${encodeURIComponent(displayMatric)}%0A%0APlease%20let%20me%20know%20if%20there%20are%20any%20issues%20I%20can%20address.%0A%0AThank%20you."
+                  href={contactLink(
+                    contact,
+                    `Registration appeal - ${departmentName}`,
+                    `Hello,\n\nI am writing regarding my rejected registration on ${departmentName}.\n\nMy name: ${displayName}\nMatric Number: ${displayMatric}\n\nPlease let me know if there are any issues I can address.\n\nThank you.`,
+                  )}
                   className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-danger-500 hover:bg-danger-600 text-white text-sm font-medium transition-colors"
                 >
                   <Mail className="w-4 h-4" />
-                  Contact HOD
+                  Appeal by email
                   <ExternalLink className="w-3.5 h-3.5 opacity-60" />
                 </a>
               )}
 
-              <a
-                href="mailto:hod@computer.engineering.uniuyo.edu.ng?subject=ACES%20Zone%20Registration%20Inquiry"
-                className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-surface-200 dark:border-surface-700 text-sm font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800/80 transition-colors"
-              >
-                <Mail className="w-4 h-4" />
-                Contact HOD
-                <ExternalLink className="w-3.5 h-3.5 opacity-60" />
-              </a>
+              {contact ? (
+                <a
+                  href={contactLink(contact, `Registration inquiry - ${departmentName}`)}
+                  className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-surface-200 dark:border-surface-700 text-sm font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800/80 transition-colors"
+                >
+                  <Mail className="w-4 h-4" />
+                  Contact the department
+                  <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+                </a>
+              ) : (
+                <p className="text-xs text-surface-400 dark:text-surface-500">
+                  Contact your department office for help.
+                </p>
+              )}
             </div>
           </div>
 
-          <div className="px-8 py-4 bg-surface-50 dark:bg-surface-800/40 border-t border-surface-200/60 dark:border-surface-700/60">
-            <p className="text-[11px] text-surface-400 dark:text-surface-500 text-center">
-              Association of Computer Engineering Students — Uniuyo Chapter
-            </p>
-          </div>
+          {department && (
+            <div className="px-8 py-4 bg-surface-50 dark:bg-surface-800/40 border-t border-surface-200/60 dark:border-surface-700/60">
+              <p className="text-[11px] text-surface-400 dark:text-surface-500 text-center">
+                {[department.name, department.institution].filter(Boolean).join(' · ')}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

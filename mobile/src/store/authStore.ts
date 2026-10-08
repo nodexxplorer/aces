@@ -9,7 +9,18 @@ export interface AuthTokens {
   expiresAt: string;
 }
 
+/** The department a user belongs to, as the API returns it in auth responses. */
+export interface AuthTenant {
+  slug: string;
+  name: string;
+  institution?: string;
+  logoUrl?: string;
+  /** The department's contact address, when it has one. The approval screen links to it. */
+  contactEmail?: string;
+}
+
 export interface AuthUser {
+  tenant?: AuthTenant;
   id: string;
   email: string;
   firstName: string;

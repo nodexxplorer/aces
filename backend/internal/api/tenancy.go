@@ -24,17 +24,22 @@ type tenantResponse struct {
 	MatricCode  string `json:"matricCode,omitempty"`
 	Description string `json:"description,omitempty"`
 	LogoURL     string `json:"logoUrl,omitempty"`
+	// ContactEmail is the department's contact address, when it has one. It is
+	// for the signed-in user (the approval page links to it), so it appears
+	// here and not in the public list.
+	ContactEmail string `json:"contactEmail,omitempty"`
 }
 
 func toTenantResponse(t tenant.Tenant) *tenantResponse {
 	return &tenantResponse{
-		Slug:        t.Slug,
-		Name:        t.Name,
-		Institution: t.Institution,
-		Faculty:     t.Faculty,
-		MatricCode:  t.MatricCode,
-		Description: t.Description,
-		LogoURL:     logoURL(t),
+		Slug:         t.Slug,
+		Name:         t.Name,
+		Institution:  t.Institution,
+		Faculty:      t.Faculty,
+		MatricCode:   t.MatricCode,
+		Description:  t.Description,
+		LogoURL:      logoURL(t),
+		ContactEmail: t.ContactEmail,
 	}
 }
 

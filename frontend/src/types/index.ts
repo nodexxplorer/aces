@@ -53,6 +53,8 @@ export interface TenantInfo {
   description?: string;
   /** API path of the logo, e.g. /api/v1/tenants/uniuyo-ce/logo. Absent when there is none. */
   logoUrl?: string;
+  /** The department's contact address, when it has one. Only the signed-in user's own department carries it. */
+  contactEmail?: string;
 }
 
 export interface User extends BaseEntity {
