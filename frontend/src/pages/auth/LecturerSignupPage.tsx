@@ -1,3 +1,4 @@
+import { departmentShortName } from '../../components/branding/department';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -59,7 +60,7 @@ const LecturerSignupPage = () => {
         firstName: data.firstName,
         lastName: data.lastName,
         staffId: data.staffId,
-        department: chosen ? chosen.name.replace(/^Department of\s+/i, '') : 'Computer Engineering',
+        department: departmentShortName(chosen?.name) ?? '',
         tenant: selected,
       });
 

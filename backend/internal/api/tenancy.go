@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/aces/backend/internal/auth"
@@ -258,4 +259,17 @@ func (server *Server) tenantLogo(ctx *gin.Context) {
 	// The bytes are an image and nothing else: no scripts, no embedded content.
 	h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
 	ctx.Data(http.StatusOK, contentType, data)
+}
+
+// lecturerDepartment is the department a lecturer's sign-up is filed under: the
+// name the form sent, or the department's own name when it sent none. A
+// lecturer is never filed under another department's name by default.
+func lecturerDepartment(ctx *gin.Context, sent string) string {
+	if d := strings.TrimSpace(sent); d != "" {
+		return d
+	}
+	if t, ok := tenant.From(ctx.Request.Context()); ok {
+		return tenant.ShortName(t.Name)
+	}
+	return ""
 }

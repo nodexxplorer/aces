@@ -49,9 +49,18 @@ func main() {
 	ctx := context.Background()
 
 	tenantSlug := flag.String("tenant", os.Getenv("DEFAULT_TENANT_SLUG"), "department slug to seed (default: DEFAULT_TENANT_SLUG, else uniuyo-ce)")
+	role := flag.String("role", "admin", "account to seed: admin (default) or lecturer")
 	flag.Parse()
 	if *tenantSlug == "" {
 		*tenantSlug = "uniuyo-ce"
+	}
+	switch *role {
+	case "admin":
+	case "lecturer":
+		seedLecturer(ctx, *tenantSlug)
+		return
+	default:
+		log.Fatalf("unknown -role %q: use admin or lecturer", *role)
 	}
 
 	dbSource := os.Getenv("DB_SOURCE")

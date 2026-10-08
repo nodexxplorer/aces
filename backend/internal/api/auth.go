@@ -352,6 +352,8 @@ func (server *Server) lecturerSignup(ctx *gin.Context) {
 		return
 	}
 
+	req.Department = lecturerDepartment(ctx, req.Department)
+
 	result, err := server.auth.LecturerSignup(ctx, req.Email, req.Password, req.FirstName, req.LastName, req.Phone, req.StaffId, req.Department, req.Specialization)
 	if err != nil {
 		if errors.Is(err, service.ErrEmailTaken) || errors.Is(err, service.ErrMatricTaken) {

@@ -61,3 +61,16 @@ func LogoURL(apiBase string, b Brand) string {
 	}
 	return strings.TrimRight(apiBase, "/") + "/api/v1/tenants/" + url.PathEscape(b.Slug) + "/logo"
 }
+
+// departmentPrefix is how a department's full name starts.
+const departmentPrefix = "department of"
+
+// ShortName is a department's name without its "Department of" prefix, for
+// example "Computer Engineering". Other names come back trimmed and unchanged.
+func ShortName(name string) string {
+	name = strings.TrimSpace(name)
+	if len(name) >= len(departmentPrefix) && strings.EqualFold(name[:len(departmentPrefix)], departmentPrefix) {
+		name = strings.TrimSpace(name[len(departmentPrefix):])
+	}
+	return name
+}
