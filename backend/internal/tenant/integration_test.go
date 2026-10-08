@@ -307,6 +307,47 @@ func TestDatabaseTenancy(t *testing.T) {
 		}
 	})
 
+	t.Run("branding is stored per department and served only while active", func(t *testing.T) {
+		png := append([]byte("\x89PNG\r\n\x1a\n"), make([]byte, 32)...)
+		mustExec(t, e.admin, `INSERT INTO tenants (slug, name, description, logo, logo_type)
+			VALUES ('brand-ee', 'Department of EE', 'Power and machines', $1, 'image/png')`, png)
+
+		typ, data, err := e.mgr.Logo(e.ctx, "brand-ee")
+		if err != nil || typ != "image/png" || len(data) != len(png) {
+			t.Fatalf("Logo(brand-ee) = %q, %d bytes, %v; want the PNG", typ, len(data), err)
+		}
+		got, err := e.mgr.Resolve(e.ctx, "brand-ee")
+		if err != nil || got.Description != "Power and machines" || got.LogoType != "image/png" {
+			t.Fatalf("Resolve: %+v, %v; want description and logo type", got, err)
+		}
+
+		// A deactivated department's logo stops being served.
+		mustExec(t, e.admin, `UPDATE tenants SET is_active = false WHERE slug = 'brand-ee'`)
+		if _, _, err := e.mgr.Logo(e.ctx, "brand-ee"); !errors.Is(err, tenant.ErrNotFound) {
+			t.Fatalf("Logo of an inactive department: %v, want ErrNotFound", err)
+		}
+		mustExec(t, e.admin, `UPDATE tenants SET is_active = true WHERE slug = 'brand-ee'`)
+
+		// A department without a logo has nothing to serve.
+		if _, _, err := e.mgr.Logo(e.ctx, "matric-none-b"); !errors.Is(err, tenant.ErrNotFound) {
+			t.Fatalf("Logo of a department without one: %v, want ErrNotFound", err)
+		}
+
+		// The database enforces the same rules as cmd/tenant.
+		_, err = e.admin.Exec(e.ctx, `UPDATE tenants SET logo_type = 'image/gif' WHERE slug = 'brand-ee'`)
+		if pgCode(err) != "23514" {
+			t.Fatalf("GIF logo type: got %v, want check violation 23514", err)
+		}
+		_, err = e.admin.Exec(e.ctx, `UPDATE tenants SET logo = NULL WHERE slug = 'brand-ee'`)
+		if pgCode(err) != "23514" {
+			t.Fatalf("logo without a type: got %v, want check violation 23514", err)
+		}
+		_, err = e.admin.Exec(e.ctx, `UPDATE tenants SET description = $1 WHERE slug = 'brand-ee'`, strings.Repeat("x", 501))
+		if pgCode(err) != "23514" {
+			t.Fatalf("501-character description: got %v, want check violation 23514", err)
+		}
+	})
+
 	t.Run("unknown department is not found", func(t *testing.T) {
 		if _, err := e.mgr.Resolve(e.ctx, "no-such-dept"); !errors.Is(err, tenant.ErrNotFound) {
 			t.Fatalf("Resolve(unknown) = %v, want ErrNotFound", err)

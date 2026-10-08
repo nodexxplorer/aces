@@ -7,6 +7,7 @@ import { GraduationCap, ShieldOff, LogIn } from 'lucide-react';
 import { modoolsLoginUrl, getModoolsStatus } from '../../api/modools';
 import { useDepartments } from '../../hooks/useDepartments';
 import DepartmentSelect from '../../components/auth/DepartmentSelect';
+import { DepartmentBrand } from '../../components/branding/DepartmentBrand';
 
 // Student registration: Modools OAuth only. Accounts are created
 // automatically on first sign-in; profile details (matric number, level,
@@ -45,7 +46,7 @@ const StudentSignupPage = () => {
               alt="Aces Logo"
               className="w-14 h-14 rounded-2xl mb-2 object-contain shadow-lg md:hidden"
             />
-            <h2 className="text-3xl font-bold tracking-tight text-white">Join ACES Zone</h2>
+            <h2 className="text-3xl font-bold tracking-tight text-white">Join Admin Pack</h2>
             <p className="text-sm text-white/70">Sign up with Modools your account is created automatically</p>
           </div>
 
@@ -61,6 +62,9 @@ const StudentSignupPage = () => {
             )}
 
             <DepartmentSelect departments={departments} value={selected} onChange={select} />
+            <div className="mt-4">
+              <DepartmentBrand department={departments.find((d) => d.slug === selected)} />
+            </div>
             <Button
               type="button"
               className="w-full"

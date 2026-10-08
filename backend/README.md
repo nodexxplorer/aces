@@ -53,6 +53,11 @@ DB_SOURCE='postgresql://aces_app:…@localhost:5432/aces_zone?sslmode=disable' \
 # Set or change a department's matric code (EG/EE for 20/EG/EE/1234). "" clears it.
 DB_SOURCE='postgresql://aces_user:…@localhost:5432/aces_zone?sslmode=disable' \
   go run ./cmd/tenant update -slug unilag-ce -matric-code EG/CO
+
+# Set the branding shown on the sign-in page and dashboard: a description and a logo
+# (PNG, JPEG or WebP, at most 256 KiB). -remove-logo removes the logo.
+DB_SOURCE='postgresql://aces_user:…@localhost:5432/aces_zone?sslmode=disable' \
+  go run ./cmd/tenant update -slug unilag-ce -description "Computer engineering students" -logo ./logo.png
 ```
 
 The migrations create the default department `uniuyo-ce`, which holds all data from before multi-tenancy. Migration `000005` gives it the matric code `EG/CO`. See [docs/multi-tenancy.md](../docs/multi-tenancy.md#matric-numbers) for how matric numbers are checked.

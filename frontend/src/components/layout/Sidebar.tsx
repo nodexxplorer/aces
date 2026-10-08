@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useRBAC } from '../../hooks/useRBAC';
 import { useAuth } from '../../hooks/useAuth';
+import { DepartmentLogo } from '../../components/branding/DepartmentBrand';
+import { useCurrentDepartment } from '../../components/branding/department';
+import { APP_NAME } from '../../utils/constants';
 import { getMediaUrl } from '../../api/client';
 import { cn } from '../../utils/cn';
 import {
@@ -382,6 +385,7 @@ const mobileSections: NavSection[] = [
 const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: SidebarProps) => {
   const { activeRole } = useRBAC();
   const { user, logout } = useAuth();
+  const department = useCurrentDepartment();
   const [expandedSections, setExpandedSections] = useState<string[]>(['academics', 'admin_overview']);
 
   const isPendingApproval =
@@ -480,9 +484,14 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
       >
         {/* Mobile header */}
         <div className="flex items-center justify-between h-16 px-4 border-b border-surface-200 dark:border-surface-800">
-          <div className="flex items-center gap-2">
-            <img src="/aces-logo.png" alt="Aces Logo" className="w-8 h-8 rounded-lg object-contain shadow-md" />
-            <span className="font-bold text-lg text-surface-900 dark:text-white tracking-wide">ACES ZONE</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <DepartmentLogo department={department} className="w-8 h-8 shadow-md" />
+            <div className="min-w-0">
+              <p className="font-bold text-base leading-tight text-surface-900 dark:text-white truncate">
+                {department?.name ?? APP_NAME}
+              </p>
+              <p className="text-[10px] uppercase tracking-wider text-surface-400">{APP_NAME}</p>
+            </div>
           </div>
           <button
             onClick={onMobileClose}
@@ -678,11 +687,14 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
           )}
         >
           <div className={cn('flex items-center', !collapsed ? 'md:gap-2' : 'flex-col')}>
-            <img src="/aces-logo.png" alt="Aces Logo" className="w-8 h-8 rounded-lg object-contain shadow-md" />
+            <DepartmentLogo department={department} className="w-8 h-8 shadow-md" />
             {!collapsed && (
-              <span className="hidden md:block font-bold text-lg text-surface-900 dark:text-white tracking-wide">
-                ACES ZONE
-              </span>
+              <div className="hidden md:block min-w-0">
+                <p className="font-bold text-base leading-tight text-surface-900 dark:text-white truncate max-w-[10rem]">
+                  {department?.name ?? APP_NAME}
+                </p>
+                <p className="text-[10px] uppercase tracking-wider text-surface-400">{APP_NAME}</p>
+              </div>
             )}
           </div>
         </div>

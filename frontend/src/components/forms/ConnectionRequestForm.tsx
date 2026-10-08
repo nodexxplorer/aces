@@ -8,7 +8,7 @@ interface ConnectionRequestFormProps {
 }
 
 const ConnectionRequestForm = ({ onSubmit, recipientName, isLoading }: ConnectionRequestFormProps) => {
-  const [message, setMessage] = useState(`Hi ${recipientName}, I would like to connect with you on Aces Zone!`);
+  const [message, setMessage] = useState(`Hi ${recipientName}, I would like to connect with you on Admin Pack!`);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

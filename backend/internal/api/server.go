@@ -225,6 +225,7 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 
 	// Public list of departments for the sign-in and sign-up pages.
 	v1.GET("/tenants", authRL, server.listTenants)
+	v1.GET("/tenants/:slug/logo", authRL, server.tenantLogo)
 
 	v1.GET("/auth/modools/login", server.modoolsLogin)
 	v1.GET("/auth/modools/callback", server.modoolsCallback)

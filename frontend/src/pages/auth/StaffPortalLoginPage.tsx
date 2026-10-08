@@ -64,7 +64,7 @@ const StaffPortalLoginPage = () => {
               <ShieldCheck className="w-8 h-8 text-white" />
             </div>
             <h2 className="text-2xl font-bold tracking-tight text-white">Staff Portal</h2>
-            <p className="text-sm text-white/70">ACES Zone staff access, email and password only</p>
+            <p className="text-sm text-white/70">Admin Pack staff access, email and password only</p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

@@ -7,6 +7,7 @@ import { GraduationCap, ShieldOff, LogIn } from 'lucide-react';
 import { modoolsLoginUrl, getModoolsStatus } from '../../api/modools';
 import { useDepartments } from '../../hooks/useDepartments';
 import DepartmentSelect from '../../components/auth/DepartmentSelect';
+import { DepartmentBrand } from '../../components/branding/DepartmentBrand';
 import { Link } from 'react-router-dom';
 
 // Student sign-in: Modools OAuth only (see the /portalsign route for the
@@ -63,6 +64,9 @@ const LoginPage = () => {
             )}
 
             <DepartmentSelect departments={departments} value={selected} onChange={select} />
+            <div className="mt-4">
+              <DepartmentBrand department={departments.find((d) => d.slug === selected)} />
+            </div>
             <Button
               type="button"
               className="w-full"

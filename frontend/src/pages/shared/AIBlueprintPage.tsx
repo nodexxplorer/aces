@@ -717,7 +717,7 @@ const AIBlueprintPage = () => {
               AI Integration Blueprint
             </h1>
             <p className="text-sm text-surface-500 dark:text-surface-400 max-w-2xl mx-auto">
-              How artificial intelligence capabilities are integrated into ACES Zone to enhance user experience,
+              How artificial intelligence capabilities are integrated into Admin Pack to enhance user experience,
               automate administrative tasks, provide insights, and support decision-making across all modules.
             </p>
             <p className="text-xs text-surface-400 dark:text-surface-500 max-w-xl mx-auto">
@@ -755,7 +755,7 @@ const AIBlueprintPage = () => {
                     <Cpu className="w-5 h-5 text-primary-500" />
                     AI Services Stack
                   </CardTitle>
-                  <CardDescription>Core technologies powering AI features in ACES Zone</CardDescription>
+                  <CardDescription>Core technologies powering AI features in Admin Pack</CardDescription>
                 </CardHeader>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {techStack.map((t, i) => (
@@ -1172,7 +1172,7 @@ const AIBlueprintPage = () => {
                     <Layers className="w-5 h-5 text-primary-500" />
                     Module Integration Map
                   </CardTitle>
-                  <CardDescription>How AI connects with every module in ACES Zone</CardDescription>
+                  <CardDescription>How AI connects with every module in Admin Pack</CardDescription>
                 </CardHeader>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">

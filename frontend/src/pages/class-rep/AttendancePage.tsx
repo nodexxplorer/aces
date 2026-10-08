@@ -730,7 +730,7 @@ const AttendancePage = () => {
           <Card className="max-w-md w-full p-6 space-y-4">
             <CardHeader className="p-0">
               <CardTitle className="text-xl">Finalize Attendance Recording</CardTitle>
-              <CardDescription>Choose how to complete this session per ACES Zone specifications.</CardDescription>
+              <CardDescription>Choose how to complete this session per Admin Pack specifications.</CardDescription>
             </CardHeader>
 
             <div className="space-y-3 py-2">
@@ -755,7 +755,7 @@ const AttendancePage = () => {
                 <div>
                   <h4 className="font-semibold text-surface-900 dark:text-white">Print Branded PDF</h4>
                   <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">
-                    Generates an official ACES Zone departmental attendance sheet PDF ready for printing and physical
+                    Generates an official Admin Pack departmental attendance sheet PDF ready for printing and physical
                     signing.
                   </p>
                 </div>

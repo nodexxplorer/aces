@@ -176,6 +176,23 @@ func (m *Manager) Active(ctx context.Context) ([]Tenant, error) {
 	return out, rows.Err()
 }
 
+// Logo returns the logo of the active department with the given slug, and its
+// MIME type. It reports ErrNotFound when the department is missing, inactive,
+// or has no logo, so a deactivated department's logo stops being served too.
+func (m *Manager) Logo(ctx context.Context, slug string) (contentType string, data []byte, err error) {
+	err = m.system.QueryRow(ctx,
+		`SELECT logo_type, logo FROM tenants WHERE slug = $1 AND is_active AND logo IS NOT NULL`,
+		normalizeSlug(slug),
+	).Scan(&contentType, &data)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil, ErrNotFound
+	}
+	if err != nil {
+		return "", nil, err
+	}
+	return contentType, data, nil
+}
+
 // Bind returns ctx bound to the active tenant with the given ID.
 func (m *Manager) Bind(ctx context.Context, id uuid.UUID) (context.Context, error) {
 	t, err := m.ByID(ctx, id)
@@ -291,7 +308,7 @@ func roleHook(role string) func(context.Context, *pgx.Conn) error {
 	}
 }
 
-const tenantSelect = `SELECT id, slug, name, COALESCE(institution, ''), COALESCE(faculty, ''), COALESCE(matric_code, ''), is_active FROM tenants`
+const tenantSelect = `SELECT id, slug, name, COALESCE(institution, ''), COALESCE(faculty, ''), COALESCE(matric_code, ''), COALESCE(description, ''), COALESCE(logo_type, ''), is_active FROM tenants`
 
 type rowScanner interface {
 	Scan(dest ...any) error
@@ -299,7 +316,7 @@ type rowScanner interface {
 
 func scanTenant(row rowScanner) (Tenant, error) {
 	var t Tenant
-	err := row.Scan(&t.ID, &t.Slug, &t.Name, &t.Institution, &t.Faculty, &t.MatricCode, &t.IsActive)
+	err := row.Scan(&t.ID, &t.Slug, &t.Name, &t.Institution, &t.Faculty, &t.MatricCode, &t.Description, &t.LogoType, &t.IsActive)
 	return t, err
 }
 

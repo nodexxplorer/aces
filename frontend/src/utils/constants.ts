@@ -1,8 +1,8 @@
 import type { UserRole } from '../types';
 
-export const APP_NAME = 'Aces Zone';
+export const APP_NAME = 'Admin Pack';
 export const APP_TAGLINE = 'Connecting Minds, Building Futures';
-export const APP_DESCRIPTION = 'Association of Computer Engineering Students (ACES), Uniuyo Chapter';
+export const APP_DESCRIPTION = 'Department administration and student portal';
 
 export const COLORS = {
   primary: '#0066CC',

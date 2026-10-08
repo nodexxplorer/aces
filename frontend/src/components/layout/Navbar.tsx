@@ -2,6 +2,9 @@ import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
 import { Search, Sun, Moon, LogOut, Menu, ScanLine } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { DepartmentLogo } from '../../components/branding/DepartmentBrand';
+import { useCurrentDepartment } from '../../components/branding/department';
+import { APP_NAME } from '../../utils/constants';
 import { useDarkMode } from '../../hooks/useDarkMode';
 import RoleSwitcher from '../ui/RoleSwitcher';
 import NotificationBell from '../notifications/NotificationBell';
@@ -17,6 +20,7 @@ interface NavbarProps {
 const Navbar = ({ onMenuClick }: NavbarProps) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const department = useCurrentDepartment();
   const { toggle, isDark } = useDarkMode();
   const { setQuery } = useSearch();
   const { activeRole } = useRBAC();
@@ -52,6 +56,12 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
         >
           <Menu className="w-5 h-5" />
         </button>
+        <div className="hidden md:flex items-center gap-2 min-w-0">
+          <DepartmentLogo department={department} className="w-7 h-7" />
+          <span className="text-sm font-semibold text-surface-800 dark:text-surface-100 truncate max-w-[14rem]">
+            {department?.name ?? APP_NAME}
+          </span>
+        </div>
         <div className="hidden sm:flex items-center gap-2 max-w-xs w-64 px-3 py-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800">
           <Search className="w-4 h-4 text-surface-400" />
           <input

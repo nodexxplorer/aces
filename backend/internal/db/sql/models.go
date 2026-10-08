@@ -3708,6 +3708,9 @@ type Tenant struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 	MatricCode  *string            `json:"matric_code"`
+	Description *string            `json:"description"`
+	Logo        []byte             `json:"logo"`
+	LogoType    *string            `json:"logo_type"`
 }
 
 type TenantCounter struct {

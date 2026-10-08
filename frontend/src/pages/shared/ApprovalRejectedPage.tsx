@@ -27,7 +27,7 @@ const ApprovalRejectedPage = () => {
           </h2>
           
           <p className="text-sm text-surface-500 dark:text-surface-400 max-w-sm mx-auto mb-6 leading-relaxed">
-            Your registration request for the ACES Zone portal has been rejected by department administrators.
+            Your registration request for the Admin Pack portal has been rejected by department administrators.
           </p>
 
           {user?.rejectionReason && (

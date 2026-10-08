@@ -82,6 +82,8 @@ type userResponse struct {
 	EmergencyContactPhone *string  `json:"emergencyContactPhone,omitempty"`
 	HomeAddress           *string  `json:"homeAddress,omitempty"`
 	AllRoles              []string `json:"allRoles,omitempty"`
+	// Tenant is the user's department, so the dashboard can show its branding.
+	Tenant *tenantResponse `json:"tenant,omitempty"`
 }
 
 type authResponse struct {
@@ -266,6 +268,7 @@ func (server *Server) generateAuthResponse(ctx *gin.Context, u db.User, onboardi
 	}
 	resp.Roles = normalized
 	resp.AllRoles = normalized
+	resp.Tenant = toTenantResponse(t)
 
 	return &authResponse{
 		User: resp,
@@ -500,6 +503,9 @@ func (server *Server) getMe(ctx *gin.Context) {
 
 	onboardingCompleted := server.auth.IsOnboardingCompleted(ctx, *user)
 	resp := toUserResponse(*user, onboardingCompleted)
+	if t, ok := tenant.From(ctx.Request.Context()); ok {
+		resp.Tenant = toTenantResponse(t)
+	}
 
 	student, err := server.store.GetStudentByUserId(ctx, id)
 	if err == nil {

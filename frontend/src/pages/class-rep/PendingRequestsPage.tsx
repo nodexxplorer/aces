@@ -153,7 +153,7 @@ const StudentRegistrationsTab = () => {
     try {
       await approveStudentRegistration(id);
       setList((prev) => prev.filter((item) => item.id !== id));
-      success('Student Approved', `${name} now has full access to ACES Zone`);
+      success('Student Approved', `${name} now has full access to Admin Pack`);
     } catch (e: unknown) {
       notifyError('Error', getErrorMessage(e, 'Failed to approve student'));
     } finally {

@@ -53,7 +53,7 @@ const PrivacyPolicyPage = () => {
               Privacy & Cookie Policy
             </h1>
             <p className="text-base text-surface-500 dark:text-surface-400 max-w-xl mx-auto">
-              How the ACES Zone academic portal secures your records and identity.
+              How the Admin Pack academic portal secures your records and identity.
             </p>
           </div>
 

@@ -65,7 +65,7 @@ const UnsubscribePage = () => {
           <div className="pt-2">
             <Link to="/login">
               <Button variant="outline" className="w-full">
-                Back to ACES Zone
+                Back to Admin Pack
               </Button>
             </Link>
           </div>

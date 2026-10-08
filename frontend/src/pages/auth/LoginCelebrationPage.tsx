@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { APP_NAME } from '../../utils/constants';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Sparkles, ChevronRight, GraduationCap } from 'lucide-react';
@@ -165,7 +166,7 @@ const LoginCelebrationPage = () => {
           <motion.div className="text-center mb-6" variants={itemVariants}>
             <h1 className="text-3xl font-bold text-white mb-1 tracking-tight">Welcome, {displayName}!</h1>
             <p className="text-white/50 text-sm">
-              You've successfully signed in to <span className="text-accent-400 font-semibold">ACES Zone</span>
+              You've successfully signed in to <span className="text-accent-400 font-semibold">{APP_NAME}</span>
             </p>
           </motion.div>
 
@@ -217,7 +218,7 @@ const LoginCelebrationPage = () => {
 
         {/* Footer */}
         <motion.p className="text-center text-xs text-white/20 mt-6 tracking-wider uppercase" variants={itemVariants}>
-          &copy; {new Date().getFullYear()} ACES Zone, All rights reserved
+          &copy; {new Date().getFullYear()} Admin Pack, All rights reserved
         </motion.p>
       </motion.div>
     </div>

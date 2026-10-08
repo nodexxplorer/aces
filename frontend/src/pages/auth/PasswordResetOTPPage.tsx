@@ -103,7 +103,7 @@ export default function PasswordResetOTPPage() {
   };
 
   return (
-    <AuthVideoShell tagline="Reset your password to get back into your Aces Zone account.">
+    <AuthVideoShell tagline="Reset your password to get back into your Admin Pack account.">
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
         <div className="rounded-2xl border border-white/25 bg-white/10 backdrop-blur-2xl shadow-2xl p-8">
           <img

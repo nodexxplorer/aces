@@ -12,9 +12,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'aces-logo.png'],
       manifest: {
-        name: 'Aces Zone',
-        short_name: 'Aces Zone',
-        description: 'Association of Computer Engineering Students (ACES) — Uniuyo Chapter',
+        name: 'Admin Pack',
+        short_name: 'Admin Pack',
+        description: 'Department administration and student portal',
         theme_color: '#0066CC',
         background_color: '#f8fafc',
         display: 'standalone',

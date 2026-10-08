@@ -43,7 +43,21 @@ export interface BaseEntity {
 }
 
 // ───── Auth ─────
+/** The user's department, as the server reports it (see /auth/me and the sign-in response). */
+export interface TenantInfo {
+  slug: string;
+  name: string;
+  institution?: string;
+  faculty?: string;
+  matricCode?: string;
+  description?: string;
+  /** API path of the logo, e.g. /api/v1/tenants/uniuyo-ce/logo. Absent when there is none. */
+  logoUrl?: string;
+}
+
 export interface User extends BaseEntity {
+  /** The department the user belongs to. Drives the navbar, sidebar and footer branding. */
+  tenant?: TenantInfo;
   email: string;
   firstName?: string;
   lastName?: string;

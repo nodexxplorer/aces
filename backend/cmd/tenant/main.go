@@ -23,10 +23,12 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"regexp"
 	"strings"
 	"text/tabwriter"
+	"unicode/utf8"
 
 	"github.com/aces/backend/internal/tenant"
 	"github.com/jackc/pgx/v5"
@@ -77,6 +79,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "usage: tenant <list | create | update | activate | deactivate> [flags]")
 	fmt.Fprintln(os.Stderr, "  create      -slug <slug> -name <name> [-matric-code <EG/EE>] [-institution <text>] [-faculty <text>]")
 	fmt.Fprintln(os.Stderr, "  update      -slug <slug> [-name <name>] [-matric-code <EG/EE>] [-institution <text>] [-faculty <text>]")
+	fmt.Fprintln(os.Stderr, "              [-description <text>] [-logo <file.png|jpg|webp>] [-remove-logo]")
 	fmt.Fprintln(os.Stderr, "  activate    -slug <slug>")
 	fmt.Fprintln(os.Stderr, "  deactivate  -slug <slug>")
 	os.Exit(2)
@@ -144,7 +147,8 @@ func create(ctx context.Context, pool *pgxpool.Pool, args []string) {
 }
 
 // update changes only the fields whose flags were given. An empty value passed
-// explicitly clears an optional field (-institution, -faculty, -matric-code).
+// explicitly clears an optional field (-institution, -faculty, -matric-code,
+// -description).
 func update(ctx context.Context, pool *pgxpool.Pool, args []string) {
 	fs := flag.NewFlagSet("update", flag.ExitOnError)
 	slug := fs.String("slug", "", "department slug")
@@ -152,6 +156,9 @@ func update(ctx context.Context, pool *pgxpool.Pool, args []string) {
 	matricCode := fs.String("matric-code", "", "matric code, e.g. EG/EE for 20/EG/EE/1234 (\"\" clears it)")
 	institution := fs.String("institution", "", "institution name (\"\" clears it)")
 	faculty := fs.String("faculty", "", "faculty name (\"\" clears it)")
+	description := fs.String("description", "", "short description shown on the sign-in page and dashboard footer (\"\" clears it)")
+	logoPath := fs.String("logo", "", "logo file: PNG, JPEG or WebP, at most 256 KiB")
+	removeLogo := fs.Bool("remove-logo", false, "remove the department's logo")
 	_ = fs.Parse(args)
 
 	given := map[string]bool{}
@@ -162,7 +169,7 @@ func update(ctx context.Context, pool *pgxpool.Pool, args []string) {
 		log.Fatal("-slug is required")
 	}
 	if len(given) == 1 {
-		log.Fatal("nothing to update: pass at least one of -name, -matric-code, -institution, -faculty")
+		log.Fatal("nothing to update: pass at least one of -name, -matric-code, -institution, -faculty, -description, -logo, -remove-logo")
 	}
 	if given["name"] && strings.TrimSpace(*name) == "" {
 		log.Fatal("-name cannot be empty")
@@ -174,23 +181,46 @@ func update(ctx context.Context, pool *pgxpool.Pool, args []string) {
 			log.Fatal(err)
 		}
 	}
+	desc := strings.TrimSpace(*description)
+	if utf8.RuneCountInString(desc) > maxDescriptionLength {
+		log.Fatalf("-description is longer than %d characters", maxDescriptionLength)
+	}
+	if given["logo"] && given["remove-logo"] {
+		log.Fatal("pass either -logo or -remove-logo, not both")
+	}
+	var logo []byte
+	var logoType string
+	if given["logo"] {
+		var err error
+		if logo, logoType, err = readLogo(*logoPath); err != nil {
+			log.Fatal(err)
+		}
+	}
 
-	var newName, newInstitution, newFaculty, newCode string
+	var newName, newInstitution, newFaculty, newCode, newDescription string
+	var hasLogo bool
 	err := pool.QueryRow(ctx, `
 		UPDATE tenants SET
 			name        = CASE WHEN $2::bool THEN $3::text ELSE name END,
 			institution = CASE WHEN $4::bool THEN NULLIF($5::text, '') ELSE institution END,
 			faculty     = CASE WHEN $6::bool THEN NULLIF($7::text, '') ELSE faculty END,
 			matric_code = CASE WHEN $8::bool THEN NULLIF($9::text, '') ELSE matric_code END,
+			description = CASE WHEN $10::bool THEN NULLIF($11::text, '') ELSE description END,
+			logo        = CASE WHEN $12::bool THEN $13::bytea WHEN $14::bool THEN NULL ELSE logo END,
+			logo_type   = CASE WHEN $12::bool THEN $15::text WHEN $14::bool THEN NULL ELSE logo_type END,
 			updated_at  = NOW()
 		WHERE slug = $1
-		RETURNING name, COALESCE(institution, ''), COALESCE(faculty, ''), COALESCE(matric_code, '')`,
+		RETURNING name, COALESCE(institution, ''), COALESCE(faculty, ''), COALESCE(matric_code, ''),
+		          COALESCE(description, ''), logo_type IS NOT NULL`,
 		*slug,
 		given["name"], strings.TrimSpace(*name),
 		given["institution"], strings.TrimSpace(*institution),
 		given["faculty"], strings.TrimSpace(*faculty),
 		given["matric-code"], code,
-	).Scan(&newName, &newInstitution, &newFaculty, &newCode)
+		given["description"], desc,
+		given["logo"], logo,
+		*removeLogo, logoType,
+	).Scan(&newName, &newInstitution, &newFaculty, &newCode, &newDescription, &hasLogo)
 	if errors.Is(err, pgx.ErrNoRows) {
 		log.Fatalf("no department with slug %q", *slug)
 	}
@@ -203,10 +233,41 @@ func update(ctx context.Context, pool *pgxpool.Pool, args []string) {
 	fmt.Printf("  institution:  %s\n", newInstitution)
 	fmt.Printf("  faculty:      %s\n", newFaculty)
 	fmt.Printf("  matric code:  %s\n", orNone(newCode))
+	fmt.Printf("  description:  %s\n", orNone(newDescription))
+	fmt.Printf("  logo:         %s\n", map[bool]string{true: "set", false: "none"}[hasLogo])
 	if newCode == "" {
 		fmt.Println("warning: no matric code, so students cannot sign up or complete onboarding in this department")
 	}
 	fmt.Println("the server picks up the change within a minute (its department cache), or on restart")
+}
+
+// maxDescriptionLength matches the CHECK constraint on tenants.description.
+const maxDescriptionLength = 500
+
+// maxLogoBytes matches the CHECK constraint on tenants.logo.
+const maxLogoBytes = 256 << 10
+
+// readLogo reads a logo file and checks what it really is. The file extension is
+// ignored: the bytes must start with a PNG, JPEG or WebP signature, which rules
+// out SVG (it can carry script), GIF and anything else.
+func readLogo(path string) ([]byte, string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, "", fmt.Errorf("read -logo: %w", err)
+	}
+	return checkLogo(data)
+}
+
+func checkLogo(data []byte) ([]byte, string, error) {
+	if len(data) > maxLogoBytes {
+		return nil, "", fmt.Errorf("logo is %d bytes; the limit is %d (256 KiB)", len(data), maxLogoBytes)
+	}
+	contentType := http.DetectContentType(data)
+	switch contentType {
+	case "image/png", "image/jpeg", "image/webp":
+		return data, contentType, nil
+	}
+	return nil, "", fmt.Errorf("logo must be a PNG, JPEG or WebP image, not %q", contentType)
 }
 
 func setActive(ctx context.Context, pool *pgxpool.Pool, args []string, active bool) {
@@ -251,8 +312,14 @@ func describeWriteError(err error, code string) error {
 		switch pgErr.Code {
 		case "23505": // unique_violation: the matric code index
 			return fmt.Errorf("matric code %s is already used by another department", code)
-		case "23514": // check_violation: the matric code format
-			return fmt.Errorf("matric code %q does not have the form EG/EE", code)
+		case "23514": // check_violation: name the rule that failed
+			if pgErr.ConstraintName == "tenants_matric_code_format" {
+				return fmt.Errorf("matric code %q does not have the form EG/EE", code)
+			}
+			if pgErr.ConstraintName == "tenants_logo_type_pair" {
+				return errors.New("the logo and its type must be set or cleared together")
+			}
+			return fmt.Errorf("%s: %s", pgErr.ConstraintName, pgErr.Message)
 		}
 	}
 	return err

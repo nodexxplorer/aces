@@ -16,7 +16,7 @@ One ACES deployment can serve several departments. Each department is a **tenant
 
 ## Concepts
 
-- **Registry.** The `tenants` table holds each department's `slug` (its identifier in requests, for example `unilag-ce`), `name`, `institution`, `faculty`, `matric_code` (see [Matric numbers](#matric-numbers)) and `is_active`. The API can read it but cannot change it.
+- **Registry.** The `tenants` table holds each department's `slug` (its identifier in requests, for example `unilag-ce`), `name`, `institution`, `faculty`, `matric_code` (see [Matric numbers](#matric-numbers)), `description` and `logo` (see [Branding](#branding)), and `is_active`. The API can read it but cannot change it.
 - **Legacy department.** Everything that existed before multi-tenancy belongs to `uniuyo-ce` (ID `00000000-0000-4000-8000-000000000001`). Access tokens issued before the change carry no department claim, and the server treats them as belonging to this department.
 - **Default department.** `DEFAULT_TENANT_SLUG` (default `uniuyo-ce`). Requests that name no department use it. Mobile clients depend on it, so it must stay active.
 - **Active and inactive.** A deactivated department cannot sign in, and its existing tokens stop working.
@@ -34,7 +34,8 @@ One ACES deployment can serve several departments. Each department is a **tenant
 | WebSocket `GET /api/v1/ws` | The authenticated user's department. |
 | Calendar feed, email unsubscribe link, Paystack webhook | The department that owns the token or payment reference. A narrow lookup function returns only the owning department's ID. |
 | Scheduled jobs (birthday greetings, study-task reminders) | Each active department, in turn. |
-| `GET /api/v1/tenants` (public) | The active departments: slug, name, institution, faculty, matric code and whether each is the default. It exposes no account data. |
+| `GET /api/v1/tenants` (public) | The active departments: slug, name, institution, faculty, matric code, description, logo path and whether each is the default. It exposes no account data. |
+| `GET /api/v1/tenants/:slug/logo` (public) | The department's logo image, or `404` when it has none or is inactive. |
 
 Errors:
 
@@ -85,6 +86,21 @@ Migration `000005` sets `EG/CO` on `uniuyo-ce`, so its students are checked exac
 |---|---|
 | `POST /api/v1/auth/onboarding` | The web app's onboarding page, after a Modools sign-in. The department is the one the student signed in to. |
 | `POST /api/v1/auth/signup/student` | Email sign-up. The web app's sign-up page uses Modools only, so this is the mobile app's path. Mobile sends no department, so it is checked against the default department. |
+
+## Branding
+
+Each department has its own name, description and logo. The sign-in and sign-up pages show them, and so does the dashboard: the navbar, the sidebar and the footer. The product itself is called **Admin Pack**. It is the same for every department.
+
+| Field | Set with | Where it shows |
+|---|---|---|
+| `name` | `cmd/tenant update -name` | Sign-in and sign-up pages, navbar, sidebar, footer |
+| `description` | `cmd/tenant update -description`, up to 500 characters | Sign-in and sign-up pages, dashboard footer |
+| `logo` | `cmd/tenant update -logo <file>` | Sign-in and sign-up pages, navbar, sidebar, footer |
+
+- **Logo rules.** The file must be a PNG, JPEG or WebP image of at most 256 KiB. The server checks the file's contents, not its extension. SVG is refused because it can carry script, and GIF is refused as well. `-remove-logo` removes it.
+- **Serving.** `GET /api/v1/tenants/:slug/logo` returns the logo with its image type. It is public, because the sign-in page shows the logo before anyone has signed in. It is cached for five minutes. A missing, inactive or logo-less department gets `404`.
+- **Where the user's department comes from.** The `user` object in every auth response, and `GET /api/v1/auth/me`, carry the user's `tenant` (slug, name, institution, faculty, matric code, description and `logoUrl`). The dashboard reads it from there.
+- **Not branded yet.** Receipts, printed result slips, PDFs, emails and the AI assistant's prompt still use the University of Uyo and ACES wording. See [Known gaps](#known-gaps).
 
 ## Database roles
 
@@ -150,7 +166,7 @@ Pass the owner's DSN on the command line for owner-level steps. Keep only the ru
 - **List departments.** `go run ./cmd/tenant list`. It shows each department's matric code.
 - **Add a department.** Create it with `cmd/tenant create -matric-code EG/XX` (owner connection), then seed its first admin with `cmd/seed_admin -tenant <slug>` (runtime connection). It appears in `GET /api/v1/tenants` straight away.
 - **Set or change a matric code.** `go run ./cmd/tenant update -slug <slug> -matric-code EG/EE` (owner connection). The code is the faculty and department pair, such as `EG/EE`, not `EE`. `-matric-code ""` clears it, and the department then refuses matric-based sign-up and onboarding. The change takes effect within about a minute.
-- **Change a department's name or details.** `go run ./cmd/tenant update -slug <slug> [-name ...] [-institution ...] [-faculty ...]`. Only the flags you pass are changed. `-institution ""` and `-faculty ""` clear those fields.
+- **Change a department's name, details or branding.** `go run ./cmd/tenant update -slug <slug> [-name ...] [-institution ...] [-faculty ...] [-description ...] [-logo file.png] [-remove-logo]`. Only the flags you pass are changed. `-institution ""`, `-faculty ""` and `-description ""` clear those fields. See [Branding](#branding) for the logo rules.
 - **Deactivate a department.** `go run ./cmd/tenant deactivate -slug <slug>`. Sign-in is refused at once, and existing access tokens stop working within about a minute, which is the registry cache lifetime. Use `activate` to reverse it. There is no delete command. Deactivate instead, because the department's rows still reference it.
 - **Connection budget.** Each department's pool opens connections when the department is first used, and holds up to `DB_MAX_CONNS_PER_TENANT` (default 4). Budget roughly `departments in use × DB_MAX_CONNS_PER_TENANT + 4` connections, and size PostgreSQL `max_connections` to match.
 - **Connection poolers.** Use session pooling or direct connections. A transaction-pooling PgBouncer could hand a request a connection that is not bound to its department.
@@ -173,7 +189,9 @@ The sign-in and sign-up pages list the active departments from `GET /api/v1/tena
 
 - Login, signup and password-reset requests accept a new optional `tenant` field (a department slug).
 - Login responses include a `tenant` object: `{slug, name, institution, faculty}`.
-- `GET /api/v1/tenants` is new and public. Each department may carry `matricCode` (for example `EG/EE`), which is absent until the department has one.
+- `GET /api/v1/tenants` is new and public. Each department may carry `matricCode` (for example `EG/EE`), `description` and `logoUrl`, which are absent until the department sets them.
+- `GET /api/v1/tenants/:slug/logo` is new and public. It serves the department's logo image.
+- The `user` object in every auth response, and `GET /api/v1/auth/me`, carry a `tenant` object with the user's department.
 - Login and auth responses' `tenant` object may carry `matricCode`.
 - Onboarding and email sign-up now check the matric number against the department (see [Matric numbers](#matric-numbers)). Their error messages changed: `wrong reg no` is replaced by the messages in that section, and a department without a code returns `422`.
 - Access and refresh tokens carry `tenant_id` and `tenant_slug`.
@@ -190,11 +208,11 @@ Because mobile signs up to the default department, a mobile sign-up whose matric
 
 These are not fixed by this change.
 
-1. **Branding is still Uyo and Computer Engineering.** Examples:
-   - web app: the page title and description (`index.html`, `vite.config.ts`, `src/utils/constants.ts`), auth-page taglines (`AuthVideoShell.tsx`), the Modools signup link (`StudentSignupPage.tsx`), and the waiting and rejection pages (`WaitingDashboardPage.tsx`, `ApprovalRejectedPage.tsx`);
-   - backend: the email footers (`service/notification_service_full.go`), the department stamp, receipts and printed result slips, which embed the University of Uyo logo (`utils/dept_stamp.go`, `utils/duesreceipt.go`, `utils/result_slip_printer.go`), and the AI assistant's system prompt (`service/ai_service.go`).
+1. **Some output is still branded for Uyo and ACES.** The sign-in and sign-up pages, the dashboard and the app name now come from the department and Admin Pack (see [Branding](#branding)). These still use fixed wording and should read from the tenant record:
+   - backend: the email footers and greetings (`service/notification_service_full.go`), the department stamp, receipts and printed result slips, which embed the University of Uyo logo (`utils/dept_stamp.go`, `utils/duesreceipt.go`, `utils/result_slip_printer.go`), and the AI assistant's system prompt (`service/ai_service.go`);
+   - web app: the waiting and rejection pages (`WaitingDashboardPage.tsx`, `ApprovalRejectedPage.tsx`) still name ACES in places.
 
-   These should read from the tenant record.
+   Mobile still shows its own branding.
 2. **Uploaded files are public and shared.** `/uploads` is a static directory with no authentication and no department prefix. Anyone with a file's URL can read it, whichever department owns the file. Serve files through an authorized endpoint and store them per department before departments with sensitive files share this server.
 3. **Modools sign-in uses one OAuth client** (the `MODOOLS_*` settings). The department the person picks decides where the account is created. If departments use different Modools sites, each needs its own client.
 4. **The mobile app** is not department-aware (see above). Its sign-up refuses students from other departments, and its onboarding request has no matric number, so the server refuses it.
@@ -204,5 +222,6 @@ These are not fixed by this change.
 
 - **Backend.** `DB_SOURCE=<a role that may create databases and roles> go test ./...` runs the unit tests and the database integration tests. The integration tests cover row-level security, composite foreign keys, token and reference lookups, the runtime-role check and deactivation.
 - **Web app.** Vitest covers the department picker, the department hook, the Modools URL builder and the sign-in page.
+- **Branding checks.** A run of the API showed: a logo served with its image type, the cache and sandbox headers, and the exact uploaded bytes; `404` for a department without a logo, an unknown department, a removed logo, and an inactive department; a sign-up response and `GET /auth/me` both carrying the department's `tenant`; `cmd/tenant` refusing SVG, GIF and oversize files.
 - **Matric checks.** A run of the API against a freshly migrated database, with departments created by `cmd/tenant`, covered: mobile sign-up refused for another department's matric and accepted for the default department's; sign-up in a chosen department accepted for its own code and refused for another's, with the other department named; a department without a code refused with `422` at sign-up and onboarding; onboarding refused for another department's matric; a lowercase matric accepted; and an unset code refusing onboarding once the one-minute cache expired.
 - **Scratch-environment checks.** A run against a freshly migrated database covered: the same email signing in to two departments with different passwords; a password from one department rejected by the other; unknown and forged departments rejected; refresh keeping the department; the same student signing up in two departments; and a deactivated department refusing sign-in and then existing tokens.

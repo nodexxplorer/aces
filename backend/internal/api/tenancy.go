@@ -22,6 +22,8 @@ type tenantResponse struct {
 	Institution string `json:"institution,omitempty"`
 	Faculty     string `json:"faculty,omitempty"`
 	MatricCode  string `json:"matricCode,omitempty"`
+	Description string `json:"description,omitempty"`
+	LogoURL     string `json:"logoUrl,omitempty"`
 }
 
 func toTenantResponse(t tenant.Tenant) *tenantResponse {
@@ -31,7 +33,18 @@ func toTenantResponse(t tenant.Tenant) *tenantResponse {
 		Institution: t.Institution,
 		Faculty:     t.Faculty,
 		MatricCode:  t.MatricCode,
+		Description: t.Description,
+		LogoURL:     logoURL(t),
 	}
+}
+
+// logoURL is the API path of a department's logo, or empty when it has none.
+// It is a path, not a full URL: clients add the API's base address.
+func logoURL(t tenant.Tenant) string {
+	if t.LogoType == "" {
+		return ""
+	}
+	return "/api/v1/tenants/" + t.Slug + "/logo"
 }
 
 // tenantListItem is one department in the public list. It carries only what
@@ -45,6 +58,9 @@ type tenantListItem struct {
 	// 20/EG/EE/1234). It is not sensitive: every matric number contains it.
 	// Sign-up and onboarding forms use it to show the expected format.
 	MatricCode string `json:"matricCode,omitempty"`
+	// Description and LogoURL are the department's branding.
+	Description string `json:"description,omitempty"`
+	LogoURL     string `json:"logoUrl,omitempty"`
 	// Default marks the department used when a request names none (mobile
 	// clients, and sign-in forms before a choice is made).
 	Default bool `json:"default,omitempty"`
@@ -68,6 +84,8 @@ func (server *Server) listTenants(ctx *gin.Context) {
 			Institution: t.Institution,
 			Faculty:     t.Faculty,
 			MatricCode:  t.MatricCode,
+			Description: t.Description,
+			LogoURL:     logoURL(t),
 			Default:     t.Slug == server.tenants.DefaultSlug(),
 		})
 	}
@@ -213,4 +231,26 @@ func (server *Server) forEachActiveTenant(ctx context.Context, name string, job 
 func tenantIDOf(ctx *gin.Context) uuid.UUID {
 	id, _ := tenant.IDFrom(ctx.Request.Context())
 	return id
+}
+
+// tenantLogo serves a department's logo. It is public, because the sign-in page
+// shows the logo before anyone has signed in. A missing, inactive, or logo-less
+// department gets 404.
+func (server *Server) tenantLogo(ctx *gin.Context) {
+	contentType, data, err := server.tenants.Logo(ctx.Request.Context(), ctx.Param("slug"))
+	if errors.Is(err, tenant.ErrNotFound) {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "no logo for this department"})
+		return
+	}
+	if err != nil {
+		log.Printf("[tenant] logo %q: %v", ctx.Param("slug"), err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	h := ctx.Writer.Header()
+	h.Set("Cache-Control", "public, max-age=300")
+	h.Set("X-Content-Type-Options", "nosniff")
+	// The bytes are an image and nothing else: no scripts, no embedded content.
+	h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
+	ctx.Data(http.StatusOK, contentType, data)
 }
