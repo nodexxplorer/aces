@@ -66,6 +66,8 @@ func main() {
 		create(ctx, pool, args)
 	case "update":
 		update(ctx, pool, args)
+	case "logos":
+		applyLogos(ctx, pool, args)
 	case "activate":
 		setActive(ctx, pool, args, true)
 	case "deactivate":
@@ -76,10 +78,11 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: tenant <list | create | update | activate | deactivate> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: tenant <list | create | update | logos | activate | deactivate> [flags]")
 	fmt.Fprintln(os.Stderr, "  create      -slug <slug> -name <name> [-matric-code <EG/EE>] [-institution <text>] [-faculty <text>]")
 	fmt.Fprintln(os.Stderr, "  update      -slug <slug> [-name <name>] [-matric-code <EG/EE>] [-institution <text>] [-faculty <text>]")
 	fmt.Fprintln(os.Stderr, "              [-description <text>] [-logo <file.png|jpg|webp>] [-remove-logo]")
+	fmt.Fprintln(os.Stderr, "  logos       -dir <folder> [-dry-run]   set logos from files named by matric code, e.g. EG-CE.png")
 	fmt.Fprintln(os.Stderr, "  activate    -slug <slug>")
 	fmt.Fprintln(os.Stderr, "  deactivate  -slug <slug>")
 	os.Exit(2)
@@ -157,6 +160,7 @@ func update(ctx context.Context, pool *pgxpool.Pool, args []string) {
 	institution := fs.String("institution", "", "institution name (\"\" clears it)")
 	faculty := fs.String("faculty", "", "faculty name (\"\" clears it)")
 	description := fs.String("description", "", "short description shown on the sign-in page and dashboard footer (\"\" clears it)")
+	contactEmail := fs.String("contact-email", "", "contact email printed on the department's dues receipts (\"\" clears it)")
 	logoPath := fs.String("logo", "", "logo file: PNG, JPEG or WebP, at most 256 KiB")
 	removeLogo := fs.Bool("remove-logo", false, "remove the department's logo")
 	_ = fs.Parse(args)
@@ -169,7 +173,10 @@ func update(ctx context.Context, pool *pgxpool.Pool, args []string) {
 		log.Fatal("-slug is required")
 	}
 	if len(given) == 1 {
-		log.Fatal("nothing to update: pass at least one of -name, -matric-code, -institution, -faculty, -description, -logo, -remove-logo")
+		log.Fatal("nothing to update: pass at least one of -name, -matric-code, -institution, -faculty, -description, -contact-email, -logo, -remove-logo")
+	}
+	if given["contact-email"] && strings.TrimSpace(*contactEmail) != "" && !validContactEmail(strings.TrimSpace(*contactEmail)) {
+		log.Fatalf("-contact-email %q is not an email address", *contactEmail)
 	}
 	if given["name"] && strings.TrimSpace(*name) == "" {
 		log.Fatal("-name cannot be empty")
@@ -208,6 +215,7 @@ func update(ctx context.Context, pool *pgxpool.Pool, args []string) {
 			description = CASE WHEN $10::bool THEN NULLIF($11::text, '') ELSE description END,
 			logo        = CASE WHEN $12::bool THEN $13::bytea WHEN $14::bool THEN NULL ELSE logo END,
 			logo_type   = CASE WHEN $12::bool THEN $15::text WHEN $14::bool THEN NULL ELSE logo_type END,
+			contact_email = CASE WHEN $16::bool THEN NULLIF($17::text, '') ELSE contact_email END,
 			updated_at  = NOW()
 		WHERE slug = $1
 		RETURNING name, COALESCE(institution, ''), COALESCE(faculty, ''), COALESCE(matric_code, ''),
@@ -220,6 +228,7 @@ func update(ctx context.Context, pool *pgxpool.Pool, args []string) {
 		given["description"], desc,
 		given["logo"], logo,
 		*removeLogo, logoType,
+		given["contact-email"], strings.TrimSpace(*contactEmail),
 	).Scan(&newName, &newInstitution, &newFaculty, &newCode, &newDescription, &hasLogo)
 	if errors.Is(err, pgx.ErrNoRows) {
 		log.Fatalf("no department with slug %q", *slug)
@@ -363,4 +372,16 @@ func loadDotEnv(path string) {
 			os.Setenv(key, value)
 		}
 	}
+}
+
+// validContactEmail reports whether s is an email address the database accepts
+// for a contact email: one @, no spaces, and a dot in the domain that is neither
+// the first nor the last character.
+func validContactEmail(s string) bool {
+	if strings.ContainsAny(s, " \t\r\n") || strings.Count(s, "@") != 1 {
+		return false
+	}
+	at := strings.Index(s, "@")
+	local, domain := s[:at], s[at+1:]
+	return local != "" && strings.Contains(domain, ".") && !strings.HasPrefix(domain, ".") && !strings.HasSuffix(domain, ".")
 }

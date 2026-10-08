@@ -49,3 +49,18 @@ func TestCheckLogo(t *testing.T) {
 		}
 	}
 }
+
+func TestValidContactEmail(t *testing.T) {
+	good := []string{"acesuniuyo112@gmail.com", "ee@dept.example.edu"}
+	bad := []string{"", "no-at-sign", "@example.com", "a@b", "a b@example.com", "a@@example.com", "a@.example.com", "a@example."}
+	for _, s := range good {
+		if !validContactEmail(s) {
+			t.Errorf("%q should be accepted", s)
+		}
+	}
+	for _, s := range bad {
+		if validContactEmail(s) {
+			t.Errorf("%q should be refused", s)
+		}
+	}
+}
