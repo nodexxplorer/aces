@@ -48,7 +48,7 @@ INSERT INTO announcements (
     title, content, is_pinned, target_level, target_audience, expires_at, created_by
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7
-) RETURNING id, title, content, is_pinned, target_level, target_audience, expires_at, created_by, created_at, summary, priority, category, target_levels, target_departments, attachments, requires_acknowledgment, status, scheduled_for, read_count, acknowledged_count, pin_order, updated_at
+) RETURNING id, title, content, is_pinned, target_level, target_audience, expires_at, created_by, created_at, summary, priority, category, target_levels, target_departments, attachments, requires_acknowledgment, status, scheduled_for, read_count, acknowledged_count, pin_order, updated_at, tenant_id
 `
 
 type CreateAnnouncementParams struct {
@@ -95,6 +95,7 @@ func (q *Queries) CreateAnnouncement(ctx context.Context, arg CreateAnnouncement
 		&i.AcknowledgedCount,
 		&i.PinOrder,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -104,7 +105,7 @@ INSERT INTO notifications (
     user_id, type, title, message, action_url, email_sent, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
-) RETURNING id, user_id, type, title, message, is_read, action_url, email_sent, created_at, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata, expires_at
+) RETURNING id, user_id, type, title, message, is_read, action_url, email_sent, created_at, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata, expires_at, tenant_id
 `
 
 type CreateNotificationParams struct {
@@ -161,6 +162,7 @@ func (q *Queries) CreateNotification(ctx context.Context, arg CreateNotification
 		&i.ImageUrl,
 		&i.Metadata,
 		&i.ExpiresAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -170,7 +172,7 @@ INSERT INTO notifications (
     user_id, type, title, message, action_url, email_sent, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
-) RETURNING id, user_id, type, title, message, is_read, action_url, email_sent, created_at, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata, expires_at
+) RETURNING id, user_id, type, title, message, is_read, action_url, email_sent, created_at, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata, expires_at, tenant_id
 `
 
 type CreateNotificationForUserParams struct {
@@ -227,6 +229,7 @@ func (q *Queries) CreateNotificationForUser(ctx context.Context, arg CreateNotif
 		&i.ImageUrl,
 		&i.Metadata,
 		&i.ExpiresAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -257,7 +260,7 @@ func (q *Queries) DeleteNotification(ctx context.Context, arg DeleteNotification
 }
 
 const getAnnouncement = `-- name: GetAnnouncement :one
-SELECT id, title, content, is_pinned, target_level, target_audience, expires_at, created_by, created_at, summary, priority, category, target_levels, target_departments, attachments, requires_acknowledgment, status, scheduled_for, read_count, acknowledged_count, pin_order, updated_at FROM announcements
+SELECT id, title, content, is_pinned, target_level, target_audience, expires_at, created_by, created_at, summary, priority, category, target_levels, target_departments, attachments, requires_acknowledgment, status, scheduled_for, read_count, acknowledged_count, pin_order, updated_at, tenant_id FROM announcements
 WHERE id = $1 LIMIT 1
 `
 
@@ -287,12 +290,13 @@ func (q *Queries) GetAnnouncement(ctx context.Context, id uuid.UUID) (Announceme
 		&i.AcknowledgedCount,
 		&i.PinOrder,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getNotification = `-- name: GetNotification :one
-SELECT id, user_id, type, title, message, is_read, action_url, email_sent, created_at, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata, expires_at FROM notifications
+SELECT id, user_id, type, title, message, is_read, action_url, email_sent, created_at, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata, expires_at, tenant_id FROM notifications
 WHERE id = $1 LIMIT 1
 `
 
@@ -318,12 +322,13 @@ func (q *Queries) GetNotification(ctx context.Context, id uuid.UUID) (Notificati
 		&i.ImageUrl,
 		&i.Metadata,
 		&i.ExpiresAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const listActiveAnnouncements = `-- name: ListActiveAnnouncements :many
-SELECT id, title, content, is_pinned, target_level, target_audience, expires_at, created_by, created_at, summary, priority, category, target_levels, target_departments, attachments, requires_acknowledgment, status, scheduled_for, read_count, acknowledged_count, pin_order, updated_at FROM announcements
+SELECT id, title, content, is_pinned, target_level, target_audience, expires_at, created_by, created_at, summary, priority, category, target_levels, target_departments, attachments, requires_acknowledgment, status, scheduled_for, read_count, acknowledged_count, pin_order, updated_at, tenant_id FROM announcements
 WHERE (expires_at IS NULL OR expires_at > NOW())
 ORDER BY is_pinned DESC, created_at DESC
 LIMIT $1 OFFSET $2
@@ -366,6 +371,7 @@ func (q *Queries) ListActiveAnnouncements(ctx context.Context, arg ListActiveAnn
 			&i.AcknowledgedCount,
 			&i.PinOrder,
 			&i.UpdatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -378,7 +384,7 @@ func (q *Queries) ListActiveAnnouncements(ctx context.Context, arg ListActiveAnn
 }
 
 const listUnreadUserNotifications = `-- name: ListUnreadUserNotifications :many
-SELECT id, user_id, type, title, message, is_read, action_url, email_sent, created_at, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata, expires_at FROM notifications
+SELECT id, user_id, type, title, message, is_read, action_url, email_sent, created_at, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata, expires_at, tenant_id FROM notifications
 WHERE user_id = $1 AND is_read = false
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3
@@ -418,6 +424,7 @@ func (q *Queries) ListUnreadUserNotifications(ctx context.Context, arg ListUnrea
 			&i.ImageUrl,
 			&i.Metadata,
 			&i.ExpiresAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -430,7 +437,7 @@ func (q *Queries) ListUnreadUserNotifications(ctx context.Context, arg ListUnrea
 }
 
 const listUserNotifications = `-- name: ListUserNotifications :many
-SELECT id, user_id, type, title, message, is_read, action_url, email_sent, created_at, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata, expires_at FROM notifications
+SELECT id, user_id, type, title, message, is_read, action_url, email_sent, created_at, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata, expires_at, tenant_id FROM notifications
 WHERE user_id = $1
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3
@@ -470,6 +477,7 @@ func (q *Queries) ListUserNotifications(ctx context.Context, arg ListUserNotific
 			&i.ImageUrl,
 			&i.Metadata,
 			&i.ExpiresAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -482,7 +490,7 @@ func (q *Queries) ListUserNotifications(ctx context.Context, arg ListUserNotific
 }
 
 const listUserNotificationsByCategory = `-- name: ListUserNotificationsByCategory :many
-SELECT id, user_id, type, title, message, is_read, action_url, email_sent, created_at, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata, expires_at FROM notifications
+SELECT id, user_id, type, title, message, is_read, action_url, email_sent, created_at, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata, expires_at, tenant_id FROM notifications
 WHERE user_id = $1 AND category = $2
 ORDER BY created_at DESC
 LIMIT $3 OFFSET $4
@@ -528,6 +536,7 @@ func (q *Queries) ListUserNotificationsByCategory(ctx context.Context, arg ListU
 			&i.ImageUrl,
 			&i.Metadata,
 			&i.ExpiresAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -554,7 +563,7 @@ const markNotificationAsRead = `-- name: MarkNotificationAsRead :one
 UPDATE notifications
 SET is_read = true
 WHERE id = $1 AND user_id = $2
-RETURNING id, user_id, type, title, message, is_read, action_url, email_sent, created_at, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata, expires_at
+RETURNING id, user_id, type, title, message, is_read, action_url, email_sent, created_at, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata, expires_at, tenant_id
 `
 
 type MarkNotificationAsReadParams struct {
@@ -584,6 +593,7 @@ func (q *Queries) MarkNotificationAsRead(ctx context.Context, arg MarkNotificati
 		&i.ImageUrl,
 		&i.Metadata,
 		&i.ExpiresAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -598,7 +608,7 @@ SET
     target_audience = $6,
     expires_at = $7
 WHERE id = $1
-RETURNING id, title, content, is_pinned, target_level, target_audience, expires_at, created_by, created_at, summary, priority, category, target_levels, target_departments, attachments, requires_acknowledgment, status, scheduled_for, read_count, acknowledged_count, pin_order, updated_at
+RETURNING id, title, content, is_pinned, target_level, target_audience, expires_at, created_by, created_at, summary, priority, category, target_levels, target_departments, attachments, requires_acknowledgment, status, scheduled_for, read_count, acknowledged_count, pin_order, updated_at, tenant_id
 `
 
 type UpdateAnnouncementParams struct {
@@ -645,6 +655,7 @@ func (q *Queries) UpdateAnnouncement(ctx context.Context, arg UpdateAnnouncement
 		&i.AcknowledgedCount,
 		&i.PinOrder,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }

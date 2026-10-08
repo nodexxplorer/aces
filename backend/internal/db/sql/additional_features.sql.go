@@ -52,7 +52,7 @@ func (q *Queries) CleanupExpiredSessions(ctx context.Context) error {
 const createActiveSession = `-- name: CreateActiveSession :one
 INSERT INTO active_sessions (user_id, session_token, device_info, ip_address, user_agent, expires_at)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, user_id, session_token, device_info, ip_address, user_agent, last_active_at, created_at, expires_at
+RETURNING id, user_id, session_token, device_info, ip_address, user_agent, last_active_at, created_at, expires_at, tenant_id
 `
 
 type CreateActiveSessionParams struct {
@@ -84,6 +84,7 @@ func (q *Queries) CreateActiveSession(ctx context.Context, arg CreateActiveSessi
 		&i.LastActiveAt,
 		&i.CreatedAt,
 		&i.ExpiresAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -91,7 +92,7 @@ func (q *Queries) CreateActiveSession(ctx context.Context, arg CreateActiveSessi
 const createClassNotice = `-- name: CreateClassNotice :one
 INSERT INTO class_notices (class_rep_id, title, content, is_pinned, allow_comments, attachment_url, expires_at, level, target_user_ids)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, class_rep_id, title, content, is_pinned, pinned_order, allow_comments, attachment_url, expires_at, created_at, updated_at, level, target_user_ids
+RETURNING id, class_rep_id, title, content, is_pinned, pinned_order, allow_comments, attachment_url, expires_at, created_at, updated_at, level, target_user_ids, tenant_id
 `
 
 type CreateClassNoticeParams struct {
@@ -133,6 +134,7 @@ func (q *Queries) CreateClassNotice(ctx context.Context, arg CreateClassNoticePa
 		&i.UpdatedAt,
 		&i.Level,
 		&i.TargetUserIds,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -140,7 +142,7 @@ func (q *Queries) CreateClassNotice(ctx context.Context, arg CreateClassNoticePa
 const createDepartmentalEvent = `-- name: CreateDepartmentalEvent :one
 INSERT INTO departmental_events (creator_id, title, description, event_type, start_time, end_time, venue, target_levels, target_audience, is_all_day, color)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, creator_id, title, description, event_type, start_time, end_time, venue, target_levels, target_audience, is_all_day, color, created_at
+RETURNING id, creator_id, title, description, event_type, start_time, end_time, venue, target_levels, target_audience, is_all_day, color, created_at, tenant_id
 `
 
 type CreateDepartmentalEventParams struct {
@@ -186,6 +188,7 @@ func (q *Queries) CreateDepartmentalEvent(ctx context.Context, arg CreateDepartm
 		&i.IsAllDay,
 		&i.Color,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -193,7 +196,7 @@ func (q *Queries) CreateDepartmentalEvent(ctx context.Context, arg CreateDepartm
 const createExpense = `-- name: CreateExpense :one
 INSERT INTO expenses (description, amount, category, expense_date, receipt_url, submitted_by)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, description, amount, category, expense_date, receipt_url, status, submitted_by, approved_by, approved_at, rejection_reason, created_at
+RETURNING id, description, amount, category, expense_date, receipt_url, status, submitted_by, approved_by, approved_at, rejection_reason, created_at, tenant_id
 `
 
 type CreateExpenseParams struct {
@@ -228,6 +231,7 @@ func (q *Queries) CreateExpense(ctx context.Context, arg CreateExpenseParams) (E
 		&i.ApprovedAt,
 		&i.RejectionReason,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -235,7 +239,7 @@ func (q *Queries) CreateExpense(ctx context.Context, arg CreateExpenseParams) (E
 const createExpenseBudget = `-- name: CreateExpenseBudget :one
 INSERT INTO expense_budgets (category, session_id, budget_amount, alert_threshold)
 VALUES ($1, $2, $3, $4)
-RETURNING id, category, session_id, budget_amount, spent_amount, alert_threshold, created_at, updated_at
+RETURNING id, category, session_id, budget_amount, spent_amount, alert_threshold, created_at, updated_at, tenant_id
 `
 
 type CreateExpenseBudgetParams struct {
@@ -262,6 +266,7 @@ func (q *Queries) CreateExpenseBudget(ctx context.Context, arg CreateExpenseBudg
 		&i.AlertThreshold,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -269,7 +274,7 @@ func (q *Queries) CreateExpenseBudget(ctx context.Context, arg CreateExpenseBudg
 const createFeatureFlag = `-- name: CreateFeatureFlag :one
 INSERT INTO feature_flags (name, description, is_enabled, target_roles, target_levels, percentage, created_by)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, name, description, is_enabled, target_roles, target_levels, percentage, created_by, created_at, updated_at
+RETURNING id, name, description, is_enabled, target_roles, target_levels, percentage, created_by, created_at, updated_at, tenant_id
 `
 
 type CreateFeatureFlagParams struct {
@@ -304,6 +309,7 @@ func (q *Queries) CreateFeatureFlag(ctx context.Context, arg CreateFeatureFlagPa
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -311,7 +317,7 @@ func (q *Queries) CreateFeatureFlag(ctx context.Context, arg CreateFeatureFlagPa
 const createFeedback = `-- name: CreateFeedback :one
 INSERT INTO feedback_submissions (user_id, feedback_type, title, description, rating, screenshot_url, device_info)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, user_id, feedback_type, title, description, rating, screenshot_url, device_info, status, admin_response, responded_at, created_at
+RETURNING id, user_id, feedback_type, title, description, rating, screenshot_url, device_info, status, admin_response, responded_at, created_at, tenant_id
 `
 
 type CreateFeedbackParams struct {
@@ -348,6 +354,7 @@ func (q *Queries) CreateFeedback(ctx context.Context, arg CreateFeedbackParams) 
 		&i.AdminResponse,
 		&i.RespondedAt,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -355,7 +362,7 @@ func (q *Queries) CreateFeedback(ctx context.Context, arg CreateFeedbackParams) 
 const createGPAScenario = `-- name: CreateGPAScenario :one
 INSERT INTO gpa_scenarios (user_id, name, courses)
 VALUES ($1, $2, $3)
-RETURNING id, user_id, name, courses, created_at, updated_at
+RETURNING id, user_id, name, courses, created_at, updated_at, tenant_id
 `
 
 type CreateGPAScenarioParams struct {
@@ -374,6 +381,7 @@ func (q *Queries) CreateGPAScenario(ctx context.Context, arg CreateGPAScenarioPa
 		&i.Courses,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -381,7 +389,7 @@ func (q *Queries) CreateGPAScenario(ctx context.Context, arg CreateGPAScenarioPa
 const createGradeAppeal = `-- name: CreateGradeAppeal :one
 INSERT INTO grade_appeals (student_id, course_id, semester_id, session_id, reason, evidence_urls)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, student_id, course_id, semester_id, session_id, reason, evidence_urls, status, lecturer_response, lecturer_id, hod_response, hod_id, original_score, revised_score, resolved_at, created_at, updated_at
+RETURNING id, student_id, course_id, semester_id, session_id, reason, evidence_urls, status, lecturer_response, lecturer_id, hod_response, hod_id, original_score, revised_score, resolved_at, created_at, updated_at, tenant_id
 `
 
 type CreateGradeAppealParams struct {
@@ -421,6 +429,7 @@ func (q *Queries) CreateGradeAppeal(ctx context.Context, arg CreateGradeAppealPa
 		&i.ResolvedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -477,7 +486,7 @@ func (q *Queries) CreateLockoutIfNeeded(ctx context.Context, userID uuid.UUID) e
 const createNoticeComment = `-- name: CreateNoticeComment :one
 INSERT INTO class_notice_comments (notice_id, user_id, content)
 VALUES ($1, $2, $3)
-RETURNING id, notice_id, user_id, content, created_at
+RETURNING id, notice_id, user_id, content, created_at, tenant_id
 `
 
 type CreateNoticeCommentParams struct {
@@ -495,6 +504,7 @@ func (q *Queries) CreateNoticeComment(ctx context.Context, arg CreateNoticeComme
 		&i.UserID,
 		&i.Content,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -502,7 +512,7 @@ func (q *Queries) CreateNoticeComment(ctx context.Context, arg CreateNoticeComme
 const createPasswordReset = `-- name: CreatePasswordReset :one
 INSERT INTO password_resets (user_id, channel, otp_code, expires_at)
 VALUES ($1, $2, $3, $4)
-RETURNING id, user_id, channel, otp_code, expires_at, used, attempts, created_at
+RETURNING id, user_id, channel, otp_code, expires_at, used, attempts, created_at, tenant_id
 `
 
 type CreatePasswordResetParams struct {
@@ -529,6 +539,7 @@ func (q *Queries) CreatePasswordReset(ctx context.Context, arg CreatePasswordRes
 		&i.Used,
 		&i.Attempts,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -536,7 +547,7 @@ func (q *Queries) CreatePasswordReset(ctx context.Context, arg CreatePasswordRes
 const createStaffMeeting = `-- name: CreateStaffMeeting :one
 INSERT INTO staff_meetings (organizer_id, title, description, meeting_date, duration_minutes, venue, is_recurring, recurrence_pattern)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, organizer_id, title, description, meeting_date, duration_minutes, venue, is_recurring, recurrence_pattern, status, minutes_url, created_at
+RETURNING id, organizer_id, title, description, meeting_date, duration_minutes, venue, is_recurring, recurrence_pattern, status, minutes_url, created_at, tenant_id
 `
 
 type CreateStaffMeetingParams struct {
@@ -575,6 +586,7 @@ func (q *Queries) CreateStaffMeeting(ctx context.Context, arg CreateStaffMeeting
 		&i.Status,
 		&i.MinutesUrl,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -582,7 +594,7 @@ func (q *Queries) CreateStaffMeeting(ctx context.Context, arg CreateStaffMeeting
 const createStudyTask = `-- name: CreateStudyTask :one
 INSERT INTO study_tasks (user_id, course_id, title, description, priority, due_date, reminder_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, user_id, course_id, title, description, priority, status, due_date, reminder_at, completed_at, is_smart_suggestion, created_at, updated_at
+RETURNING id, user_id, course_id, title, description, priority, status, due_date, reminder_at, completed_at, is_smart_suggestion, created_at, updated_at, tenant_id
 `
 
 type CreateStudyTaskParams struct {
@@ -620,6 +632,7 @@ func (q *Queries) CreateStudyTask(ctx context.Context, arg CreateStudyTaskParams
 		&i.IsSmartSuggestion,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -717,7 +730,7 @@ func (q *Queries) DeleteUserSessions(ctx context.Context, userID uuid.UUID) erro
 }
 
 const getActiveSessionByToken = `-- name: GetActiveSessionByToken :one
-SELECT id, user_id, session_token, device_info, ip_address, user_agent, last_active_at, created_at, expires_at FROM active_sessions
+SELECT id, user_id, session_token, device_info, ip_address, user_agent, last_active_at, created_at, expires_at, tenant_id FROM active_sessions
 WHERE session_token = $1 AND expires_at > NOW()
 `
 
@@ -734,12 +747,13 @@ func (q *Queries) GetActiveSessionByToken(ctx context.Context, sessionToken stri
 		&i.LastActiveAt,
 		&i.CreatedAt,
 		&i.ExpiresAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getBudgetAlerts = `-- name: GetBudgetAlerts :many
-SELECT id, category, session_id, budget_amount, spent_amount, alert_threshold, created_at, updated_at FROM expense_budgets
+SELECT id, category, session_id, budget_amount, spent_amount, alert_threshold, created_at, updated_at, tenant_id FROM expense_budgets
 WHERE spent_amount >= budget_amount * alert_threshold
 `
 
@@ -761,6 +775,7 @@ func (q *Queries) GetBudgetAlerts(ctx context.Context) ([]ExpenseBudget, error) 
 			&i.AlertThreshold,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -773,7 +788,7 @@ func (q *Queries) GetBudgetAlerts(ctx context.Context) ([]ExpenseBudget, error) 
 }
 
 const getClassNotice = `-- name: GetClassNotice :one
-SELECT cn.id, cn.class_rep_id, cn.title, cn.content, cn.is_pinned, cn.pinned_order, cn.allow_comments, cn.attachment_url, cn.expires_at, cn.created_at, cn.updated_at, cn.level, cn.target_user_ids, u.full_name AS author_name
+SELECT cn.id, cn.class_rep_id, cn.title, cn.content, cn.is_pinned, cn.pinned_order, cn.allow_comments, cn.attachment_url, cn.expires_at, cn.created_at, cn.updated_at, cn.level, cn.target_user_ids, cn.tenant_id, u.full_name AS author_name
 FROM class_notices cn
 JOIN users u ON u.id = cn.class_rep_id
 WHERE cn.id = $1
@@ -793,6 +808,7 @@ type GetClassNoticeRow struct {
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 	Level         *int32             `json:"level"`
 	TargetUserIds json.RawMessage    `json:"target_user_ids"`
+	TenantID      uuid.UUID          `json:"tenant_id"`
 	AuthorName    *string            `json:"author_name"`
 }
 
@@ -813,13 +829,14 @@ func (q *Queries) GetClassNotice(ctx context.Context, id uuid.UUID) (GetClassNot
 		&i.UpdatedAt,
 		&i.Level,
 		&i.TargetUserIds,
+		&i.TenantID,
 		&i.AuthorName,
 	)
 	return i, err
 }
 
 const getDepartmentalEvent = `-- name: GetDepartmentalEvent :one
-SELECT de.id, de.creator_id, de.title, de.description, de.event_type, de.start_time, de.end_time, de.venue, de.target_levels, de.target_audience, de.is_all_day, de.color, de.created_at, u.full_name AS creator_name
+SELECT de.id, de.creator_id, de.title, de.description, de.event_type, de.start_time, de.end_time, de.venue, de.target_levels, de.target_audience, de.is_all_day, de.color, de.created_at, de.tenant_id, u.full_name AS creator_name
 FROM departmental_events de
 JOIN users u ON u.id = de.creator_id
 WHERE de.id = $1
@@ -839,6 +856,7 @@ type GetDepartmentalEventRow struct {
 	IsAllDay       *bool              `json:"is_all_day"`
 	Color          *string            `json:"color"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	TenantID       uuid.UUID          `json:"tenant_id"`
 	CreatorName    *string            `json:"creator_name"`
 }
 
@@ -859,13 +877,14 @@ func (q *Queries) GetDepartmentalEvent(ctx context.Context, id uuid.UUID) (GetDe
 		&i.IsAllDay,
 		&i.Color,
 		&i.CreatedAt,
+		&i.TenantID,
 		&i.CreatorName,
 	)
 	return i, err
 }
 
 const getExpense = `-- name: GetExpense :one
-SELECT e.id, e.description, e.amount, e.category, e.expense_date, e.receipt_url, e.status, e.submitted_by, e.approved_by, e.approved_at, e.rejection_reason, e.created_at, u.full_name AS submitted_by_name
+SELECT e.id, e.description, e.amount, e.category, e.expense_date, e.receipt_url, e.status, e.submitted_by, e.approved_by, e.approved_at, e.rejection_reason, e.created_at, e.tenant_id, u.full_name AS submitted_by_name
 FROM expenses e
 JOIN users u ON u.id = e.submitted_by
 WHERE e.id = $1
@@ -884,6 +903,7 @@ type GetExpenseRow struct {
 	ApprovedAt      pgtype.Timestamptz `json:"approved_at"`
 	RejectionReason *string            `json:"rejection_reason"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
 	SubmittedByName *string            `json:"submitted_by_name"`
 }
 
@@ -903,13 +923,14 @@ func (q *Queries) GetExpense(ctx context.Context, id uuid.UUID) (GetExpenseRow, 
 		&i.ApprovedAt,
 		&i.RejectionReason,
 		&i.CreatedAt,
+		&i.TenantID,
 		&i.SubmittedByName,
 	)
 	return i, err
 }
 
 const getExpenseBudget = `-- name: GetExpenseBudget :one
-SELECT id, category, session_id, budget_amount, spent_amount, alert_threshold, created_at, updated_at FROM expense_budgets WHERE category = $1 AND ($2::uuid IS NULL OR session_id = $2)
+SELECT id, category, session_id, budget_amount, spent_amount, alert_threshold, created_at, updated_at, tenant_id FROM expense_budgets WHERE category = $1 AND ($2::uuid IS NULL OR session_id = $2)
 `
 
 type GetExpenseBudgetParams struct {
@@ -929,6 +950,7 @@ func (q *Queries) GetExpenseBudget(ctx context.Context, arg GetExpenseBudgetPara
 		&i.AlertThreshold,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -1004,7 +1026,7 @@ func (q *Queries) GetExpenseSummary(ctx context.Context) (GetExpenseSummaryRow, 
 }
 
 const getFeatureFlag = `-- name: GetFeatureFlag :one
-SELECT id, name, description, is_enabled, target_roles, target_levels, percentage, created_by, created_at, updated_at FROM feature_flags WHERE name = $1
+SELECT id, name, description, is_enabled, target_roles, target_levels, percentage, created_by, created_at, updated_at, tenant_id FROM feature_flags WHERE name = $1
 `
 
 func (q *Queries) GetFeatureFlag(ctx context.Context, name string) (FeatureFlag, error) {
@@ -1021,12 +1043,13 @@ func (q *Queries) GetFeatureFlag(ctx context.Context, name string) (FeatureFlag,
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getFeedback = `-- name: GetFeedback :one
-SELECT fs.id, fs.user_id, fs.feedback_type, fs.title, fs.description, fs.rating, fs.screenshot_url, fs.device_info, fs.status, fs.admin_response, fs.responded_at, fs.created_at, u.full_name AS user_name
+SELECT fs.id, fs.user_id, fs.feedback_type, fs.title, fs.description, fs.rating, fs.screenshot_url, fs.device_info, fs.status, fs.admin_response, fs.responded_at, fs.created_at, fs.tenant_id, u.full_name AS user_name
 FROM feedback_submissions fs
 JOIN users u ON u.id = fs.user_id
 WHERE fs.id = $1
@@ -1045,6 +1068,7 @@ type GetFeedbackRow struct {
 	AdminResponse *string            `json:"admin_response"`
 	RespondedAt   pgtype.Timestamptz `json:"responded_at"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	TenantID      uuid.UUID          `json:"tenant_id"`
 	UserName      *string            `json:"user_name"`
 }
 
@@ -1064,13 +1088,14 @@ func (q *Queries) GetFeedback(ctx context.Context, id uuid.UUID) (GetFeedbackRow
 		&i.AdminResponse,
 		&i.RespondedAt,
 		&i.CreatedAt,
+		&i.TenantID,
 		&i.UserName,
 	)
 	return i, err
 }
 
 const getGPAScenario = `-- name: GetGPAScenario :one
-SELECT id, user_id, name, courses, created_at, updated_at FROM gpa_scenarios WHERE id = $1 AND user_id = $2
+SELECT id, user_id, name, courses, created_at, updated_at, tenant_id FROM gpa_scenarios WHERE id = $1 AND user_id = $2
 `
 
 type GetGPAScenarioParams struct {
@@ -1088,12 +1113,13 @@ func (q *Queries) GetGPAScenario(ctx context.Context, arg GetGPAScenarioParams) 
 		&i.Courses,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getGradeAppeal = `-- name: GetGradeAppeal :one
-SELECT ga.id, ga.student_id, ga.course_id, ga.semester_id, ga.session_id, ga.reason, ga.evidence_urls, ga.status, ga.lecturer_response, ga.lecturer_id, ga.hod_response, ga.hod_id, ga.original_score, ga.revised_score, ga.resolved_at, ga.created_at, ga.updated_at, c.code AS course_code, c.title AS course_title,
+SELECT ga.id, ga.student_id, ga.course_id, ga.semester_id, ga.session_id, ga.reason, ga.evidence_urls, ga.status, ga.lecturer_response, ga.lecturer_id, ga.hod_response, ga.hod_id, ga.original_score, ga.revised_score, ga.resolved_at, ga.created_at, ga.updated_at, ga.tenant_id, c.code AS course_code, c.title AS course_title,
        u.full_name AS student_name
 FROM grade_appeals ga
 JOIN courses c ON c.id = ga.course_id
@@ -1119,6 +1145,7 @@ type GetGradeAppealRow struct {
 	ResolvedAt       pgtype.Timestamptz `json:"resolved_at"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	TenantID         uuid.UUID          `json:"tenant_id"`
 	CourseCode       string             `json:"course_code"`
 	CourseTitle      string             `json:"course_title"`
 	StudentName      *string            `json:"student_name"`
@@ -1145,6 +1172,7 @@ func (q *Queries) GetGradeAppeal(ctx context.Context, id uuid.UUID) (GetGradeApp
 		&i.ResolvedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 		&i.CourseCode,
 		&i.CourseTitle,
 		&i.StudentName,
@@ -1175,7 +1203,7 @@ func (q *Queries) GetHelpArticle(ctx context.Context, id uuid.UUID) (HelpArticle
 }
 
 const getLockoutStatus = `-- name: GetLockoutStatus :one
-SELECT id, user_id, failed_attempts, locked_at, unlock_at, ip_addresses, is_locked, created_at, updated_at FROM account_lockouts WHERE user_id = $1
+SELECT id, user_id, failed_attempts, locked_at, unlock_at, ip_addresses, is_locked, created_at, updated_at, tenant_id FROM account_lockouts WHERE user_id = $1
 `
 
 func (q *Queries) GetLockoutStatus(ctx context.Context, userID uuid.UUID) (AccountLockout, error) {
@@ -1191,12 +1219,13 @@ func (q *Queries) GetLockoutStatus(ctx context.Context, userID uuid.UUID) (Accou
 		&i.IsLocked,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getLockoutStatusByUser = `-- name: GetLockoutStatusByUser :one
-SELECT id, user_id, failed_attempts, locked_at, unlock_at, ip_addresses, is_locked, created_at, updated_at FROM account_lockouts WHERE user_id = $1
+SELECT id, user_id, failed_attempts, locked_at, unlock_at, ip_addresses, is_locked, created_at, updated_at, tenant_id FROM account_lockouts WHERE user_id = $1
 `
 
 func (q *Queries) GetLockoutStatusByUser(ctx context.Context, userID uuid.UUID) (AccountLockout, error) {
@@ -1212,12 +1241,13 @@ func (q *Queries) GetLockoutStatusByUser(ctx context.Context, userID uuid.UUID) 
 		&i.IsLocked,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getPasswordResetByCode = `-- name: GetPasswordResetByCode :one
-SELECT id, user_id, channel, otp_code, expires_at, used, attempts, created_at FROM password_resets
+SELECT id, user_id, channel, otp_code, expires_at, used, attempts, created_at, tenant_id FROM password_resets
 WHERE otp_code = $1 AND used = false AND expires_at > NOW()
 LIMIT 1
 `
@@ -1234,12 +1264,13 @@ func (q *Queries) GetPasswordResetByCode(ctx context.Context, otpCode string) (P
 		&i.Used,
 		&i.Attempts,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getPasswordResetByUser = `-- name: GetPasswordResetByUser :one
-SELECT id, user_id, channel, otp_code, expires_at, used, attempts, created_at FROM password_resets
+SELECT id, user_id, channel, otp_code, expires_at, used, attempts, created_at, tenant_id FROM password_resets
 WHERE user_id = $1 AND used = false AND expires_at > NOW()
 ORDER BY created_at DESC LIMIT 1
 `
@@ -1256,12 +1287,13 @@ func (q *Queries) GetPasswordResetByUser(ctx context.Context, userID uuid.UUID) 
 		&i.Used,
 		&i.Attempts,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getStaffMeeting = `-- name: GetStaffMeeting :one
-SELECT sm.id, sm.organizer_id, sm.title, sm.description, sm.meeting_date, sm.duration_minutes, sm.venue, sm.is_recurring, sm.recurrence_pattern, sm.status, sm.minutes_url, sm.created_at, u.full_name AS organizer_name
+SELECT sm.id, sm.organizer_id, sm.title, sm.description, sm.meeting_date, sm.duration_minutes, sm.venue, sm.is_recurring, sm.recurrence_pattern, sm.status, sm.minutes_url, sm.created_at, sm.tenant_id, u.full_name AS organizer_name
 FROM staff_meetings sm
 JOIN users u ON u.id = sm.organizer_id
 WHERE sm.id = $1
@@ -1280,6 +1312,7 @@ type GetStaffMeetingRow struct {
 	Status            MeetingStatus      `json:"status"`
 	MinutesUrl        *string            `json:"minutes_url"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	TenantID          uuid.UUID          `json:"tenant_id"`
 	OrganizerName     *string            `json:"organizer_name"`
 }
 
@@ -1299,13 +1332,14 @@ func (q *Queries) GetStaffMeeting(ctx context.Context, id uuid.UUID) (GetStaffMe
 		&i.Status,
 		&i.MinutesUrl,
 		&i.CreatedAt,
+		&i.TenantID,
 		&i.OrganizerName,
 	)
 	return i, err
 }
 
 const getStudyTask = `-- name: GetStudyTask :one
-SELECT st.id, st.user_id, st.course_id, st.title, st.description, st.priority, st.status, st.due_date, st.reminder_at, st.completed_at, st.is_smart_suggestion, st.created_at, st.updated_at, c.code AS course_code, c.title AS course_title
+SELECT st.id, st.user_id, st.course_id, st.title, st.description, st.priority, st.status, st.due_date, st.reminder_at, st.completed_at, st.is_smart_suggestion, st.created_at, st.updated_at, st.tenant_id, c.code AS course_code, c.title AS course_title
 FROM study_tasks st
 LEFT JOIN courses c ON c.id = st.course_id
 WHERE st.id = $1 AND st.user_id = $2
@@ -1330,6 +1364,7 @@ type GetStudyTaskRow struct {
 	IsSmartSuggestion *bool              `json:"is_smart_suggestion"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	TenantID          uuid.UUID          `json:"tenant_id"`
 	CourseCode        *string            `json:"course_code"`
 	CourseTitle       *string            `json:"course_title"`
 }
@@ -1351,6 +1386,7 @@ func (q *Queries) GetStudyTask(ctx context.Context, arg GetStudyTaskParams) (Get
 		&i.IsSmartSuggestion,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 		&i.CourseCode,
 		&i.CourseTitle,
 	)
@@ -1358,7 +1394,7 @@ func (q *Queries) GetStudyTask(ctx context.Context, arg GetStudyTaskParams) (Get
 }
 
 const getUpcomingTasks = `-- name: GetUpcomingTasks :many
-SELECT st.id, st.user_id, st.course_id, st.title, st.description, st.priority, st.status, st.due_date, st.reminder_at, st.completed_at, st.is_smart_suggestion, st.created_at, st.updated_at, c.code AS course_code
+SELECT st.id, st.user_id, st.course_id, st.title, st.description, st.priority, st.status, st.due_date, st.reminder_at, st.completed_at, st.is_smart_suggestion, st.created_at, st.updated_at, st.tenant_id, c.code AS course_code
 FROM study_tasks st
 LEFT JOIN courses c ON c.id = st.course_id
 WHERE st.user_id = $1 AND st.status IN ('pending', 'in_progress')
@@ -1385,6 +1421,7 @@ type GetUpcomingTasksRow struct {
 	IsSmartSuggestion *bool              `json:"is_smart_suggestion"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	TenantID          uuid.UUID          `json:"tenant_id"`
 	CourseCode        *string            `json:"course_code"`
 }
 
@@ -1411,6 +1448,7 @@ func (q *Queries) GetUpcomingTasks(ctx context.Context, arg GetUpcomingTasksPara
 			&i.IsSmartSuggestion,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 			&i.CourseCode,
 		); err != nil {
 			return nil, err
@@ -1462,7 +1500,7 @@ func (q *Queries) IsFeatureEnabledForUser(ctx context.Context, arg IsFeatureEnab
 }
 
 const listAllFeedback = `-- name: ListAllFeedback :many
-SELECT fs.id, fs.user_id, fs.feedback_type, fs.title, fs.description, fs.rating, fs.screenshot_url, fs.device_info, fs.status, fs.admin_response, fs.responded_at, fs.created_at, u.full_name AS user_name
+SELECT fs.id, fs.user_id, fs.feedback_type, fs.title, fs.description, fs.rating, fs.screenshot_url, fs.device_info, fs.status, fs.admin_response, fs.responded_at, fs.created_at, fs.tenant_id, u.full_name AS user_name
 FROM feedback_submissions fs
 JOIN users u ON u.id = fs.user_id
 ORDER BY fs.created_at DESC
@@ -1481,6 +1519,7 @@ type ListAllFeedbackRow struct {
 	AdminResponse *string            `json:"admin_response"`
 	RespondedAt   pgtype.Timestamptz `json:"responded_at"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	TenantID      uuid.UUID          `json:"tenant_id"`
 	UserName      *string            `json:"user_name"`
 }
 
@@ -1506,6 +1545,7 @@ func (q *Queries) ListAllFeedback(ctx context.Context) ([]ListAllFeedbackRow, er
 			&i.AdminResponse,
 			&i.RespondedAt,
 			&i.CreatedAt,
+			&i.TenantID,
 			&i.UserName,
 		); err != nil {
 			return nil, err
@@ -1519,7 +1559,7 @@ func (q *Queries) ListAllFeedback(ctx context.Context) ([]ListAllFeedbackRow, er
 }
 
 const listClassNoticesForViewer = `-- name: ListClassNoticesForViewer :many
-SELECT cn.id, cn.class_rep_id, cn.title, cn.content, cn.is_pinned, cn.pinned_order, cn.allow_comments, cn.attachment_url, cn.expires_at, cn.created_at, cn.updated_at, cn.level, cn.target_user_ids, u.full_name AS author_name
+SELECT cn.id, cn.class_rep_id, cn.title, cn.content, cn.is_pinned, cn.pinned_order, cn.allow_comments, cn.attachment_url, cn.expires_at, cn.created_at, cn.updated_at, cn.level, cn.target_user_ids, cn.tenant_id, u.full_name AS author_name
 FROM class_notices cn
 JOIN users u ON u.id = cn.class_rep_id
 WHERE (cn.expires_at IS NULL OR cn.expires_at > NOW())
@@ -1547,6 +1587,7 @@ type ListClassNoticesForViewerRow struct {
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 	Level         *int32             `json:"level"`
 	TargetUserIds json.RawMessage    `json:"target_user_ids"`
+	TenantID      uuid.UUID          `json:"tenant_id"`
 	AuthorName    *string            `json:"author_name"`
 }
 
@@ -1577,6 +1618,7 @@ func (q *Queries) ListClassNoticesForViewer(ctx context.Context, arg ListClassNo
 			&i.UpdatedAt,
 			&i.Level,
 			&i.TargetUserIds,
+			&i.TenantID,
 			&i.AuthorName,
 		); err != nil {
 			return nil, err
@@ -1590,7 +1632,7 @@ func (q *Queries) ListClassNoticesForViewer(ctx context.Context, arg ListClassNo
 }
 
 const listDepartmentalEvents = `-- name: ListDepartmentalEvents :many
-SELECT de.id, de.creator_id, de.title, de.description, de.event_type, de.start_time, de.end_time, de.venue, de.target_levels, de.target_audience, de.is_all_day, de.color, de.created_at, u.full_name AS creator_name
+SELECT de.id, de.creator_id, de.title, de.description, de.event_type, de.start_time, de.end_time, de.venue, de.target_levels, de.target_audience, de.is_all_day, de.color, de.created_at, de.tenant_id, u.full_name AS creator_name
 FROM departmental_events de
 JOIN users u ON u.id = de.creator_id
 WHERE de.start_time >= $1 AND (de.end_time IS NULL OR de.end_time <= $2)
@@ -1616,6 +1658,7 @@ type ListDepartmentalEventsRow struct {
 	IsAllDay       *bool              `json:"is_all_day"`
 	Color          *string            `json:"color"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	TenantID       uuid.UUID          `json:"tenant_id"`
 	CreatorName    *string            `json:"creator_name"`
 }
 
@@ -1642,6 +1685,7 @@ func (q *Queries) ListDepartmentalEvents(ctx context.Context, arg ListDepartment
 			&i.IsAllDay,
 			&i.Color,
 			&i.CreatedAt,
+			&i.TenantID,
 			&i.CreatorName,
 		); err != nil {
 			return nil, err
@@ -1655,7 +1699,7 @@ func (q *Queries) ListDepartmentalEvents(ctx context.Context, arg ListDepartment
 }
 
 const listExpenses = `-- name: ListExpenses :many
-SELECT e.id, e.description, e.amount, e.category, e.expense_date, e.receipt_url, e.status, e.submitted_by, e.approved_by, e.approved_at, e.rejection_reason, e.created_at, u.full_name AS submitted_by_name
+SELECT e.id, e.description, e.amount, e.category, e.expense_date, e.receipt_url, e.status, e.submitted_by, e.approved_by, e.approved_at, e.rejection_reason, e.created_at, e.tenant_id, u.full_name AS submitted_by_name
 FROM expenses e
 JOIN users u ON u.id = e.submitted_by
 WHERE ($1 = '' OR e.status = $1)
@@ -1675,6 +1719,7 @@ type ListExpensesRow struct {
 	ApprovedAt      pgtype.Timestamptz `json:"approved_at"`
 	RejectionReason *string            `json:"rejection_reason"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
 	SubmittedByName *string            `json:"submitted_by_name"`
 }
 
@@ -1700,6 +1745,7 @@ func (q *Queries) ListExpenses(ctx context.Context, dollar_1 interface{}) ([]Lis
 			&i.ApprovedAt,
 			&i.RejectionReason,
 			&i.CreatedAt,
+			&i.TenantID,
 			&i.SubmittedByName,
 		); err != nil {
 			return nil, err
@@ -1713,7 +1759,7 @@ func (q *Queries) ListExpenses(ctx context.Context, dollar_1 interface{}) ([]Lis
 }
 
 const listFeatureFlags = `-- name: ListFeatureFlags :many
-SELECT id, name, description, is_enabled, target_roles, target_levels, percentage, created_by, created_at, updated_at FROM feature_flags ORDER BY name
+SELECT id, name, description, is_enabled, target_roles, target_levels, percentage, created_by, created_at, updated_at, tenant_id FROM feature_flags ORDER BY name
 `
 
 func (q *Queries) ListFeatureFlags(ctx context.Context) ([]FeatureFlag, error) {
@@ -1736,6 +1782,7 @@ func (q *Queries) ListFeatureFlags(ctx context.Context) ([]FeatureFlag, error) {
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -1748,7 +1795,7 @@ func (q *Queries) ListFeatureFlags(ctx context.Context) ([]FeatureFlag, error) {
 }
 
 const listFeedback = `-- name: ListFeedback :many
-SELECT fs.id, fs.user_id, fs.feedback_type, fs.title, fs.description, fs.rating, fs.screenshot_url, fs.device_info, fs.status, fs.admin_response, fs.responded_at, fs.created_at, u.full_name AS user_name
+SELECT fs.id, fs.user_id, fs.feedback_type, fs.title, fs.description, fs.rating, fs.screenshot_url, fs.device_info, fs.status, fs.admin_response, fs.responded_at, fs.created_at, fs.tenant_id, u.full_name AS user_name
 FROM feedback_submissions fs
 JOIN users u ON u.id = fs.user_id
 WHERE ($1::feedback_status = '' OR fs.status = $1::feedback_status)
@@ -1768,6 +1815,7 @@ type ListFeedbackRow struct {
 	AdminResponse *string            `json:"admin_response"`
 	RespondedAt   pgtype.Timestamptz `json:"responded_at"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	TenantID      uuid.UUID          `json:"tenant_id"`
 	UserName      *string            `json:"user_name"`
 }
 
@@ -1793,6 +1841,7 @@ func (q *Queries) ListFeedback(ctx context.Context, dollar_1 FeedbackStatus) ([]
 			&i.AdminResponse,
 			&i.RespondedAt,
 			&i.CreatedAt,
+			&i.TenantID,
 			&i.UserName,
 		); err != nil {
 			return nil, err
@@ -1806,7 +1855,7 @@ func (q *Queries) ListFeedback(ctx context.Context, dollar_1 FeedbackStatus) ([]
 }
 
 const listGPAScenarios = `-- name: ListGPAScenarios :many
-SELECT id, user_id, name, courses, created_at, updated_at FROM gpa_scenarios WHERE user_id = $1 ORDER BY updated_at DESC
+SELECT id, user_id, name, courses, created_at, updated_at, tenant_id FROM gpa_scenarios WHERE user_id = $1 ORDER BY updated_at DESC
 `
 
 func (q *Queries) ListGPAScenarios(ctx context.Context, userID uuid.UUID) ([]GpaScenario, error) {
@@ -1825,6 +1874,7 @@ func (q *Queries) ListGPAScenarios(ctx context.Context, userID uuid.UUID) ([]Gpa
 			&i.Courses,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -1911,7 +1961,7 @@ func (q *Queries) ListHelpArticlesByCategory(ctx context.Context, category strin
 }
 
 const listMeetingAttendees = `-- name: ListMeetingAttendees :many
-SELECT ma.id, ma.meeting_id, ma.user_id, ma.responded, ma.attending, ma.responded_at, u.full_name AS attendee_name, u.email AS attendee_email
+SELECT ma.id, ma.meeting_id, ma.user_id, ma.responded, ma.attending, ma.responded_at, ma.tenant_id, u.full_name AS attendee_name, u.email AS attendee_email
 FROM meeting_attendees ma
 JOIN users u ON u.id = ma.user_id
 WHERE ma.meeting_id = $1
@@ -1924,6 +1974,7 @@ type ListMeetingAttendeesRow struct {
 	Responded     *bool              `json:"responded"`
 	Attending     *bool              `json:"attending"`
 	RespondedAt   pgtype.Timestamptz `json:"responded_at"`
+	TenantID      uuid.UUID          `json:"tenant_id"`
 	AttendeeName  *string            `json:"attendee_name"`
 	AttendeeEmail string             `json:"attendee_email"`
 }
@@ -1944,6 +1995,7 @@ func (q *Queries) ListMeetingAttendees(ctx context.Context, meetingID uuid.UUID)
 			&i.Responded,
 			&i.Attending,
 			&i.RespondedAt,
+			&i.TenantID,
 			&i.AttendeeName,
 			&i.AttendeeEmail,
 		); err != nil {
@@ -1958,7 +2010,7 @@ func (q *Queries) ListMeetingAttendees(ctx context.Context, meetingID uuid.UUID)
 }
 
 const listNoticeComments = `-- name: ListNoticeComments :many
-SELECT cnc.id, cnc.notice_id, cnc.user_id, cnc.content, cnc.created_at, u.full_name AS author_name
+SELECT cnc.id, cnc.notice_id, cnc.user_id, cnc.content, cnc.created_at, cnc.tenant_id, u.full_name AS author_name
 FROM class_notice_comments cnc
 JOIN users u ON u.id = cnc.user_id
 WHERE cnc.notice_id = $1
@@ -1971,6 +2023,7 @@ type ListNoticeCommentsRow struct {
 	UserID     uuid.UUID          `json:"user_id"`
 	Content    string             `json:"content"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	TenantID   uuid.UUID          `json:"tenant_id"`
 	AuthorName *string            `json:"author_name"`
 }
 
@@ -1989,6 +2042,7 @@ func (q *Queries) ListNoticeComments(ctx context.Context, noticeID uuid.UUID) ([
 			&i.UserID,
 			&i.Content,
 			&i.CreatedAt,
+			&i.TenantID,
 			&i.AuthorName,
 		); err != nil {
 			return nil, err
@@ -2002,7 +2056,7 @@ func (q *Queries) ListNoticeComments(ctx context.Context, noticeID uuid.UUID) ([
 }
 
 const listPendingAppeals = `-- name: ListPendingAppeals :many
-SELECT ga.id, ga.student_id, ga.course_id, ga.semester_id, ga.session_id, ga.reason, ga.evidence_urls, ga.status, ga.lecturer_response, ga.lecturer_id, ga.hod_response, ga.hod_id, ga.original_score, ga.revised_score, ga.resolved_at, ga.created_at, ga.updated_at, c.code AS course_code, c.title AS course_title,
+SELECT ga.id, ga.student_id, ga.course_id, ga.semester_id, ga.session_id, ga.reason, ga.evidence_urls, ga.status, ga.lecturer_response, ga.lecturer_id, ga.hod_response, ga.hod_id, ga.original_score, ga.revised_score, ga.resolved_at, ga.created_at, ga.updated_at, ga.tenant_id, c.code AS course_code, c.title AS course_title,
        u.full_name AS student_name
 FROM grade_appeals ga
 JOIN courses c ON c.id = ga.course_id
@@ -2029,6 +2083,7 @@ type ListPendingAppealsRow struct {
 	ResolvedAt       pgtype.Timestamptz `json:"resolved_at"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	TenantID         uuid.UUID          `json:"tenant_id"`
 	CourseCode       string             `json:"course_code"`
 	CourseTitle      string             `json:"course_title"`
 	StudentName      *string            `json:"student_name"`
@@ -2061,6 +2116,7 @@ func (q *Queries) ListPendingAppeals(ctx context.Context, status AppealStatus) (
 			&i.ResolvedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 			&i.CourseCode,
 			&i.CourseTitle,
 			&i.StudentName,
@@ -2076,7 +2132,7 @@ func (q *Queries) ListPendingAppeals(ctx context.Context, status AppealStatus) (
 }
 
 const listStudentAppeals = `-- name: ListStudentAppeals :many
-SELECT ga.id, ga.student_id, ga.course_id, ga.semester_id, ga.session_id, ga.reason, ga.evidence_urls, ga.status, ga.lecturer_response, ga.lecturer_id, ga.hod_response, ga.hod_id, ga.original_score, ga.revised_score, ga.resolved_at, ga.created_at, ga.updated_at, c.code AS course_code, c.title AS course_title
+SELECT ga.id, ga.student_id, ga.course_id, ga.semester_id, ga.session_id, ga.reason, ga.evidence_urls, ga.status, ga.lecturer_response, ga.lecturer_id, ga.hod_response, ga.hod_id, ga.original_score, ga.revised_score, ga.resolved_at, ga.created_at, ga.updated_at, ga.tenant_id, c.code AS course_code, c.title AS course_title
 FROM grade_appeals ga
 JOIN courses c ON c.id = ga.course_id
 WHERE ga.student_id = $1
@@ -2101,6 +2157,7 @@ type ListStudentAppealsRow struct {
 	ResolvedAt       pgtype.Timestamptz `json:"resolved_at"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	TenantID         uuid.UUID          `json:"tenant_id"`
 	CourseCode       string             `json:"course_code"`
 	CourseTitle      string             `json:"course_title"`
 }
@@ -2132,6 +2189,7 @@ func (q *Queries) ListStudentAppeals(ctx context.Context, studentID uuid.UUID) (
 			&i.ResolvedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 			&i.CourseCode,
 			&i.CourseTitle,
 		); err != nil {
@@ -2146,7 +2204,7 @@ func (q *Queries) ListStudentAppeals(ctx context.Context, studentID uuid.UUID) (
 }
 
 const listUpcomingMeetings = `-- name: ListUpcomingMeetings :many
-SELECT sm.id, sm.organizer_id, sm.title, sm.description, sm.meeting_date, sm.duration_minutes, sm.venue, sm.is_recurring, sm.recurrence_pattern, sm.status, sm.minutes_url, sm.created_at, u.full_name AS organizer_name
+SELECT sm.id, sm.organizer_id, sm.title, sm.description, sm.meeting_date, sm.duration_minutes, sm.venue, sm.is_recurring, sm.recurrence_pattern, sm.status, sm.minutes_url, sm.created_at, sm.tenant_id, u.full_name AS organizer_name
 FROM staff_meetings sm
 JOIN users u ON u.id = sm.organizer_id
 WHERE sm.meeting_date >= $1 AND sm.status != 'cancelled'
@@ -2166,6 +2224,7 @@ type ListUpcomingMeetingsRow struct {
 	Status            MeetingStatus      `json:"status"`
 	MinutesUrl        *string            `json:"minutes_url"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	TenantID          uuid.UUID          `json:"tenant_id"`
 	OrganizerName     *string            `json:"organizer_name"`
 }
 
@@ -2191,6 +2250,7 @@ func (q *Queries) ListUpcomingMeetings(ctx context.Context, meetingDate pgtype.T
 			&i.Status,
 			&i.MinutesUrl,
 			&i.CreatedAt,
+			&i.TenantID,
 			&i.OrganizerName,
 		); err != nil {
 			return nil, err
@@ -2204,7 +2264,7 @@ func (q *Queries) ListUpcomingMeetings(ctx context.Context, meetingDate pgtype.T
 }
 
 const listUserFeedback = `-- name: ListUserFeedback :many
-SELECT fs.id, fs.user_id, fs.feedback_type, fs.title, fs.description, fs.rating, fs.screenshot_url, fs.device_info, fs.status, fs.admin_response, fs.responded_at, fs.created_at, u.full_name AS user_name
+SELECT fs.id, fs.user_id, fs.feedback_type, fs.title, fs.description, fs.rating, fs.screenshot_url, fs.device_info, fs.status, fs.admin_response, fs.responded_at, fs.created_at, fs.tenant_id, u.full_name AS user_name
 FROM feedback_submissions fs
 JOIN users u ON u.id = fs.user_id
 WHERE fs.user_id = $1
@@ -2224,6 +2284,7 @@ type ListUserFeedbackRow struct {
 	AdminResponse *string            `json:"admin_response"`
 	RespondedAt   pgtype.Timestamptz `json:"responded_at"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	TenantID      uuid.UUID          `json:"tenant_id"`
 	UserName      *string            `json:"user_name"`
 }
 
@@ -2249,6 +2310,7 @@ func (q *Queries) ListUserFeedback(ctx context.Context, userID uuid.UUID) ([]Lis
 			&i.AdminResponse,
 			&i.RespondedAt,
 			&i.CreatedAt,
+			&i.TenantID,
 			&i.UserName,
 		); err != nil {
 			return nil, err
@@ -2262,7 +2324,7 @@ func (q *Queries) ListUserFeedback(ctx context.Context, userID uuid.UUID) ([]Lis
 }
 
 const listUserSessions = `-- name: ListUserSessions :many
-SELECT id, user_id, session_token, device_info, ip_address, user_agent, last_active_at, created_at, expires_at FROM active_sessions
+SELECT id, user_id, session_token, device_info, ip_address, user_agent, last_active_at, created_at, expires_at, tenant_id FROM active_sessions
 WHERE user_id = $1 AND expires_at > NOW()
 ORDER BY last_active_at DESC
 `
@@ -2286,6 +2348,7 @@ func (q *Queries) ListUserSessions(ctx context.Context, userID uuid.UUID) ([]Act
 			&i.LastActiveAt,
 			&i.CreatedAt,
 			&i.ExpiresAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -2298,7 +2361,7 @@ func (q *Queries) ListUserSessions(ctx context.Context, userID uuid.UUID) ([]Act
 }
 
 const listUserStudyTasks = `-- name: ListUserStudyTasks :many
-SELECT st.id, st.user_id, st.course_id, st.title, st.description, st.priority, st.status, st.due_date, st.reminder_at, st.completed_at, st.is_smart_suggestion, st.created_at, st.updated_at, c.code AS course_code, c.title AS course_title
+SELECT st.id, st.user_id, st.course_id, st.title, st.description, st.priority, st.status, st.due_date, st.reminder_at, st.completed_at, st.is_smart_suggestion, st.created_at, st.updated_at, st.tenant_id, c.code AS course_code, c.title AS course_title
 FROM study_tasks st
 LEFT JOIN courses c ON c.id = st.course_id
 WHERE st.user_id = $1 AND st.status != 'cancelled'
@@ -2321,6 +2384,7 @@ type ListUserStudyTasksRow struct {
 	IsSmartSuggestion *bool              `json:"is_smart_suggestion"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	TenantID          uuid.UUID          `json:"tenant_id"`
 	CourseCode        *string            `json:"course_code"`
 	CourseTitle       *string            `json:"course_title"`
 }
@@ -2348,6 +2412,7 @@ func (q *Queries) ListUserStudyTasks(ctx context.Context, userID uuid.UUID) ([]L
 			&i.IsSmartSuggestion,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 			&i.CourseCode,
 			&i.CourseTitle,
 		); err != nil {

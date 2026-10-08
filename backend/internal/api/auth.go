@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"net/url"
@@ -8,8 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aces/backend/internal/auth"
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/aces/backend/internal/middleware"
+	"github.com/aces/backend/internal/tenant"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -23,6 +26,7 @@ type studentSignupRequest struct {
 	MatricNumber string `json:"matricNumber" binding:"required"`
 	Level        int32  `json:"level" binding:"required"`
 	Department   string `json:"department"`
+	Tenant       string `json:"tenant"`
 }
 
 type lecturerSignupRequest struct {
@@ -34,11 +38,14 @@ type lecturerSignupRequest struct {
 	StaffId        string `json:"staffId" binding:"required"`
 	Department     string `json:"department" binding:"required"`
 	Specialization string `json:"specialization"`
+	Tenant         string `json:"tenant"`
 }
 
 type loginRequest struct {
 	Email    string `json:"email" binding:"required"`
 	Password string `json:"password" binding:"required"`
+	// Tenant is the department slug. Omitted means the default department.
+	Tenant string `json:"tenant"`
 }
 
 type refreshRequest struct {
@@ -78,8 +85,9 @@ type userResponse struct {
 }
 
 type authResponse struct {
-	User   userResponse `json:"user"`
-	Tokens tokenPair    `json:"tokens"`
+	User   userResponse    `json:"user"`
+	Tokens tokenPair       `json:"tokens"`
+	Tenant *tenantResponse `json:"tenant,omitempty"`
 }
 
 type tokenPair struct {
@@ -229,7 +237,11 @@ func (server *Server) generateAuthResponse(ctx *gin.Context, u db.User, onboardi
 	if len(allRoles) == 0 {
 		allRoles = []string{string(u.Role)}
 	}
-	pair, err := server.tokenManager.GeneratePair(u.ID, string(u.Role), u.Email, allRoles)
+	t, ok := tenant.From(ctx.Request.Context())
+	if !ok {
+		return nil, errors.New("no department bound to the request")
+	}
+	pair, err := server.tokenManager.GeneratePair(u.ID, auth.Tenant{ID: t.ID, Slug: t.Slug}, string(u.Role), u.Email, allRoles)
 	if err != nil {
 		return nil, err
 	}
@@ -262,6 +274,7 @@ func (server *Server) generateAuthResponse(ctx *gin.Context, u db.User, onboardi
 			RefreshToken: pair.RefreshToken,
 			ExpiresAt:    pair.ExpiresAt,
 		},
+		Tenant: toTenantResponse(t),
 	}, nil
 }
 
@@ -269,6 +282,9 @@ func (server *Server) studentSignup(ctx *gin.Context) {
 	var req studentSignupRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
+		return
+	}
+	if !server.bindTenant(ctx, req.Tenant) {
 		return
 	}
 
@@ -320,6 +336,9 @@ func (server *Server) lecturerSignup(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
+	if !server.bindTenant(ctx, req.Tenant) {
+		return
+	}
 
 	result, err := server.auth.LecturerSignup(ctx, req.Email, req.Password, req.FirstName, req.LastName, req.Phone, req.StaffId, req.Department, req.Specialization)
 	if err != nil {
@@ -362,6 +381,10 @@ func (server *Server) login(ctx *gin.Context) {
 	var req loginRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
+		return
+	}
+	// Accounts are per department: the same email can exist in several.
+	if !server.bindTenant(ctx, req.Tenant) {
 		return
 	}
 
@@ -598,6 +621,10 @@ func (server *Server) refreshToken(ctx *gin.Context) {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 		return
 	}
+	if !server.bindTenantFromClaims(ctx, claims) {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired refresh token"})
+		return
+	}
 
 	q, ok := server.store.(*db.Queries)
 	if !ok {
@@ -626,7 +653,8 @@ func (server *Server) refreshToken(ctx *gin.Context) {
 		return
 	}
 
-	pair, err := server.tokenManager.GeneratePair(user.ID, string(user.Role), user.Email, roleNames)
+	t, _ := tenant.From(ctx.Request.Context())
+	pair, err := server.tokenManager.GeneratePair(user.ID, auth.Tenant{ID: t.ID, Slug: t.Slug}, string(user.Role), user.Email, roleNames)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate tokens"})
 		return

@@ -10,6 +10,8 @@ import Input from '../../components/ui/Input';
 import AuthVideoShell from '../../components/layout/AuthVideoShell';
 import { Mail, Lock, User, Briefcase } from 'lucide-react';
 import { lecturerSignup } from '../../api/signup';
+import { useDepartments } from '../../hooks/useDepartments';
+import DepartmentSelect from '../../components/auth/DepartmentSelect';
 
 const lecturerSignupSchema = z
   .object({
@@ -34,6 +36,7 @@ const LecturerSignupPage = () => {
   const { login } = useAuth();
   const { success, error } = useNotification();
   const navigate = useNavigate();
+  const { departments, selected, select } = useDepartments();
 
   const {
     register,
@@ -45,13 +48,17 @@ const LecturerSignupPage = () => {
 
   const onSubmit = async (data: LecturerSignupValues) => {
     try {
+      // The staff record's department is the department's short name, e.g.
+      // "Computer Engineering" (the name without the "Department of" prefix).
+      const chosen = departments.find((d) => d.slug === selected);
       const response = await lecturerSignup({
         email: data.email,
         password: data.password,
         firstName: data.firstName,
         lastName: data.lastName,
         staffId: data.staffId,
-        department: 'Computer Engineering', // Default for ACES
+        department: chosen ? chosen.name.replace(/^Department of\s+/i, '') : 'Computer Engineering',
+        tenant: selected,
       });
 
       login(response.user, response.tokens);
@@ -82,6 +89,7 @@ const LecturerSignupPage = () => {
             <p className="text-sm text-white/70">Register your staff account for department portal access</p>
           </div>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <DepartmentSelect departments={departments} value={selected} onChange={select} />
             <div className="grid grid-cols-2 gap-4">
               <Input
                 label="First Name"

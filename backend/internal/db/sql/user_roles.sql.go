@@ -70,7 +70,7 @@ INSERT INTO role_assignment_logs (
     user_id, role, action, performed_by, performed_by_role, previous_roles, new_roles, reason, ip_address
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9
-) RETURNING id, user_id, role, action, performed_by, performed_by_role, previous_roles, new_roles, reason, ip_address, created_at
+) RETURNING id, user_id, role, action, performed_by, performed_by_role, previous_roles, new_roles, reason, ip_address, created_at, tenant_id
 `
 
 type CreateRoleAssignmentLogParams struct {
@@ -111,6 +111,7 @@ func (q *Queries) CreateRoleAssignmentLog(ctx context.Context, arg CreateRoleAss
 		&i.Reason,
 		&i.IpAddress,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -121,7 +122,7 @@ INSERT INTO role_promotions (
     user_id, from_role, to_role, promoted_by, reason, ip_address, user_agent
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7
-) RETURNING id, user_id, from_role, to_role, promoted_by, reason, ip_address, user_agent, created_at
+) RETURNING id, user_id, from_role, to_role, promoted_by, reason, ip_address, user_agent, created_at, tenant_id
 `
 
 type CreateRolePromotionParams struct {
@@ -156,6 +157,7 @@ func (q *Queries) CreateRolePromotion(ctx context.Context, arg CreateRolePromoti
 		&i.IpAddress,
 		&i.UserAgent,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -166,7 +168,7 @@ INSERT INTO user_role_assignments (
     user_id, role, is_active, assigned_by
 ) VALUES (
     $1, $2, true, $3
-) RETURNING id, user_id, role, is_active, assigned_by, assigned_at, revoked_at
+) RETURNING id, user_id, role, is_active, assigned_by, assigned_at, revoked_at, tenant_id
 `
 
 type CreateUserRoleParams struct {
@@ -187,12 +189,13 @@ func (q *Queries) CreateUserRole(ctx context.Context, arg CreateUserRoleParams) 
 		&i.AssignedBy,
 		&i.AssignedAt,
 		&i.RevokedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getUserRole = `-- name: GetUserRole :one
-SELECT id, user_id, role, is_active, assigned_by, assigned_at, revoked_at FROM user_role_assignments
+SELECT id, user_id, role, is_active, assigned_by, assigned_at, revoked_at, tenant_id FROM user_role_assignments
 WHERE id = $1 LIMIT 1
 `
 
@@ -207,12 +210,13 @@ func (q *Queries) GetUserRole(ctx context.Context, id uuid.UUID) (UserRoleAssign
 		&i.AssignedBy,
 		&i.AssignedAt,
 		&i.RevokedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const listAllRoleAssignmentLogs = `-- name: ListAllRoleAssignmentLogs :many
-SELECT ral.id, ral.user_id, ral.role, ral.action, ral.performed_by, ral.performed_by_role, ral.previous_roles, ral.new_roles, ral.reason, ral.ip_address, ral.created_at, u.full_name as performed_by_name, tu.full_name as target_user_name
+SELECT ral.id, ral.user_id, ral.role, ral.action, ral.performed_by, ral.performed_by_role, ral.previous_roles, ral.new_roles, ral.reason, ral.ip_address, ral.created_at, ral.tenant_id, u.full_name as performed_by_name, tu.full_name as target_user_name
 FROM role_assignment_logs ral
 LEFT JOIN users u ON ral.performed_by = u.id
 LEFT JOIN users tu ON ral.user_id = tu.id
@@ -237,6 +241,7 @@ type ListAllRoleAssignmentLogsRow struct {
 	Reason          *string            `json:"reason"`
 	IpAddress       *string            `json:"ip_address"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
 	PerformedByName *string            `json:"performed_by_name"`
 	TargetUserName  *string            `json:"target_user_name"`
 }
@@ -262,6 +267,7 @@ func (q *Queries) ListAllRoleAssignmentLogs(ctx context.Context, arg ListAllRole
 			&i.Reason,
 			&i.IpAddress,
 			&i.CreatedAt,
+			&i.TenantID,
 			&i.PerformedByName,
 			&i.TargetUserName,
 		); err != nil {
@@ -276,7 +282,7 @@ func (q *Queries) ListAllRoleAssignmentLogs(ctx context.Context, arg ListAllRole
 }
 
 const listPromotableStudents = `-- name: ListPromotableStudents :many
-SELECT s.id, s.user_id, s.matric_number, s.level, s.entry_year, s.current_session_id, s.current_semester, s.cgpa, s.total_credits_earned, s.total_credits_required, s.academic_standing, s.graduation_status, s.is_defaulter, s.defaulter_reason, s.created_at, s.updated_at, s.admission_mode, s.year_admitted, s.onboarding_completed, u.full_name, u.email, u.role
+SELECT s.id, s.user_id, s.matric_number, s.level, s.entry_year, s.current_session_id, s.current_semester, s.cgpa, s.total_credits_earned, s.total_credits_required, s.academic_standing, s.graduation_status, s.is_defaulter, s.defaulter_reason, s.created_at, s.updated_at, s.admission_mode, s.year_admitted, s.onboarding_completed, s.tenant_id, u.full_name, u.email, u.role
 FROM students s
 JOIN users u ON s.user_id = u.id
 WHERE u.is_approved = true AND u.is_active = true
@@ -309,6 +315,7 @@ type ListPromotableStudentsRow struct {
 	AdmissionMode        *string            `json:"admission_mode"`
 	YearAdmitted         *int32             `json:"year_admitted"`
 	OnboardingCompleted  bool               `json:"onboarding_completed"`
+	TenantID             uuid.UUID          `json:"tenant_id"`
 	FullName             *string            `json:"full_name"`
 	Email                string             `json:"email"`
 	Role                 UserRole           `json:"role"`
@@ -343,6 +350,7 @@ func (q *Queries) ListPromotableStudents(ctx context.Context, arg ListPromotable
 			&i.AdmissionMode,
 			&i.YearAdmitted,
 			&i.OnboardingCompleted,
+			&i.TenantID,
 			&i.FullName,
 			&i.Email,
 			&i.Role,
@@ -358,7 +366,7 @@ func (q *Queries) ListPromotableStudents(ctx context.Context, arg ListPromotable
 }
 
 const listRoleAssignmentLogsByUser = `-- name: ListRoleAssignmentLogsByUser :many
-SELECT ral.id, ral.user_id, ral.role, ral.action, ral.performed_by, ral.performed_by_role, ral.previous_roles, ral.new_roles, ral.reason, ral.ip_address, ral.created_at, u.full_name as performed_by_name
+SELECT ral.id, ral.user_id, ral.role, ral.action, ral.performed_by, ral.performed_by_role, ral.previous_roles, ral.new_roles, ral.reason, ral.ip_address, ral.created_at, ral.tenant_id, u.full_name as performed_by_name
 FROM role_assignment_logs ral
 LEFT JOIN users u ON ral.performed_by = u.id
 WHERE ral.user_id = $1
@@ -384,6 +392,7 @@ type ListRoleAssignmentLogsByUserRow struct {
 	Reason          *string            `json:"reason"`
 	IpAddress       *string            `json:"ip_address"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
 	PerformedByName *string            `json:"performed_by_name"`
 }
 
@@ -408,6 +417,7 @@ func (q *Queries) ListRoleAssignmentLogsByUser(ctx context.Context, arg ListRole
 			&i.Reason,
 			&i.IpAddress,
 			&i.CreatedAt,
+			&i.TenantID,
 			&i.PerformedByName,
 		); err != nil {
 			return nil, err
@@ -421,7 +431,7 @@ func (q *Queries) ListRoleAssignmentLogsByUser(ctx context.Context, arg ListRole
 }
 
 const listRolePromotions = `-- name: ListRolePromotions :many
-SELECT id, user_id, from_role, to_role, promoted_by, reason, ip_address, user_agent, created_at FROM role_promotions
+SELECT id, user_id, from_role, to_role, promoted_by, reason, ip_address, user_agent, created_at, tenant_id FROM role_promotions
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2
 `
@@ -450,6 +460,7 @@ func (q *Queries) ListRolePromotions(ctx context.Context, arg ListRolePromotions
 			&i.IpAddress,
 			&i.UserAgent,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -535,7 +546,7 @@ func (q *Queries) ListStudentsForRoleManagement(ctx context.Context, arg ListStu
 }
 
 const listUserRolePromotions = `-- name: ListUserRolePromotions :many
-SELECT id, user_id, from_role, to_role, promoted_by, reason, ip_address, user_agent, created_at FROM role_promotions
+SELECT id, user_id, from_role, to_role, promoted_by, reason, ip_address, user_agent, created_at, tenant_id FROM role_promotions
 WHERE user_id = $1
 ORDER BY created_at DESC
 `
@@ -559,6 +570,7 @@ func (q *Queries) ListUserRolePromotions(ctx context.Context, userID uuid.UUID) 
 			&i.IpAddress,
 			&i.UserAgent,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -571,7 +583,7 @@ func (q *Queries) ListUserRolePromotions(ctx context.Context, userID uuid.UUID) 
 }
 
 const listUserRoles = `-- name: ListUserRoles :many
-SELECT id, user_id, role, is_active, assigned_by, assigned_at, revoked_at FROM user_role_assignments
+SELECT id, user_id, role, is_active, assigned_by, assigned_at, revoked_at, tenant_id FROM user_role_assignments
 WHERE user_id = $1 AND is_active = true
 ORDER BY assigned_at DESC
 `
@@ -593,6 +605,7 @@ func (q *Queries) ListUserRoles(ctx context.Context, userID uuid.UUID) ([]UserRo
 			&i.AssignedBy,
 			&i.AssignedAt,
 			&i.RevokedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -608,7 +621,7 @@ const revokeUserRole = `-- name: RevokeUserRole :one
 UPDATE user_role_assignments
 SET is_active = false, revoked_at = NOW()
 WHERE user_id = $1 AND role = $2 AND is_active = true
-RETURNING id, user_id, role, is_active, assigned_by, assigned_at, revoked_at
+RETURNING id, user_id, role, is_active, assigned_by, assigned_at, revoked_at, tenant_id
 `
 
 type RevokeUserRoleParams struct {
@@ -627,6 +640,7 @@ func (q *Queries) RevokeUserRole(ctx context.Context, arg RevokeUserRoleParams) 
 		&i.AssignedBy,
 		&i.AssignedAt,
 		&i.RevokedAt,
+		&i.TenantID,
 	)
 	return i, err
 }

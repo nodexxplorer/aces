@@ -12,7 +12,7 @@ import (
 )
 
 const getDonation = `-- name: GetDonation :one
-SELECT id, donor_id, channel, amount, currency, payment_id, receipt_url, message, is_anonymous, recognized_tier, status, created_at, updated_at, paystack_reference FROM alumni_donations WHERE id = $1 LIMIT 1
+SELECT id, donor_id, channel, amount, currency, payment_id, receipt_url, message, is_anonymous, recognized_tier, status, created_at, updated_at, paystack_reference, tenant_id FROM alumni_donations WHERE id = $1 LIMIT 1
 `
 
 func (q *Queries) GetDonation(ctx context.Context, id uuid.UUID) (AlumniDonation, error) {
@@ -33,6 +33,7 @@ func (q *Queries) GetDonation(ctx context.Context, id uuid.UUID) (AlumniDonation
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PaystackReference,
+		&i.TenantID,
 	)
 	return i, err
 }

@@ -54,18 +54,21 @@ func passwordResetOTPEmailHTML(otp string) string {
 
 type otpRequest struct {
 	Email   string `json:"email" binding:"required,email"`
+	Tenant  string `json:"tenant"`
 	Channel string `json:"channel"` // email or sms
 }
 
 type verifyOTPRequest struct {
-	Email string `json:"email" binding:"required"`
-	OTP   string `json:"otp" binding:"required"`
+	Email  string `json:"email" binding:"required"`
+	OTP    string `json:"otp" binding:"required"`
+	Tenant string `json:"tenant"`
 }
 
 type resetWithOTPRequest struct {
 	Email    string `json:"email" binding:"required"`
 	OTP      string `json:"otp" binding:"required"`
 	Password string `json:"password" binding:"required,min=6,max=72"`
+	Tenant   string `json:"tenant"`
 }
 
 // maxOTPAttempts caps guesses against a single issued code before it's
@@ -112,6 +115,9 @@ func (server *Server) requestPasswordReset(ctx *gin.Context) {
 	var req otpRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
+		return
+	}
+	if !server.bindTenant(ctx, req.Tenant) {
 		return
 	}
 
@@ -166,6 +172,9 @@ func (server *Server) verifyPasswordResetOTP(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
+	if !server.bindTenant(ctx, req.Tenant) {
+		return
+	}
 
 	queries, ok := server.store.(*db.Queries)
 	if !ok {
@@ -191,6 +200,9 @@ func (server *Server) resetPasswordWithOTP(ctx *gin.Context) {
 	var req resetWithOTPRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
+		return
+	}
+	if !server.bindTenant(ctx, req.Tenant) {
 		return
 	}
 

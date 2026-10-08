@@ -17,7 +17,7 @@ INSERT INTO sessions (
     name, start_date, end_date
 ) VALUES (
     $1, $2, $3
-) RETURNING id, name, start_date, end_date, is_active, is_archived, created_at
+) RETURNING id, name, start_date, end_date, is_active, is_archived, created_at, tenant_id
 `
 
 type CreateSessionParams struct {
@@ -37,6 +37,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 		&i.IsActive,
 		&i.IsArchived,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -61,7 +62,7 @@ func (q *Queries) DeleteSession(ctx context.Context, id uuid.UUID) error {
 }
 
 const getActiveSession = `-- name: GetActiveSession :one
-SELECT id, name, start_date, end_date, is_active, is_archived, created_at FROM sessions
+SELECT id, name, start_date, end_date, is_active, is_archived, created_at, tenant_id FROM sessions
 WHERE is_active = true LIMIT 1
 `
 
@@ -76,12 +77,13 @@ func (q *Queries) GetActiveSession(ctx context.Context) (Session, error) {
 		&i.IsActive,
 		&i.IsArchived,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getSession = `-- name: GetSession :one
-SELECT id, name, start_date, end_date, is_active, is_archived, created_at FROM sessions
+SELECT id, name, start_date, end_date, is_active, is_archived, created_at, tenant_id FROM sessions
 WHERE id = $1 LIMIT 1
 `
 
@@ -96,12 +98,13 @@ func (q *Queries) GetSession(ctx context.Context, id uuid.UUID) (Session, error)
 		&i.IsActive,
 		&i.IsArchived,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getSessionByName = `-- name: GetSessionByName :one
-SELECT id, name, start_date, end_date, is_active, is_archived, created_at FROM sessions
+SELECT id, name, start_date, end_date, is_active, is_archived, created_at, tenant_id FROM sessions
 WHERE name = $1 LIMIT 1
 `
 
@@ -116,12 +119,13 @@ func (q *Queries) GetSessionByName(ctx context.Context, name string) (Session, e
 		&i.IsActive,
 		&i.IsArchived,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const listSessions = `-- name: ListSessions :many
-SELECT id, name, start_date, end_date, is_active, is_archived, created_at FROM sessions
+SELECT id, name, start_date, end_date, is_active, is_archived, created_at, tenant_id FROM sessions
 ORDER BY start_date DESC
 LIMIT $1 OFFSET $2
 `
@@ -148,6 +152,7 @@ func (q *Queries) ListSessions(ctx context.Context, arg ListSessionsParams) ([]S
 			&i.IsActive,
 			&i.IsArchived,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -168,7 +173,7 @@ SET
     is_active = $5,
     is_archived = $6
 WHERE id = $1
-RETURNING id, name, start_date, end_date, is_active, is_archived, created_at
+RETURNING id, name, start_date, end_date, is_active, is_archived, created_at, tenant_id
 `
 
 type UpdateSessionParams struct {
@@ -198,6 +203,7 @@ func (q *Queries) UpdateSession(ctx context.Context, arg UpdateSessionParams) (S
 		&i.IsActive,
 		&i.IsArchived,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }

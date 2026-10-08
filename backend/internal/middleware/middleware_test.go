@@ -11,6 +11,8 @@ import (
 	"github.com/google/uuid"
 )
 
+var testTenant = auth.Tenant{ID: uuid.MustParse("22222222-2222-4222-8222-222222222222"), Slug: "test-dept"}
+
 func setupTestRouter(tm *auth.TokenManager, roles ...string) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
@@ -53,7 +55,7 @@ func TestJWTAuth_ValidToken_WrongRole(t *testing.T) {
 	tm := auth.NewTokenManager("test-secret-key-must-be-at-least-32-chars!!", 60*time.Minute, 7*24*60*time.Minute)
 	router := setupTestRouter(tm, "admin")
 
-	pair, err := tm.GeneratePair(uuid.New(), "student", "test@example.com", []string{"student"})
+	pair, err := tm.GeneratePair(uuid.New(), testTenant, "student", "test@example.com", []string{"student"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +74,7 @@ func TestJWTAuth_ValidToken_CorrectRole(t *testing.T) {
 	tm := auth.NewTokenManager("test-secret-key-must-be-at-least-32-chars!!", 60*time.Minute, 7*24*60*time.Minute)
 	router := setupTestRouter(tm, "admin")
 
-	pair, err := tm.GeneratePair(uuid.New(), "admin", "test@example.com", []string{"admin"})
+	pair, err := tm.GeneratePair(uuid.New(), testTenant, "admin", "test@example.com", []string{"admin"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +93,7 @@ func TestJWTAuth_AdditionalRoles(t *testing.T) {
 	tm := auth.NewTokenManager("test-secret-key-must-be-at-least-32-chars!!", 60*time.Minute, 7*24*60*time.Minute)
 	router := setupTestRouter(tm, "admin", "delegated_admin")
 
-	pair, err := tm.GeneratePair(uuid.New(), "student", "test@example.com", []string{"student", "delegated_admin"})
+	pair, err := tm.GeneratePair(uuid.New(), testTenant, "student", "test@example.com", []string{"student", "delegated_admin"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +112,7 @@ func TestJWTAuth_CookieToken(t *testing.T) {
 	tm := auth.NewTokenManager("test-secret-key-must-be-at-least-32-chars!!", 60*time.Minute, 7*24*60*time.Minute)
 	router := setupTestRouter(tm, "admin")
 
-	pair, err := tm.GeneratePair(uuid.New(), "admin", "test@example.com", []string{"admin"})
+	pair, err := tm.GeneratePair(uuid.New(), testTenant, "admin", "test@example.com", []string{"admin"})
 	if err != nil {
 		t.Fatal(err)
 	}

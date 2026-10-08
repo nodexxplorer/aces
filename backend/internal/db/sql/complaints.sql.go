@@ -16,7 +16,7 @@ INSERT INTO complaints (
     student_id, category, subject, body, priority, status
 ) VALUES (
     $1, $2, $3, $4, $5, $6
-) RETURNING id, student_id, category, subject, body, priority, status, assigned_to, resolution, resolved_at, resolved_by, created_at, updated_at
+) RETURNING id, student_id, category, subject, body, priority, status, assigned_to, resolution, resolved_at, resolved_by, created_at, updated_at, tenant_id
 `
 
 type CreateComplaintParams struct {
@@ -52,6 +52,7 @@ func (q *Queries) CreateComplaint(ctx context.Context, arg CreateComplaintParams
 		&i.ResolvedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -67,7 +68,7 @@ func (q *Queries) DeleteComplaint(ctx context.Context, id uuid.UUID) error {
 }
 
 const getComplaint = `-- name: GetComplaint :one
-SELECT id, student_id, category, subject, body, priority, status, assigned_to, resolution, resolved_at, resolved_by, created_at, updated_at FROM complaints
+SELECT id, student_id, category, subject, body, priority, status, assigned_to, resolution, resolved_at, resolved_by, created_at, updated_at, tenant_id FROM complaints
 WHERE id = $1 LIMIT 1
 `
 
@@ -88,12 +89,13 @@ func (q *Queries) GetComplaint(ctx context.Context, id uuid.UUID) (Complaint, er
 		&i.ResolvedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const listComplaints = `-- name: ListComplaints :many
-SELECT id, student_id, category, subject, body, priority, status, assigned_to, resolution, resolved_at, resolved_by, created_at, updated_at FROM complaints
+SELECT id, student_id, category, subject, body, priority, status, assigned_to, resolution, resolved_at, resolved_by, created_at, updated_at, tenant_id FROM complaints
 ORDER BY created_at DESC
 `
 
@@ -120,6 +122,7 @@ func (q *Queries) ListComplaints(ctx context.Context) ([]Complaint, error) {
 			&i.ResolvedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -132,7 +135,7 @@ func (q *Queries) ListComplaints(ctx context.Context) ([]Complaint, error) {
 }
 
 const listStudentComplaints = `-- name: ListStudentComplaints :many
-SELECT id, student_id, category, subject, body, priority, status, assigned_to, resolution, resolved_at, resolved_by, created_at, updated_at FROM complaints
+SELECT id, student_id, category, subject, body, priority, status, assigned_to, resolution, resolved_at, resolved_by, created_at, updated_at, tenant_id FROM complaints
 WHERE student_id = $1
 ORDER BY created_at DESC
 `
@@ -160,6 +163,7 @@ func (q *Queries) ListStudentComplaints(ctx context.Context, studentID uuid.UUID
 			&i.ResolvedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -181,7 +185,7 @@ SET
     status = $6,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, student_id, category, subject, body, priority, status, assigned_to, resolution, resolved_at, resolved_by, created_at, updated_at
+RETURNING id, student_id, category, subject, body, priority, status, assigned_to, resolution, resolved_at, resolved_by, created_at, updated_at, tenant_id
 `
 
 type UpdateComplaintParams struct {
@@ -217,6 +221,7 @@ func (q *Queries) UpdateComplaint(ctx context.Context, arg UpdateComplaintParams
 		&i.ResolvedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }

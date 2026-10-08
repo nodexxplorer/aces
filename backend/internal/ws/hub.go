@@ -26,10 +26,13 @@ type Message struct {
 // ChatPersister persists a 1:1 chat message sent over the raw socket and
 // returns its stored JSON representation (so the pushed payload carries a
 // real id/timestamp, same as the REST sendMessage path).
-type ChatPersister func(fromUserID, toUserID uuid.UUID, content string) (json.RawMessage, error)
+// ChatPersister stores a direct message sent over the socket. tenantID is the
+// department of the sender; the persisted message belongs to it.
+type ChatPersister func(tenantID, fromUserID, toUserID uuid.UUID, content string) (json.RawMessage, error)
 
 // GroupChatPersister persists a group chat message sent over the raw socket.
-type GroupChatPersister func(fromUserID, groupID uuid.UUID, content string) (json.RawMessage, error)
+// GroupChatPersister stores a group message sent over the socket.
+type GroupChatPersister func(tenantID, fromUserID, groupID uuid.UUID, content string) (json.RawMessage, error)
 
 // Hub maintains the set of active clients and broadcasts messages
 type Hub struct {

@@ -164,7 +164,7 @@ INSERT INTO attendance_checkins (
     session_id, student_id, method, present, remark
 ) VALUES (
     $1, $2, $3, $4, $5
-) ON CONFLICT (session_id, student_id) DO UPDATE
+) ON CONFLICT (tenant_id, session_id, student_id) DO UPDATE
 SET present = EXCLUDED.present, method = EXCLUDED.method, remark = EXCLUDED.remark, checked_in_at = NOW()
 RETURNING *;
 
@@ -200,7 +200,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: ListClassRepPerformanceReviews :many
-SELECT id, class_rep_id, reviewed_by, academic_year, term, attendance_rate, reports_submitted, responsiveness_score, comments, rating, created_at
+SELECT id, class_rep_id, reviewed_by, academic_year, term, attendance_rate, reports_submitted, responsiveness_score, comments, rating, created_at, tenant_id
 FROM class_rep_performance
 WHERE class_rep_id = $1
 ORDER BY created_at DESC;

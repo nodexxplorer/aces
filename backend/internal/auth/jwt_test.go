@@ -7,11 +7,13 @@ import (
 	"github.com/google/uuid"
 )
 
+var testTenant = Tenant{ID: uuid.MustParse("22222222-2222-4222-8222-222222222222"), Slug: "test-dept"}
+
 func TestTokenManager(t *testing.T) {
 	tm := NewTokenManager("test-secret-key-must-be-at-least-32-chars!!", 60*time.Minute, 7*24*60*time.Minute)
 
 	userID := uuid.New()
-	pair, err := tm.GeneratePair(userID, "student", "test@example.com", []string{"student"})
+	pair, err := tm.GeneratePair(userID, testTenant, "student", "test@example.com", []string{"student"})
 	if err != nil {
 		t.Fatalf("GeneratePair failed: %v", err)
 	}

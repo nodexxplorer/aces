@@ -28,7 +28,7 @@ WHERE id = $1;
 INSERT INTO verification_records (matric_number, full_name, level, entry_session, department, status)
 SELECT unnest($1::text[]), unnest($2::text[]), unnest($3::int[]),
        unnest($4::text[]), unnest($5::text[]), unnest($6::text[])
-ON CONFLICT (matric_number) DO UPDATE
+ON CONFLICT (tenant_id, matric_number) DO UPDATE
 SET full_name = EXCLUDED.full_name, level = EXCLUDED.level,
     entry_session = EXCLUDED.entry_session, status = EXCLUDED.status,
     updated_at = NOW();
@@ -186,19 +186,19 @@ LIMIT $2 OFFSET $3;
 -- name: CreateReadReceipt :one
 INSERT INTO announcement_read_receipts (announcement_id, student_id, read_at, device_type)
 VALUES ($1, $2, NOW(), $3)
-ON CONFLICT (announcement_id, student_id)
+ON CONFLICT (tenant_id, announcement_id, student_id)
 DO UPDATE SET read_at = COALESCE(announcement_read_receipts.read_at, NOW())
 RETURNING *;
 
 -- name: MarkAnnouncementRead :exec
 INSERT INTO announcement_read_receipts (announcement_id, student_id, read_at, device_type)
 VALUES ($1, $2, NOW(), $3)
-ON CONFLICT (announcement_id, student_id) DO NOTHING;
+ON CONFLICT (tenant_id, announcement_id, student_id) DO NOTHING;
 
 -- name: AcknowledgeAnnouncement :exec
 INSERT INTO announcement_read_receipts (announcement_id, student_id, read_at, acknowledged_at, device_type)
 VALUES ($1, $2, NOW(), NOW(), $3)
-ON CONFLICT (announcement_id, student_id)
+ON CONFLICT (tenant_id, announcement_id, student_id)
 DO UPDATE SET acknowledged_at = COALESCE(announcement_read_receipts.acknowledged_at, NOW()),
               read_at = COALESCE(announcement_read_receipts.read_at, NOW());
 

@@ -41,7 +41,7 @@ INSERT INTO profile_edit_logs (
     student_id, field_name, old_value, new_value, changed_by, changed_by_role, change_type, reason, ip_address, request_id
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
-) RETURNING id, student_id, field_name, old_value, new_value, changed_by, changed_by_role, change_type, reason, ip_address, request_id, created_at
+) RETURNING id, student_id, field_name, old_value, new_value, changed_by, changed_by_role, change_type, reason, ip_address, request_id, created_at, tenant_id
 `
 
 type CreateProfileEditLogParams struct {
@@ -84,6 +84,7 @@ func (q *Queries) CreateProfileEditLog(ctx context.Context, arg CreateProfileEdi
 		&i.IpAddress,
 		&i.RequestID,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -93,7 +94,7 @@ INSERT INTO student_documents (
     student_id, doc_type, file_url, file_name, file_size, uploaded_by, status
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7
-) RETURNING id, student_id, doc_type, file_url, file_name, file_size, uploaded_by, status, verified_by, verified_at, rejection_reason, created_at, updated_at
+) RETURNING id, student_id, doc_type, file_url, file_name, file_size, uploaded_by, status, verified_by, verified_at, rejection_reason, created_at, updated_at, tenant_id
 `
 
 type CreateStudentDocumentParams struct {
@@ -131,12 +132,13 @@ func (q *Queries) CreateStudentDocument(ctx context.Context, arg CreateStudentDo
 		&i.RejectionReason,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getStudentDocument = `-- name: GetStudentDocument :one
-SELECT id, student_id, doc_type, file_url, file_name, file_size, uploaded_by, status, verified_by, verified_at, rejection_reason, created_at, updated_at FROM student_documents
+SELECT id, student_id, doc_type, file_url, file_name, file_size, uploaded_by, status, verified_by, verified_at, rejection_reason, created_at, updated_at, tenant_id FROM student_documents
 WHERE id = $1 LIMIT 1
 `
 
@@ -157,12 +159,13 @@ func (q *Queries) GetStudentDocument(ctx context.Context, id uuid.UUID) (Student
 		&i.RejectionReason,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const listAllProfileEditLogs = `-- name: ListAllProfileEditLogs :many
-SELECT pel.id, pel.student_id, pel.field_name, pel.old_value, pel.new_value, pel.changed_by, pel.changed_by_role, pel.change_type, pel.reason, pel.ip_address, pel.request_id, pel.created_at, u.full_name as changed_by_name
+SELECT pel.id, pel.student_id, pel.field_name, pel.old_value, pel.new_value, pel.changed_by, pel.changed_by_role, pel.change_type, pel.reason, pel.ip_address, pel.request_id, pel.created_at, pel.tenant_id, u.full_name as changed_by_name
 FROM profile_edit_logs pel
 JOIN users u ON pel.changed_by = u.id
 ORDER BY pel.created_at DESC
@@ -187,6 +190,7 @@ type ListAllProfileEditLogsRow struct {
 	IpAddress     *string            `json:"ip_address"`
 	RequestID     pgtype.UUID        `json:"request_id"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	TenantID      uuid.UUID          `json:"tenant_id"`
 	ChangedByName *string            `json:"changed_by_name"`
 }
 
@@ -212,6 +216,7 @@ func (q *Queries) ListAllProfileEditLogs(ctx context.Context, arg ListAllProfile
 			&i.IpAddress,
 			&i.RequestID,
 			&i.CreatedAt,
+			&i.TenantID,
 			&i.ChangedByName,
 		); err != nil {
 			return nil, err
@@ -225,7 +230,7 @@ func (q *Queries) ListAllProfileEditLogs(ctx context.Context, arg ListAllProfile
 }
 
 const listProfileEditLogsByStudent = `-- name: ListProfileEditLogsByStudent :many
-SELECT id, student_id, field_name, old_value, new_value, changed_by, changed_by_role, change_type, reason, ip_address, request_id, created_at FROM profile_edit_logs
+SELECT id, student_id, field_name, old_value, new_value, changed_by, changed_by_role, change_type, reason, ip_address, request_id, created_at, tenant_id FROM profile_edit_logs
 WHERE student_id = $1
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3
@@ -259,6 +264,7 @@ func (q *Queries) ListProfileEditLogsByStudent(ctx context.Context, arg ListProf
 			&i.IpAddress,
 			&i.RequestID,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -271,7 +277,7 @@ func (q *Queries) ListProfileEditLogsByStudent(ctx context.Context, arg ListProf
 }
 
 const listStudentDocumentsByStatus = `-- name: ListStudentDocumentsByStatus :many
-SELECT sd.id, sd.student_id, sd.doc_type, sd.file_url, sd.file_name, sd.file_size, sd.uploaded_by, sd.status, sd.verified_by, sd.verified_at, sd.rejection_reason, sd.created_at, sd.updated_at, u.full_name as student_name, s.matric_number
+SELECT sd.id, sd.student_id, sd.doc_type, sd.file_url, sd.file_name, sd.file_size, sd.uploaded_by, sd.status, sd.verified_by, sd.verified_at, sd.rejection_reason, sd.created_at, sd.updated_at, sd.tenant_id, u.full_name as student_name, s.matric_number
 FROM student_documents sd
 JOIN students s ON sd.student_id = s.id
 JOIN users u ON s.user_id = u.id
@@ -300,6 +306,7 @@ type ListStudentDocumentsByStatusRow struct {
 	RejectionReason *string            `json:"rejection_reason"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
 	StudentName     *string            `json:"student_name"`
 	MatricNumber    *string            `json:"matric_number"`
 }
@@ -327,6 +334,7 @@ func (q *Queries) ListStudentDocumentsByStatus(ctx context.Context, arg ListStud
 			&i.RejectionReason,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 			&i.StudentName,
 			&i.MatricNumber,
 		); err != nil {
@@ -341,7 +349,7 @@ func (q *Queries) ListStudentDocumentsByStatus(ctx context.Context, arg ListStud
 }
 
 const listStudentDocumentsByStudent = `-- name: ListStudentDocumentsByStudent :many
-SELECT id, student_id, doc_type, file_url, file_name, file_size, uploaded_by, status, verified_by, verified_at, rejection_reason, created_at, updated_at FROM student_documents
+SELECT id, student_id, doc_type, file_url, file_name, file_size, uploaded_by, status, verified_by, verified_at, rejection_reason, created_at, updated_at, tenant_id FROM student_documents
 WHERE student_id = $1
 ORDER BY created_at DESC
 `
@@ -369,6 +377,7 @@ func (q *Queries) ListStudentDocumentsByStudent(ctx context.Context, studentID u
 			&i.RejectionReason,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -384,7 +393,7 @@ const rejectStudentDocument = `-- name: RejectStudentDocument :one
 UPDATE student_documents
 SET status = 'rejected', verified_by = $2, rejection_reason = $3, updated_at = NOW()
 WHERE id = $1
-RETURNING id, student_id, doc_type, file_url, file_name, file_size, uploaded_by, status, verified_by, verified_at, rejection_reason, created_at, updated_at
+RETURNING id, student_id, doc_type, file_url, file_name, file_size, uploaded_by, status, verified_by, verified_at, rejection_reason, created_at, updated_at, tenant_id
 `
 
 type RejectStudentDocumentParams struct {
@@ -410,6 +419,7 @@ func (q *Queries) RejectStudentDocument(ctx context.Context, arg RejectStudentDo
 		&i.RejectionReason,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -425,7 +435,7 @@ SET level = COALESCE($2, level),
     year_admitted = COALESCE($8, year_admitted),
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, user_id, matric_number, level, entry_year, current_session_id, current_semester, cgpa, total_credits_earned, total_credits_required, academic_standing, graduation_status, is_defaulter, defaulter_reason, created_at, updated_at, admission_mode, year_admitted, onboarding_completed
+RETURNING id, user_id, matric_number, level, entry_year, current_session_id, current_semester, cgpa, total_credits_earned, total_credits_required, academic_standing, graduation_status, is_defaulter, defaulter_reason, created_at, updated_at, admission_mode, year_admitted, onboarding_completed, tenant_id
 `
 
 type UpdateStudentFullProfileParams struct {
@@ -471,6 +481,7 @@ func (q *Queries) UpdateStudentFullProfile(ctx context.Context, arg UpdateStuden
 		&i.AdmissionMode,
 		&i.YearAdmitted,
 		&i.OnboardingCompleted,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -479,7 +490,7 @@ const verifyStudentDocument = `-- name: VerifyStudentDocument :one
 UPDATE student_documents
 SET status = 'verified', verified_by = $2, verified_at = NOW(), updated_at = NOW()
 WHERE id = $1
-RETURNING id, student_id, doc_type, file_url, file_name, file_size, uploaded_by, status, verified_by, verified_at, rejection_reason, created_at, updated_at
+RETURNING id, student_id, doc_type, file_url, file_name, file_size, uploaded_by, status, verified_by, verified_at, rejection_reason, created_at, updated_at, tenant_id
 `
 
 type VerifyStudentDocumentParams struct {
@@ -504,6 +515,7 @@ func (q *Queries) VerifyStudentDocument(ctx context.Context, arg VerifyStudentDo
 		&i.RejectionReason,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }

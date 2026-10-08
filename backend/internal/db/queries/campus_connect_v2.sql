@@ -3,7 +3,7 @@
 -- name: UpsertCampusProfile :one
 INSERT INTO campus_profiles (user_id, bio, interests, skills, availability_status)
 VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT (user_id) DO UPDATE
+ON CONFLICT (tenant_id, user_id) DO UPDATE
 SET bio = EXCLUDED.bio, interests = EXCLUDED.interests, skills = EXCLUDED.skills,
     availability_status = EXCLUDED.availability_status, updated_at = NOW()
 RETURNING *;
@@ -110,7 +110,7 @@ UPDATE feed_posts SET share_count = share_count + 1 WHERE id = $1;
 -- name: CreatePostReaction :one
 INSERT INTO post_reactions (post_id, user_id, reaction_type)
 VALUES ($1, $2, $3)
-ON CONFLICT (post_id, user_id) DO UPDATE
+ON CONFLICT (tenant_id, post_id, user_id) DO UPDATE
 SET reaction_type = EXCLUDED.reaction_type, created_at = NOW()
 RETURNING *;
 
@@ -168,7 +168,7 @@ UPDATE post_comments SET like_count = GREATEST(like_count - 1, 0) WHERE id = $1;
 -- name: CreateCommentReaction :one
 INSERT INTO comment_reactions (comment_id, user_id, reaction_type)
 VALUES ($1, $2, $3)
-ON CONFLICT (comment_id, user_id) DO UPDATE
+ON CONFLICT (tenant_id, comment_id, user_id) DO UPDATE
 SET reaction_type = EXCLUDED.reaction_type, created_at = NOW()
 RETURNING *;
 
@@ -183,7 +183,7 @@ SELECT * FROM comment_reactions WHERE comment_id = $1 AND user_id = $2;
 -- name: CreateMessageReaction :one
 INSERT INTO message_reactions (message_id, user_id, reaction_type)
 VALUES ($1, $2, $3)
-ON CONFLICT (message_id, user_id) DO UPDATE
+ON CONFLICT (tenant_id, message_id, user_id) DO UPDATE
 SET reaction_type = EXCLUDED.reaction_type, created_at = NOW()
 RETURNING *;
 

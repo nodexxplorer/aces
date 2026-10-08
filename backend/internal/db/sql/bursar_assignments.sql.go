@@ -18,7 +18,7 @@ INSERT INTO bursar_assignments (
     user_id, level, bursar_type, session_id, assigned_by
 ) VALUES (
     $1, $2, $3, $4, $5
-) RETURNING id, user_id, level, bursar_type, session_id, assigned_by, is_active, assigned_at, revoked_at
+) RETURNING id, user_id, level, bursar_type, session_id, assigned_by, is_active, assigned_at, revoked_at, tenant_id
 `
 
 type CreateBursarAssignmentParams struct {
@@ -49,12 +49,13 @@ func (q *Queries) CreateBursarAssignment(ctx context.Context, arg CreateBursarAs
 		&i.IsActive,
 		&i.AssignedAt,
 		&i.RevokedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getBursarAssignment = `-- name: GetBursarAssignment :one
-SELECT id, user_id, level, bursar_type, session_id, assigned_by, is_active, assigned_at, revoked_at FROM bursar_assignments
+SELECT id, user_id, level, bursar_type, session_id, assigned_by, is_active, assigned_at, revoked_at, tenant_id FROM bursar_assignments
 WHERE id = $1 LIMIT 1
 `
 
@@ -71,12 +72,13 @@ func (q *Queries) GetBursarAssignment(ctx context.Context, id uuid.UUID) (Bursar
 		&i.IsActive,
 		&i.AssignedAt,
 		&i.RevokedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const listActiveBursarAssignments = `-- name: ListActiveBursarAssignments :many
-SELECT id, user_id, level, bursar_type, session_id, assigned_by, is_active, assigned_at, revoked_at FROM bursar_assignments
+SELECT id, user_id, level, bursar_type, session_id, assigned_by, is_active, assigned_at, revoked_at, tenant_id FROM bursar_assignments
 WHERE is_active = true
 ORDER BY level, bursar_type
 `
@@ -100,6 +102,7 @@ func (q *Queries) ListActiveBursarAssignments(ctx context.Context) ([]BursarAssi
 			&i.IsActive,
 			&i.AssignedAt,
 			&i.RevokedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -112,7 +115,7 @@ func (q *Queries) ListActiveBursarAssignments(ctx context.Context) ([]BursarAssi
 }
 
 const listBursarAssignmentsByUser = `-- name: ListBursarAssignmentsByUser :many
-SELECT id, user_id, level, bursar_type, session_id, assigned_by, is_active, assigned_at, revoked_at FROM bursar_assignments
+SELECT id, user_id, level, bursar_type, session_id, assigned_by, is_active, assigned_at, revoked_at, tenant_id FROM bursar_assignments
 WHERE user_id = $1 AND is_active = true
 `
 
@@ -135,6 +138,7 @@ func (q *Queries) ListBursarAssignmentsByUser(ctx context.Context, userID uuid.U
 			&i.IsActive,
 			&i.AssignedAt,
 			&i.RevokedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -150,7 +154,7 @@ const revokeBursarAssignment = `-- name: RevokeBursarAssignment :one
 UPDATE bursar_assignments
 SET is_active = false, revoked_at = NOW()
 WHERE id = $1
-RETURNING id, user_id, level, bursar_type, session_id, assigned_by, is_active, assigned_at, revoked_at
+RETURNING id, user_id, level, bursar_type, session_id, assigned_by, is_active, assigned_at, revoked_at, tenant_id
 `
 
 func (q *Queries) RevokeBursarAssignment(ctx context.Context, id uuid.UUID) (BursarAssignment, error) {
@@ -166,6 +170,7 @@ func (q *Queries) RevokeBursarAssignment(ctx context.Context, id uuid.UUID) (Bur
 		&i.IsActive,
 		&i.AssignedAt,
 		&i.RevokedAt,
+		&i.TenantID,
 	)
 	return i, err
 }

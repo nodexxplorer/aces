@@ -15,6 +15,7 @@ import (
 	"sync"
 
 	db "github.com/aces/backend/internal/db/sql"
+	"github.com/aces/backend/internal/tenant"
 	"github.com/aces/backend/internal/util"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
@@ -25,6 +26,7 @@ import (
 const (
 	modoolsStateCookie   = "aces_modools_state"
 	modoolsVerifierCkie  = "aces_modools_verifier"
+	modoolsTenantCookie  = "aces_modools_tenant"
 	modoolsCallbackError = "auth_failed"
 )
 
@@ -114,12 +116,23 @@ func (server *Server) modoolsLogin(ctx *gin.Context) {
 		return
 	}
 
+	// The department is chosen on the sign-in page and carried through the
+	// provider round trip in a cookie, because the callback has no other way
+	// to know it.
+	bound, err := server.bindTenantSlug(ctx.Request.Context(), ctx.Query("tenant"))
+	if err != nil {
+		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error=unknown_department")
+		return
+	}
+	t, _ := tenant.From(bound)
+
 	state := randomToken(16)
 	verifier := randomToken(48)
 
 	// 10 minutes is plenty for the user to come back from Modools.
 	server.setShortCookie(ctx, modoolsStateCookie, state, 600)
 	server.setShortCookie(ctx, modoolsVerifierCkie, verifier, 600)
+	server.setShortCookie(ctx, modoolsTenantCookie, t.Slug, 600)
 
 	authURL := cfg.AuthCodeURL(
 		state,
@@ -162,8 +175,19 @@ func (server *Server) modoolsCallback(ctx *gin.Context) {
 		return
 	}
 	// Cookies are single-use — clear them immediately.
+	tenantSlug, _ := ctx.Cookie(modoolsTenantCookie)
 	server.setShortCookie(ctx, modoolsStateCookie, "", -1)
 	server.setShortCookie(ctx, modoolsVerifierCkie, "", -1)
+	server.setShortCookie(ctx, modoolsTenantCookie, "", -1)
+
+	// Bind the department before any database work. A flow started before this
+	// deploy has no tenant cookie and belongs to the default department.
+	bound, err := server.bindTenantSlug(ctx.Request.Context(), tenantSlug)
+	if err != nil {
+		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error=unknown_department")
+		return
+	}
+	ctx.Request = ctx.Request.WithContext(bound)
 
 	provider, cfg, err := modoolsInit(ctx.Request.Context())
 	if err != nil {

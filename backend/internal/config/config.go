@@ -69,6 +69,16 @@ type Config struct {
 	GeminiModel        string
 	AIFallbackEnabled  bool
 	FrontendPublicURL  string
+
+	// DefaultTenantSlug is the department used when a request names none
+	// (mobile clients, and web clients that predate tenants).
+	DefaultTenantSlug string
+	// DBMaxConnsPerTenant caps the connections each department may hold.
+	DBMaxConnsPerTenant int32
+	// DBAllowRLSBypass lets the server run as a role that bypasses row-level
+	// security (a superuser, BYPASSRLS, or a table owner). Local development
+	// only: with it set, departments are not isolated from one another.
+	DBAllowRLSBypass bool
 }
 
 func (c *Config) IsProduction() bool {
@@ -123,6 +133,10 @@ func Load() *Config {
 		GeminiModel:        getEnv("GEMINI_MODEL", "gemini-2.5-flash"),
 		AIFallbackEnabled:  getBool("AI_FALLBACK_ENABLED", true),
 		FrontendPublicURL:  getFirstEnv("FRONTEND_PUBLIC_URL", "http://localhost:5173"),
+
+		DefaultTenantSlug:   getEnv("DEFAULT_TENANT_SLUG", "uniuyo-ce"),
+		DBMaxConnsPerTenant: int32(getInt("DB_MAX_CONNS_PER_TENANT", 4)),
+		DBAllowRLSBypass:    getBool("DB_ALLOW_RLS_BYPASS", false),
 	}
 }
 

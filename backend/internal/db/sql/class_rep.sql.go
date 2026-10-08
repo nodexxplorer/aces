@@ -18,7 +18,7 @@ INSERT INTO election_votes (
     election_id, nominee_id, voter_id
 ) VALUES (
     $1, $2, $3
-) RETURNING id, election_id, nominee_id, voter_id, voted_at
+) RETURNING id, election_id, nominee_id, voter_id, voted_at, tenant_id
 `
 
 type CastElectionVoteParams struct {
@@ -37,6 +37,7 @@ func (q *Queries) CastElectionVote(ctx context.Context, arg CastElectionVotePara
 		&i.NomineeID,
 		&i.VoterID,
 		&i.VotedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -46,9 +47,9 @@ INSERT INTO attendance_checkins (
     session_id, student_id, method, present, remark
 ) VALUES (
     $1, $2, $3, $4, $5
-) ON CONFLICT (session_id, student_id) DO UPDATE
+) ON CONFLICT (tenant_id, session_id, student_id) DO UPDATE
 SET present = EXCLUDED.present, method = EXCLUDED.method, remark = EXCLUDED.remark, checked_in_at = NOW()
-RETURNING id, session_id, student_id, checked_in_at, method, present, remark
+RETURNING id, session_id, student_id, checked_in_at, method, present, remark, tenant_id
 `
 
 type CheckInStudentParams struct {
@@ -76,6 +77,7 @@ func (q *Queries) CheckInStudent(ctx context.Context, arg CheckInStudentParams) 
 		&i.Method,
 		&i.Present,
 		&i.Remark,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -84,7 +86,7 @@ const completeElection = `-- name: CompleteElection :one
 UPDATE class_rep_elections
 SET status = 'completed', winner_id = $2, updated_at = NOW()
 WHERE id = $1
-RETURNING id, level, academic_year, created_by, status, nomination_start, nomination_end, voting_start, voting_end, winner_id, total_votes, created_at, updated_at
+RETURNING id, level, academic_year, created_by, status, nomination_start, nomination_end, voting_start, voting_end, winner_id, total_votes, created_at, updated_at, tenant_id
 `
 
 type CompleteElectionParams struct {
@@ -109,6 +111,7 @@ func (q *Queries) CompleteElection(ctx context.Context, arg CompleteElectionPara
 		&i.TotalVotes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -119,7 +122,7 @@ INSERT INTO attendance_sessions (
     course_id, class_rep_id, method, venue, status
 ) VALUES (
     $1, $2, $3, $4, $5
-) RETURNING id, course_id, class_rep_id, session_id, semester_id, date, method, venue, status, started_at, closed_at, total_present, total_absent, total_students, created_at
+) RETURNING id, course_id, class_rep_id, session_id, semester_id, date, method, venue, status, started_at, closed_at, total_present, total_absent, total_students, created_at, tenant_id
 `
 
 type CreateAttendanceSessionParams struct {
@@ -156,6 +159,7 @@ func (q *Queries) CreateAttendanceSession(ctx context.Context, arg CreateAttenda
 		&i.TotalAbsent,
 		&i.TotalStudents,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -166,7 +170,7 @@ INSERT INTO class_rep_assignments (
     class_rep_id, level, academic_year, appointment_type, appointed_by, consecutive_terms
 ) VALUES (
     $1, $2, $3, $4, $5, $6
-) RETURNING id, class_rep_id, level, academic_year, appointment_type, appointed_by, start_date, end_date, is_active, consecutive_terms, created_at, updated_at
+) RETURNING id, class_rep_id, level, academic_year, appointment_type, appointed_by, start_date, end_date, is_active, consecutive_terms, created_at, updated_at, tenant_id
 `
 
 type CreateClassRepAssignmentParams struct {
@@ -202,6 +206,7 @@ func (q *Queries) CreateClassRepAssignment(ctx context.Context, arg CreateClassR
 		&i.ConsecutiveTerms,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -212,7 +217,7 @@ INSERT INTO class_rep_elections (
     level, academic_year, created_by, status, nomination_start, nomination_end, voting_start, voting_end
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8
-) RETURNING id, level, academic_year, created_by, status, nomination_start, nomination_end, voting_start, voting_end, winner_id, total_votes, created_at, updated_at
+) RETURNING id, level, academic_year, created_by, status, nomination_start, nomination_end, voting_start, voting_end, winner_id, total_votes, created_at, updated_at, tenant_id
 `
 
 type CreateClassRepElectionParams struct {
@@ -253,6 +258,7 @@ func (q *Queries) CreateClassRepElection(ctx context.Context, arg CreateClassRep
 		&i.TotalVotes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -260,7 +266,7 @@ func (q *Queries) CreateClassRepElection(ctx context.Context, arg CreateClassRep
 const createClassRepPerformanceReview = `-- name: CreateClassRepPerformanceReview :one
 INSERT INTO class_rep_performance (class_rep_id, reviewed_by, academic_year, term, attendance_rate, reports_submitted, responsiveness_score, comments, rating)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, class_rep_id, reviewed_by, academic_year, term, attendance_rate, reports_submitted, responsiveness_score, comments, rating, created_at
+RETURNING id, class_rep_id, reviewed_by, academic_year, term, attendance_rate, reports_submitted, responsiveness_score, comments, rating, created_at, tenant_id
 `
 
 type CreateClassRepPerformanceReviewParams struct {
@@ -300,6 +306,7 @@ func (q *Queries) CreateClassRepPerformanceReview(ctx context.Context, arg Creat
 		&i.Comments,
 		&i.Rating,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -310,7 +317,7 @@ INSERT INTO class_rep_reports (
     class_rep_id, report_type, title, content, level, academic_year, status
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7
-) RETURNING id, class_rep_id, report_type, title, content, level, academic_year, status, reviewed_by, review_notes, created_at, updated_at
+) RETURNING id, class_rep_id, report_type, title, content, level, academic_year, status, reviewed_by, review_notes, created_at, updated_at, tenant_id
 `
 
 type CreateClassRepReportParams struct {
@@ -348,6 +355,7 @@ func (q *Queries) CreateClassRepReport(ctx context.Context, arg CreateClassRepRe
 		&i.ReviewNotes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -358,7 +366,7 @@ INSERT INTO election_nominees (
     election_id, student_id, manifesto, nominated_by, status
 ) VALUES (
     $1, $2, $3, $4, $5
-) RETURNING id, election_id, student_id, manifesto, nominated_by, status, approved_by, created_at
+) RETURNING id, election_id, student_id, manifesto, nominated_by, status, approved_by, created_at, tenant_id
 `
 
 type CreateElectionNomineeParams struct {
@@ -388,6 +396,7 @@ func (q *Queries) CreateElectionNominee(ctx context.Context, arg CreateElectionN
 		&i.Status,
 		&i.ApprovedBy,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -418,7 +427,7 @@ func (q *Queries) DeactivateClassRepByLevel(ctx context.Context, arg DeactivateC
 }
 
 const getActiveClassRepAssignment = `-- name: GetActiveClassRepAssignment :one
-SELECT id, class_rep_id, level, academic_year, appointment_type, appointed_by, start_date, end_date, is_active, consecutive_terms, created_at, updated_at FROM class_rep_assignments
+SELECT id, class_rep_id, level, academic_year, appointment_type, appointed_by, start_date, end_date, is_active, consecutive_terms, created_at, updated_at, tenant_id FROM class_rep_assignments
 WHERE class_rep_id = $1 AND is_active = true
 LIMIT 1
 `
@@ -439,12 +448,13 @@ func (q *Queries) GetActiveClassRepAssignment(ctx context.Context, classRepID uu
 		&i.ConsecutiveTerms,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getClassRepElection = `-- name: GetClassRepElection :one
-SELECT id, level, academic_year, created_by, status, nomination_start, nomination_end, voting_start, voting_end, winner_id, total_votes, created_at, updated_at FROM class_rep_elections
+SELECT id, level, academic_year, created_by, status, nomination_start, nomination_end, voting_start, voting_end, winner_id, total_votes, created_at, updated_at, tenant_id FROM class_rep_elections
 WHERE id = $1 LIMIT 1
 `
 
@@ -465,12 +475,13 @@ func (q *Queries) GetClassRepElection(ctx context.Context, id uuid.UUID) (ClassR
 		&i.TotalVotes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getElectionResults = `-- name: GetElectionResults :many
-SELECT en.id, en.election_id, en.student_id, en.manifesto, en.nominated_by, en.status, en.approved_by, en.created_at, COUNT(ev.id)::int as vote_count
+SELECT en.id, en.election_id, en.student_id, en.manifesto, en.nominated_by, en.status, en.approved_by, en.created_at, en.tenant_id, COUNT(ev.id)::int as vote_count
 FROM election_nominees en
 LEFT JOIN election_votes ev ON ev.nominee_id = en.id
 WHERE en.election_id = $1
@@ -487,6 +498,7 @@ type GetElectionResultsRow struct {
 	Status      string             `json:"status"`
 	ApprovedBy  pgtype.UUID        `json:"approved_by"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	TenantID    uuid.UUID          `json:"tenant_id"`
 	VoteCount   int32              `json:"vote_count"`
 }
 
@@ -508,6 +520,7 @@ func (q *Queries) GetElectionResults(ctx context.Context, electionID uuid.UUID) 
 			&i.Status,
 			&i.ApprovedBy,
 			&i.CreatedAt,
+			&i.TenantID,
 			&i.VoteCount,
 		); err != nil {
 			return nil, err
@@ -521,7 +534,7 @@ func (q *Queries) GetElectionResults(ctx context.Context, electionID uuid.UUID) 
 }
 
 const getElectionWinner = `-- name: GetElectionWinner :one
-SELECT en.id, en.election_id, en.student_id, en.manifesto, en.nominated_by, en.status, en.approved_by, en.created_at, COUNT(ev.id)::int as vote_count
+SELECT en.id, en.election_id, en.student_id, en.manifesto, en.nominated_by, en.status, en.approved_by, en.created_at, en.tenant_id, COUNT(ev.id)::int as vote_count
 FROM election_nominees en
 LEFT JOIN election_votes ev ON ev.nominee_id = en.id
 WHERE en.election_id = $1
@@ -539,6 +552,7 @@ type GetElectionWinnerRow struct {
 	Status      string             `json:"status"`
 	ApprovedBy  pgtype.UUID        `json:"approved_by"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	TenantID    uuid.UUID          `json:"tenant_id"`
 	VoteCount   int32              `json:"vote_count"`
 }
 
@@ -554,6 +568,7 @@ func (q *Queries) GetElectionWinner(ctx context.Context, electionID uuid.UUID) (
 		&i.Status,
 		&i.ApprovedBy,
 		&i.CreatedAt,
+		&i.TenantID,
 		&i.VoteCount,
 	)
 	return i, err
@@ -571,7 +586,7 @@ func (q *Queries) IncrementElectionVotes(ctx context.Context, id uuid.UUID) erro
 }
 
 const listActiveClassRepAssignments = `-- name: ListActiveClassRepAssignments :many
-SELECT id, class_rep_id, level, academic_year, appointment_type, appointed_by, start_date, end_date, is_active, consecutive_terms, created_at, updated_at FROM class_rep_assignments
+SELECT id, class_rep_id, level, academic_year, appointment_type, appointed_by, start_date, end_date, is_active, consecutive_terms, created_at, updated_at, tenant_id FROM class_rep_assignments
 WHERE is_active = true
 ORDER BY level, academic_year
 `
@@ -598,6 +613,7 @@ func (q *Queries) ListActiveClassRepAssignments(ctx context.Context) ([]ClassRep
 			&i.ConsecutiveTerms,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -610,7 +626,7 @@ func (q *Queries) ListActiveClassRepAssignments(ctx context.Context) ([]ClassRep
 }
 
 const listAllClassRepReports = `-- name: ListAllClassRepReports :many
-SELECT cr.id, cr.class_rep_id, cr.report_type, cr.title, cr.content, cr.level, cr.academic_year, cr.status, cr.reviewed_by, cr.review_notes, cr.created_at, cr.updated_at, u.full_name as class_rep_name
+SELECT cr.id, cr.class_rep_id, cr.report_type, cr.title, cr.content, cr.level, cr.academic_year, cr.status, cr.reviewed_by, cr.review_notes, cr.created_at, cr.updated_at, cr.tenant_id, u.full_name as class_rep_name
 FROM class_rep_reports cr
 JOIN users u ON u.id = cr.class_rep_id
 WHERE ($1::text IS NULL OR cr.status = $1)
@@ -630,6 +646,7 @@ type ListAllClassRepReportsRow struct {
 	ReviewNotes  *string            `json:"review_notes"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	TenantID     uuid.UUID          `json:"tenant_id"`
 	ClassRepName *string            `json:"class_rep_name"`
 }
 
@@ -655,6 +672,7 @@ func (q *Queries) ListAllClassRepReports(ctx context.Context, dollar_1 string) (
 			&i.ReviewNotes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 			&i.ClassRepName,
 		); err != nil {
 			return nil, err
@@ -668,7 +686,7 @@ func (q *Queries) ListAllClassRepReports(ctx context.Context, dollar_1 string) (
 }
 
 const listAttendanceSessionCheckins = `-- name: ListAttendanceSessionCheckins :many
-SELECT ac.id, ac.session_id, ac.student_id, ac.checked_in_at, ac.method, ac.present, ac.remark, u.full_name as student_name, s.matric_number
+SELECT ac.id, ac.session_id, ac.student_id, ac.checked_in_at, ac.method, ac.present, ac.remark, ac.tenant_id, u.full_name as student_name, s.matric_number
 FROM attendance_checkins ac
 JOIN users u ON u.id = ac.student_id
 JOIN students s ON s.user_id = u.id
@@ -684,6 +702,7 @@ type ListAttendanceSessionCheckinsRow struct {
 	Method       string             `json:"method"`
 	Present      bool               `json:"present"`
 	Remark       *string            `json:"remark"`
+	TenantID     uuid.UUID          `json:"tenant_id"`
 	StudentName  *string            `json:"student_name"`
 	MatricNumber *string            `json:"matric_number"`
 }
@@ -705,6 +724,7 @@ func (q *Queries) ListAttendanceSessionCheckins(ctx context.Context, sessionID u
 			&i.Method,
 			&i.Present,
 			&i.Remark,
+			&i.TenantID,
 			&i.StudentName,
 			&i.MatricNumber,
 		); err != nil {
@@ -772,7 +792,7 @@ func (q *Queries) ListAttendanceSessionsByRep(ctx context.Context, classRepID uu
 }
 
 const listClassRepElections = `-- name: ListClassRepElections :many
-SELECT id, level, academic_year, created_by, status, nomination_start, nomination_end, voting_start, voting_end, winner_id, total_votes, created_at, updated_at FROM class_rep_elections
+SELECT id, level, academic_year, created_by, status, nomination_start, nomination_end, voting_start, voting_end, winner_id, total_votes, created_at, updated_at, tenant_id FROM class_rep_elections
 WHERE ($1::int IS NULL OR level = $1)
 ORDER BY created_at DESC
 `
@@ -800,6 +820,7 @@ func (q *Queries) ListClassRepElections(ctx context.Context, dollar_1 int32) ([]
 			&i.TotalVotes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -812,7 +833,7 @@ func (q *Queries) ListClassRepElections(ctx context.Context, dollar_1 int32) ([]
 }
 
 const listClassRepPerformanceReviews = `-- name: ListClassRepPerformanceReviews :many
-SELECT id, class_rep_id, reviewed_by, academic_year, term, attendance_rate, reports_submitted, responsiveness_score, comments, rating, created_at
+SELECT id, class_rep_id, reviewed_by, academic_year, term, attendance_rate, reports_submitted, responsiveness_score, comments, rating, created_at, tenant_id
 FROM class_rep_performance
 WHERE class_rep_id = $1
 ORDER BY created_at DESC
@@ -839,6 +860,7 @@ func (q *Queries) ListClassRepPerformanceReviews(ctx context.Context, classRepID
 			&i.Comments,
 			&i.Rating,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -851,7 +873,7 @@ func (q *Queries) ListClassRepPerformanceReviews(ctx context.Context, classRepID
 }
 
 const listClassRepReportsByRep = `-- name: ListClassRepReportsByRep :many
-SELECT id, class_rep_id, report_type, title, content, level, academic_year, status, reviewed_by, review_notes, created_at, updated_at FROM class_rep_reports
+SELECT id, class_rep_id, report_type, title, content, level, academic_year, status, reviewed_by, review_notes, created_at, updated_at, tenant_id FROM class_rep_reports
 WHERE class_rep_id = $1
   AND ($2::text IS NULL OR status = $2)
 ORDER BY created_at DESC
@@ -884,6 +906,7 @@ func (q *Queries) ListClassRepReportsByRep(ctx context.Context, arg ListClassRep
 			&i.ReviewNotes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -896,7 +919,7 @@ func (q *Queries) ListClassRepReportsByRep(ctx context.Context, arg ListClassRep
 }
 
 const listElectionNominees = `-- name: ListElectionNominees :many
-SELECT en.id, en.election_id, en.student_id, en.manifesto, en.nominated_by, en.status, en.approved_by, en.created_at, u.full_name as student_name
+SELECT en.id, en.election_id, en.student_id, en.manifesto, en.nominated_by, en.status, en.approved_by, en.created_at, en.tenant_id, u.full_name as student_name
 FROM election_nominees en
 JOIN users u ON u.id = en.student_id
 WHERE en.election_id = $1
@@ -912,6 +935,7 @@ type ListElectionNomineesRow struct {
 	Status      string             `json:"status"`
 	ApprovedBy  pgtype.UUID        `json:"approved_by"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	TenantID    uuid.UUID          `json:"tenant_id"`
 	StudentName *string            `json:"student_name"`
 }
 
@@ -933,6 +957,7 @@ func (q *Queries) ListElectionNominees(ctx context.Context, electionID uuid.UUID
 			&i.Status,
 			&i.ApprovedBy,
 			&i.CreatedAt,
+			&i.TenantID,
 			&i.StudentName,
 		); err != nil {
 			return nil, err
@@ -1002,7 +1027,7 @@ func (q *Queries) ListPendingCourseRegistrationsByLevel(ctx context.Context, lev
 }
 
 const listStudentsByLevel = `-- name: ListStudentsByLevel :many
-SELECT id, user_id, matric_number, level, entry_year, current_session_id, current_semester, cgpa, total_credits_earned, total_credits_required, academic_standing, graduation_status, is_defaulter, defaulter_reason, created_at, updated_at, admission_mode, year_admitted, onboarding_completed FROM students
+SELECT id, user_id, matric_number, level, entry_year, current_session_id, current_semester, cgpa, total_credits_earned, total_credits_required, academic_standing, graduation_status, is_defaulter, defaulter_reason, created_at, updated_at, admission_mode, year_admitted, onboarding_completed, tenant_id FROM students
 WHERE level = $1
 ORDER BY matric_number
 `
@@ -1036,6 +1061,7 @@ func (q *Queries) ListStudentsByLevel(ctx context.Context, level int32) ([]Stude
 			&i.AdmissionMode,
 			&i.YearAdmitted,
 			&i.OnboardingCompleted,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -1067,7 +1093,7 @@ SET status = $2::varchar,
     started_at = CASE WHEN $2::varchar = 'open' THEN NOW() ELSE started_at END,
     closed_at = CASE WHEN $2::varchar IN ('closed', 'finalized') THEN NOW() ELSE closed_at END
 WHERE id = $1
-RETURNING id, course_id, class_rep_id, session_id, semester_id, date, method, venue, status, started_at, closed_at, total_present, total_absent, total_students, created_at
+RETURNING id, course_id, class_rep_id, session_id, semester_id, date, method, venue, status, started_at, closed_at, total_present, total_absent, total_students, created_at, tenant_id
 `
 
 type UpdateAttendanceSessionStatusParams struct {
@@ -1094,6 +1120,7 @@ func (q *Queries) UpdateAttendanceSessionStatus(ctx context.Context, arg UpdateA
 		&i.TotalAbsent,
 		&i.TotalStudents,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -1102,7 +1129,7 @@ const updateClassRepReportStatus = `-- name: UpdateClassRepReportStatus :one
 UPDATE class_rep_reports
 SET status = $2, reviewed_by = $3, review_notes = $4, updated_at = NOW()
 WHERE id = $1
-RETURNING id, class_rep_id, report_type, title, content, level, academic_year, status, reviewed_by, review_notes, created_at, updated_at
+RETURNING id, class_rep_id, report_type, title, content, level, academic_year, status, reviewed_by, review_notes, created_at, updated_at, tenant_id
 `
 
 type UpdateClassRepReportStatusParams struct {
@@ -1133,6 +1160,7 @@ func (q *Queries) UpdateClassRepReportStatus(ctx context.Context, arg UpdateClas
 		&i.ReviewNotes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }

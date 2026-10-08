@@ -15,7 +15,7 @@ import (
 // day, not just a date — the same free-tier caveat from RunBirthdayScheduler
 // applies here too.
 func (server *Server) RunStudyTaskReminderScheduler(ctx context.Context) {
-	server.sendDueStudyTaskReminders(ctx)
+	server.forEachActiveTenant(ctx, "study-task-reminder", server.sendDueStudyTaskReminders)
 
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
@@ -25,7 +25,7 @@ func (server *Server) RunStudyTaskReminderScheduler(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			server.sendDueStudyTaskReminders(ctx)
+			server.forEachActiveTenant(ctx, "study-task-reminder", server.sendDueStudyTaskReminders)
 		}
 	}
 }

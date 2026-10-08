@@ -108,6 +108,8 @@ export interface AuthTokens {
 export interface LoginPayload {
   email: string;
   password: string;
+  /** Department slug. Omitted means the server's default department. */
+  tenant?: string;
 }
 
 export interface SignupPayload {
@@ -116,6 +118,8 @@ export interface SignupPayload {
   firstName: string;
   lastName: string;
   phone?: string;
+  /** Department slug. Omitted means the server's default department. */
+  tenant?: string;
 }
 
 export interface StudentSignupPayload extends SignupPayload {

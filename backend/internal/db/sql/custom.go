@@ -33,35 +33,47 @@ func (q *Queries) GetDB() DBTX {
 // always keeps the same number no matter how many times its receipt is
 // re-downloaded.
 //
-// The sequence name comes from the payment type: department dues and class
-// dues each have their own "receipt book" (department_receipt_seq /
-// class_receipt_seq). Anything else is rejected by the API layer before
+// The counter name comes from the payment type: department dues and class
+// dues each have their own "receipt book" (department_receipt /
+// class_receipt) within the department. Anything else is rejected by the API layer before
 // reaching here, but we still fail closed with an error rather than
 // inventing a number.
 //
-// Two rows racing on the same payment both run nextval + the guarded
-// UPDATE; only one UPDATE matches (receipt_number IS NULL), so exactly one
-// receipt number is ever committed for a given payment.
+// Two calls racing on the same payment are serialised by the row lock, so
+// exactly one receipt number is ever committed for a given payment.
 func (q *Queries) AssignReceiptNumber(ctx context.Context, paymentID uuid.UUID, paymentType PaymentType) (int32, error) {
-	var seq string
+	var counter string
 	switch paymentType {
 	case PaymentTypeDeptDues:
-		seq = "department_receipt_seq"
+		counter = "department_receipt"
 	case PaymentTypeClassDues:
-		seq = "class_receipt_seq"
+		counter = "class_receipt"
 	default:
 		return 0, fmt.Errorf("receipts are only issued for department or class dues, not %q", paymentType)
 	}
 
+	// Numbers come from tenant_counters, so each department has its own
+	// receipt book. The payment row is locked before the counter moves, and the
+	// counter only moves when a number is really assigned: a second call for
+	// the same payment waits on the lock, then finds the number already set and
+	// takes none. (The old per-type sequences were consumed on every call.)
 	var n int32
 	err := q.db.QueryRow(ctx, `
-		WITH next AS (SELECT nextval($2) AS num)
+		WITH target AS (
+			SELECT id FROM payments WHERE id = $1 AND receipt_number IS NULL FOR UPDATE
+		),
+		next AS (
+			INSERT INTO tenant_counters (tenant_id, name, value)
+			SELECT app_current_tenant(), $2, 1 FROM target
+			ON CONFLICT (tenant_id, name) DO UPDATE SET value = tenant_counters.value + 1
+			RETURNING value
+		)
 		UPDATE payments p
-		SET receipt_number = next.num
+		SET receipt_number = next.value
 		FROM next
-		WHERE p.id = $1 AND p.receipt_number IS NULL
+		WHERE p.id = $1
 		RETURNING p.receipt_number
-	`, paymentID, seq).Scan(&n)
+	`, paymentID, counter).Scan(&n)
 	if err == nil {
 		return n, nil
 	}
@@ -739,7 +751,7 @@ func (q *Queries) AssignCourseToLecturer(ctx context.Context, arg AssignCourseTo
 	err := q.db.QueryRow(ctx, `
 		INSERT INTO lecturer_course_assignments (lecturer_id, course_id, session_id, semester, assigned_by, is_primary)
 		VALUES ($1, $2, $3, $4, $5, $6)
-		ON CONFLICT (course_id, session_id, semester) DO UPDATE
+		ON CONFLICT (tenant_id, course_id, session_id, semester) DO UPDATE
 		SET lecturer_id = EXCLUDED.lecturer_id, is_primary = EXCLUDED.is_primary, assigned_by = EXCLUDED.assigned_by, updated_at = NOW()
 		RETURNING id
 	`, arg.LecturerID, arg.CourseID, arg.SessionID, arg.Semester, arg.AssignedBy, arg.IsPrimary).Scan(&id)
@@ -1936,7 +1948,7 @@ func (q *Queries) GetOrCreateNotificationUnsubscribeToken(ctx context.Context, u
 	if _, err := q.db.Exec(ctx, `
 		INSERT INTO notification_preferences (user_id, unsubscribe_token)
 		VALUES ($1, $2)
-		ON CONFLICT (user_id) DO UPDATE SET unsubscribe_token = $2
+		ON CONFLICT (tenant_id, user_id) DO UPDATE SET unsubscribe_token = $2
 	`, userID, newToken); err != nil {
 		return "", err
 	}
@@ -2137,7 +2149,7 @@ func (q *Queries) UpsertCRFSignatureAsset(ctx context.Context, arg UpsertCRFSign
 	row := q.db.QueryRow(ctx, `
 		INSERT INTO crf_signature_assets (kind, file_path, uploaded_by)
 		VALUES ($1, $2, $3)
-		ON CONFLICT (kind) DO UPDATE SET
+		ON CONFLICT (tenant_id, kind) DO UPDATE SET
 			file_path = EXCLUDED.file_path,
 			uploaded_by = EXCLUDED.uploaded_by,
 			uploaded_at = NOW()
@@ -2666,7 +2678,7 @@ func (q *Queries) CreateGraduationRequest(ctx context.Context, userID uuid.UUID,
 	tag, err := q.db.Exec(ctx, `
 		INSERT INTO graduation_requests (user_id, amount_charged, created_by)
 		VALUES ($1, $2, $3)
-		ON CONFLICT (user_id) DO NOTHING
+		ON CONFLICT (tenant_id, user_id) DO NOTHING
 	`, userID, amount, createdBy)
 	if err != nil {
 		return GraduationRequest{}, fmt.Errorf("create graduation request: %w", err)
@@ -2793,7 +2805,7 @@ func (q *Queries) CreateWaivedGraduationRequest(ctx context.Context, userID, cre
 	row := q.db.QueryRow(ctx, `
 		INSERT INTO graduation_requests (user_id, amount_charged, waived, created_by)
 		VALUES ($1, 0, true, $2)
-		ON CONFLICT (user_id) DO NOTHING
+		ON CONFLICT (tenant_id, user_id) DO NOTHING
 		RETURNING `+graduationRequestColumns, userID, createdBy)
 	g, err := scanGraduationRequest(row)
 	if err != nil {

@@ -16,7 +16,7 @@ import (
 const createAIInteraction = `-- name: CreateAIInteraction :one
 INSERT INTO ai_interactions (user_id, feature, session_id, input_text, output_text, confidence_score, context, model_used, response_time_ms)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, user_id, feature, session_id, input_text, output_text, confidence_score, was_accurate, user_feedback, context, model_used, response_time_ms, reviewed_by, created_at
+RETURNING id, user_id, feature, session_id, input_text, output_text, confidence_score, was_accurate, user_feedback, context, model_used, response_time_ms, reviewed_by, created_at, tenant_id
 `
 
 type CreateAIInteractionParams struct {
@@ -59,6 +59,7 @@ func (q *Queries) CreateAIInteraction(ctx context.Context, arg CreateAIInteracti
 		&i.ResponseTimeMs,
 		&i.ReviewedBy,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -107,7 +108,7 @@ func (q *Queries) CreateAIModel(ctx context.Context, arg CreateAIModelParams) (A
 const createAIPrediction = `-- name: CreateAIPrediction :one
 INSERT INTO ai_predictions (prediction_type, target_id, predicted_value, confidence_interval, model_version, features_used)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, prediction_type, target_id, predicted_value, actual_value, confidence_interval, model_version, features_used, was_reviewed, reviewed_by, created_at, expires_at
+RETURNING id, prediction_type, target_id, predicted_value, actual_value, confidence_interval, model_version, features_used, was_reviewed, reviewed_by, created_at, expires_at, tenant_id
 `
 
 type CreateAIPredictionParams struct {
@@ -142,6 +143,7 @@ func (q *Queries) CreateAIPrediction(ctx context.Context, arg CreateAIPrediction
 		&i.ReviewedBy,
 		&i.CreatedAt,
 		&i.ExpiresAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -149,7 +151,7 @@ func (q *Queries) CreateAIPrediction(ctx context.Context, arg CreateAIPrediction
 const createContentModerationLog = `-- name: CreateContentModerationLog :one
 INSERT INTO content_moderation_log (content_id, content_type, ai_flagged, ai_confidence, ai_reason)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, content_id, content_type, ai_flagged, ai_confidence, ai_reason, human_reviewed, human_decision, reviewed_by, created_at, reviewed_at
+RETURNING id, content_id, content_type, ai_flagged, ai_confidence, ai_reason, human_reviewed, human_decision, reviewed_by, created_at, reviewed_at, tenant_id
 `
 
 type CreateContentModerationLogParams struct {
@@ -181,6 +183,7 @@ func (q *Queries) CreateContentModerationLog(ctx context.Context, arg CreateCont
 		&i.ReviewedBy,
 		&i.CreatedAt,
 		&i.ReviewedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -238,7 +241,7 @@ func (q *Queries) GetAIModelByName(ctx context.Context, modelName string) (AiMod
 }
 
 const getAISettings = `-- name: GetAISettings :one
-SELECT id, user_id, chatbot_enabled, personalization_enabled, face_recognition_enabled, data_collection_consent, preferred_language, created_at, updated_at FROM ai_user_settings WHERE user_id = $1
+SELECT id, user_id, chatbot_enabled, personalization_enabled, face_recognition_enabled, data_collection_consent, preferred_language, created_at, updated_at, tenant_id FROM ai_user_settings WHERE user_id = $1
 `
 
 func (q *Queries) GetAISettings(ctx context.Context, userID uuid.UUID) (AiUserSetting, error) {
@@ -254,14 +257,15 @@ func (q *Queries) GetAISettings(ctx context.Context, userID uuid.UUID) (AiUserSe
 		&i.PreferredLanguage,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getOrCreateAISettings = `-- name: GetOrCreateAISettings :one
 INSERT INTO ai_user_settings (user_id) VALUES ($1)
-ON CONFLICT (user_id) DO UPDATE SET user_id = EXCLUDED.user_id
-RETURNING id, user_id, chatbot_enabled, personalization_enabled, face_recognition_enabled, data_collection_consent, preferred_language, created_at, updated_at
+ON CONFLICT (tenant_id, user_id) DO UPDATE SET user_id = EXCLUDED.user_id
+RETURNING id, user_id, chatbot_enabled, personalization_enabled, face_recognition_enabled, data_collection_consent, preferred_language, created_at, updated_at, tenant_id
 `
 
 func (q *Queries) GetOrCreateAISettings(ctx context.Context, userID uuid.UUID) (AiUserSetting, error) {
@@ -277,6 +281,7 @@ func (q *Queries) GetOrCreateAISettings(ctx context.Context, userID uuid.UUID) (
 		&i.PreferredLanguage,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -294,7 +299,7 @@ func (q *Queries) GetTodayInteractionCount(ctx context.Context, userID uuid.UUID
 }
 
 const listAIInteractionsBySession = `-- name: ListAIInteractionsBySession :many
-SELECT id, user_id, feature, session_id, input_text, output_text, confidence_score, was_accurate, user_feedback, context, model_used, response_time_ms, reviewed_by, created_at FROM ai_interactions
+SELECT id, user_id, feature, session_id, input_text, output_text, confidence_score, was_accurate, user_feedback, context, model_used, response_time_ms, reviewed_by, created_at, tenant_id FROM ai_interactions
 WHERE session_id = $1 AND user_id = $2
 ORDER BY created_at ASC
 `
@@ -328,6 +333,7 @@ func (q *Queries) ListAIInteractionsBySession(ctx context.Context, arg ListAIInt
 			&i.ResponseTimeMs,
 			&i.ReviewedBy,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -340,7 +346,7 @@ func (q *Queries) ListAIInteractionsBySession(ctx context.Context, arg ListAIInt
 }
 
 const listAIInteractionsByUser = `-- name: ListAIInteractionsByUser :many
-SELECT id, user_id, feature, session_id, input_text, output_text, confidence_score, was_accurate, user_feedback, context, model_used, response_time_ms, reviewed_by, created_at FROM ai_interactions
+SELECT id, user_id, feature, session_id, input_text, output_text, confidence_score, was_accurate, user_feedback, context, model_used, response_time_ms, reviewed_by, created_at, tenant_id FROM ai_interactions
 WHERE user_id = $1
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3
@@ -376,6 +382,7 @@ func (q *Queries) ListAIInteractionsByUser(ctx context.Context, arg ListAIIntera
 			&i.ResponseTimeMs,
 			&i.ReviewedBy,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -424,7 +431,7 @@ func (q *Queries) ListAIModels(ctx context.Context) ([]AiModel, error) {
 }
 
 const listAIPredictionsByType = `-- name: ListAIPredictionsByType :many
-SELECT id, prediction_type, target_id, predicted_value, actual_value, confidence_interval, model_version, features_used, was_reviewed, reviewed_by, created_at, expires_at FROM ai_predictions
+SELECT id, prediction_type, target_id, predicted_value, actual_value, confidence_interval, model_version, features_used, was_reviewed, reviewed_by, created_at, expires_at, tenant_id FROM ai_predictions
 WHERE prediction_type = $1
 ORDER BY created_at DESC
 LIMIT $2
@@ -457,6 +464,7 @@ func (q *Queries) ListAIPredictionsByType(ctx context.Context, arg ListAIPredict
 			&i.ReviewedBy,
 			&i.CreatedAt,
 			&i.ExpiresAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -469,7 +477,7 @@ func (q *Queries) ListAIPredictionsByType(ctx context.Context, arg ListAIPredict
 }
 
 const listPendingModerations = `-- name: ListPendingModerations :many
-SELECT id, content_id, content_type, ai_flagged, ai_confidence, ai_reason, human_reviewed, human_decision, reviewed_by, created_at, reviewed_at FROM content_moderation_log
+SELECT id, content_id, content_type, ai_flagged, ai_confidence, ai_reason, human_reviewed, human_decision, reviewed_by, created_at, reviewed_at, tenant_id FROM content_moderation_log
 WHERE human_reviewed = false
 ORDER BY created_at DESC
 LIMIT $1
@@ -496,6 +504,7 @@ func (q *Queries) ListPendingModerations(ctx context.Context, limit int32) ([]Co
 			&i.ReviewedBy,
 			&i.CreatedAt,
 			&i.ReviewedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}

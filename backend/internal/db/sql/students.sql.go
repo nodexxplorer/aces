@@ -17,7 +17,7 @@ INSERT INTO students (
     user_id, matric_number, level, entry_year, current_session_id, current_semester
 ) VALUES (
     $1, $2, $3, $4, $5, $6
-) RETURNING id, user_id, matric_number, level, entry_year, current_session_id, current_semester, cgpa, total_credits_earned, total_credits_required, academic_standing, graduation_status, is_defaulter, defaulter_reason, created_at, updated_at, admission_mode, year_admitted, onboarding_completed
+) RETURNING id, user_id, matric_number, level, entry_year, current_session_id, current_semester, cgpa, total_credits_earned, total_credits_required, academic_standing, graduation_status, is_defaulter, defaulter_reason, created_at, updated_at, admission_mode, year_admitted, onboarding_completed, tenant_id
 `
 
 type CreateStudentParams struct {
@@ -59,12 +59,13 @@ func (q *Queries) CreateStudent(ctx context.Context, arg CreateStudentParams) (S
 		&i.AdmissionMode,
 		&i.YearAdmitted,
 		&i.OnboardingCompleted,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getStudent = `-- name: GetStudent :one
-SELECT id, user_id, matric_number, level, entry_year, current_session_id, current_semester, cgpa, total_credits_earned, total_credits_required, academic_standing, graduation_status, is_defaulter, defaulter_reason, created_at, updated_at, admission_mode, year_admitted, onboarding_completed FROM students
+SELECT id, user_id, matric_number, level, entry_year, current_session_id, current_semester, cgpa, total_credits_earned, total_credits_required, academic_standing, graduation_status, is_defaulter, defaulter_reason, created_at, updated_at, admission_mode, year_admitted, onboarding_completed, tenant_id FROM students
 WHERE id = $1 LIMIT 1
 `
 
@@ -91,12 +92,13 @@ func (q *Queries) GetStudent(ctx context.Context, id uuid.UUID) (Student, error)
 		&i.AdmissionMode,
 		&i.YearAdmitted,
 		&i.OnboardingCompleted,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getStudentByMatric = `-- name: GetStudentByMatric :one
-SELECT id, user_id, matric_number, level, entry_year, current_session_id, current_semester, cgpa, total_credits_earned, total_credits_required, academic_standing, graduation_status, is_defaulter, defaulter_reason, created_at, updated_at, admission_mode, year_admitted, onboarding_completed FROM students
+SELECT id, user_id, matric_number, level, entry_year, current_session_id, current_semester, cgpa, total_credits_earned, total_credits_required, academic_standing, graduation_status, is_defaulter, defaulter_reason, created_at, updated_at, admission_mode, year_admitted, onboarding_completed, tenant_id FROM students
 WHERE matric_number = $1 LIMIT 1
 `
 
@@ -123,12 +125,13 @@ func (q *Queries) GetStudentByMatric(ctx context.Context, matricNumber *string) 
 		&i.AdmissionMode,
 		&i.YearAdmitted,
 		&i.OnboardingCompleted,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getStudentByUserId = `-- name: GetStudentByUserId :one
-SELECT id, user_id, matric_number, level, entry_year, current_session_id, current_semester, cgpa, total_credits_earned, total_credits_required, academic_standing, graduation_status, is_defaulter, defaulter_reason, created_at, updated_at, admission_mode, year_admitted, onboarding_completed FROM students
+SELECT id, user_id, matric_number, level, entry_year, current_session_id, current_semester, cgpa, total_credits_earned, total_credits_required, academic_standing, graduation_status, is_defaulter, defaulter_reason, created_at, updated_at, admission_mode, year_admitted, onboarding_completed, tenant_id FROM students
 WHERE user_id = $1 LIMIT 1
 `
 
@@ -155,12 +158,13 @@ func (q *Queries) GetStudentByUserId(ctx context.Context, userID uuid.UUID) (Stu
 		&i.AdmissionMode,
 		&i.YearAdmitted,
 		&i.OnboardingCompleted,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const listStudents = `-- name: ListStudents :many
-SELECT id, user_id, matric_number, level, entry_year, current_session_id, current_semester, cgpa, total_credits_earned, total_credits_required, academic_standing, graduation_status, is_defaulter, defaulter_reason, created_at, updated_at, admission_mode, year_admitted, onboarding_completed FROM students
+SELECT id, user_id, matric_number, level, entry_year, current_session_id, current_semester, cgpa, total_credits_earned, total_credits_required, academic_standing, graduation_status, is_defaulter, defaulter_reason, created_at, updated_at, admission_mode, year_admitted, onboarding_completed, tenant_id FROM students
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2
 `
@@ -199,6 +203,7 @@ func (q *Queries) ListStudents(ctx context.Context, arg ListStudentsParams) ([]S
 			&i.AdmissionMode,
 			&i.YearAdmitted,
 			&i.OnboardingCompleted,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -219,7 +224,7 @@ SET
     graduation_status = $5,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, user_id, matric_number, level, entry_year, current_session_id, current_semester, cgpa, total_credits_earned, total_credits_required, academic_standing, graduation_status, is_defaulter, defaulter_reason, created_at, updated_at, admission_mode, year_admitted, onboarding_completed
+RETURNING id, user_id, matric_number, level, entry_year, current_session_id, current_semester, cgpa, total_credits_earned, total_credits_required, academic_standing, graduation_status, is_defaulter, defaulter_reason, created_at, updated_at, admission_mode, year_admitted, onboarding_completed, tenant_id
 `
 
 type UpdateStudentAcademicRecordParams struct {
@@ -259,6 +264,7 @@ func (q *Queries) UpdateStudentAcademicRecord(ctx context.Context, arg UpdateStu
 		&i.AdmissionMode,
 		&i.YearAdmitted,
 		&i.OnboardingCompleted,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -271,7 +277,7 @@ SET
     onboarding_completed = $4,
     updated_at = NOW()
 WHERE user_id = $1
-RETURNING id, user_id, matric_number, level, entry_year, current_session_id, current_semester, cgpa, total_credits_earned, total_credits_required, academic_standing, graduation_status, is_defaulter, defaulter_reason, created_at, updated_at, admission_mode, year_admitted, onboarding_completed
+RETURNING id, user_id, matric_number, level, entry_year, current_session_id, current_semester, cgpa, total_credits_earned, total_credits_required, academic_standing, graduation_status, is_defaulter, defaulter_reason, created_at, updated_at, admission_mode, year_admitted, onboarding_completed, tenant_id
 `
 
 type UpdateStudentOnboardingParams struct {
@@ -309,6 +315,7 @@ func (q *Queries) UpdateStudentOnboarding(ctx context.Context, arg UpdateStudent
 		&i.AdmissionMode,
 		&i.YearAdmitted,
 		&i.OnboardingCompleted,
+		&i.TenantID,
 	)
 	return i, err
 }

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,6 +9,7 @@ import (
 	"github.com/aces/backend/internal/auth"
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/aces/backend/internal/payment"
+	"github.com/aces/backend/internal/tenant"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -223,8 +223,8 @@ func (server *Server) createDue(ctx *gin.Context) {
 	}
 
 	if server.notificationsFull != nil {
+		bgCtx, cancel := tenant.Detach(ctx, 10*time.Second)
 		go func(dueName, amountStr string, level *int32, senderID uuid.UUID) {
-			bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
 			title := "New Due: " + dueName

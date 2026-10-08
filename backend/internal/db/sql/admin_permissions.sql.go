@@ -13,7 +13,7 @@ import (
 )
 
 const getAdminPermissions = `-- name: GetAdminPermissions :one
-SELECT id, user_id, can_manage_results, can_manage_users, can_manage_finance, can_manage_courses, can_view_analytics, can_manage_announcements, can_backup_data, granted_by_hod_id, granted_at, expires_at, is_active FROM admin_permissions
+SELECT id, user_id, can_manage_results, can_manage_users, can_manage_finance, can_manage_courses, can_view_analytics, can_manage_announcements, can_backup_data, granted_by_hod_id, granted_at, expires_at, is_active, tenant_id FROM admin_permissions
 WHERE user_id = $1 AND is_active = true
 `
 
@@ -34,6 +34,7 @@ func (q *Queries) GetAdminPermissions(ctx context.Context, userID uuid.UUID) (Ad
 		&i.GrantedAt,
 		&i.ExpiresAt,
 		&i.IsActive,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -52,7 +53,7 @@ INSERT INTO admin_permissions (
     expires_at
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
-) RETURNING id, user_id, can_manage_results, can_manage_users, can_manage_finance, can_manage_courses, can_view_analytics, can_manage_announcements, can_backup_data, granted_by_hod_id, granted_at, expires_at, is_active
+) RETURNING id, user_id, can_manage_results, can_manage_users, can_manage_finance, can_manage_courses, can_view_analytics, can_manage_announcements, can_backup_data, granted_by_hod_id, granted_at, expires_at, is_active, tenant_id
 `
 
 type GrantAdminPermissionsParams struct {
@@ -96,12 +97,13 @@ func (q *Queries) GrantAdminPermissions(ctx context.Context, arg GrantAdminPermi
 		&i.GrantedAt,
 		&i.ExpiresAt,
 		&i.IsActive,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const listAdminPermissions = `-- name: ListAdminPermissions :many
-SELECT id, user_id, can_manage_results, can_manage_users, can_manage_finance, can_manage_courses, can_view_analytics, can_manage_announcements, can_backup_data, granted_by_hod_id, granted_at, expires_at, is_active FROM admin_permissions
+SELECT id, user_id, can_manage_results, can_manage_users, can_manage_finance, can_manage_courses, can_view_analytics, can_manage_announcements, can_backup_data, granted_by_hod_id, granted_at, expires_at, is_active, tenant_id FROM admin_permissions
 WHERE is_active = true
 ORDER BY granted_at DESC
 LIMIT $1 OFFSET $2
@@ -135,6 +137,7 @@ func (q *Queries) ListAdminPermissions(ctx context.Context, arg ListAdminPermiss
 			&i.GrantedAt,
 			&i.ExpiresAt,
 			&i.IsActive,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -169,7 +172,7 @@ SET
     can_backup_data = $8,
     expires_at = COALESCE($9, expires_at)
 WHERE user_id = $1
-RETURNING id, user_id, can_manage_results, can_manage_users, can_manage_finance, can_manage_courses, can_view_analytics, can_manage_announcements, can_backup_data, granted_by_hod_id, granted_at, expires_at, is_active
+RETURNING id, user_id, can_manage_results, can_manage_users, can_manage_finance, can_manage_courses, can_view_analytics, can_manage_announcements, can_backup_data, granted_by_hod_id, granted_at, expires_at, is_active, tenant_id
 `
 
 type UpdateAdminPermissionsParams struct {
@@ -211,6 +214,7 @@ func (q *Queries) UpdateAdminPermissions(ctx context.Context, arg UpdateAdminPer
 		&i.GrantedAt,
 		&i.ExpiresAt,
 		&i.IsActive,
+		&i.TenantID,
 	)
 	return i, err
 }

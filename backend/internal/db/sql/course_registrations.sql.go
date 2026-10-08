@@ -17,7 +17,7 @@ INSERT INTO course_registrations (
     student_id, session_id, semester_id, total_units, status
 ) VALUES (
     $1, $2, $3, $4, $5
-) RETURNING id, student_id, session_id, semester_id, total_units, status, approved_by, approved_at, created_at
+) RETURNING id, student_id, session_id, semester_id, total_units, status, approved_by, approved_at, created_at, tenant_id
 `
 
 type CreateCourseRegistrationParams struct {
@@ -47,6 +47,7 @@ func (q *Queries) CreateCourseRegistration(ctx context.Context, arg CreateCourse
 		&i.ApprovedBy,
 		&i.ApprovedAt,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -56,7 +57,7 @@ INSERT INTO registered_courses (
     registration_id, course_id, status, is_carryover, previous_attempt_id
 ) VALUES (
     $1, $2, $3, $4, $5
-) RETURNING id, registration_id, course_id, status, is_carryover, previous_attempt_id, created_at
+) RETURNING id, registration_id, course_id, status, is_carryover, previous_attempt_id, created_at, tenant_id
 `
 
 type CreateRegisteredCourseParams struct {
@@ -84,6 +85,7 @@ func (q *Queries) CreateRegisteredCourse(ctx context.Context, arg CreateRegister
 		&i.IsCarryover,
 		&i.PreviousAttemptID,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -99,7 +101,7 @@ func (q *Queries) DeleteRegisteredCourse(ctx context.Context, id uuid.UUID) erro
 }
 
 const getCourseRegistration = `-- name: GetCourseRegistration :one
-SELECT id, student_id, session_id, semester_id, total_units, status, approved_by, approved_at, created_at FROM course_registrations
+SELECT id, student_id, session_id, semester_id, total_units, status, approved_by, approved_at, created_at, tenant_id FROM course_registrations
 WHERE id = $1 LIMIT 1
 `
 
@@ -116,12 +118,13 @@ func (q *Queries) GetCourseRegistration(ctx context.Context, id uuid.UUID) (Cour
 		&i.ApprovedBy,
 		&i.ApprovedAt,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getRegisteredCourse = `-- name: GetRegisteredCourse :one
-SELECT id, registration_id, course_id, status, is_carryover, previous_attempt_id, created_at FROM registered_courses
+SELECT id, registration_id, course_id, status, is_carryover, previous_attempt_id, created_at, tenant_id FROM registered_courses
 WHERE id = $1 LIMIT 1
 `
 
@@ -136,6 +139,7 @@ func (q *Queries) GetRegisteredCourse(ctx context.Context, id uuid.UUID) (Regist
 		&i.IsCarryover,
 		&i.PreviousAttemptID,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -168,7 +172,7 @@ func (q *Queries) ListRegisteredCourseIDsByStudent(ctx context.Context, studentI
 }
 
 const listRegisteredCoursesByRegistration = `-- name: ListRegisteredCoursesByRegistration :many
-SELECT id, registration_id, course_id, status, is_carryover, previous_attempt_id, created_at FROM registered_courses
+SELECT id, registration_id, course_id, status, is_carryover, previous_attempt_id, created_at, tenant_id FROM registered_courses
 WHERE registration_id = $1
 ORDER BY created_at ASC
 `
@@ -190,6 +194,7 @@ func (q *Queries) ListRegisteredCoursesByRegistration(ctx context.Context, regis
 			&i.IsCarryover,
 			&i.PreviousAttemptID,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -202,7 +207,7 @@ func (q *Queries) ListRegisteredCoursesByRegistration(ctx context.Context, regis
 }
 
 const listStudentCourseRegistrations = `-- name: ListStudentCourseRegistrations :many
-SELECT id, student_id, session_id, semester_id, total_units, status, approved_by, approved_at, created_at FROM course_registrations
+SELECT id, student_id, session_id, semester_id, total_units, status, approved_by, approved_at, created_at, tenant_id FROM course_registrations
 WHERE student_id = $1
 ORDER BY created_at DESC
 `
@@ -226,6 +231,7 @@ func (q *Queries) ListStudentCourseRegistrations(ctx context.Context, studentID 
 			&i.ApprovedBy,
 			&i.ApprovedAt,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -245,7 +251,7 @@ SET
     approved_by = $4,
     approved_at = $5
 WHERE id = $1
-RETURNING id, student_id, session_id, semester_id, total_units, status, approved_by, approved_at, created_at
+RETURNING id, student_id, session_id, semester_id, total_units, status, approved_by, approved_at, created_at, tenant_id
 `
 
 type UpdateCourseRegistrationParams struct {
@@ -275,6 +281,7 @@ func (q *Queries) UpdateCourseRegistration(ctx context.Context, arg UpdateCourse
 		&i.ApprovedBy,
 		&i.ApprovedAt,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -286,7 +293,7 @@ SET
     is_carryover = $3,
     previous_attempt_id = $4
 WHERE id = $1
-RETURNING id, registration_id, course_id, status, is_carryover, previous_attempt_id, created_at
+RETURNING id, registration_id, course_id, status, is_carryover, previous_attempt_id, created_at, tenant_id
 `
 
 type UpdateRegisteredCourseParams struct {
@@ -312,6 +319,7 @@ func (q *Queries) UpdateRegisteredCourse(ctx context.Context, arg UpdateRegister
 		&i.IsCarryover,
 		&i.PreviousAttemptID,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }

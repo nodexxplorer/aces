@@ -17,7 +17,7 @@ INSERT INTO staff (
     user_id, staff_id, department, rank, specialization, employment_date
 ) VALUES (
     $1, $2, $3, $4, $5, $6
-) RETURNING id, user_id, staff_id, department, rank, specialization, employment_date, created_at, title, first_name, last_name, employment_type, employment_status, qualifications, bio, office_location, office_hours, publications, date_joined, updated_at
+) RETURNING id, user_id, staff_id, department, rank, specialization, employment_date, created_at, title, first_name, last_name, employment_type, employment_status, qualifications, bio, office_location, office_hours, publications, date_joined, updated_at, tenant_id
 `
 
 type CreateStaffParams struct {
@@ -60,6 +60,7 @@ func (q *Queries) CreateStaff(ctx context.Context, arg CreateStaffParams) (Staff
 		&i.Publications,
 		&i.DateJoined,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -75,7 +76,7 @@ func (q *Queries) DeleteStaff(ctx context.Context, id uuid.UUID) error {
 }
 
 const getStaff = `-- name: GetStaff :one
-SELECT id, user_id, staff_id, department, rank, specialization, employment_date, created_at, title, first_name, last_name, employment_type, employment_status, qualifications, bio, office_location, office_hours, publications, date_joined, updated_at FROM staff
+SELECT id, user_id, staff_id, department, rank, specialization, employment_date, created_at, title, first_name, last_name, employment_type, employment_status, qualifications, bio, office_location, office_hours, publications, date_joined, updated_at, tenant_id FROM staff
 WHERE id = $1 LIMIT 1
 `
 
@@ -103,12 +104,13 @@ func (q *Queries) GetStaff(ctx context.Context, id uuid.UUID) (Staff, error) {
 		&i.Publications,
 		&i.DateJoined,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getStaffByStaffID = `-- name: GetStaffByStaffID :one
-SELECT id, user_id, staff_id, department, rank, specialization, employment_date, created_at, title, first_name, last_name, employment_type, employment_status, qualifications, bio, office_location, office_hours, publications, date_joined, updated_at FROM staff
+SELECT id, user_id, staff_id, department, rank, specialization, employment_date, created_at, title, first_name, last_name, employment_type, employment_status, qualifications, bio, office_location, office_hours, publications, date_joined, updated_at, tenant_id FROM staff
 WHERE staff_id = $1 LIMIT 1
 `
 
@@ -136,12 +138,13 @@ func (q *Queries) GetStaffByStaffID(ctx context.Context, staffID string) (Staff,
 		&i.Publications,
 		&i.DateJoined,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getStaffByUserID = `-- name: GetStaffByUserID :one
-SELECT id, user_id, staff_id, department, rank, specialization, employment_date, created_at, title, first_name, last_name, employment_type, employment_status, qualifications, bio, office_location, office_hours, publications, date_joined, updated_at FROM staff
+SELECT id, user_id, staff_id, department, rank, specialization, employment_date, created_at, title, first_name, last_name, employment_type, employment_status, qualifications, bio, office_location, office_hours, publications, date_joined, updated_at, tenant_id FROM staff
 WHERE user_id = $1 LIMIT 1
 `
 
@@ -169,12 +172,13 @@ func (q *Queries) GetStaffByUserID(ctx context.Context, userID uuid.UUID) (Staff
 		&i.Publications,
 		&i.DateJoined,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const listStaff = `-- name: ListStaff :many
-SELECT id, user_id, staff_id, department, rank, specialization, employment_date, created_at, title, first_name, last_name, employment_type, employment_status, qualifications, bio, office_location, office_hours, publications, date_joined, updated_at FROM staff
+SELECT id, user_id, staff_id, department, rank, specialization, employment_date, created_at, title, first_name, last_name, employment_type, employment_status, qualifications, bio, office_location, office_hours, publications, date_joined, updated_at, tenant_id FROM staff
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2
 `
@@ -214,6 +218,7 @@ func (q *Queries) ListStaff(ctx context.Context, arg ListStaffParams) ([]Staff, 
 			&i.Publications,
 			&i.DateJoined,
 			&i.UpdatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -233,7 +238,7 @@ SET
     specialization = $4,
     employment_date = COALESCE($5, employment_date)
 WHERE id = $1
-RETURNING id, user_id, staff_id, department, rank, specialization, employment_date, created_at, title, first_name, last_name, employment_type, employment_status, qualifications, bio, office_location, office_hours, publications, date_joined, updated_at
+RETURNING id, user_id, staff_id, department, rank, specialization, employment_date, created_at, title, first_name, last_name, employment_type, employment_status, qualifications, bio, office_location, office_hours, publications, date_joined, updated_at, tenant_id
 `
 
 type UpdateStaffParams struct {
@@ -274,6 +279,7 @@ func (q *Queries) UpdateStaff(ctx context.Context, arg UpdateStaffParams) (Staff
 		&i.Publications,
 		&i.DateJoined,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }

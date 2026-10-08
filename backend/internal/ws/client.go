@@ -22,15 +22,18 @@ type Client struct {
 	hub    *Hub
 	conn   *websocket.Conn
 	UserID uuid.UUID
-	send   chan []byte
+	// TenantID is the department the connection's user belongs to.
+	TenantID uuid.UUID
+	send     chan []byte
 }
 
-func NewClient(hub *Hub, conn *websocket.Conn, userID uuid.UUID) *Client {
+func NewClient(hub *Hub, conn *websocket.Conn, userID, tenantID uuid.UUID) *Client {
 	return &Client{
-		hub:    hub,
-		conn:   conn,
-		UserID: userID,
-		send:   make(chan []byte, 256),
+		hub:      hub,
+		conn:     conn,
+		UserID:   userID,
+		TenantID: tenantID,
+		send:     make(chan []byte, 256),
 	}
 }
 
@@ -136,7 +139,7 @@ func (c *Client) handleChat(payload json.RawMessage) {
 
 	var outPayload json.RawMessage
 	if c.hub.PersistChat != nil {
-		stored, err := c.hub.PersistChat(c.UserID, chatMsg.To, chatMsg.Content)
+		stored, err := c.hub.PersistChat(c.TenantID, c.UserID, chatMsg.To, chatMsg.Content)
 		if err != nil {
 			log.Printf("[ws] failed to persist chat from %s: %v", c.UserID, err)
 			return
@@ -172,7 +175,7 @@ func (c *Client) handleGroupChat(payload json.RawMessage) {
 
 	var outPayload json.RawMessage
 	if c.hub.PersistGroupChat != nil {
-		stored, err := c.hub.PersistGroupChat(c.UserID, groupMsg.GroupID, groupMsg.Content)
+		stored, err := c.hub.PersistGroupChat(c.TenantID, c.UserID, groupMsg.GroupID, groupMsg.Content)
 		if err != nil {
 			log.Printf("[ws] failed to persist group chat from %s: %v", c.UserID, err)
 			return

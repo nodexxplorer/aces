@@ -17,7 +17,7 @@ INSERT INTO course_subcategories (
     course_id, name, weight_percentage
 ) VALUES (
     $1, $2, $3
-) RETURNING id, course_id, name, weight_percentage, is_active, created_at
+) RETURNING id, course_id, name, weight_percentage, is_active, created_at, tenant_id
 `
 
 type CreateCourseSubcategoryParams struct {
@@ -37,6 +37,7 @@ func (q *Queries) CreateCourseSubcategory(ctx context.Context, arg CreateCourseS
 		&i.WeightPercentage,
 		&i.IsActive,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -51,7 +52,7 @@ func (q *Queries) DeleteCourseSubcategory(ctx context.Context, id uuid.UUID) err
 }
 
 const getCourseSubcategory = `-- name: GetCourseSubcategory :one
-SELECT id, course_id, name, weight_percentage, is_active, created_at FROM course_subcategories
+SELECT id, course_id, name, weight_percentage, is_active, created_at, tenant_id FROM course_subcategories
 WHERE id = $1 LIMIT 1
 `
 
@@ -65,12 +66,13 @@ func (q *Queries) GetCourseSubcategory(ctx context.Context, id uuid.UUID) (Cours
 		&i.WeightPercentage,
 		&i.IsActive,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const listCourseSubcategories = `-- name: ListCourseSubcategories :many
-SELECT id, course_id, name, weight_percentage, is_active, created_at FROM course_subcategories
+SELECT id, course_id, name, weight_percentage, is_active, created_at, tenant_id FROM course_subcategories
 WHERE course_id = $1 AND is_active = true
 ORDER BY name
 `
@@ -91,6 +93,7 @@ func (q *Queries) ListCourseSubcategories(ctx context.Context, courseID uuid.UUI
 			&i.WeightPercentage,
 			&i.IsActive,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -106,7 +109,7 @@ const updateCourseSubcategory = `-- name: UpdateCourseSubcategory :one
 UPDATE course_subcategories
 SET name = $2, weight_percentage = $3, is_active = $4
 WHERE id = $1
-RETURNING id, course_id, name, weight_percentage, is_active, created_at
+RETURNING id, course_id, name, weight_percentage, is_active, created_at, tenant_id
 `
 
 type UpdateCourseSubcategoryParams struct {
@@ -131,6 +134,7 @@ func (q *Queries) UpdateCourseSubcategory(ctx context.Context, arg UpdateCourseS
 		&i.WeightPercentage,
 		&i.IsActive,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }

@@ -72,7 +72,7 @@ WHERE id = $1;
 
 -- name: GetOrCreateAISettings :one
 INSERT INTO ai_user_settings (user_id) VALUES ($1)
-ON CONFLICT (user_id) DO UPDATE SET user_id = EXCLUDED.user_id
+ON CONFLICT (tenant_id, user_id) DO UPDATE SET user_id = EXCLUDED.user_id
 RETURNING *;
 
 -- name: UpdateAISettings :exec

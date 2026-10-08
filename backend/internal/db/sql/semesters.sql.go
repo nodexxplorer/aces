@@ -17,7 +17,7 @@ INSERT INTO semesters (
     session_id, name, start_date, end_date, registration_deadline
 ) VALUES (
     $1, $2, $3, $4, $5
-) RETURNING id, session_id, name, start_date, end_date, registration_deadline, is_active
+) RETURNING id, session_id, name, start_date, end_date, registration_deadline, is_active, tenant_id
 `
 
 type CreateSemesterParams struct {
@@ -45,6 +45,7 @@ func (q *Queries) CreateSemester(ctx context.Context, arg CreateSemesterParams) 
 		&i.EndDate,
 		&i.RegistrationDeadline,
 		&i.IsActive,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -69,7 +70,7 @@ func (q *Queries) DeleteSemester(ctx context.Context, id uuid.UUID) error {
 }
 
 const getActiveSemester = `-- name: GetActiveSemester :one
-SELECT id, session_id, name, start_date, end_date, registration_deadline, is_active FROM semesters
+SELECT id, session_id, name, start_date, end_date, registration_deadline, is_active, tenant_id FROM semesters
 WHERE is_active = true LIMIT 1
 `
 
@@ -84,12 +85,13 @@ func (q *Queries) GetActiveSemester(ctx context.Context) (Semester, error) {
 		&i.EndDate,
 		&i.RegistrationDeadline,
 		&i.IsActive,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getSemester = `-- name: GetSemester :one
-SELECT id, session_id, name, start_date, end_date, registration_deadline, is_active FROM semesters
+SELECT id, session_id, name, start_date, end_date, registration_deadline, is_active, tenant_id FROM semesters
 WHERE id = $1 LIMIT 1
 `
 
@@ -104,12 +106,13 @@ func (q *Queries) GetSemester(ctx context.Context, id uuid.UUID) (Semester, erro
 		&i.EndDate,
 		&i.RegistrationDeadline,
 		&i.IsActive,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const listSessionSemesters = `-- name: ListSessionSemesters :many
-SELECT id, session_id, name, start_date, end_date, registration_deadline, is_active FROM semesters
+SELECT id, session_id, name, start_date, end_date, registration_deadline, is_active, tenant_id FROM semesters
 WHERE session_id = $1
 ORDER BY start_date DESC
 `
@@ -131,6 +134,7 @@ func (q *Queries) ListSessionSemesters(ctx context.Context, sessionID uuid.UUID)
 			&i.EndDate,
 			&i.RegistrationDeadline,
 			&i.IsActive,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -152,7 +156,7 @@ SET
     registration_deadline = $6,
     is_active = $7
 WHERE id = $1
-RETURNING id, session_id, name, start_date, end_date, registration_deadline, is_active
+RETURNING id, session_id, name, start_date, end_date, registration_deadline, is_active, tenant_id
 `
 
 type UpdateSemesterParams struct {
@@ -184,6 +188,7 @@ func (q *Queries) UpdateSemester(ctx context.Context, arg UpdateSemesterParams) 
 		&i.EndDate,
 		&i.RegistrationDeadline,
 		&i.IsActive,
+		&i.TenantID,
 	)
 	return i, err
 }

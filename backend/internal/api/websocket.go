@@ -52,7 +52,7 @@ func (server *Server) handleWebSocket(ctx *gin.Context) {
 		return
 	}
 
-	client := ws.NewClient(server.wsHub, conn, userID)
+	client := ws.NewClient(server.wsHub, conn, userID, tenantIDOf(ctx))
 	server.wsHub.Register(client)
 
 	// Hydrate this connection's group membership so SendToGroup/IsGroupMember

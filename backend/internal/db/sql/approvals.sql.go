@@ -17,7 +17,7 @@ INSERT INTO signup_approvals (
     user_id, signup_type, reg_no, level, status
 ) VALUES (
     $1, $2, $3, $4, $5
-) RETURNING id, user_id, signup_type, status, reg_no, level, approved_by, approved_at, rejection_reason, created_at
+) RETURNING id, user_id, signup_type, status, reg_no, level, approved_by, approved_at, rejection_reason, created_at, tenant_id
 `
 
 type CreateSignupApprovalParams struct {
@@ -48,12 +48,13 @@ func (q *Queries) CreateSignupApproval(ctx context.Context, arg CreateSignupAppr
 		&i.ApprovedAt,
 		&i.RejectionReason,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getSignupApproval = `-- name: GetSignupApproval :one
-SELECT id, user_id, signup_type, status, reg_no, level, approved_by, approved_at, rejection_reason, created_at FROM signup_approvals
+SELECT id, user_id, signup_type, status, reg_no, level, approved_by, approved_at, rejection_reason, created_at, tenant_id FROM signup_approvals
 WHERE id = $1 LIMIT 1
 `
 
@@ -71,12 +72,13 @@ func (q *Queries) GetSignupApproval(ctx context.Context, id uuid.UUID) (SignupAp
 		&i.ApprovedAt,
 		&i.RejectionReason,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getSignupApprovalByUserId = `-- name: GetSignupApprovalByUserId :one
-SELECT id, user_id, signup_type, status, reg_no, level, approved_by, approved_at, rejection_reason, created_at FROM signup_approvals
+SELECT id, user_id, signup_type, status, reg_no, level, approved_by, approved_at, rejection_reason, created_at, tenant_id FROM signup_approvals
 WHERE user_id = $1 LIMIT 1
 `
 
@@ -94,12 +96,13 @@ func (q *Queries) GetSignupApprovalByUserId(ctx context.Context, userID uuid.UUI
 		&i.ApprovedAt,
 		&i.RejectionReason,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const listPendingSignupApprovals = `-- name: ListPendingSignupApprovals :many
-SELECT id, user_id, signup_type, status, reg_no, level, approved_by, approved_at, rejection_reason, created_at FROM signup_approvals
+SELECT id, user_id, signup_type, status, reg_no, level, approved_by, approved_at, rejection_reason, created_at, tenant_id FROM signup_approvals
 WHERE status = 'pending'
 ORDER BY created_at ASC
 `
@@ -124,6 +127,7 @@ func (q *Queries) ListPendingSignupApprovals(ctx context.Context) ([]SignupAppro
 			&i.ApprovedAt,
 			&i.RejectionReason,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -136,7 +140,7 @@ func (q *Queries) ListPendingSignupApprovals(ctx context.Context) ([]SignupAppro
 }
 
 const listPendingSignupApprovalsByLevel = `-- name: ListPendingSignupApprovalsByLevel :many
-SELECT id, user_id, signup_type, status, reg_no, level, approved_by, approved_at, rejection_reason, created_at FROM signup_approvals
+SELECT id, user_id, signup_type, status, reg_no, level, approved_by, approved_at, rejection_reason, created_at, tenant_id FROM signup_approvals
 WHERE status = 'pending' AND level = $1
 ORDER BY created_at ASC
 `
@@ -161,6 +165,7 @@ func (q *Queries) ListPendingSignupApprovalsByLevel(ctx context.Context, level *
 			&i.ApprovedAt,
 			&i.RejectionReason,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -173,7 +178,7 @@ func (q *Queries) ListPendingSignupApprovalsByLevel(ctx context.Context, level *
 }
 
 const listPendingSignupApprovalsByType = `-- name: ListPendingSignupApprovalsByType :many
-SELECT id, user_id, signup_type, status, reg_no, level, approved_by, approved_at, rejection_reason, created_at FROM signup_approvals
+SELECT id, user_id, signup_type, status, reg_no, level, approved_by, approved_at, rejection_reason, created_at, tenant_id FROM signup_approvals
 WHERE status = 'pending' AND signup_type = $1
 ORDER BY created_at ASC
 `
@@ -198,6 +203,7 @@ func (q *Queries) ListPendingSignupApprovalsByType(ctx context.Context, signupTy
 			&i.ApprovedAt,
 			&i.RejectionReason,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -217,7 +223,7 @@ SET
     approved_at = $4,
     rejection_reason = $5
 WHERE id = $1
-RETURNING id, user_id, signup_type, status, reg_no, level, approved_by, approved_at, rejection_reason, created_at
+RETURNING id, user_id, signup_type, status, reg_no, level, approved_by, approved_at, rejection_reason, created_at, tenant_id
 `
 
 type UpdateSignupApprovalParams struct {
@@ -248,6 +254,7 @@ func (q *Queries) UpdateSignupApproval(ctx context.Context, arg UpdateSignupAppr
 		&i.ApprovedAt,
 		&i.RejectionReason,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }

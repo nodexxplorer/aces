@@ -11,6 +11,7 @@ import (
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/aces/backend/internal/email"
 	"github.com/aces/backend/internal/push"
+	"github.com/aces/backend/internal/tenant"
 	"github.com/aces/backend/internal/ws"
 	"github.com/google/uuid"
 )
@@ -85,8 +86,8 @@ func (s *NotificationServiceFull) CreateAndPush(
 	}
 
 	if s.emailSender != nil && (!hasPrefs || (prefs.EmailEnabled && categoryEmailAllowed(prefs, category))) {
+		bgCtx, cancel := tenant.Detach(ctx, 10*time.Second)
 		go func(uID uuid.UUID, notifTitle, notifMsg, notifActionURL, notifActionLabel string) {
-			bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
 			user, err := s.queries.GetUser(bgCtx, uID)

@@ -2132,6 +2132,7 @@ type AcademicStandingRule struct {
 	MaxCgpa  decimal.Decimal `json:"max_cgpa"`
 	Standing string          `json:"standing"`
 	IsActive bool            `json:"is_active"`
+	TenantID uuid.UUID       `json:"tenant_id"`
 }
 
 type AccountLockout struct {
@@ -2144,6 +2145,7 @@ type AccountLockout struct {
 	IsLocked       bool               `json:"is_locked"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	TenantID       uuid.UUID          `json:"tenant_id"`
 }
 
 type ActiveSession struct {
@@ -2156,6 +2158,7 @@ type ActiveSession struct {
 	LastActiveAt pgtype.Timestamptz `json:"last_active_at"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
+	TenantID     uuid.UUID          `json:"tenant_id"`
 }
 
 type AdminPermission struct {
@@ -2172,6 +2175,7 @@ type AdminPermission struct {
 	GrantedAt              pgtype.Timestamptz `json:"granted_at"`
 	ExpiresAt              pgtype.Timestamptz `json:"expires_at"`
 	IsActive               bool               `json:"is_active"`
+	TenantID               uuid.UUID          `json:"tenant_id"`
 }
 
 type AiInteraction struct {
@@ -2189,6 +2193,7 @@ type AiInteraction struct {
 	ResponseTimeMs  *int32             `json:"response_time_ms"`
 	ReviewedBy      pgtype.UUID        `json:"reviewed_by"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
 }
 
 type AiModel struct {
@@ -2218,6 +2223,7 @@ type AiPrediction struct {
 	ReviewedBy         pgtype.UUID        `json:"reviewed_by"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
+	TenantID           uuid.UUID          `json:"tenant_id"`
 }
 
 type AiUserSetting struct {
@@ -2230,6 +2236,7 @@ type AiUserSetting struct {
 	PreferredLanguage      *string            `json:"preferred_language"`
 	CreatedAt              pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	TenantID               uuid.UUID          `json:"tenant_id"`
 }
 
 type AlumniAuditLog struct {
@@ -2240,6 +2247,7 @@ type AlumniAuditLog struct {
 	Details   []byte             `json:"details"`
 	IpAddress *netip.Addr        `json:"ip_address"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	TenantID  uuid.UUID          `json:"tenant_id"`
 }
 
 type AlumniDonation struct {
@@ -2257,6 +2265,7 @@ type AlumniDonation struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	PaystackReference *string            `json:"paystack_reference"`
+	TenantID          uuid.UUID          `json:"tenant_id"`
 }
 
 type AlumniEvent struct {
@@ -2278,6 +2287,7 @@ type AlumniEvent struct {
 	ApprovedBy      pgtype.UUID        `json:"approved_by"`
 	RsvpCount       *int32             `json:"rsvp_count"`
 	AttendanceCount *int32             `json:"attendance_count"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
 }
 
 type AlumniStatus struct {
@@ -2317,6 +2327,7 @@ type AlumniStatus struct {
 	Industry                *string                  `json:"industry"`
 	JobTitle                *string                  `json:"job_title"`
 	ProfilePhoto            *string                  `json:"profile_photo"`
+	TenantID                uuid.UUID                `json:"tenant_id"`
 }
 
 type AnalyticsSnapshot struct {
@@ -2326,6 +2337,7 @@ type AnalyticsSnapshot struct {
 	MetricValue  decimal.Decimal    `json:"metric_value"`
 	Dimension    []byte             `json:"dimension"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	TenantID     uuid.UUID          `json:"tenant_id"`
 }
 
 type Announcement struct {
@@ -2351,6 +2363,7 @@ type Announcement struct {
 	AcknowledgedCount      int32              `json:"acknowledged_count"`
 	PinOrder               *int32             `json:"pin_order"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	TenantID               uuid.UUID          `json:"tenant_id"`
 }
 
 type AnnouncementComment struct {
@@ -2362,6 +2375,7 @@ type AnnouncementComment struct {
 	IsHidden        bool               `json:"is_hidden"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
 }
 
 type AnnouncementReadReceipt struct {
@@ -2372,6 +2386,7 @@ type AnnouncementReadReceipt struct {
 	AcknowledgedAt pgtype.Timestamptz `json:"acknowledged_at"`
 	DeviceType     *string            `json:"device_type"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	TenantID       uuid.UUID          `json:"tenant_id"`
 }
 
 type AnnouncementTemplate struct {
@@ -2385,6 +2400,7 @@ type AnnouncementTemplate struct {
 	CreatedBy                     pgtype.UUID        `json:"created_by"`
 	CreatedAt                     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt                     pgtype.Timestamptz `json:"updated_at"`
+	TenantID                      uuid.UUID          `json:"tenant_id"`
 }
 
 type Assignment struct {
@@ -2402,6 +2418,7 @@ type Assignment struct {
 	SemesterID           uuid.UUID          `json:"semester_id"`
 	IsActive             bool               `json:"is_active"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	TenantID             uuid.UUID          `json:"tenant_id"`
 }
 
 type AssignmentGrade struct {
@@ -2413,6 +2430,7 @@ type AssignmentGrade struct {
 	IsLate       bool               `json:"is_late"`
 	GradedBy     uuid.UUID          `json:"graded_by"`
 	GradedAt     pgtype.Timestamptz `json:"graded_at"`
+	TenantID     uuid.UUID          `json:"tenant_id"`
 }
 
 type AttendanceCheckin struct {
@@ -2423,6 +2441,7 @@ type AttendanceCheckin struct {
 	Method      string             `json:"method"`
 	Present     bool               `json:"present"`
 	Remark      *string            `json:"remark"`
+	TenantID    uuid.UUID          `json:"tenant_id"`
 }
 
 type AttendanceSession struct {
@@ -2441,6 +2460,7 @@ type AttendanceSession struct {
 	TotalAbsent   int32              `json:"total_absent"`
 	TotalStudents int32              `json:"total_students"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	TenantID      uuid.UUID          `json:"tenant_id"`
 }
 
 type AttendanceSheet struct {
@@ -2455,6 +2475,7 @@ type AttendanceSheet struct {
 	EmailedToLecturer bool               `json:"emailed_to_lecturer"`
 	SessionID         uuid.UUID          `json:"session_id"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	TenantID          uuid.UUID          `json:"tenant_id"`
 }
 
 type Backup struct {
@@ -2465,6 +2486,7 @@ type Backup struct {
 	Status    BackupStatus       `json:"status"`
 	CreatedBy pgtype.UUID        `json:"created_by"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	TenantID  uuid.UUID          `json:"tenant_id"`
 }
 
 type BursarAssignment struct {
@@ -2477,6 +2499,7 @@ type BursarAssignment struct {
 	IsActive   bool               `json:"is_active"`
 	AssignedAt pgtype.Timestamptz `json:"assigned_at"`
 	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
+	TenantID   uuid.UUID          `json:"tenant_id"`
 }
 
 type CampusProfile struct {
@@ -2491,6 +2514,7 @@ type CampusProfile struct {
 	PostCount          int32              `json:"post_count"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	TenantID           uuid.UUID          `json:"tenant_id"`
 }
 
 type CampusReport struct {
@@ -2505,6 +2529,7 @@ type CampusReport struct {
 	ReviewedAt  pgtype.Timestamptz `json:"reviewed_at"`
 	ActionTaken *string            `json:"action_taken"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	TenantID    uuid.UUID          `json:"tenant_id"`
 }
 
 type CarryoverCourse struct {
@@ -2518,6 +2543,7 @@ type CarryoverCourse struct {
 	IsResolved        bool               `json:"is_resolved"`
 	ResolvedResultID  pgtype.UUID        `json:"resolved_result_id"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	TenantID          uuid.UUID          `json:"tenant_id"`
 }
 
 type CgpaRule struct {
@@ -2528,6 +2554,7 @@ type CgpaRule struct {
 	GradePoint decimal.Decimal    `json:"grade_point"`
 	IsActive   bool               `json:"is_active"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	TenantID   uuid.UUID          `json:"tenant_id"`
 }
 
 type ClassNotice struct {
@@ -2544,6 +2571,7 @@ type ClassNotice struct {
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 	Level         *int32             `json:"level"`
 	TargetUserIds json.RawMessage    `json:"target_user_ids"`
+	TenantID      uuid.UUID          `json:"tenant_id"`
 }
 
 type ClassNoticeComment struct {
@@ -2552,6 +2580,7 @@ type ClassNoticeComment struct {
 	UserID    uuid.UUID          `json:"user_id"`
 	Content   string             `json:"content"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	TenantID  uuid.UUID          `json:"tenant_id"`
 }
 
 type ClassRepAssignment struct {
@@ -2567,6 +2596,7 @@ type ClassRepAssignment struct {
 	ConsecutiveTerms int32              `json:"consecutive_terms"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	TenantID         uuid.UUID          `json:"tenant_id"`
 }
 
 type ClassRepElection struct {
@@ -2583,6 +2613,7 @@ type ClassRepElection struct {
 	TotalVotes      int32              `json:"total_votes"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
 }
 
 type ClassRepPerformance struct {
@@ -2597,6 +2628,7 @@ type ClassRepPerformance struct {
 	Comments            *string            `json:"comments"`
 	Rating              *string            `json:"rating"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	TenantID            uuid.UUID          `json:"tenant_id"`
 }
 
 type ClassRepReport struct {
@@ -2612,6 +2644,7 @@ type ClassRepReport struct {
 	ReviewNotes  *string            `json:"review_notes"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	TenantID     uuid.UUID          `json:"tenant_id"`
 }
 
 type CommentReaction struct {
@@ -2620,6 +2653,7 @@ type CommentReaction struct {
 	UserID       uuid.UUID          `json:"user_id"`
 	ReactionType string             `json:"reaction_type"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	TenantID     uuid.UUID          `json:"tenant_id"`
 }
 
 type Complaint struct {
@@ -2636,6 +2670,7 @@ type Complaint struct {
 	ResolvedBy pgtype.UUID        `json:"resolved_by"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	TenantID   uuid.UUID          `json:"tenant_id"`
 }
 
 type ComplaintStatusHistory struct {
@@ -2647,6 +2682,7 @@ type ComplaintStatusHistory struct {
 	ChangedByRole string             `json:"changed_by_role"`
 	Note          *string            `json:"note"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	TenantID      uuid.UUID          `json:"tenant_id"`
 }
 
 type Connection struct {
@@ -2657,6 +2693,7 @@ type Connection struct {
 	Message     *string            `json:"message"`
 	RespondedAt pgtype.Timestamptz `json:"responded_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	TenantID    uuid.UUID          `json:"tenant_id"`
 }
 
 type ConnectionStrike struct {
@@ -2667,6 +2704,7 @@ type ConnectionStrike struct {
 	IssuedBy     pgtype.UUID        `json:"issued_by"`
 	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	TenantID     uuid.UUID          `json:"tenant_id"`
 }
 
 type ContentModerationLog struct {
@@ -2681,6 +2719,7 @@ type ContentModerationLog struct {
 	ReviewedBy    pgtype.UUID           `json:"reviewed_by"`
 	CreatedAt     pgtype.Timestamptz    `json:"created_at"`
 	ReviewedAt    pgtype.Timestamptz    `json:"reviewed_at"`
+	TenantID      uuid.UUID             `json:"tenant_id"`
 }
 
 type Course struct {
@@ -2699,6 +2738,7 @@ type Course struct {
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 	CourseType      string             `json:"course_type"`
 	RequirementType string             `json:"requirement_type"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
 }
 
 type CourseMaterial struct {
@@ -2716,6 +2756,7 @@ type CourseMaterial struct {
 	IsActive      bool               `json:"is_active"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	TenantID      uuid.UUID          `json:"tenant_id"`
 }
 
 type CourseRegistration struct {
@@ -2728,6 +2769,7 @@ type CourseRegistration struct {
 	ApprovedBy pgtype.UUID        `json:"approved_by"`
 	ApprovedAt pgtype.Timestamptz `json:"approved_at"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	TenantID   uuid.UUID          `json:"tenant_id"`
 }
 
 type CourseSubcategory struct {
@@ -2737,6 +2779,7 @@ type CourseSubcategory struct {
 	WeightPercentage int32              `json:"weight_percentage"`
 	IsActive         bool               `json:"is_active"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	TenantID         uuid.UUID          `json:"tenant_id"`
 }
 
 type CrfBacklogPrice struct {
@@ -2744,6 +2787,7 @@ type CrfBacklogPrice struct {
 	AmountPerBacklog decimal.Decimal    `json:"amount_per_backlog"`
 	UpdatedBy        pgtype.UUID        `json:"updated_by"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	TenantID         uuid.UUID          `json:"tenant_id"`
 }
 
 type CrfBacklogRequest struct {
@@ -2756,6 +2800,7 @@ type CrfBacklogRequest struct {
 	FormsSubmitted int32              `json:"forms_submitted"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	PaidAt         pgtype.Timestamptz `json:"paid_at"`
+	TenantID       uuid.UUID          `json:"tenant_id"`
 }
 
 type CrfSignatureAsset struct {
@@ -2764,6 +2809,7 @@ type CrfSignatureAsset struct {
 	FilePath   string             `json:"file_path"`
 	UploadedBy pgtype.UUID        `json:"uploaded_by"`
 	UploadedAt pgtype.Timestamptz `json:"uploaded_at"`
+	TenantID   uuid.UUID          `json:"tenant_id"`
 }
 
 type CrfSigningSubmission struct {
@@ -2775,6 +2821,7 @@ type CrfSigningSubmission struct {
 	Status           string             `json:"status"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	Placements       json.RawMessage    `json:"placements"`
+	TenantID         uuid.UUID          `json:"tenant_id"`
 }
 
 type DepartmentalEvent struct {
@@ -2791,6 +2838,7 @@ type DepartmentalEvent struct {
 	IsAllDay       *bool              `json:"is_all_day"`
 	Color          *string            `json:"color"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	TenantID       uuid.UUID          `json:"tenant_id"`
 }
 
 type Due struct {
@@ -2806,6 +2854,7 @@ type Due struct {
 	IsActive    bool               `json:"is_active"`
 	CreatedBy   uuid.UUID          `json:"created_by"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	TenantID    uuid.UUID          `json:"tenant_id"`
 }
 
 type ElectionNominee struct {
@@ -2817,6 +2866,7 @@ type ElectionNominee struct {
 	Status      string             `json:"status"`
 	ApprovedBy  pgtype.UUID        `json:"approved_by"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	TenantID    uuid.UUID          `json:"tenant_id"`
 }
 
 type ElectionVote struct {
@@ -2825,6 +2875,7 @@ type ElectionVote struct {
 	NomineeID  uuid.UUID          `json:"nominee_id"`
 	VoterID    uuid.UUID          `json:"voter_id"`
 	VotedAt    pgtype.Timestamptz `json:"voted_at"`
+	TenantID   uuid.UUID          `json:"tenant_id"`
 }
 
 type EventAttendee struct {
@@ -2833,6 +2884,7 @@ type EventAttendee struct {
 	UserID       uuid.UUID          `json:"user_id"`
 	RsvpStatus   string             `json:"rsvp_status"`
 	RegisteredAt pgtype.Timestamptz `json:"registered_at"`
+	TenantID     uuid.UUID          `json:"tenant_id"`
 }
 
 type Expense struct {
@@ -2848,6 +2900,7 @@ type Expense struct {
 	ApprovedAt      pgtype.Timestamptz `json:"approved_at"`
 	RejectionReason *string            `json:"rejection_reason"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
 }
 
 type ExpenseBudget struct {
@@ -2859,6 +2912,7 @@ type ExpenseBudget struct {
 	AlertThreshold *float64           `json:"alert_threshold"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	TenantID       uuid.UUID          `json:"tenant_id"`
 }
 
 type FeatureFlag struct {
@@ -2872,6 +2926,7 @@ type FeatureFlag struct {
 	CreatedBy    pgtype.UUID        `json:"created_by"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	TenantID     uuid.UUID          `json:"tenant_id"`
 }
 
 type FeedPost struct {
@@ -2889,6 +2944,7 @@ type FeedPost struct {
 	IsHidden       bool               `json:"is_hidden"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	TenantID       uuid.UUID          `json:"tenant_id"`
 }
 
 type FeedbackSubmission struct {
@@ -2904,6 +2960,7 @@ type FeedbackSubmission struct {
 	AdminResponse *string            `json:"admin_response"`
 	RespondedAt   pgtype.Timestamptz `json:"responded_at"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	TenantID      uuid.UUID          `json:"tenant_id"`
 }
 
 type GpaScenario struct {
@@ -2913,6 +2970,7 @@ type GpaScenario struct {
 	Courses   json.RawMessage    `json:"courses"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	TenantID  uuid.UUID          `json:"tenant_id"`
 }
 
 type GradeAppeal struct {
@@ -2933,6 +2991,7 @@ type GradeAppeal struct {
 	ResolvedAt       pgtype.Timestamptz `json:"resolved_at"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	TenantID         uuid.UUID          `json:"tenant_id"`
 }
 
 type GraduationFee struct {
@@ -2940,6 +2999,7 @@ type GraduationFee struct {
 	Amount    decimal.Decimal    `json:"amount"`
 	UpdatedBy pgtype.UUID        `json:"updated_by"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	TenantID  uuid.UUID          `json:"tenant_id"`
 }
 
 type GraduationRequest struct {
@@ -2954,6 +3014,7 @@ type GraduationRequest struct {
 	PaidAt        pgtype.Timestamptz `json:"paid_at"`
 	ClearedBy     pgtype.UUID        `json:"cleared_by"`
 	ClearedAt     pgtype.Timestamptz `json:"cleared_at"`
+	TenantID      uuid.UUID          `json:"tenant_id"`
 }
 
 type Group struct {
@@ -2968,6 +3029,7 @@ type Group struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 	InviteCode  *string            `json:"invite_code"`
+	TenantID    uuid.UUID          `json:"tenant_id"`
 }
 
 type GroupFile struct {
@@ -2979,6 +3041,7 @@ type GroupFile struct {
 	FileType   *string            `json:"file_type"`
 	FileSize   *int64             `json:"file_size"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	TenantID   uuid.UUID          `json:"tenant_id"`
 }
 
 type GroupMember struct {
@@ -2987,6 +3050,7 @@ type GroupMember struct {
 	UserID   uuid.UUID          `json:"user_id"`
 	Role     string             `json:"role"`
 	JoinedAt pgtype.Timestamptz `json:"joined_at"`
+	TenantID uuid.UUID          `json:"tenant_id"`
 }
 
 type GroupMessage struct {
@@ -2995,6 +3059,7 @@ type GroupMessage struct {
 	SenderID  uuid.UUID          `json:"sender_id"`
 	Content   string             `json:"content"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	TenantID  uuid.UUID          `json:"tenant_id"`
 }
 
 type HelpArticle struct {
@@ -3020,6 +3085,7 @@ type JobApplication struct {
 	ReviewedBy  pgtype.UUID        `json:"reviewed_by"`
 	ReviewedAt  pgtype.Timestamptz `json:"reviewed_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	TenantID    uuid.UUID          `json:"tenant_id"`
 }
 
 type JobPost struct {
@@ -3045,6 +3111,7 @@ type JobPost struct {
 	ApprovedBy          pgtype.UUID        `json:"approved_by"`
 	ViewsCount          *int32             `json:"views_count"`
 	ApplicationsCount   *int32             `json:"applications_count"`
+	TenantID            uuid.UUID          `json:"tenant_id"`
 }
 
 type LecturerCourseAssignment struct {
@@ -3058,6 +3125,7 @@ type LecturerCourseAssignment struct {
 	ReassignedFrom pgtype.UUID        `json:"reassigned_from"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	TenantID       uuid.UUID          `json:"tenant_id"`
 }
 
 type LecturerEvaluation struct {
@@ -3074,6 +3142,7 @@ type LecturerEvaluation struct {
 	Overall       *int16             `json:"overall"`
 	Comments      *string            `json:"comments"`
 	SubmittedAt   pgtype.Timestamptz `json:"submitted_at"`
+	TenantID      uuid.UUID          `json:"tenant_id"`
 }
 
 type LecturerLeave struct {
@@ -3089,6 +3158,7 @@ type LecturerLeave struct {
 	ApprovedAt     pgtype.Timestamptz `json:"approved_at"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	TenantID       uuid.UUID          `json:"tenant_id"`
 }
 
 type LecturerPerformance struct {
@@ -3103,6 +3173,7 @@ type LecturerPerformance struct {
 	HodComments         *string            `json:"hod_comments"`
 	CreatedBy           pgtype.UUID        `json:"created_by"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	TenantID            uuid.UUID          `json:"tenant_id"`
 }
 
 type LevelPromotion struct {
@@ -3118,6 +3189,7 @@ type LevelPromotion struct {
 	ConfirmedAt   pgtype.Timestamptz `json:"confirmed_at"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	TenantID      uuid.UUID          `json:"tenant_id"`
 }
 
 type MeetingAttendee struct {
@@ -3127,6 +3199,7 @@ type MeetingAttendee struct {
 	Responded   *bool              `json:"responded"`
 	Attending   *bool              `json:"attending"`
 	RespondedAt pgtype.Timestamptz `json:"responded_at"`
+	TenantID    uuid.UUID          `json:"tenant_id"`
 }
 
 type MentorshipRequest struct {
@@ -3140,6 +3213,7 @@ type MentorshipRequest struct {
 	StartedAt   pgtype.Timestamptz `json:"started_at"`
 	EndedAt     pgtype.Timestamptz `json:"ended_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	TenantID    uuid.UUID          `json:"tenant_id"`
 }
 
 type MentorshipSession struct {
@@ -3152,6 +3226,7 @@ type MentorshipSession struct {
 	MentorConfirmed bool               `json:"mentor_confirmed"`
 	MenteeConfirmed bool               `json:"mentee_confirmed"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
 }
 
 type Message struct {
@@ -3162,6 +3237,7 @@ type Message struct {
 	IsRead     bool               `json:"is_read"`
 	ReadAt     pgtype.Timestamptz `json:"read_at"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	TenantID   uuid.UUID          `json:"tenant_id"`
 }
 
 type MessageReaction struct {
@@ -3170,6 +3246,7 @@ type MessageReaction struct {
 	UserID       uuid.UUID          `json:"user_id"`
 	ReactionType string             `json:"reaction_type"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	TenantID     uuid.UUID          `json:"tenant_id"`
 }
 
 type Notification struct {
@@ -3191,6 +3268,7 @@ type Notification struct {
 	ImageUrl    *string            `json:"image_url"`
 	Metadata    []byte             `json:"metadata"`
 	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	TenantID    uuid.UUID          `json:"tenant_id"`
 }
 
 type NotificationPreference struct {
@@ -3221,6 +3299,7 @@ type NotificationPreference struct {
 	UnsubscribeToken    *string            `json:"unsubscribe_token"`
 	PushToken           *string            `json:"push_token"`
 	WebPushSubscription *string            `json:"web_push_subscription"`
+	TenantID            uuid.UUID          `json:"tenant_id"`
 }
 
 type PasswordReset struct {
@@ -3232,6 +3311,7 @@ type PasswordReset struct {
 	Used      bool               `json:"used"`
 	Attempts  int32              `json:"attempts"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	TenantID  uuid.UUID          `json:"tenant_id"`
 }
 
 type Payment struct {
@@ -3255,6 +3335,7 @@ type Payment struct {
 	RecordedBy        pgtype.UUID        `json:"recorded_by"`
 	Notes             *string            `json:"notes"`
 	ReceiptNumber     *int32             `json:"receipt_number"`
+	TenantID          uuid.UUID          `json:"tenant_id"`
 }
 
 type PaymentBatch struct {
@@ -3266,6 +3347,7 @@ type PaymentBatch struct {
 	ReceiptUrl        *string            `json:"receipt_url"`
 	PaidAt            pgtype.Timestamptz `json:"paid_at"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	TenantID          uuid.UUID          `json:"tenant_id"`
 }
 
 type PaymentCart struct {
@@ -3274,6 +3356,7 @@ type PaymentCart struct {
 	DueID     uuid.UUID          `json:"due_id"`
 	Amount    decimal.Decimal    `json:"amount"`
 	AddedAt   pgtype.Timestamptz `json:"added_at"`
+	TenantID  uuid.UUID          `json:"tenant_id"`
 }
 
 type PostBookmark struct {
@@ -3281,6 +3364,7 @@ type PostBookmark struct {
 	UserID    uuid.UUID          `json:"user_id"`
 	PostID    uuid.UUID          `json:"post_id"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	TenantID  uuid.UUID          `json:"tenant_id"`
 }
 
 type PostComment struct {
@@ -3292,6 +3376,7 @@ type PostComment struct {
 	LikeCount       int32              `json:"like_count"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
 }
 
 type PostReaction struct {
@@ -3300,6 +3385,7 @@ type PostReaction struct {
 	UserID       uuid.UUID          `json:"user_id"`
 	ReactionType string             `json:"reaction_type"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	TenantID     uuid.UUID          `json:"tenant_id"`
 }
 
 type ProfileEditLog struct {
@@ -3315,6 +3401,7 @@ type ProfileEditLog struct {
 	IpAddress     *string            `json:"ip_address"`
 	RequestID     pgtype.UUID        `json:"request_id"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	TenantID      uuid.UUID          `json:"tenant_id"`
 }
 
 type ProfileUpdateRequest struct {
@@ -3328,6 +3415,7 @@ type ProfileUpdateRequest struct {
 	ApprovedAt      pgtype.Timestamptz `json:"approved_at"`
 	RejectionReason *string            `json:"rejection_reason"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
 }
 
 type RegisteredCourse struct {
@@ -3338,6 +3426,7 @@ type RegisteredCourse struct {
 	IsCarryover       bool               `json:"is_carryover"`
 	PreviousAttemptID pgtype.UUID        `json:"previous_attempt_id"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	TenantID          uuid.UUID          `json:"tenant_id"`
 }
 
 type Report struct {
@@ -3352,6 +3441,7 @@ type Report struct {
 	RowCount    *int32             `json:"row_count"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	CompletedAt pgtype.Timestamptz `json:"completed_at"`
+	TenantID    uuid.UUID          `json:"tenant_id"`
 }
 
 type Result struct {
@@ -3373,6 +3463,7 @@ type Result struct {
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 	MatricNumber    *string            `json:"matric_number"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
 }
 
 type ResultAuditLog struct {
@@ -3386,6 +3477,7 @@ type ResultAuditLog struct {
 	IpAddress    *string            `json:"ip_address"`
 	UserAgent    *string            `json:"user_agent"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	TenantID     uuid.UUID          `json:"tenant_id"`
 }
 
 type RoleAssignmentLog struct {
@@ -3400,6 +3492,7 @@ type RoleAssignmentLog struct {
 	Reason          *string            `json:"reason"`
 	IpAddress       *string            `json:"ip_address"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
 }
 
 type RolePromotion struct {
@@ -3412,6 +3505,7 @@ type RolePromotion struct {
 	IpAddress  *string            `json:"ip_address"`
 	UserAgent  *string            `json:"user_agent"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	TenantID   uuid.UUID          `json:"tenant_id"`
 }
 
 type ScheduledReport struct {
@@ -3427,6 +3521,7 @@ type ScheduledReport struct {
 	NextRun    pgtype.Timestamptz `json:"next_run"`
 	CreatedBy  pgtype.UUID        `json:"created_by"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	TenantID   uuid.UUID          `json:"tenant_id"`
 }
 
 type Semester struct {
@@ -3437,6 +3532,7 @@ type Semester struct {
 	EndDate              pgtype.Timestamptz `json:"end_date"`
 	RegistrationDeadline pgtype.Timestamptz `json:"registration_deadline"`
 	IsActive             bool               `json:"is_active"`
+	TenantID             uuid.UUID          `json:"tenant_id"`
 }
 
 type Session struct {
@@ -3447,6 +3543,7 @@ type Session struct {
 	IsActive   bool               `json:"is_active"`
 	IsArchived bool               `json:"is_archived"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	TenantID   uuid.UUID          `json:"tenant_id"`
 }
 
 type SignupApproval struct {
@@ -3460,6 +3557,7 @@ type SignupApproval struct {
 	ApprovedAt      pgtype.Timestamptz `json:"approved_at"`
 	RejectionReason *string            `json:"rejection_reason"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
 }
 
 type Staff struct {
@@ -3483,6 +3581,7 @@ type Staff struct {
 	Publications     []byte             `json:"publications"`
 	DateJoined       pgtype.Date        `json:"date_joined"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	TenantID         uuid.UUID          `json:"tenant_id"`
 }
 
 type StaffMeeting struct {
@@ -3498,6 +3597,7 @@ type StaffMeeting struct {
 	Status            MeetingStatus      `json:"status"`
 	MinutesUrl        *string            `json:"minutes_url"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	TenantID          uuid.UUID          `json:"tenant_id"`
 }
 
 type Student struct {
@@ -3520,6 +3620,7 @@ type Student struct {
 	AdmissionMode        *string            `json:"admission_mode"`
 	YearAdmitted         *int32             `json:"year_admitted"`
 	OnboardingCompleted  bool               `json:"onboarding_completed"`
+	TenantID             uuid.UUID          `json:"tenant_id"`
 }
 
 type StudentDocument struct {
@@ -3536,6 +3637,7 @@ type StudentDocument struct {
 	RejectionReason *string            `json:"rejection_reason"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
 }
 
 type StudentOnboarding struct {
@@ -3552,6 +3654,7 @@ type StudentOnboarding struct {
 	RejectionReason      *string            `json:"rejection_reason"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	TenantID             uuid.UUID          `json:"tenant_id"`
 }
 
 type StudyTask struct {
@@ -3568,6 +3671,7 @@ type StudyTask struct {
 	IsSmartSuggestion *bool              `json:"is_smart_suggestion"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	TenantID          uuid.UUID          `json:"tenant_id"`
 }
 
 type Subcategory struct {
@@ -3580,6 +3684,7 @@ type Subcategory struct {
 	IsActive    bool               `json:"is_active"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	TenantID    uuid.UUID          `json:"tenant_id"`
 }
 
 type SubcategoryAssignment struct {
@@ -3589,6 +3694,25 @@ type SubcategoryAssignment struct {
 	EntityID      uuid.UUID          `json:"entity_id"`
 	AssignedAt    pgtype.Timestamptz `json:"assigned_at"`
 	AssignedBy    pgtype.UUID        `json:"assigned_by"`
+	TenantID      uuid.UUID          `json:"tenant_id"`
+}
+
+type Tenant struct {
+	ID          uuid.UUID          `json:"id"`
+	Slug        string             `json:"slug"`
+	Name        string             `json:"name"`
+	Institution *string            `json:"institution"`
+	Faculty     *string            `json:"faculty"`
+	IsActive    bool               `json:"is_active"`
+	Settings    json.RawMessage    `json:"settings"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TenantCounter struct {
+	TenantID uuid.UUID `json:"tenant_id"`
+	Name     string    `json:"name"`
+	Value    int64     `json:"value"`
 }
 
 type Timetable struct {
@@ -3613,6 +3737,7 @@ type Timetable struct {
 	Invigilators    *string            `json:"invigilators"`
 	IsPublished     bool               `json:"is_published"`
 	PublishedAt     pgtype.Timestamptz `json:"published_at"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
 }
 
 type TranscriptRequest struct {
@@ -3629,6 +3754,7 @@ type TranscriptRequest struct {
 	ProcessedBy  pgtype.UUID        `json:"processed_by"`
 	ProcessedAt  pgtype.Timestamptz `json:"processed_at"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	TenantID     uuid.UUID          `json:"tenant_id"`
 }
 
 type User struct {
@@ -3661,6 +3787,7 @@ type User struct {
 	LastBirthdayGreetedYear *int16             `json:"last_birthday_greeted_year"`
 	ModoolsSub              *string            `json:"modools_sub"`
 	ModoolsRefreshToken     *string            `json:"modools_refresh_token"`
+	TenantID                uuid.UUID          `json:"tenant_id"`
 }
 
 type UserReputation struct {
@@ -3671,6 +3798,7 @@ type UserReputation struct {
 	TotalTradesCompleted int32              `json:"total_trades_completed"`
 	ReputationScore      decimal.Decimal    `json:"reputation_score"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	TenantID             uuid.UUID          `json:"tenant_id"`
 }
 
 type UserRoleAssignment struct {
@@ -3681,6 +3809,7 @@ type UserRoleAssignment struct {
 	AssignedBy pgtype.UUID        `json:"assigned_by"`
 	AssignedAt pgtype.Timestamptz `json:"assigned_at"`
 	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
+	TenantID   uuid.UUID          `json:"tenant_id"`
 }
 
 type VerificationRecord struct {
@@ -3694,4 +3823,5 @@ type VerificationRecord struct {
 	ImportedAt   pgtype.Timestamptz `json:"imported_at"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	TenantID     uuid.UUID          `json:"tenant_id"`
 }

@@ -19,7 +19,7 @@ INSERT INTO payment_cart (
     student_id, due_id, amount
 ) VALUES (
     $1, $2, $3
-) RETURNING id, student_id, due_id, amount, added_at
+) RETURNING id, student_id, due_id, amount, added_at, tenant_id
 `
 
 type AddToCartParams struct {
@@ -38,6 +38,7 @@ func (q *Queries) AddToCart(ctx context.Context, arg AddToCartParams) (PaymentCa
 		&i.DueID,
 		&i.Amount,
 		&i.AddedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -76,7 +77,7 @@ INSERT INTO dues (
     name, description, type, amount, level, session_id, semester_id, deadline, created_by
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9
-) RETURNING id, name, description, type, amount, level, session_id, semester_id, deadline, is_active, created_by, created_at
+) RETURNING id, name, description, type, amount, level, session_id, semester_id, deadline, is_active, created_by, created_at, tenant_id
 `
 
 type CreateDueParams struct {
@@ -118,6 +119,7 @@ func (q *Queries) CreateDue(ctx context.Context, arg CreateDueParams) (Due, erro
 		&i.IsActive,
 		&i.CreatedBy,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -128,7 +130,7 @@ INSERT INTO payments (
     student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, 'pending'
-) RETURNING id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes, receipt_number
+) RETURNING id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes, receipt_number, tenant_id
 `
 
 type CreatePaymentParams struct {
@@ -174,6 +176,7 @@ func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (P
 		&i.RecordedBy,
 		&i.Notes,
 		&i.ReceiptNumber,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -184,7 +187,7 @@ INSERT INTO payment_batches (
     student_id, total_amount, paystack_reference, status
 ) VALUES (
     $1, $2, $3, 'pending'
-) RETURNING id, student_id, total_amount, paystack_reference, status, receipt_url, paid_at, created_at
+) RETURNING id, student_id, total_amount, paystack_reference, status, receipt_url, paid_at, created_at, tenant_id
 `
 
 type CreatePaymentBatchParams struct {
@@ -206,6 +209,7 @@ func (q *Queries) CreatePaymentBatch(ctx context.Context, arg CreatePaymentBatch
 		&i.ReceiptUrl,
 		&i.PaidAt,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -220,7 +224,7 @@ func (q *Queries) DeleteDue(ctx context.Context, id uuid.UUID) error {
 }
 
 const getCartItem = `-- name: GetCartItem :one
-SELECT id, student_id, due_id, amount, added_at FROM payment_cart
+SELECT id, student_id, due_id, amount, added_at, tenant_id FROM payment_cart
 WHERE id = $1 LIMIT 1
 `
 
@@ -233,12 +237,13 @@ func (q *Queries) GetCartItem(ctx context.Context, id uuid.UUID) (PaymentCart, e
 		&i.DueID,
 		&i.Amount,
 		&i.AddedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getDue = `-- name: GetDue :one
-SELECT id, name, description, type, amount, level, session_id, semester_id, deadline, is_active, created_by, created_at FROM dues
+SELECT id, name, description, type, amount, level, session_id, semester_id, deadline, is_active, created_by, created_at, tenant_id FROM dues
 WHERE id = $1 LIMIT 1
 `
 
@@ -258,12 +263,13 @@ func (q *Queries) GetDue(ctx context.Context, id uuid.UUID) (Due, error) {
 		&i.IsActive,
 		&i.CreatedBy,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getPayment = `-- name: GetPayment :one
-SELECT id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes, receipt_number FROM payments
+SELECT id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes, receipt_number, tenant_id FROM payments
 WHERE id = $1 LIMIT 1
 `
 
@@ -291,12 +297,13 @@ func (q *Queries) GetPayment(ctx context.Context, id uuid.UUID) (Payment, error)
 		&i.RecordedBy,
 		&i.Notes,
 		&i.ReceiptNumber,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getPaymentBatch = `-- name: GetPaymentBatch :one
-SELECT id, student_id, total_amount, paystack_reference, status, receipt_url, paid_at, created_at FROM payment_batches
+SELECT id, student_id, total_amount, paystack_reference, status, receipt_url, paid_at, created_at, tenant_id FROM payment_batches
 WHERE id = $1 LIMIT 1
 `
 
@@ -312,12 +319,13 @@ func (q *Queries) GetPaymentBatch(ctx context.Context, id uuid.UUID) (PaymentBat
 		&i.ReceiptUrl,
 		&i.PaidAt,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getPaymentByReference = `-- name: GetPaymentByReference :one
-SELECT p.id, p.student_id, p.batch_id, p.due_id, p.type, p.item_name, p.amount, p.paystack_reference, p.status, p.verified_by, p.verified_at, p.paid_at, p.created_at, p.payment_method, p.bank_reference, p.bank_name, p.receipt_url, p.recorded_by, p.notes, p.receipt_number, s.matric_number, u.full_name AS student_name, d.name AS due_name
+SELECT p.id, p.student_id, p.batch_id, p.due_id, p.type, p.item_name, p.amount, p.paystack_reference, p.status, p.verified_by, p.verified_at, p.paid_at, p.created_at, p.payment_method, p.bank_reference, p.bank_name, p.receipt_url, p.recorded_by, p.notes, p.receipt_number, p.tenant_id, s.matric_number, u.full_name AS student_name, d.name AS due_name
 FROM payments p
 JOIN students s ON s.id = p.student_id
 JOIN users u ON u.id = s.user_id
@@ -347,6 +355,7 @@ type GetPaymentByReferenceRow struct {
 	RecordedBy        pgtype.UUID        `json:"recorded_by"`
 	Notes             *string            `json:"notes"`
 	ReceiptNumber     *int32             `json:"receipt_number"`
+	TenantID          uuid.UUID          `json:"tenant_id"`
 	MatricNumber      *string            `json:"matric_number"`
 	StudentName       *string            `json:"student_name"`
 	DueName           *string            `json:"due_name"`
@@ -376,6 +385,7 @@ func (q *Queries) GetPaymentByReference(ctx context.Context, paystackReference *
 		&i.RecordedBy,
 		&i.Notes,
 		&i.ReceiptNumber,
+		&i.TenantID,
 		&i.MatricNumber,
 		&i.StudentName,
 		&i.DueName,
@@ -413,7 +423,7 @@ func (q *Queries) GetStudentPaymentSummary(ctx context.Context, studentID uuid.U
 }
 
 const listAllPayments = `-- name: ListAllPayments :many
-SELECT p.id, p.student_id, p.batch_id, p.due_id, p.type, p.item_name, p.amount, p.paystack_reference, p.status, p.verified_by, p.verified_at, p.paid_at, p.created_at, p.payment_method, p.bank_reference, p.bank_name, p.receipt_url, p.recorded_by, p.notes, p.receipt_number, s.matric_number, u.full_name AS student_name, d.name AS due_name
+SELECT p.id, p.student_id, p.batch_id, p.due_id, p.type, p.item_name, p.amount, p.paystack_reference, p.status, p.verified_by, p.verified_at, p.paid_at, p.created_at, p.payment_method, p.bank_reference, p.bank_name, p.receipt_url, p.recorded_by, p.notes, p.receipt_number, p.tenant_id, s.matric_number, u.full_name AS student_name, d.name AS due_name
 FROM payments p
 JOIN students s ON s.id = p.student_id
 JOIN users u ON u.id = s.user_id
@@ -448,6 +458,7 @@ type ListAllPaymentsRow struct {
 	RecordedBy        pgtype.UUID        `json:"recorded_by"`
 	Notes             *string            `json:"notes"`
 	ReceiptNumber     *int32             `json:"receipt_number"`
+	TenantID          uuid.UUID          `json:"tenant_id"`
 	MatricNumber      *string            `json:"matric_number"`
 	StudentName       *string            `json:"student_name"`
 	DueName           *string            `json:"due_name"`
@@ -483,6 +494,7 @@ func (q *Queries) ListAllPayments(ctx context.Context, arg ListAllPaymentsParams
 			&i.RecordedBy,
 			&i.Notes,
 			&i.ReceiptNumber,
+			&i.TenantID,
 			&i.MatricNumber,
 			&i.StudentName,
 			&i.DueName,
@@ -498,7 +510,7 @@ func (q *Queries) ListAllPayments(ctx context.Context, arg ListAllPaymentsParams
 }
 
 const listBatchPayments = `-- name: ListBatchPayments :many
-SELECT id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes, receipt_number FROM payments
+SELECT id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes, receipt_number, tenant_id FROM payments
 WHERE batch_id = $1
 ORDER BY created_at
 `
@@ -533,6 +545,7 @@ func (q *Queries) ListBatchPayments(ctx context.Context, batchID pgtype.UUID) ([
 			&i.RecordedBy,
 			&i.Notes,
 			&i.ReceiptNumber,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -603,7 +616,7 @@ func (q *Queries) ListDefaultersByLevel(ctx context.Context) ([]ListDefaultersBy
 }
 
 const listDues = `-- name: ListDues :many
-SELECT id, name, description, type, amount, level, session_id, semester_id, deadline, is_active, created_by, created_at FROM dues
+SELECT id, name, description, type, amount, level, session_id, semester_id, deadline, is_active, created_by, created_at, tenant_id FROM dues
 WHERE is_active = true
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2
@@ -636,6 +649,7 @@ func (q *Queries) ListDues(ctx context.Context, arg ListDuesParams) ([]Due, erro
 			&i.IsActive,
 			&i.CreatedBy,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -648,7 +662,7 @@ func (q *Queries) ListDues(ctx context.Context, arg ListDuesParams) ([]Due, erro
 }
 
 const listDuesByLevel = `-- name: ListDuesByLevel :many
-SELECT id, name, description, type, amount, level, session_id, semester_id, deadline, is_active, created_by, created_at FROM dues
+SELECT id, name, description, type, amount, level, session_id, semester_id, deadline, is_active, created_by, created_at, tenant_id FROM dues
 WHERE is_active = true AND (level IS NULL OR level = $1)
 ORDER BY created_at DESC
 `
@@ -675,6 +689,7 @@ func (q *Queries) ListDuesByLevel(ctx context.Context, level *int32) ([]Due, err
 			&i.IsActive,
 			&i.CreatedBy,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -687,7 +702,7 @@ func (q *Queries) ListDuesByLevel(ctx context.Context, level *int32) ([]Due, err
 }
 
 const listRecentVerifiedPayments = `-- name: ListRecentVerifiedPayments :many
-SELECT p.id, p.student_id, p.batch_id, p.due_id, p.type, p.item_name, p.amount, p.paystack_reference, p.status, p.verified_by, p.verified_at, p.paid_at, p.created_at, p.payment_method, p.bank_reference, p.bank_name, p.receipt_url, p.recorded_by, p.notes, p.receipt_number,
+SELECT p.id, p.student_id, p.batch_id, p.due_id, p.type, p.item_name, p.amount, p.paystack_reference, p.status, p.verified_by, p.verified_at, p.paid_at, p.created_at, p.payment_method, p.bank_reference, p.bank_name, p.receipt_url, p.recorded_by, p.notes, p.receipt_number, p.tenant_id,
     u.full_name AS student_name,
     s.matric_number AS matric_number
 FROM payments p
@@ -724,6 +739,7 @@ type ListRecentVerifiedPaymentsRow struct {
 	RecordedBy        pgtype.UUID        `json:"recorded_by"`
 	Notes             *string            `json:"notes"`
 	ReceiptNumber     *int32             `json:"receipt_number"`
+	TenantID          uuid.UUID          `json:"tenant_id"`
 	StudentName       *string            `json:"student_name"`
 	MatricNumber      *string            `json:"matric_number"`
 }
@@ -758,6 +774,7 @@ func (q *Queries) ListRecentVerifiedPayments(ctx context.Context, arg ListRecent
 			&i.RecordedBy,
 			&i.Notes,
 			&i.ReceiptNumber,
+			&i.TenantID,
 			&i.StudentName,
 			&i.MatricNumber,
 		); err != nil {
@@ -772,7 +789,7 @@ func (q *Queries) ListRecentVerifiedPayments(ctx context.Context, arg ListRecent
 }
 
 const listStudentCart = `-- name: ListStudentCart :many
-SELECT id, student_id, due_id, amount, added_at FROM payment_cart
+SELECT id, student_id, due_id, amount, added_at, tenant_id FROM payment_cart
 WHERE student_id = $1
 ORDER BY added_at DESC
 `
@@ -792,6 +809,7 @@ func (q *Queries) ListStudentCart(ctx context.Context, studentID uuid.UUID) ([]P
 			&i.DueID,
 			&i.Amount,
 			&i.AddedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -804,7 +822,7 @@ func (q *Queries) ListStudentCart(ctx context.Context, studentID uuid.UUID) ([]P
 }
 
 const listStudentPaymentBatches = `-- name: ListStudentPaymentBatches :many
-SELECT id, student_id, total_amount, paystack_reference, status, receipt_url, paid_at, created_at FROM payment_batches
+SELECT id, student_id, total_amount, paystack_reference, status, receipt_url, paid_at, created_at, tenant_id FROM payment_batches
 WHERE student_id = $1
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3
@@ -834,6 +852,7 @@ func (q *Queries) ListStudentPaymentBatches(ctx context.Context, arg ListStudent
 			&i.ReceiptUrl,
 			&i.PaidAt,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -846,7 +865,7 @@ func (q *Queries) ListStudentPaymentBatches(ctx context.Context, arg ListStudent
 }
 
 const listStudentPayments = `-- name: ListStudentPayments :many
-SELECT id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes, receipt_number FROM payments
+SELECT id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes, receipt_number, tenant_id FROM payments
 WHERE student_id = $1
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3
@@ -888,6 +907,7 @@ func (q *Queries) ListStudentPayments(ctx context.Context, arg ListStudentPaymen
 			&i.RecordedBy,
 			&i.Notes,
 			&i.ReceiptNumber,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -919,7 +939,7 @@ SET
     deadline = $7,
     is_active = $8
 WHERE id = $1
-RETURNING id, name, description, type, amount, level, session_id, semester_id, deadline, is_active, created_by, created_at
+RETURNING id, name, description, type, amount, level, session_id, semester_id, deadline, is_active, created_by, created_at, tenant_id
 `
 
 type UpdateDueParams struct {
@@ -958,6 +978,7 @@ func (q *Queries) UpdateDue(ctx context.Context, arg UpdateDueParams) (Due, erro
 		&i.IsActive,
 		&i.CreatedBy,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -969,7 +990,7 @@ SET
     paid_at = $3,
     receipt_url = $4
 WHERE id = $1
-RETURNING id, student_id, total_amount, paystack_reference, status, receipt_url, paid_at, created_at
+RETURNING id, student_id, total_amount, paystack_reference, status, receipt_url, paid_at, created_at, tenant_id
 `
 
 type UpdatePaymentBatchStatusParams struct {
@@ -996,6 +1017,7 @@ func (q *Queries) UpdatePaymentBatchStatus(ctx context.Context, arg UpdatePaymen
 		&i.ReceiptUrl,
 		&i.PaidAt,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -1006,7 +1028,7 @@ SET
     status = $2,
     paid_at = $3
 WHERE id = $1
-RETURNING id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes, receipt_number
+RETURNING id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes, receipt_number, tenant_id
 `
 
 type UpdatePaymentStatusParams struct {
@@ -1039,6 +1061,7 @@ func (q *Queries) UpdatePaymentStatus(ctx context.Context, arg UpdatePaymentStat
 		&i.RecordedBy,
 		&i.Notes,
 		&i.ReceiptNumber,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -1051,7 +1074,7 @@ SET
     verified_at = NOW(),
     paid_at = NOW()
 WHERE id = $1
-RETURNING id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes, receipt_number
+RETURNING id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes, receipt_number, tenant_id
 `
 
 type VerifyPaymentParams struct {
@@ -1083,6 +1106,7 @@ func (q *Queries) VerifyPayment(ctx context.Context, arg VerifyPaymentParams) (P
 		&i.RecordedBy,
 		&i.Notes,
 		&i.ReceiptNumber,
+		&i.TenantID,
 	)
 	return i, err
 }

@@ -110,7 +110,7 @@ func (q *Queries) GenerateLevelPromotionProposals(ctx context.Context, toSession
 			(student_id, from_session_id, to_session_id, from_level, to_level, status, reason)
 		SELECT e.student_id, e.from_session_id, $1, e.from_level, e.from_level + 100, 'proposed', 'auto'
 		FROM eligible e
-		ON CONFLICT (student_id, to_session_id) DO NOTHING
+		ON CONFLICT (tenant_id, student_id, to_session_id) DO NOTHING
 	`, toSessionID)
 	if err != nil {
 		return 0, fmt.Errorf("generate promotion proposals: %w", err)

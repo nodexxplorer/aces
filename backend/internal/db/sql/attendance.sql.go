@@ -18,7 +18,7 @@ INSERT INTO attendance_sheets (
     course_id, date, class_rep_id, attendance_data, session_id, status
 ) VALUES (
     $1, $2, $3, $4, $5, $6
-) RETURNING id, course_id, date, class_rep_id, attendance_data, pdf_url, status, finalized_at, emailed_to_lecturer, session_id, created_at
+) RETURNING id, course_id, date, class_rep_id, attendance_data, pdf_url, status, finalized_at, emailed_to_lecturer, session_id, created_at, tenant_id
 `
 
 type CreateAttendanceSheetParams struct {
@@ -52,6 +52,7 @@ func (q *Queries) CreateAttendanceSheet(ctx context.Context, arg CreateAttendanc
 		&i.EmailedToLecturer,
 		&i.SessionID,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -72,7 +73,7 @@ SET
     status = 'finalized',
     finalized_at = NOW()
 WHERE id = $1
-RETURNING id, course_id, date, class_rep_id, attendance_data, pdf_url, status, finalized_at, emailed_to_lecturer, session_id, created_at
+RETURNING id, course_id, date, class_rep_id, attendance_data, pdf_url, status, finalized_at, emailed_to_lecturer, session_id, created_at, tenant_id
 `
 
 func (q *Queries) FinalizeAttendanceSheet(ctx context.Context, id uuid.UUID) (AttendanceSheet, error) {
@@ -90,12 +91,13 @@ func (q *Queries) FinalizeAttendanceSheet(ctx context.Context, id uuid.UUID) (At
 		&i.EmailedToLecturer,
 		&i.SessionID,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getAttendanceSheet = `-- name: GetAttendanceSheet :one
-SELECT id, course_id, date, class_rep_id, attendance_data, pdf_url, status, finalized_at, emailed_to_lecturer, session_id, created_at FROM attendance_sheets
+SELECT id, course_id, date, class_rep_id, attendance_data, pdf_url, status, finalized_at, emailed_to_lecturer, session_id, created_at, tenant_id FROM attendance_sheets
 WHERE id = $1 LIMIT 1
 `
 
@@ -114,6 +116,7 @@ func (q *Queries) GetAttendanceSheet(ctx context.Context, id uuid.UUID) (Attenda
 		&i.EmailedToLecturer,
 		&i.SessionID,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -152,7 +155,7 @@ func (q *Queries) GetAttendanceSummary(ctx context.Context, arg GetAttendanceSum
 }
 
 const listCourseAttendanceSheets = `-- name: ListCourseAttendanceSheets :many
-SELECT id, course_id, date, class_rep_id, attendance_data, pdf_url, status, finalized_at, emailed_to_lecturer, session_id, created_at FROM attendance_sheets
+SELECT id, course_id, date, class_rep_id, attendance_data, pdf_url, status, finalized_at, emailed_to_lecturer, session_id, created_at, tenant_id FROM attendance_sheets
 WHERE course_id = $1 AND session_id = $2
 ORDER BY date DESC
 LIMIT $3 OFFSET $4
@@ -191,6 +194,7 @@ func (q *Queries) ListCourseAttendanceSheets(ctx context.Context, arg ListCourse
 			&i.EmailedToLecturer,
 			&i.SessionID,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -203,7 +207,7 @@ func (q *Queries) ListCourseAttendanceSheets(ctx context.Context, arg ListCourse
 }
 
 const listStudentAttendance = `-- name: ListStudentAttendance :many
-SELECT id, course_id, date, class_rep_id, attendance_data, pdf_url, status, finalized_at, emailed_to_lecturer, session_id, created_at FROM attendance_sheets
+SELECT id, course_id, date, class_rep_id, attendance_data, pdf_url, status, finalized_at, emailed_to_lecturer, session_id, created_at, tenant_id FROM attendance_sheets
 WHERE session_id = $1
   AND attendance_data @> jsonb_build_array(jsonb_build_object('student_id', $2::text))
 ORDER BY date DESC
@@ -236,6 +240,7 @@ func (q *Queries) ListStudentAttendance(ctx context.Context, arg ListStudentAtte
 			&i.EmailedToLecturer,
 			&i.SessionID,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -256,7 +261,7 @@ SET
     finalized_at = CASE WHEN $2::varchar = 'finalized' THEN NOW() ELSE finalized_at END,
     emailed_to_lecturer = $4
 WHERE $5 = id
-RETURNING id, course_id, date, class_rep_id, attendance_data, pdf_url, status, finalized_at, emailed_to_lecturer, session_id, created_at
+RETURNING id, course_id, date, class_rep_id, attendance_data, pdf_url, status, finalized_at, emailed_to_lecturer, session_id, created_at, tenant_id
 `
 
 type UpdateAttendanceSheetParams struct {
@@ -288,6 +293,7 @@ func (q *Queries) UpdateAttendanceSheet(ctx context.Context, arg UpdateAttendanc
 		&i.EmailedToLecturer,
 		&i.SessionID,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }

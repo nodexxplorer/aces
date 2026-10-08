@@ -73,7 +73,7 @@ func (server *Server) regenerateCalendarToken(ctx *gin.Context) {
 // one-off .ics events.
 func (server *Server) getCalendarFeed(ctx *gin.Context) {
 	token := ctx.Param("token")
-	if token == "" {
+	if token == "" || !server.bindTenantByCalendarToken(ctx, token) {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 		return
 	}

@@ -5,6 +5,8 @@ import Button from '../../components/ui/Button';
 import AuthVideoShell from '../../components/layout/AuthVideoShell';
 import { GraduationCap, ShieldOff, LogIn } from 'lucide-react';
 import { modoolsLoginUrl, getModoolsStatus } from '../../api/modools';
+import { useDepartments } from '../../hooks/useDepartments';
+import DepartmentSelect from '../../components/auth/DepartmentSelect';
 
 // Student registration: Modools OAuth only. Accounts are created
 // automatically on first sign-in; profile details (matric number, level,
@@ -15,6 +17,7 @@ const StudentSignupPage = () => {
   const [searchParams] = useSearchParams();
   const [authError, setAuthError] = useState<string | null>(null);
   const [modoolsConfigured, setModoolsConfigured] = useState<boolean | null>(null);
+  const { departments, selected, select } = useDepartments();
 
   useEffect(() => {
     const errParam = searchParams.get('error');
@@ -24,6 +27,8 @@ const StudentSignupPage = () => {
       setAuthError('This email belongs to a staff account. Staff sign in at the staff portal.');
     } else if (errParam === 'account_deactivated') {
       setAuthError('This account has been deactivated. Contact the department office.');
+    } else if (errParam === 'unknown_department') {
+      setAuthError('That department is not available for sign-in. Choose another department.');
     }
     getModoolsStatus()
       .then((s) => setModoolsConfigured(s.configured))
@@ -55,12 +60,13 @@ const StudentSignupPage = () => {
               </div>
             )}
 
+            <DepartmentSelect departments={departments} value={selected} onChange={select} />
             <Button
               type="button"
               className="w-full"
               disabled={modoolsConfigured === false}
               onClick={() => {
-                window.location.href = modoolsLoginUrl();
+                window.location.href = modoolsLoginUrl(selected);
               }}
               leftIcon={
                 modoolsConfigured === false ? <LogIn className="w-5 h-5" /> : <GraduationCap className="w-5 h-5" />

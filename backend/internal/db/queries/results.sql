@@ -36,7 +36,7 @@ SET
     status = $7,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, student_id, course_id, ca_score, exam_score, total_score, grade, grade_point, session_id, semester_id, status, approved_by, approved_at, rejection_reason, is_carryover, created_at, updated_at, matric_number;
+RETURNING id, student_id, course_id, ca_score, exam_score, total_score, grade, grade_point, session_id, semester_id, status, approved_by, approved_at, rejection_reason, is_carryover, created_at, updated_at, matric_number, tenant_id;
 
 -- name: UpdateResultStatus :one
 UPDATE results

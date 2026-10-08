@@ -1,13 +1,13 @@
 package api
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"time"
 
 	db "github.com/aces/backend/internal/db/sql"
+	"github.com/aces/backend/internal/tenant"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -495,8 +495,8 @@ func (server *Server) submitRegistration(ctx *gin.Context) {
 	}
 
 	if server.notificationsFull != nil {
+		bgCtx, cancel := tenant.Detach(ctx, 10*time.Second)
 		go func(studentUserID uuid.UUID, level int32, regID uuid.UUID) {
-			bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
 			reps, err := server.store.ListActiveClassRepAssignments(bgCtx)

@@ -34,7 +34,7 @@ INSERT INTO timetable (
     is_published
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
-) RETURNING id, course_id, exam_date, start_time, end_time, venue, session_id, semester_id, has_conflict, conflict_details, created_by, created_at, day_of_week, level, entry_type, class_type, lecturer_id, exam_type, invigilators, is_published, published_at
+) RETURNING id, course_id, exam_date, start_time, end_time, venue, session_id, semester_id, has_conflict, conflict_details, created_by, created_at, day_of_week, level, entry_type, class_type, lecturer_id, exam_type, invigilators, is_published, published_at, tenant_id
 `
 
 type CreateTimetableEntryParams struct {
@@ -102,6 +102,7 @@ func (q *Queries) CreateTimetableEntry(ctx context.Context, arg CreateTimetableE
 		&i.Invigilators,
 		&i.IsPublished,
 		&i.PublishedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -117,7 +118,7 @@ func (q *Queries) DeleteTimetableEntry(ctx context.Context, id uuid.UUID) error 
 }
 
 const getTimetableEntry = `-- name: GetTimetableEntry :one
-SELECT id, course_id, exam_date, start_time, end_time, venue, session_id, semester_id, has_conflict, conflict_details, created_by, created_at, day_of_week, level, entry_type, class_type, lecturer_id, exam_type, invigilators, is_published, published_at FROM timetable
+SELECT id, course_id, exam_date, start_time, end_time, venue, session_id, semester_id, has_conflict, conflict_details, created_by, created_at, day_of_week, level, entry_type, class_type, lecturer_id, exam_type, invigilators, is_published, published_at, tenant_id FROM timetable
 WHERE id = $1 LIMIT 1
 `
 
@@ -146,12 +147,13 @@ func (q *Queries) GetTimetableEntry(ctx context.Context, id uuid.UUID) (Timetabl
 		&i.Invigilators,
 		&i.IsPublished,
 		&i.PublishedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const listTimetableEntries = `-- name: ListTimetableEntries :many
-SELECT id, course_id, exam_date, start_time, end_time, venue, session_id, semester_id, has_conflict, conflict_details, created_by, created_at, day_of_week, level, entry_type, class_type, lecturer_id, exam_type, invigilators, is_published, published_at FROM timetable
+SELECT id, course_id, exam_date, start_time, end_time, venue, session_id, semester_id, has_conflict, conflict_details, created_by, created_at, day_of_week, level, entry_type, class_type, lecturer_id, exam_type, invigilators, is_published, published_at, tenant_id FROM timetable
 WHERE session_id = $1 AND semester_id = $2
 ORDER BY exam_date, start_time
 `
@@ -192,6 +194,7 @@ func (q *Queries) ListTimetableEntries(ctx context.Context, arg ListTimetableEnt
 			&i.Invigilators,
 			&i.IsPublished,
 			&i.PublishedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -213,7 +216,7 @@ SET
     has_conflict = $6,
     conflict_details = $7
 WHERE id = $1
-RETURNING id, course_id, exam_date, start_time, end_time, venue, session_id, semester_id, has_conflict, conflict_details, created_by, created_at, day_of_week, level, entry_type, class_type, lecturer_id, exam_type, invigilators, is_published, published_at
+RETURNING id, course_id, exam_date, start_time, end_time, venue, session_id, semester_id, has_conflict, conflict_details, created_by, created_at, day_of_week, level, entry_type, class_type, lecturer_id, exam_type, invigilators, is_published, published_at, tenant_id
 `
 
 type UpdateTimetableEntryParams struct {
@@ -259,6 +262,7 @@ func (q *Queries) UpdateTimetableEntry(ctx context.Context, arg UpdateTimetableE
 		&i.Invigilators,
 		&i.IsPublished,
 		&i.PublishedAt,
+		&i.TenantID,
 	)
 	return i, err
 }

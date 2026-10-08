@@ -25,19 +25,20 @@ const parseJSONField = <T>(field: unknown): T[] => {
   return [];
 };
 
-// Password Reset
-export const requestPasswordReset = async (email: string, channel?: string) => {
-  const res = await apiClient.post('/auth/request-otp', { email, channel: channel || 'email' });
+// Password Reset. Accounts are per department, so the OTP is tied to the
+// department the account belongs to; pass its slug to every step.
+export const requestPasswordReset = async (email: string, channel?: string, tenant?: string) => {
+  const res = await apiClient.post('/auth/request-otp', { email, channel: channel || 'email', tenant });
   return unwrap<{ message: string }>(res);
 };
 
-export const verifyPasswordResetOTP = async (email: string, otp: string) => {
-  const res = await apiClient.post('/auth/verify-otp', { email, otp });
+export const verifyPasswordResetOTP = async (email: string, otp: string, tenant?: string) => {
+  const res = await apiClient.post('/auth/verify-otp', { email, otp, tenant });
   return unwrap<{ message: string; token: string }>(res);
 };
 
-export const resetPasswordWithOTP = async (email: string, otp: string, password: string) => {
-  const res = await apiClient.post('/auth/reset-with-otp', { email, otp, password });
+export const resetPasswordWithOTP = async (email: string, otp: string, password: string, tenant?: string) => {
+  const res = await apiClient.post('/auth/reset-with-otp', { email, otp, password, tenant });
   return unwrap<{ message: string }>(res);
 };
 

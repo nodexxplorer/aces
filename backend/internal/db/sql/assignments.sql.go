@@ -17,7 +17,7 @@ INSERT INTO assignments (
     course_id, title, description, deadline, max_score, allowed_formats, file_url, uploaded_by_class_rep_id, created_by, session_id, semester_id, is_active
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
-) RETURNING id, course_id, title, description, deadline, max_score, allowed_formats, file_url, uploaded_by_class_rep_id, created_by, session_id, semester_id, is_active, created_at
+) RETURNING id, course_id, title, description, deadline, max_score, allowed_formats, file_url, uploaded_by_class_rep_id, created_by, session_id, semester_id, is_active, created_at, tenant_id
 `
 
 type CreateAssignmentParams struct {
@@ -66,6 +66,7 @@ func (q *Queries) CreateAssignment(ctx context.Context, arg CreateAssignmentPara
 		&i.SemesterID,
 		&i.IsActive,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -75,7 +76,7 @@ INSERT INTO assignment_grades (
     assignment_id, student_id, score, feedback, is_late, graded_by
 ) VALUES (
     $1, $2, $3, $4, $5, $6
-) RETURNING id, assignment_id, student_id, score, feedback, is_late, graded_by, graded_at
+) RETURNING id, assignment_id, student_id, score, feedback, is_late, graded_by, graded_at, tenant_id
 `
 
 type CreateAssignmentGradeParams struct {
@@ -106,6 +107,7 @@ func (q *Queries) CreateAssignmentGrade(ctx context.Context, arg CreateAssignmen
 		&i.IsLate,
 		&i.GradedBy,
 		&i.GradedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -131,7 +133,7 @@ func (q *Queries) DeleteAssignmentGrade(ctx context.Context, id uuid.UUID) error
 }
 
 const getAssignment = `-- name: GetAssignment :one
-SELECT id, course_id, title, description, deadline, max_score, allowed_formats, file_url, uploaded_by_class_rep_id, created_by, session_id, semester_id, is_active, created_at FROM assignments
+SELECT id, course_id, title, description, deadline, max_score, allowed_formats, file_url, uploaded_by_class_rep_id, created_by, session_id, semester_id, is_active, created_at, tenant_id FROM assignments
 WHERE id = $1 LIMIT 1
 `
 
@@ -153,12 +155,13 @@ func (q *Queries) GetAssignment(ctx context.Context, id uuid.UUID) (Assignment, 
 		&i.SemesterID,
 		&i.IsActive,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getAssignmentGrade = `-- name: GetAssignmentGrade :one
-SELECT id, assignment_id, student_id, score, feedback, is_late, graded_by, graded_at FROM assignment_grades
+SELECT id, assignment_id, student_id, score, feedback, is_late, graded_by, graded_at, tenant_id FROM assignment_grades
 WHERE assignment_id = $1 AND student_id = $2 LIMIT 1
 `
 
@@ -179,12 +182,13 @@ func (q *Queries) GetAssignmentGrade(ctx context.Context, arg GetAssignmentGrade
 		&i.IsLate,
 		&i.GradedBy,
 		&i.GradedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const listAssignmentGrades = `-- name: ListAssignmentGrades :many
-SELECT id, assignment_id, student_id, score, feedback, is_late, graded_by, graded_at FROM assignment_grades
+SELECT id, assignment_id, student_id, score, feedback, is_late, graded_by, graded_at, tenant_id FROM assignment_grades
 WHERE assignment_id = $1
 ORDER BY graded_at DESC
 `
@@ -207,6 +211,7 @@ func (q *Queries) ListAssignmentGrades(ctx context.Context, assignmentID uuid.UU
 			&i.IsLate,
 			&i.GradedBy,
 			&i.GradedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -219,7 +224,7 @@ func (q *Queries) ListAssignmentGrades(ctx context.Context, assignmentID uuid.UU
 }
 
 const listCourseAssignments = `-- name: ListCourseAssignments :many
-SELECT id, course_id, title, description, deadline, max_score, allowed_formats, file_url, uploaded_by_class_rep_id, created_by, session_id, semester_id, is_active, created_at FROM assignments
+SELECT id, course_id, title, description, deadline, max_score, allowed_formats, file_url, uploaded_by_class_rep_id, created_by, session_id, semester_id, is_active, created_at, tenant_id FROM assignments
 WHERE course_id = $1 AND session_id = $2
 ORDER BY created_at DESC
 `
@@ -253,6 +258,7 @@ func (q *Queries) ListCourseAssignments(ctx context.Context, arg ListCourseAssig
 			&i.SemesterID,
 			&i.IsActive,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -265,7 +271,7 @@ func (q *Queries) ListCourseAssignments(ctx context.Context, arg ListCourseAssig
 }
 
 const listStudentAssignmentGrades = `-- name: ListStudentAssignmentGrades :many
-SELECT id, assignment_id, student_id, score, feedback, is_late, graded_by, graded_at FROM assignment_grades
+SELECT id, assignment_id, student_id, score, feedback, is_late, graded_by, graded_at, tenant_id FROM assignment_grades
 WHERE student_id = $1
 ORDER BY graded_at DESC
 `
@@ -288,6 +294,7 @@ func (q *Queries) ListStudentAssignmentGrades(ctx context.Context, studentID uui
 			&i.IsLate,
 			&i.GradedBy,
 			&i.GradedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -310,7 +317,7 @@ SET
     file_url = $7,
     is_active = $8
 WHERE id = $1
-RETURNING id, course_id, title, description, deadline, max_score, allowed_formats, file_url, uploaded_by_class_rep_id, created_by, session_id, semester_id, is_active, created_at
+RETURNING id, course_id, title, description, deadline, max_score, allowed_formats, file_url, uploaded_by_class_rep_id, created_by, session_id, semester_id, is_active, created_at, tenant_id
 `
 
 type UpdateAssignmentParams struct {
@@ -351,6 +358,7 @@ func (q *Queries) UpdateAssignment(ctx context.Context, arg UpdateAssignmentPara
 		&i.SemesterID,
 		&i.IsActive,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -364,7 +372,7 @@ SET
     graded_by = $5,
     graded_at = NOW()
 WHERE id = $1
-RETURNING id, assignment_id, student_id, score, feedback, is_late, graded_by, graded_at
+RETURNING id, assignment_id, student_id, score, feedback, is_late, graded_by, graded_at, tenant_id
 `
 
 type UpdateAssignmentGradeParams struct {
@@ -393,6 +401,7 @@ func (q *Queries) UpdateAssignmentGrade(ctx context.Context, arg UpdateAssignmen
 		&i.IsLate,
 		&i.GradedBy,
 		&i.GradedAt,
+		&i.TenantID,
 	)
 	return i, err
 }

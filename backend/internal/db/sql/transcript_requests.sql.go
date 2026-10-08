@@ -17,7 +17,7 @@ INSERT INTO transcript_requests (
     student_id, purpose, status, fee_paid, fee_amount
 ) VALUES (
     $1, $2, $3, $4, $5
-) RETURNING id, student_id, purpose, status, fee_paid, fee_amount, pdf_url, qr_code_url, sent_via_email, emailed_at, processed_by, processed_at, created_at
+) RETURNING id, student_id, purpose, status, fee_paid, fee_amount, pdf_url, qr_code_url, sent_via_email, emailed_at, processed_by, processed_at, created_at, tenant_id
 `
 
 type CreateTranscriptRequestParams struct {
@@ -51,6 +51,7 @@ func (q *Queries) CreateTranscriptRequest(ctx context.Context, arg CreateTranscr
 		&i.ProcessedBy,
 		&i.ProcessedAt,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -66,7 +67,7 @@ func (q *Queries) DeleteTranscriptRequest(ctx context.Context, id uuid.UUID) err
 }
 
 const getTranscriptRequest = `-- name: GetTranscriptRequest :one
-SELECT id, student_id, purpose, status, fee_paid, fee_amount, pdf_url, qr_code_url, sent_via_email, emailed_at, processed_by, processed_at, created_at FROM transcript_requests
+SELECT id, student_id, purpose, status, fee_paid, fee_amount, pdf_url, qr_code_url, sent_via_email, emailed_at, processed_by, processed_at, created_at, tenant_id FROM transcript_requests
 WHERE id = $1 LIMIT 1
 `
 
@@ -87,12 +88,13 @@ func (q *Queries) GetTranscriptRequest(ctx context.Context, id uuid.UUID) (Trans
 		&i.ProcessedBy,
 		&i.ProcessedAt,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const listPendingTranscriptRequests = `-- name: ListPendingTranscriptRequests :many
-SELECT id, student_id, purpose, status, fee_paid, fee_amount, pdf_url, qr_code_url, sent_via_email, emailed_at, processed_by, processed_at, created_at FROM transcript_requests
+SELECT id, student_id, purpose, status, fee_paid, fee_amount, pdf_url, qr_code_url, sent_via_email, emailed_at, processed_by, processed_at, created_at, tenant_id FROM transcript_requests
 WHERE status = 'requested'
 ORDER BY created_at ASC
 LIMIT $1 OFFSET $2
@@ -126,6 +128,7 @@ func (q *Queries) ListPendingTranscriptRequests(ctx context.Context, arg ListPen
 			&i.ProcessedBy,
 			&i.ProcessedAt,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -138,7 +141,7 @@ func (q *Queries) ListPendingTranscriptRequests(ctx context.Context, arg ListPen
 }
 
 const listStudentTranscriptRequests = `-- name: ListStudentTranscriptRequests :many
-SELECT id, student_id, purpose, status, fee_paid, fee_amount, pdf_url, qr_code_url, sent_via_email, emailed_at, processed_by, processed_at, created_at FROM transcript_requests
+SELECT id, student_id, purpose, status, fee_paid, fee_amount, pdf_url, qr_code_url, sent_via_email, emailed_at, processed_by, processed_at, created_at, tenant_id FROM transcript_requests
 WHERE student_id = $1
 ORDER BY created_at DESC
 `
@@ -166,6 +169,7 @@ func (q *Queries) ListStudentTranscriptRequests(ctx context.Context, studentID u
 			&i.ProcessedBy,
 			&i.ProcessedAt,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -189,7 +193,7 @@ SET
     processed_by = $8,
     processed_at = $9
 WHERE id = $1
-RETURNING id, student_id, purpose, status, fee_paid, fee_amount, pdf_url, qr_code_url, sent_via_email, emailed_at, processed_by, processed_at, created_at
+RETURNING id, student_id, purpose, status, fee_paid, fee_amount, pdf_url, qr_code_url, sent_via_email, emailed_at, processed_by, processed_at, created_at, tenant_id
 `
 
 type UpdateTranscriptRequestParams struct {
@@ -231,6 +235,7 @@ func (q *Queries) UpdateTranscriptRequest(ctx context.Context, arg UpdateTranscr
 		&i.ProcessedBy,
 		&i.ProcessedAt,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }

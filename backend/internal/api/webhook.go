@@ -61,6 +61,13 @@ func (server *Server) handlePaystackWebhook(ctx *gin.Context) {
 			ctx.JSON(http.StatusOK, gin.H{"status": "no reference"})
 			return
 		}
+		// The reference names the department that took the payment. Payments are
+		// recorded in that department only.
+		if !server.bindTenantByPaystackReference(ctx, reference) {
+			log.Printf("[paystack-webhook] no department owns reference %s, skipping", reference)
+			ctx.JSON(http.StatusOK, gin.H{"status": "unknown reference"})
+			return
+		}
 
 		donation, err := server.store.GetDonationByReference(ctx, &reference)
 		if err == nil {

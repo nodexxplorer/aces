@@ -29,7 +29,7 @@ var birthdayMessages = []string{
 // endpoint, or Render's own Cron Jobs product, would be needed for that to
 // be reliable on the free tier.
 func (server *Server) RunBirthdayScheduler(ctx context.Context) {
-	server.sendTodaysBirthdayGreetings(ctx)
+	server.forEachActiveTenant(ctx, "birthday", server.sendTodaysBirthdayGreetings)
 
 	ticker := time.NewTicker(1 * time.Hour)
 	defer ticker.Stop()
@@ -39,7 +39,7 @@ func (server *Server) RunBirthdayScheduler(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			server.sendTodaysBirthdayGreetings(ctx)
+			server.forEachActiveTenant(ctx, "birthday", server.sendTodaysBirthdayGreetings)
 		}
 	}
 }

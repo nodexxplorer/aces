@@ -18,7 +18,7 @@ INSERT INTO carryover_courses (
     student_id, course_id, original_result_id, original_session_id, attempt_count, max_attempts
 ) VALUES (
     $1, $2, $3, $4, $5, $6
-) RETURNING id, student_id, course_id, original_result_id, original_session_id, attempt_count, max_attempts, is_resolved, resolved_result_id, created_at
+) RETURNING id, student_id, course_id, original_result_id, original_session_id, attempt_count, max_attempts, is_resolved, resolved_result_id, created_at, tenant_id
 `
 
 type CreateCarryoverCourseParams struct {
@@ -51,6 +51,7 @@ func (q *Queries) CreateCarryoverCourse(ctx context.Context, arg CreateCarryover
 		&i.IsResolved,
 		&i.ResolvedResultID,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -60,7 +61,7 @@ INSERT INTO results (
     student_id, course_id, session_id, semester_id, ca_score, exam_score, total_score, grade, grade_point, status, is_carryover, matric_number
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
-) RETURNING id, student_id, course_id, ca_score, exam_score, total_score, grade, grade_point, session_id, semester_id, status, approved_by, approved_at, rejection_reason, is_carryover, created_at, updated_at, matric_number
+) RETURNING id, student_id, course_id, ca_score, exam_score, total_score, grade, grade_point, session_id, semester_id, status, approved_by, approved_at, rejection_reason, is_carryover, created_at, updated_at, matric_number, tenant_id
 `
 
 type CreateResultParams struct {
@@ -113,6 +114,7 @@ func (q *Queries) CreateResult(ctx context.Context, arg CreateResultParams) (Res
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.MatricNumber,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -122,7 +124,7 @@ INSERT INTO result_audit_logs (
     result_id, field_changed, old_value, new_value, reason, edited_by, ip_address, user_agent
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8
-) RETURNING id, result_id, field_changed, old_value, new_value, reason, edited_by, ip_address, user_agent, created_at
+) RETURNING id, result_id, field_changed, old_value, new_value, reason, edited_by, ip_address, user_agent, created_at, tenant_id
 `
 
 type CreateResultAuditLogParams struct {
@@ -159,6 +161,7 @@ func (q *Queries) CreateResultAuditLog(ctx context.Context, arg CreateResultAudi
 		&i.IpAddress,
 		&i.UserAgent,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -183,7 +186,7 @@ func (q *Queries) DeleteResult(ctx context.Context, id uuid.UUID) error {
 }
 
 const getCarryoverCourse = `-- name: GetCarryoverCourse :one
-SELECT id, student_id, course_id, original_result_id, original_session_id, attempt_count, max_attempts, is_resolved, resolved_result_id, created_at FROM carryover_courses
+SELECT id, student_id, course_id, original_result_id, original_session_id, attempt_count, max_attempts, is_resolved, resolved_result_id, created_at, tenant_id FROM carryover_courses
 WHERE id = $1 LIMIT 1
 `
 
@@ -201,12 +204,13 @@ func (q *Queries) GetCarryoverCourse(ctx context.Context, id uuid.UUID) (Carryov
 		&i.IsResolved,
 		&i.ResolvedResultID,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getResult = `-- name: GetResult :one
-SELECT id, student_id, course_id, ca_score, exam_score, total_score, grade, grade_point, session_id, semester_id, status, approved_by, approved_at, rejection_reason, is_carryover, created_at, updated_at, matric_number FROM results
+SELECT id, student_id, course_id, ca_score, exam_score, total_score, grade, grade_point, session_id, semester_id, status, approved_by, approved_at, rejection_reason, is_carryover, created_at, updated_at, matric_number, tenant_id FROM results
 WHERE id = $1 LIMIT 1
 `
 
@@ -232,6 +236,7 @@ func (q *Queries) GetResult(ctx context.Context, id uuid.UUID) (Result, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.MatricNumber,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -254,7 +259,7 @@ func (q *Queries) LinkResultsByMatric(ctx context.Context, arg LinkResultsByMatr
 }
 
 const listCourseResults = `-- name: ListCourseResults :many
-SELECT id, student_id, course_id, ca_score, exam_score, total_score, grade, grade_point, session_id, semester_id, status, approved_by, approved_at, rejection_reason, is_carryover, created_at, updated_at, matric_number FROM results
+SELECT id, student_id, course_id, ca_score, exam_score, total_score, grade, grade_point, session_id, semester_id, status, approved_by, approved_at, rejection_reason, is_carryover, created_at, updated_at, matric_number, tenant_id FROM results
 WHERE course_id = $1 AND session_id = $2
 ORDER BY student_id
 `
@@ -292,6 +297,7 @@ func (q *Queries) ListCourseResults(ctx context.Context, arg ListCourseResultsPa
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.MatricNumber,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -304,7 +310,7 @@ func (q *Queries) ListCourseResults(ctx context.Context, arg ListCourseResultsPa
 }
 
 const listResultAuditLogs = `-- name: ListResultAuditLogs :many
-SELECT id, result_id, field_changed, old_value, new_value, reason, edited_by, ip_address, user_agent, created_at FROM result_audit_logs
+SELECT id, result_id, field_changed, old_value, new_value, reason, edited_by, ip_address, user_agent, created_at, tenant_id FROM result_audit_logs
 WHERE result_id = $1
 ORDER BY created_at DESC
 `
@@ -329,6 +335,7 @@ func (q *Queries) ListResultAuditLogs(ctx context.Context, resultID uuid.UUID) (
 			&i.IpAddress,
 			&i.UserAgent,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -341,7 +348,7 @@ func (q *Queries) ListResultAuditLogs(ctx context.Context, resultID uuid.UUID) (
 }
 
 const listStudentCarryoverCourses = `-- name: ListStudentCarryoverCourses :many
-SELECT id, student_id, course_id, original_result_id, original_session_id, attempt_count, max_attempts, is_resolved, resolved_result_id, created_at FROM carryover_courses
+SELECT id, student_id, course_id, original_result_id, original_session_id, attempt_count, max_attempts, is_resolved, resolved_result_id, created_at, tenant_id FROM carryover_courses
 WHERE student_id = $1
 ORDER BY created_at DESC
 `
@@ -366,6 +373,7 @@ func (q *Queries) ListStudentCarryoverCourses(ctx context.Context, studentID uui
 			&i.IsResolved,
 			&i.ResolvedResultID,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -378,7 +386,7 @@ func (q *Queries) ListStudentCarryoverCourses(ctx context.Context, studentID uui
 }
 
 const listStudentResults = `-- name: ListStudentResults :many
-SELECT id, student_id, course_id, ca_score, exam_score, total_score, grade, grade_point, session_id, semester_id, status, approved_by, approved_at, rejection_reason, is_carryover, created_at, updated_at, matric_number FROM results
+SELECT id, student_id, course_id, ca_score, exam_score, total_score, grade, grade_point, session_id, semester_id, status, approved_by, approved_at, rejection_reason, is_carryover, created_at, updated_at, matric_number, tenant_id FROM results
 WHERE student_id = $1
 ORDER BY created_at DESC
 `
@@ -411,6 +419,7 @@ func (q *Queries) ListStudentResults(ctx context.Context, studentID pgtype.UUID)
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.MatricNumber,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -429,7 +438,7 @@ SET
     is_resolved = $3,
     resolved_result_id = $4
 WHERE id = $1
-RETURNING id, student_id, course_id, original_result_id, original_session_id, attempt_count, max_attempts, is_resolved, resolved_result_id, created_at
+RETURNING id, student_id, course_id, original_result_id, original_session_id, attempt_count, max_attempts, is_resolved, resolved_result_id, created_at, tenant_id
 `
 
 type UpdateCarryoverCourseParams struct {
@@ -458,6 +467,7 @@ func (q *Queries) UpdateCarryoverCourse(ctx context.Context, arg UpdateCarryover
 		&i.IsResolved,
 		&i.ResolvedResultID,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -473,7 +483,7 @@ SET
     status = $7,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, student_id, course_id, ca_score, exam_score, total_score, grade, grade_point, session_id, semester_id, status, approved_by, approved_at, rejection_reason, is_carryover, created_at, updated_at, matric_number
+RETURNING id, student_id, course_id, ca_score, exam_score, total_score, grade, grade_point, session_id, semester_id, status, approved_by, approved_at, rejection_reason, is_carryover, created_at, updated_at, matric_number, tenant_id
 `
 
 type UpdateResultParams struct {
@@ -516,6 +526,7 @@ func (q *Queries) UpdateResult(ctx context.Context, arg UpdateResultParams) (Res
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.MatricNumber,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -529,7 +540,7 @@ SET
     rejection_reason = $5,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, student_id, course_id, ca_score, exam_score, total_score, grade, grade_point, session_id, semester_id, status, approved_by, approved_at, rejection_reason, is_carryover, created_at, updated_at, matric_number
+RETURNING id, student_id, course_id, ca_score, exam_score, total_score, grade, grade_point, session_id, semester_id, status, approved_by, approved_at, rejection_reason, is_carryover, created_at, updated_at, matric_number, tenant_id
 `
 
 type UpdateResultStatusParams struct {
@@ -568,6 +579,7 @@ func (q *Queries) UpdateResultStatus(ctx context.Context, arg UpdateResultStatus
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.MatricNumber,
+		&i.TenantID,
 	)
 	return i, err
 }

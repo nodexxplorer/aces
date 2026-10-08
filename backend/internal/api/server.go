@@ -16,10 +16,10 @@ import (
 	"github.com/aces/backend/internal/middleware"
 	"github.com/aces/backend/internal/service"
 	"github.com/aces/backend/internal/storage"
+	"github.com/aces/backend/internal/tenant"
 	"github.com/aces/backend/internal/ws"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func corsMiddleware(allowedOrigins []string) gin.HandlerFunc {
@@ -70,7 +70,8 @@ func corsMiddleware(allowedOrigins []string) gin.HandlerFunc {
 
 type Server struct {
 	store        db.Querier
-	dbPool       *pgxpool.Pool
+	dbPool       *tenant.DB
+	tenants      *tenant.Manager
 	router       *gin.Engine
 	tokenManager *auth.TokenManager
 	config       *config.Config
@@ -98,7 +99,9 @@ type Server struct {
 	emailSender       email.EmailSender
 }
 
-func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Server {
+// NewServer wires the services. store must be built on tenants.DB(), so every
+// query runs against the department bound to its context.
+func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *Server {
 	tm := auth.NewTokenManager(cfg.JWTSecret, cfg.JWTAccessDuration, cfg.JWTRefreshDuration)
 	hub := ws.NewHub()
 	go hub.Run()
@@ -115,7 +118,8 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 
 	server := &Server{
 		store:        store,
-		dbPool:       dbPool,
+		dbPool:       tenants.DB(),
+		tenants:      tenants,
 		tokenManager: tm,
 		config:       cfg,
 
@@ -129,7 +133,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		complaints:        service.NewComplaintService(store),
 		announcements:     service.NewAnnouncementService(store),
 		notifications:     service.NewNotificationService(store),
-		notificationsFull: service.NewNotificationServiceFull(db.New(dbPool), hub, emailSender, pushSender, cfg.FrontendPublicURL),
+		notificationsFull: service.NewNotificationServiceFull(store, hub, emailSender, pushSender, cfg.FrontendPublicURL),
 		analytics:         service.NewAnalyticsService(store),
 		cgpa:              service.NewCGPAService(store),
 		roles:             service.NewRoleService(store),
@@ -145,15 +149,25 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 	server.storage = ls
 
 	
-	hub.PersistChat = func(from, to uuid.UUID, content string) (json.RawMessage, error) {
-		msg, err := server.campusConnect.SendMessage(context.Background(), from, to, content)
+	hub.PersistChat = func(tenantID, from, to uuid.UUID, content string) (json.RawMessage, error) {
+		ctx, cancel, err := server.socketContext(tenantID)
+		if err != nil {
+			return nil, err
+		}
+		defer cancel()
+		msg, err := server.campusConnect.SendMessage(ctx, from, to, content)
 		if err != nil {
 			return nil, err
 		}
 		return json.Marshal(msg)
 	}
-	hub.PersistGroupChat = func(from, groupID uuid.UUID, content string) (json.RawMessage, error) {
-		msg, err := server.campusConnect.SendGroupMessage(context.Background(), groupID, from, content)
+	hub.PersistGroupChat = func(tenantID, from, groupID uuid.UUID, content string) (json.RawMessage, error) {
+		ctx, cancel, err := server.socketContext(tenantID)
+		if err != nil {
+			return nil, err
+		}
+		defer cancel()
+		msg, err := server.campusConnect.SendGroupMessage(ctx, groupID, from, content)
 		if err != nil {
 			return nil, err
 		}
@@ -168,7 +182,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		}
 	}
 
-	router := gin.New()
+	router := newEngine()
 	router.Use(gin.Recovery())
 	router.Use(middleware.RequestID())
 	router.Use(middleware.ResponseNormalizer())
@@ -201,13 +215,16 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 	v1 := router.Group("/api/v1")
 
 	authProtected := v1.Group("/auth")
-	authProtected.Use(middleware.JWTAuth(tm))
+	authProtected.Use(middleware.JWTAuth(tm), middleware.TenantScope(tenants))
 	{
 		authProtected.GET("/me", server.getMe)
 		authProtected.POST("/logout", server.logout)
 		authProtected.POST("/onboarding", server.studentOnboarding)
 		authProtected.POST("/change-password", server.changePassword)
 	}
+
+	// Public list of departments for the sign-in and sign-up pages.
+	v1.GET("/tenants", authRL, server.listTenants)
 
 	v1.GET("/auth/modools/login", server.modoolsLogin)
 	v1.GET("/auth/modools/callback", server.modoolsCallback)
@@ -234,7 +251,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 	v1.GET("/notifications/unsubscribe/:token", server.unsubscribeFromEmails)
 
 	api := v1.Group("")
-	api.Use(middleware.JWTAuth(tm))
+	api.Use(middleware.JWTAuth(tm), middleware.TenantScope(tenants))
 
 	api.Use(server.RequireStudentOnboarded)
 
@@ -967,6 +984,19 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 
 	server.router = router
 	return server
+}
+
+// newEngine returns the HTTP engine for the API.
+//
+// ContextWithFallback makes a *gin.Context forward Value (and Done, Err,
+// Deadline) to its request's context. Tenant binding replaces the request
+// context (see bindTenant and the TenantScope middleware), and most handlers
+// pass the gin context itself to database calls. Without this setting the
+// department is invisible to those calls, and every query fails closed.
+func newEngine() *gin.Engine {
+	engine := gin.New()
+	engine.ContextWithFallback = true
+	return engine
 }
 
 func (server *Server) Router() *gin.Engine {

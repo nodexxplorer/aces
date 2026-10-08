@@ -266,8 +266,8 @@ func (server *Server) updateMyPushToken(ctx *gin.Context) {
 // credential (same pattern as the calendar feed token).
 func (server *Server) unsubscribeFromEmails(ctx *gin.Context) {
 	token := ctx.Param("token")
-	if token == "" {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+	if token == "" || !server.bindTenantByUnsubscribeToken(ctx, token) {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "this unsubscribe link is invalid or has expired"})
 		return
 	}
 

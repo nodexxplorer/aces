@@ -44,7 +44,7 @@ const createCampusReport = `-- name: CreateCampusReport :one
 
 INSERT INTO campus_reports (reporter_id, target_type, target_id, reason, description)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, reporter_id, target_type, target_id, reason, description, status, reviewed_by, reviewed_at, action_taken, created_at
+RETURNING id, reporter_id, target_type, target_id, reason, description, status, reviewed_by, reviewed_at, action_taken, created_at, tenant_id
 `
 
 type CreateCampusReportParams struct {
@@ -77,6 +77,7 @@ func (q *Queries) CreateCampusReport(ctx context.Context, arg CreateCampusReport
 		&i.ReviewedAt,
 		&i.ActionTaken,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -85,9 +86,9 @@ const createCommentReaction = `-- name: CreateCommentReaction :one
 
 INSERT INTO comment_reactions (comment_id, user_id, reaction_type)
 VALUES ($1, $2, $3)
-ON CONFLICT (comment_id, user_id) DO UPDATE
+ON CONFLICT (tenant_id, comment_id, user_id) DO UPDATE
 SET reaction_type = EXCLUDED.reaction_type, created_at = NOW()
-RETURNING id, comment_id, user_id, reaction_type, created_at
+RETURNING id, comment_id, user_id, reaction_type, created_at, tenant_id
 `
 
 type CreateCommentReactionParams struct {
@@ -106,6 +107,7 @@ func (q *Queries) CreateCommentReaction(ctx context.Context, arg CreateCommentRe
 		&i.UserID,
 		&i.ReactionType,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -114,7 +116,7 @@ const createConnectionStrike = `-- name: CreateConnectionStrike :one
 
 INSERT INTO connection_strikes (user_id, reason, strike_number, issued_by, expires_at)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, user_id, reason, strike_number, issued_by, expires_at, created_at
+RETURNING id, user_id, reason, strike_number, issued_by, expires_at, created_at, tenant_id
 `
 
 type CreateConnectionStrikeParams struct {
@@ -143,6 +145,7 @@ func (q *Queries) CreateConnectionStrike(ctx context.Context, arg CreateConnecti
 		&i.IssuedBy,
 		&i.ExpiresAt,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -151,7 +154,7 @@ const createFeedPost = `-- name: CreateFeedPost :one
 
 INSERT INTO feed_posts (author_id, post_type, content, media_urls, target_audience, group_id)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, author_id, post_type, content, media_urls, target_audience, group_id, like_count, comment_count, share_count, is_pinned, is_hidden, created_at, updated_at
+RETURNING id, author_id, post_type, content, media_urls, target_audience, group_id, like_count, comment_count, share_count, is_pinned, is_hidden, created_at, updated_at, tenant_id
 `
 
 type CreateFeedPostParams struct {
@@ -189,6 +192,7 @@ func (q *Queries) CreateFeedPost(ctx context.Context, arg CreateFeedPostParams) 
 		&i.IsHidden,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -197,7 +201,7 @@ const createGroupFile = `-- name: CreateGroupFile :one
 
 INSERT INTO group_files (group_id, uploaded_by, file_name, file_url, file_type, file_size)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, group_id, uploaded_by, file_name, file_url, file_type, file_size, created_at
+RETURNING id, group_id, uploaded_by, file_name, file_url, file_type, file_size, created_at, tenant_id
 `
 
 type CreateGroupFileParams struct {
@@ -229,6 +233,7 @@ func (q *Queries) CreateGroupFile(ctx context.Context, arg CreateGroupFileParams
 		&i.FileType,
 		&i.FileSize,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -237,9 +242,9 @@ const createMessageReaction = `-- name: CreateMessageReaction :one
 
 INSERT INTO message_reactions (message_id, user_id, reaction_type)
 VALUES ($1, $2, $3)
-ON CONFLICT (message_id, user_id) DO UPDATE
+ON CONFLICT (tenant_id, message_id, user_id) DO UPDATE
 SET reaction_type = EXCLUDED.reaction_type, created_at = NOW()
-RETURNING id, message_id, user_id, reaction_type, created_at
+RETURNING id, message_id, user_id, reaction_type, created_at, tenant_id
 `
 
 type CreateMessageReactionParams struct {
@@ -258,6 +263,7 @@ func (q *Queries) CreateMessageReaction(ctx context.Context, arg CreateMessageRe
 		&i.UserID,
 		&i.ReactionType,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -284,7 +290,7 @@ const createPostComment = `-- name: CreatePostComment :one
 
 INSERT INTO post_comments (post_id, author_id, parent_comment_id, content)
 VALUES ($1, $2, $3, $4)
-RETURNING id, post_id, author_id, parent_comment_id, content, like_count, created_at, updated_at
+RETURNING id, post_id, author_id, parent_comment_id, content, like_count, created_at, updated_at, tenant_id
 `
 
 type CreatePostCommentParams struct {
@@ -312,6 +318,7 @@ func (q *Queries) CreatePostComment(ctx context.Context, arg CreatePostCommentPa
 		&i.LikeCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -320,9 +327,9 @@ const createPostReaction = `-- name: CreatePostReaction :one
 
 INSERT INTO post_reactions (post_id, user_id, reaction_type)
 VALUES ($1, $2, $3)
-ON CONFLICT (post_id, user_id) DO UPDATE
+ON CONFLICT (tenant_id, post_id, user_id) DO UPDATE
 SET reaction_type = EXCLUDED.reaction_type, created_at = NOW()
-RETURNING id, post_id, user_id, reaction_type, created_at
+RETURNING id, post_id, user_id, reaction_type, created_at, tenant_id
 `
 
 type CreatePostReactionParams struct {
@@ -341,6 +348,7 @@ func (q *Queries) CreatePostReaction(ctx context.Context, arg CreatePostReaction
 		&i.UserID,
 		&i.ReactionType,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -415,7 +423,7 @@ func (q *Queries) DeletePostComment(ctx context.Context, arg DeletePostCommentPa
 }
 
 const getCampusProfile = `-- name: GetCampusProfile :one
-SELECT id, user_id, bio, interests, skills, availability_status, last_active_at, connection_count, post_count, created_at, updated_at FROM campus_profiles WHERE user_id = $1
+SELECT id, user_id, bio, interests, skills, availability_status, last_active_at, connection_count, post_count, created_at, updated_at, tenant_id FROM campus_profiles WHERE user_id = $1
 `
 
 func (q *Queries) GetCampusProfile(ctx context.Context, userID uuid.UUID) (CampusProfile, error) {
@@ -433,12 +441,13 @@ func (q *Queries) GetCampusProfile(ctx context.Context, userID uuid.UUID) (Campu
 		&i.PostCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getCommentReaction = `-- name: GetCommentReaction :one
-SELECT id, comment_id, user_id, reaction_type, created_at FROM comment_reactions WHERE comment_id = $1 AND user_id = $2
+SELECT id, comment_id, user_id, reaction_type, created_at, tenant_id FROM comment_reactions WHERE comment_id = $1 AND user_id = $2
 `
 
 type GetCommentReactionParams struct {
@@ -455,6 +464,7 @@ func (q *Queries) GetCommentReaction(ctx context.Context, arg GetCommentReaction
 		&i.UserID,
 		&i.ReactionType,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -547,7 +557,7 @@ func (q *Queries) GetConnectionSuggestions(ctx context.Context, arg GetConnectio
 }
 
 const getFeedPost = `-- name: GetFeedPost :one
-SELECT fp.id, fp.author_id, fp.post_type, fp.content, fp.media_urls, fp.target_audience, fp.group_id, fp.like_count, fp.comment_count, fp.share_count, fp.is_pinned, fp.is_hidden, fp.created_at, fp.updated_at, u.full_name AS author_name, u.avatar_url AS author_avatar, u.role AS author_role
+SELECT fp.id, fp.author_id, fp.post_type, fp.content, fp.media_urls, fp.target_audience, fp.group_id, fp.like_count, fp.comment_count, fp.share_count, fp.is_pinned, fp.is_hidden, fp.created_at, fp.updated_at, fp.tenant_id, u.full_name AS author_name, u.avatar_url AS author_avatar, u.role AS author_role
 FROM feed_posts fp
 JOIN users u ON u.id = fp.author_id
 WHERE fp.id = $1
@@ -568,6 +578,7 @@ type GetFeedPostRow struct {
 	IsHidden       bool               `json:"is_hidden"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	TenantID       uuid.UUID          `json:"tenant_id"`
 	AuthorName     *string            `json:"author_name"`
 	AuthorAvatar   *string            `json:"author_avatar"`
 	AuthorRole     UserRole           `json:"author_role"`
@@ -591,6 +602,7 @@ func (q *Queries) GetFeedPost(ctx context.Context, id uuid.UUID) (GetFeedPostRow
 		&i.IsHidden,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 		&i.AuthorName,
 		&i.AuthorAvatar,
 		&i.AuthorRole,
@@ -599,7 +611,7 @@ func (q *Queries) GetFeedPost(ctx context.Context, id uuid.UUID) (GetFeedPostRow
 }
 
 const getMessageReaction = `-- name: GetMessageReaction :one
-SELECT id, message_id, user_id, reaction_type, created_at FROM message_reactions WHERE message_id = $1 AND user_id = $2
+SELECT id, message_id, user_id, reaction_type, created_at, tenant_id FROM message_reactions WHERE message_id = $1 AND user_id = $2
 `
 
 type GetMessageReactionParams struct {
@@ -616,12 +628,13 @@ func (q *Queries) GetMessageReaction(ctx context.Context, arg GetMessageReaction
 		&i.UserID,
 		&i.ReactionType,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getMessageReactions = `-- name: GetMessageReactions :many
-SELECT mr.id, mr.message_id, mr.user_id, mr.reaction_type, mr.created_at, u.full_name
+SELECT mr.id, mr.message_id, mr.user_id, mr.reaction_type, mr.created_at, mr.tenant_id, u.full_name
 FROM message_reactions mr
 JOIN users u ON u.id = mr.user_id
 WHERE mr.message_id = $1
@@ -633,6 +646,7 @@ type GetMessageReactionsRow struct {
 	UserID       uuid.UUID          `json:"user_id"`
 	ReactionType string             `json:"reaction_type"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	TenantID     uuid.UUID          `json:"tenant_id"`
 	FullName     *string            `json:"full_name"`
 }
 
@@ -651,6 +665,7 @@ func (q *Queries) GetMessageReactions(ctx context.Context, messageID uuid.UUID) 
 			&i.UserID,
 			&i.ReactionType,
 			&i.CreatedAt,
+			&i.TenantID,
 			&i.FullName,
 		); err != nil {
 			return nil, err
@@ -664,7 +679,7 @@ func (q *Queries) GetMessageReactions(ctx context.Context, messageID uuid.UUID) 
 }
 
 const getPostReaction = `-- name: GetPostReaction :one
-SELECT id, post_id, user_id, reaction_type, created_at FROM post_reactions WHERE post_id = $1 AND user_id = $2
+SELECT id, post_id, user_id, reaction_type, created_at, tenant_id FROM post_reactions WHERE post_id = $1 AND user_id = $2
 `
 
 type GetPostReactionParams struct {
@@ -681,6 +696,7 @@ func (q *Queries) GetPostReaction(ctx context.Context, arg GetPostReactionParams
 		&i.UserID,
 		&i.ReactionType,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -730,7 +746,7 @@ func (q *Queries) GetUserStrikeCount(ctx context.Context, userID uuid.UUID) (int
 }
 
 const getUserStrikes = `-- name: GetUserStrikes :many
-SELECT id, user_id, reason, strike_number, issued_by, expires_at, created_at FROM connection_strikes WHERE user_id = $1 ORDER BY created_at DESC
+SELECT id, user_id, reason, strike_number, issued_by, expires_at, created_at, tenant_id FROM connection_strikes WHERE user_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) GetUserStrikes(ctx context.Context, userID uuid.UUID) ([]ConnectionStrike, error) {
@@ -750,6 +766,7 @@ func (q *Queries) GetUserStrikes(ctx context.Context, userID uuid.UUID) ([]Conne
 			&i.IssuedBy,
 			&i.ExpiresAt,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -841,7 +858,7 @@ func (q *Queries) IsPostBookmarked(ctx context.Context, arg IsPostBookmarkedPara
 }
 
 const listCampusReports = `-- name: ListCampusReports :many
-SELECT cr.id, cr.reporter_id, cr.target_type, cr.target_id, cr.reason, cr.description, cr.status, cr.reviewed_by, cr.reviewed_at, cr.action_taken, cr.created_at, u.full_name AS reporter_name
+SELECT cr.id, cr.reporter_id, cr.target_type, cr.target_id, cr.reason, cr.description, cr.status, cr.reviewed_by, cr.reviewed_at, cr.action_taken, cr.created_at, cr.tenant_id, u.full_name AS reporter_name
 FROM campus_reports cr
 JOIN users u ON u.id = cr.reporter_id
 WHERE ($1 = '' OR cr.status = $1)
@@ -860,6 +877,7 @@ type ListCampusReportsRow struct {
 	ReviewedAt   pgtype.Timestamptz `json:"reviewed_at"`
 	ActionTaken  *string            `json:"action_taken"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	TenantID     uuid.UUID          `json:"tenant_id"`
 	ReporterName *string            `json:"reporter_name"`
 }
 
@@ -884,6 +902,7 @@ func (q *Queries) ListCampusReports(ctx context.Context, dollar_1 interface{}) (
 			&i.ReviewedAt,
 			&i.ActionTaken,
 			&i.CreatedAt,
+			&i.TenantID,
 			&i.ReporterName,
 		); err != nil {
 			return nil, err
@@ -897,7 +916,7 @@ func (q *Queries) ListCampusReports(ctx context.Context, dollar_1 interface{}) (
 }
 
 const listCommentReplies = `-- name: ListCommentReplies :many
-SELECT pc.id, pc.post_id, pc.author_id, pc.parent_comment_id, pc.content, pc.like_count, pc.created_at, pc.updated_at, u.full_name AS author_name, u.avatar_url AS author_avatar
+SELECT pc.id, pc.post_id, pc.author_id, pc.parent_comment_id, pc.content, pc.like_count, pc.created_at, pc.updated_at, pc.tenant_id, u.full_name AS author_name, u.avatar_url AS author_avatar
 FROM post_comments pc
 JOIN users u ON u.id = pc.author_id
 WHERE pc.parent_comment_id = $1
@@ -913,6 +932,7 @@ type ListCommentRepliesRow struct {
 	LikeCount       int32              `json:"like_count"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
 	AuthorName      *string            `json:"author_name"`
 	AuthorAvatar    *string            `json:"author_avatar"`
 }
@@ -935,6 +955,7 @@ func (q *Queries) ListCommentReplies(ctx context.Context, parentCommentID pgtype
 			&i.LikeCount,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 			&i.AuthorName,
 			&i.AuthorAvatar,
 		); err != nil {
@@ -949,7 +970,7 @@ func (q *Queries) ListCommentReplies(ctx context.Context, parentCommentID pgtype
 }
 
 const listFeedPosts = `-- name: ListFeedPosts :many
-SELECT fp.id, fp.author_id, fp.post_type, fp.content, fp.media_urls, fp.target_audience, fp.group_id, fp.like_count, fp.comment_count, fp.share_count, fp.is_pinned, fp.is_hidden, fp.created_at, fp.updated_at, u.full_name AS author_name, u.avatar_url AS author_avatar, u.role AS author_role,
+SELECT fp.id, fp.author_id, fp.post_type, fp.content, fp.media_urls, fp.target_audience, fp.group_id, fp.like_count, fp.comment_count, fp.share_count, fp.is_pinned, fp.is_hidden, fp.created_at, fp.updated_at, fp.tenant_id, u.full_name AS author_name, u.avatar_url AS author_avatar, u.role AS author_role,
        EXISTS(SELECT 1 FROM post_reactions pr WHERE pr.post_id = fp.id AND pr.user_id = $1) AS user_liked
 FROM feed_posts fp
 JOIN users u ON u.id = fp.author_id
@@ -991,6 +1012,7 @@ type ListFeedPostsRow struct {
 	IsHidden       bool               `json:"is_hidden"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	TenantID       uuid.UUID          `json:"tenant_id"`
 	AuthorName     *string            `json:"author_name"`
 	AuthorAvatar   *string            `json:"author_avatar"`
 	AuthorRole     UserRole           `json:"author_role"`
@@ -1021,6 +1043,7 @@ func (q *Queries) ListFeedPosts(ctx context.Context, arg ListFeedPostsParams) ([
 			&i.IsHidden,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 			&i.AuthorName,
 			&i.AuthorAvatar,
 			&i.AuthorRole,
@@ -1037,7 +1060,7 @@ func (q *Queries) ListFeedPosts(ctx context.Context, arg ListFeedPostsParams) ([
 }
 
 const listGroupFeedPosts = `-- name: ListGroupFeedPosts :many
-SELECT fp.id, fp.author_id, fp.post_type, fp.content, fp.media_urls, fp.target_audience, fp.group_id, fp.like_count, fp.comment_count, fp.share_count, fp.is_pinned, fp.is_hidden, fp.created_at, fp.updated_at, u.full_name AS author_name, u.avatar_url AS author_avatar,
+SELECT fp.id, fp.author_id, fp.post_type, fp.content, fp.media_urls, fp.target_audience, fp.group_id, fp.like_count, fp.comment_count, fp.share_count, fp.is_pinned, fp.is_hidden, fp.created_at, fp.updated_at, fp.tenant_id, u.full_name AS author_name, u.avatar_url AS author_avatar,
        EXISTS(SELECT 1 FROM post_reactions pr WHERE pr.post_id = fp.id AND pr.user_id = $1) AS user_liked
 FROM feed_posts fp
 JOIN users u ON u.id = fp.author_id
@@ -1068,6 +1091,7 @@ type ListGroupFeedPostsRow struct {
 	IsHidden       bool               `json:"is_hidden"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	TenantID       uuid.UUID          `json:"tenant_id"`
 	AuthorName     *string            `json:"author_name"`
 	AuthorAvatar   *string            `json:"author_avatar"`
 	UserLiked      bool               `json:"user_liked"`
@@ -1102,6 +1126,7 @@ func (q *Queries) ListGroupFeedPosts(ctx context.Context, arg ListGroupFeedPosts
 			&i.IsHidden,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 			&i.AuthorName,
 			&i.AuthorAvatar,
 			&i.UserLiked,
@@ -1117,7 +1142,7 @@ func (q *Queries) ListGroupFeedPosts(ctx context.Context, arg ListGroupFeedPosts
 }
 
 const listGroupFiles = `-- name: ListGroupFiles :many
-SELECT gf.id, gf.group_id, gf.uploaded_by, gf.file_name, gf.file_url, gf.file_type, gf.file_size, gf.created_at, u.full_name AS uploaded_by_name
+SELECT gf.id, gf.group_id, gf.uploaded_by, gf.file_name, gf.file_url, gf.file_type, gf.file_size, gf.created_at, gf.tenant_id, u.full_name AS uploaded_by_name
 FROM group_files gf
 JOIN users u ON u.id = gf.uploaded_by
 WHERE gf.group_id = $1
@@ -1133,6 +1158,7 @@ type ListGroupFilesRow struct {
 	FileType       *string            `json:"file_type"`
 	FileSize       *int64             `json:"file_size"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	TenantID       uuid.UUID          `json:"tenant_id"`
 	UploadedByName *string            `json:"uploaded_by_name"`
 }
 
@@ -1154,6 +1180,7 @@ func (q *Queries) ListGroupFiles(ctx context.Context, groupID uuid.UUID) ([]List
 			&i.FileType,
 			&i.FileSize,
 			&i.CreatedAt,
+			&i.TenantID,
 			&i.UploadedByName,
 		); err != nil {
 			return nil, err
@@ -1167,7 +1194,7 @@ func (q *Queries) ListGroupFiles(ctx context.Context, groupID uuid.UUID) ([]List
 }
 
 const listPostComments = `-- name: ListPostComments :many
-SELECT pc.id, pc.post_id, pc.author_id, pc.parent_comment_id, pc.content, pc.like_count, pc.created_at, pc.updated_at, u.full_name AS author_name, u.avatar_url AS author_avatar
+SELECT pc.id, pc.post_id, pc.author_id, pc.parent_comment_id, pc.content, pc.like_count, pc.created_at, pc.updated_at, pc.tenant_id, u.full_name AS author_name, u.avatar_url AS author_avatar
 FROM post_comments pc
 JOIN users u ON u.id = pc.author_id
 WHERE pc.post_id = $1 AND pc.parent_comment_id IS NULL
@@ -1190,6 +1217,7 @@ type ListPostCommentsRow struct {
 	LikeCount       int32              `json:"like_count"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
 	AuthorName      *string            `json:"author_name"`
 	AuthorAvatar    *string            `json:"author_avatar"`
 }
@@ -1212,6 +1240,7 @@ func (q *Queries) ListPostComments(ctx context.Context, arg ListPostCommentsPara
 			&i.LikeCount,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 			&i.AuthorName,
 			&i.AuthorAvatar,
 		); err != nil {
@@ -1226,7 +1255,7 @@ func (q *Queries) ListPostComments(ctx context.Context, arg ListPostCommentsPara
 }
 
 const listPostReactions = `-- name: ListPostReactions :many
-SELECT pr.id, pr.post_id, pr.user_id, pr.reaction_type, pr.created_at, u.full_name
+SELECT pr.id, pr.post_id, pr.user_id, pr.reaction_type, pr.created_at, pr.tenant_id, u.full_name
 FROM post_reactions pr
 JOIN users u ON u.id = pr.user_id
 WHERE pr.post_id = $1
@@ -1239,6 +1268,7 @@ type ListPostReactionsRow struct {
 	UserID       uuid.UUID          `json:"user_id"`
 	ReactionType string             `json:"reaction_type"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	TenantID     uuid.UUID          `json:"tenant_id"`
 	FullName     *string            `json:"full_name"`
 }
 
@@ -1257,6 +1287,7 @@ func (q *Queries) ListPostReactions(ctx context.Context, postID uuid.UUID) ([]Li
 			&i.UserID,
 			&i.ReactionType,
 			&i.CreatedAt,
+			&i.TenantID,
 			&i.FullName,
 		); err != nil {
 			return nil, err
@@ -1270,7 +1301,7 @@ func (q *Queries) ListPostReactions(ctx context.Context, postID uuid.UUID) ([]Li
 }
 
 const listUserBookmarks = `-- name: ListUserBookmarks :many
-SELECT fp.id, fp.author_id, fp.post_type, fp.content, fp.media_urls, fp.target_audience, fp.group_id, fp.like_count, fp.comment_count, fp.share_count, fp.is_pinned, fp.is_hidden, fp.created_at, fp.updated_at, u.full_name AS author_name, u.avatar_url AS author_avatar
+SELECT fp.id, fp.author_id, fp.post_type, fp.content, fp.media_urls, fp.target_audience, fp.group_id, fp.like_count, fp.comment_count, fp.share_count, fp.is_pinned, fp.is_hidden, fp.created_at, fp.updated_at, fp.tenant_id, u.full_name AS author_name, u.avatar_url AS author_avatar
 FROM post_bookmarks pb
 JOIN feed_posts fp ON fp.id = pb.post_id
 JOIN users u ON u.id = fp.author_id
@@ -1293,6 +1324,7 @@ type ListUserBookmarksRow struct {
 	IsHidden       bool               `json:"is_hidden"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	TenantID       uuid.UUID          `json:"tenant_id"`
 	AuthorName     *string            `json:"author_name"`
 	AuthorAvatar   *string            `json:"author_avatar"`
 }
@@ -1321,6 +1353,7 @@ func (q *Queries) ListUserBookmarks(ctx context.Context, userID uuid.UUID) ([]Li
 			&i.IsHidden,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 			&i.AuthorName,
 			&i.AuthorAvatar,
 		); err != nil {
@@ -1405,7 +1438,7 @@ func (q *Queries) RemovePostReaction(ctx context.Context, arg RemovePostReaction
 }
 
 const searchCampusProfiles = `-- name: SearchCampusProfiles :many
-SELECT cp.id, cp.user_id, cp.bio, cp.interests, cp.skills, cp.availability_status, cp.last_active_at, cp.connection_count, cp.post_count, cp.created_at, cp.updated_at, u.full_name, u.avatar_url, u.role
+SELECT cp.id, cp.user_id, cp.bio, cp.interests, cp.skills, cp.availability_status, cp.last_active_at, cp.connection_count, cp.post_count, cp.created_at, cp.updated_at, cp.tenant_id, u.full_name, u.avatar_url, u.role
 FROM campus_profiles cp
 JOIN users u ON u.id = cp.user_id
 WHERE u.is_active = true AND u.is_approved = true
@@ -1432,6 +1465,7 @@ type SearchCampusProfilesRow struct {
 	PostCount          int32              `json:"post_count"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	TenantID           uuid.UUID          `json:"tenant_id"`
 	FullName           *string            `json:"full_name"`
 	AvatarUrl          *string            `json:"avatar_url"`
 	Role               UserRole           `json:"role"`
@@ -1458,6 +1492,7 @@ func (q *Queries) SearchCampusProfiles(ctx context.Context, arg SearchCampusProf
 			&i.PostCount,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 			&i.FullName,
 			&i.AvatarUrl,
 			&i.Role,
@@ -1614,10 +1649,10 @@ const upsertCampusProfile = `-- name: UpsertCampusProfile :one
 
 INSERT INTO campus_profiles (user_id, bio, interests, skills, availability_status)
 VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT (user_id) DO UPDATE
+ON CONFLICT (tenant_id, user_id) DO UPDATE
 SET bio = EXCLUDED.bio, interests = EXCLUDED.interests, skills = EXCLUDED.skills,
     availability_status = EXCLUDED.availability_status, updated_at = NOW()
-RETURNING id, user_id, bio, interests, skills, availability_status, last_active_at, connection_count, post_count, created_at, updated_at
+RETURNING id, user_id, bio, interests, skills, availability_status, last_active_at, connection_count, post_count, created_at, updated_at, tenant_id
 `
 
 type UpsertCampusProfileParams struct {
@@ -1650,6 +1685,7 @@ func (q *Queries) UpsertCampusProfile(ctx context.Context, arg UpsertCampusProfi
 		&i.PostCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }

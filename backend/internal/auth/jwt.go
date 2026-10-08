@@ -26,6 +26,11 @@ type Claims struct {
 	Role   string `json:"role"`
 	Email  string `json:"email"`
 	Roles  string `json:"roles,omitempty"`
+	// TenantID and TenantSlug name the department the account belongs to.
+	// Tokens issued before multi-tenancy carry neither; they belong to the
+	// legacy tenant (see tenant.LegacyID).
+	TenantID   string `json:"tenant_id,omitempty"`
+	TenantSlug string `json:"tenant_slug,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -60,13 +65,19 @@ func NewTokenManager(secret string, accessDuration, refreshDuration time.Duratio
 	}
 }
 
-func (tm *TokenManager) GeneratePair(userID uuid.UUID, role, email string, allRoles []string) (*TokenPair, error) {
-	accessToken, expiresAt, err := tm.generate(userID, role, email, allRoles, tm.accessDuration)
+// Tenant identifies the department a token is issued for.
+type Tenant struct {
+	ID   uuid.UUID
+	Slug string
+}
+
+func (tm *TokenManager) GeneratePair(userID uuid.UUID, tenant Tenant, role, email string, allRoles []string) (*TokenPair, error) {
+	accessToken, expiresAt, err := tm.generate(userID, tenant, role, email, allRoles, tm.accessDuration)
 	if err != nil {
 		return nil, fmt.Errorf("generate access token: %w", err)
 	}
 
-	refreshToken, _, err := tm.generate(userID, role, email, allRoles, tm.refreshDuration)
+	refreshToken, _, err := tm.generate(userID, tenant, role, email, allRoles, tm.refreshDuration)
 	if err != nil {
 		return nil, fmt.Errorf("generate refresh token: %w", err)
 	}
@@ -78,14 +89,16 @@ func (tm *TokenManager) GeneratePair(userID uuid.UUID, role, email string, allRo
 	}, nil
 }
 
-func (tm *TokenManager) generate(userID uuid.UUID, role, email string, allRoles []string, duration time.Duration) (string, time.Time, error) {
+func (tm *TokenManager) generate(userID uuid.UUID, tenant Tenant, role, email string, allRoles []string, duration time.Duration) (string, time.Time, error) {
 	expiresAt := time.Now().Add(duration)
 	rolesStr := strings.Join(allRoles, ",")
 	claims := &Claims{
-		UserID: userID.String(),
-		Role:   role,
-		Email:  email,
-		Roles:  rolesStr,
+		UserID:     userID.String(),
+		Role:       role,
+		Email:      email,
+		Roles:      rolesStr,
+		TenantID:   tenant.ID.String(),
+		TenantSlug: tenant.Slug,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

@@ -9,6 +9,7 @@ import (
 
 	"github.com/aces/backend/internal/auth"
 	db "github.com/aces/backend/internal/db/sql"
+	"github.com/aces/backend/internal/tenant"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -249,8 +250,8 @@ func (server *Server) notifyUser(
 	if server.notificationsFull == nil || userID == uuid.Nil {
 		return
 	}
+	bgCtx, cancel := tenant.Detach(ctx, 5*time.Second)
 	go func() {
-		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_, err := server.notificationsFull.CreateAndPush(
 			bgCtx,

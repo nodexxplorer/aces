@@ -18,7 +18,7 @@ INSERT INTO academic_standing_rules (
     min_cgpa, max_cgpa, standing, is_active
 ) VALUES (
     $1, $2, $3, $4
-) RETURNING id, min_cgpa, max_cgpa, standing, is_active
+) RETURNING id, min_cgpa, max_cgpa, standing, is_active, tenant_id
 `
 
 type CreateAcademicStandingRuleParams struct {
@@ -42,6 +42,7 @@ func (q *Queries) CreateAcademicStandingRule(ctx context.Context, arg CreateAcad
 		&i.MaxCgpa,
 		&i.Standing,
 		&i.IsActive,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -51,7 +52,7 @@ INSERT INTO cgpa_rules (
     min_score, max_score, grade, grade_point, is_active
 ) VALUES (
     $1, $2, $3, $4, $5
-) RETURNING id, min_score, max_score, grade, grade_point, is_active, created_at
+) RETURNING id, min_score, max_score, grade, grade_point, is_active, created_at, tenant_id
 `
 
 type CreateCgpaRuleParams struct {
@@ -79,12 +80,13 @@ func (q *Queries) CreateCgpaRule(ctx context.Context, arg CreateCgpaRuleParams) 
 		&i.GradePoint,
 		&i.IsActive,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getAcademicStandingRules = `-- name: GetAcademicStandingRules :many
-SELECT id, min_cgpa, max_cgpa, standing, is_active FROM academic_standing_rules
+SELECT id, min_cgpa, max_cgpa, standing, is_active, tenant_id FROM academic_standing_rules
 WHERE is_active = true
 ORDER BY min_cgpa DESC
 `
@@ -104,6 +106,7 @@ func (q *Queries) GetAcademicStandingRules(ctx context.Context) ([]AcademicStand
 			&i.MaxCgpa,
 			&i.Standing,
 			&i.IsActive,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -116,7 +119,7 @@ func (q *Queries) GetAcademicStandingRules(ctx context.Context) ([]AcademicStand
 }
 
 const getCgpaRules = `-- name: GetCgpaRules :many
-SELECT id, min_score, max_score, grade, grade_point, is_active, created_at FROM cgpa_rules
+SELECT id, min_score, max_score, grade, grade_point, is_active, created_at, tenant_id FROM cgpa_rules
 WHERE is_active = true
 ORDER BY min_score DESC
 `
@@ -138,6 +141,7 @@ func (q *Queries) GetCgpaRules(ctx context.Context) ([]CgpaRule, error) {
 			&i.GradePoint,
 			&i.IsActive,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}

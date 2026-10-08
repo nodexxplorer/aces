@@ -4,7 +4,11 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - DB_SOURCE=postgres://${POSTGRES_USER:-aces_user}:${POSTGRES_PASSWORD:-aces_pass}@db:5432/${POSTGRES_DB:-aces_zone}?sslmode=disable
+      # The API connects as the restricted runtime role, never the superuser:
+      # row-level security (department isolation) does not apply to superusers
+      # or table owners, and the server refuses to start as either.
+      - DB_SOURCE=postgres://${APP_DB_USER:-aces_app}:${APP_DB_PASSWORD:-aces_app_pass}@db:5432/${POSTGRES_DB:-aces_zone}?sslmode=disable
+      - DEFAULT_TENANT_SLUG=${DEFAULT_TENANT_SLUG:-uniuyo-ce}
       - SERVER_ADDRESS=0.0.0.0:8080
       - JWT_SECRET=${JWT_SECRET}
       - JWT_ACCESS_MINUTES=60
@@ -24,6 +28,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      roles:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
       interval: 15s
@@ -65,6 +71,29 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  # Creates or updates the restricted role the API runs as, and its grants, after
+  # the migrations. It runs on every `up`, so tables added by later migrations
+  # get their grants too. See deploy/postgres/runtime-role.sql.
+  roles:
+    image: postgres:16-alpine
+    environment:
+      PGHOST: db
+      PGPORT: "5432"
+      PGDATABASE: ${POSTGRES_DB:-aces_zone}
+      PGUSER: ${POSTGRES_USER:-aces_user}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-aces_pass}
+      APP_DB_USER: ${APP_DB_USER:-aces_app}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-aces_app_pass}
+    volumes:
+      - ./deploy/postgres:/deploy:ro
+    command:
+      - sh
+      - -c
+      - psql -v ON_ERROR_STOP=1 -v app_role="$$APP_DB_USER" -v app_password="$$APP_DB_PASSWORD" -f /deploy/runtime-role.sql
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
 
   mailhog:
     image: mailhog/mailhog:latest

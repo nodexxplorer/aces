@@ -17,7 +17,7 @@ INSERT INTO profile_update_requests (
     student_id, field_name, old_value, new_value, status
 ) VALUES (
     $1, $2, $3, $4, $5
-) RETURNING id, student_id, field_name, old_value, new_value, status, approved_by, approved_at, rejection_reason, created_at
+) RETURNING id, student_id, field_name, old_value, new_value, status, approved_by, approved_at, rejection_reason, created_at, tenant_id
 `
 
 type CreateProfileUpdateRequestParams struct {
@@ -48,6 +48,7 @@ func (q *Queries) CreateProfileUpdateRequest(ctx context.Context, arg CreateProf
 		&i.ApprovedAt,
 		&i.RejectionReason,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -63,7 +64,7 @@ func (q *Queries) DeleteProfileUpdateRequest(ctx context.Context, id uuid.UUID) 
 }
 
 const getProfileUpdateRequest = `-- name: GetProfileUpdateRequest :one
-SELECT id, student_id, field_name, old_value, new_value, status, approved_by, approved_at, rejection_reason, created_at FROM profile_update_requests
+SELECT id, student_id, field_name, old_value, new_value, status, approved_by, approved_at, rejection_reason, created_at, tenant_id FROM profile_update_requests
 WHERE id = $1 LIMIT 1
 `
 
@@ -81,12 +82,13 @@ func (q *Queries) GetProfileUpdateRequest(ctx context.Context, id uuid.UUID) (Pr
 		&i.ApprovedAt,
 		&i.RejectionReason,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const listPendingProfileUpdateRequests = `-- name: ListPendingProfileUpdateRequests :many
-SELECT id, student_id, field_name, old_value, new_value, status, approved_by, approved_at, rejection_reason, created_at FROM profile_update_requests
+SELECT id, student_id, field_name, old_value, new_value, status, approved_by, approved_at, rejection_reason, created_at, tenant_id FROM profile_update_requests
 WHERE status = 'pending'
 ORDER BY created_at ASC
 LIMIT $1 OFFSET $2
@@ -117,6 +119,7 @@ func (q *Queries) ListPendingProfileUpdateRequests(ctx context.Context, arg List
 			&i.ApprovedAt,
 			&i.RejectionReason,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -129,7 +132,7 @@ func (q *Queries) ListPendingProfileUpdateRequests(ctx context.Context, arg List
 }
 
 const listStudentProfileUpdateRequests = `-- name: ListStudentProfileUpdateRequests :many
-SELECT id, student_id, field_name, old_value, new_value, status, approved_by, approved_at, rejection_reason, created_at FROM profile_update_requests
+SELECT id, student_id, field_name, old_value, new_value, status, approved_by, approved_at, rejection_reason, created_at, tenant_id FROM profile_update_requests
 WHERE student_id = $1
 ORDER BY created_at DESC
 `
@@ -154,6 +157,7 @@ func (q *Queries) ListStudentProfileUpdateRequests(ctx context.Context, studentI
 			&i.ApprovedAt,
 			&i.RejectionReason,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -173,7 +177,7 @@ SET
     approved_at = $4,
     rejection_reason = $5
 WHERE id = $1
-RETURNING id, student_id, field_name, old_value, new_value, status, approved_by, approved_at, rejection_reason, created_at
+RETURNING id, student_id, field_name, old_value, new_value, status, approved_by, approved_at, rejection_reason, created_at, tenant_id
 `
 
 type UpdateProfileUpdateRequestStatusParams struct {
@@ -204,6 +208,7 @@ func (q *Queries) UpdateProfileUpdateRequestStatus(ctx context.Context, arg Upda
 		&i.ApprovedAt,
 		&i.RejectionReason,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }

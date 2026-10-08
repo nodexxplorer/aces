@@ -3,13 +3,15 @@ package main
 import (
 	"bufio"
 	"context"
+	"flag"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	db "github.com/aces/backend/internal/db/sql"
+	"github.com/aces/backend/internal/tenant"
 	"github.com/aces/backend/internal/util"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func init() {
@@ -39,8 +41,18 @@ func init() {
 	}
 }
 
+// Usage: seed_admin [-tenant <slug>]
+//
+// Creates the first admin account for a department. Accounts are per
+// department, so the same email can be an admin in several.
 func main() {
 	ctx := context.Background()
+
+	tenantSlug := flag.String("tenant", os.Getenv("DEFAULT_TENANT_SLUG"), "department slug to seed (default: DEFAULT_TENANT_SLUG, else uniuyo-ce)")
+	flag.Parse()
+	if *tenantSlug == "" {
+		*tenantSlug = "uniuyo-ce"
+	}
 
 	dbSource := os.Getenv("DB_SOURCE")
 	if dbSource == "" {
@@ -61,13 +73,33 @@ func main() {
 	}
 
 	log.Printf("Connecting to database for seeding...")
-	connPool, err := pgxpool.New(ctx, dbSource)
+	tenants, err := tenant.NewManager(ctx, dbSource, tenant.Options{DefaultSlug: *tenantSlug})
 	if err != nil {
 		log.Fatalf("cannot connect to db: %v", err)
 	}
-	defer connPool.Close()
+	defer tenants.Close()
 
-	store := db.New(connPool)
+	// Seeding reads and writes accounts, so it is subject to row-level security
+	// like the server. Run it with the restricted runtime role's connection
+	// string, not the migration owner's: as an owner it would see every
+	// department's accounts.
+	allowBypass, _ := strconv.ParseBool(os.Getenv("DB_ALLOW_RLS_BYPASS"))
+	if err := tenants.CheckRuntimeRole(ctx, allowBypass); err != nil {
+		log.Fatalf("database role check failed: %v", err)
+	}
+
+	t, err := tenants.Resolve(ctx, *tenantSlug)
+	if err != nil {
+		log.Fatalf("department %q: %v (create it with cmd/tenant)", *tenantSlug, err)
+	}
+	if !t.IsActive {
+		log.Fatalf("department %q is not active", t.Slug)
+	}
+	// Everything below runs inside the department, so the lookup and the new
+	// account are both scoped to it.
+	ctx = tenant.With(ctx, t)
+	store := db.New(tenants.DB())
+	log.Printf("Seeding department %q", t.Slug)
 
 	user, err := store.GetUserByEmail(ctx, adminEmail)
 	if err == nil {
@@ -93,7 +125,7 @@ func main() {
 		log.Fatalf("cannot create admin user: %v", err)
 	}
 
-	_, err = connPool.Exec(ctx, "UPDATE users SET is_approved = true, is_active = true WHERE id = $1", user.ID)
+	_, err = tenants.DB().Exec(ctx, "UPDATE users SET is_approved = true, is_active = true WHERE id = $1", user.ID)
 	if err != nil {
 		log.Fatalf("cannot approve admin user: %v", err)
 	}

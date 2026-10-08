@@ -12,6 +12,8 @@ import AuthVideoShell from '../../components/layout/AuthVideoShell';
 import { Mail, Lock, LogIn, X, ShieldOff, ShieldCheck } from 'lucide-react';
 import { login as apiLogin } from '../../api/auth';
 import { getErrorMessage } from '../../utils/errors';
+import { useDepartments } from '../../hooks/useDepartments';
+import DepartmentSelect from '../../components/auth/DepartmentSelect';
 
 const staffLoginSchema = z.object({
   identifier: z.string().min(3, 'Email or Staff ID is required'),
@@ -25,6 +27,7 @@ const StaffPortalLoginPage = () => {
   const { error } = useNotification();
   const navigate = useNavigate();
   const [authError, setAuthError] = useState<string | null>(null);
+  const { departments, selected, select } = useDepartments();
 
   const {
     register,
@@ -37,7 +40,11 @@ const StaffPortalLoginPage = () => {
   const onSubmit = async (data: StaffLoginFormValues) => {
     setAuthError(null);
     try {
-      const { user: userData, tokens } = await apiLogin({ email: data.identifier, password: data.password });
+      const { user: userData, tokens } = await apiLogin({
+        email: data.identifier,
+        password: data.password,
+        tenant: selected,
+      });
       sessionStorage.setItem('just_logged_in', 'true');
       login(userData, tokens);
       navigate('/login/celebration');
@@ -93,6 +100,7 @@ const StaffPortalLoginPage = () => {
               )}
             </AnimatePresence>
 
+            <DepartmentSelect departments={departments} value={selected} onChange={select} />
             <Input
               label="Email or Staff ID"
               placeholder="e.g. ENG/12345 or lecturer@aces.com"

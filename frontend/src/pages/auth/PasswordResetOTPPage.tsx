@@ -7,9 +7,12 @@ import { getErrorMessage } from '../../utils/errors';
 import AuthVideoShell from '../../components/layout/AuthVideoShell';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import { useDepartments } from '../../hooks/useDepartments';
+import DepartmentSelect from '../../components/auth/DepartmentSelect';
 
 export default function PasswordResetOTPPage() {
   const navigate = useNavigate();
+  const { departments, selected, select } = useDepartments();
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState<string[]>(['', '', '', '', '', '']);
@@ -24,7 +27,7 @@ export default function PasswordResetOTPPage() {
     setError('');
     setLoading(true);
     try {
-      await requestPasswordReset(email);
+      await requestPasswordReset(email, undefined, selected);
       setStep(2);
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Failed to send OTP'));
@@ -43,7 +46,7 @@ export default function PasswordResetOTPPage() {
     }
     setLoading(true);
     try {
-      await verifyPasswordResetOTP(email, otpString);
+      await verifyPasswordResetOTP(email, otpString, selected);
       setStep(3);
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Invalid OTP'));
@@ -65,7 +68,7 @@ export default function PasswordResetOTPPage() {
     }
     setLoading(true);
     try {
-      await resetPasswordWithOTP(email, otp.join(''), newPassword);
+      await resetPasswordWithOTP(email, otp.join(''), newPassword, selected);
       setStep(4);
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Failed to reset password'));
@@ -150,6 +153,8 @@ export default function PasswordResetOTPPage() {
                     {error}
                   </div>
                 )}
+
+                <DepartmentSelect departments={departments} value={selected} onChange={select} />
 
                 <Input
                   label="Email Address"

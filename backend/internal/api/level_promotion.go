@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
 	db "github.com/aces/backend/internal/db/sql"
+	"github.com/aces/backend/internal/tenant"
 )
 
 // ── Session roll-over: HOD/admin-confirmed batch level promotion ──
@@ -204,7 +206,13 @@ func (server *Server) confirmLevelPromotion(ctx *gin.Context) {
 	}
 
 	// Fire-and-forget notifications (outside the tx; failure is non-fatal).
-	go server.notifyPromotions(promotedUserIDs, sessionID)
+	// The detached context is taken now, while the request still holds the
+	// department; the goroutine must not read it from the gin context later.
+	bgCtx, cancel := tenant.Detach(ctx, 30*time.Second)
+	go func() {
+		defer cancel()
+		server.notifyPromotions(bgCtx, promotedUserIDs, sessionID)
+	}()
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"promoted": promoted,
@@ -214,8 +222,7 @@ func (server *Server) confirmLevelPromotion(ctx *gin.Context) {
 }
 
 // notifyPromotions tells each promoted student their new level.
-func (server *Server) notifyPromotions(userIDs []uuid.UUID, sessionID uuid.UUID) {
-	ctx := context.Background()
+func (server *Server) notifyPromotions(ctx context.Context, userIDs []uuid.UUID, sessionID uuid.UUID) {
 	queries, ok := server.store.(*db.Queries)
 	if !ok {
 		return

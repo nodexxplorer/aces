@@ -15,7 +15,7 @@ import (
 const acknowledgeAnnouncement = `-- name: AcknowledgeAnnouncement :exec
 INSERT INTO announcement_read_receipts (announcement_id, student_id, read_at, acknowledged_at, device_type)
 VALUES ($1, $2, NOW(), NOW(), $3)
-ON CONFLICT (announcement_id, student_id)
+ON CONFLICT (tenant_id, announcement_id, student_id)
 DO UPDATE SET acknowledged_at = COALESCE(announcement_read_receipts.acknowledged_at, NOW()),
               read_at = COALESCE(announcement_read_receipts.read_at, NOW())
 `
@@ -61,7 +61,7 @@ const bulkCreateVerificationRecords = `-- name: BulkCreateVerificationRecords :e
 INSERT INTO verification_records (matric_number, full_name, level, entry_session, department, status)
 SELECT unnest($1::text[]), unnest($2::text[]), unnest($3::int[]),
        unnest($4::text[]), unnest($5::text[]), unnest($6::text[])
-ON CONFLICT (matric_number) DO UPDATE
+ON CONFLICT (tenant_id, matric_number) DO UPDATE
 SET full_name = EXCLUDED.full_name, level = EXCLUDED.level,
     entry_session = EXCLUDED.entry_session, status = EXCLUDED.status,
     updated_at = NOW()
@@ -152,7 +152,7 @@ const createAnnouncementComment = `-- name: CreateAnnouncementComment :one
 
 INSERT INTO announcement_comments (announcement_id, author_id, parent_comment_id, content)
 VALUES ($1, $2, $3, $4)
-RETURNING id, announcement_id, author_id, parent_comment_id, content, is_hidden, created_at, updated_at
+RETURNING id, announcement_id, author_id, parent_comment_id, content, is_hidden, created_at, updated_at, tenant_id
 `
 
 type CreateAnnouncementCommentParams struct {
@@ -180,6 +180,7 @@ func (q *Queries) CreateAnnouncementComment(ctx context.Context, arg CreateAnnou
 		&i.IsHidden,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -188,7 +189,7 @@ const createAnnouncementTemplate = `-- name: CreateAnnouncementTemplate :one
 
 INSERT INTO announcement_templates (name, default_title, default_body, default_priority, default_category, default_requires_acknowledgment, created_by)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, name, default_title, default_body, default_priority, default_category, default_requires_acknowledgment, created_by, created_at, updated_at
+RETURNING id, name, default_title, default_body, default_priority, default_category, default_requires_acknowledgment, created_by, created_at, updated_at, tenant_id
 `
 
 type CreateAnnouncementTemplateParams struct {
@@ -224,6 +225,7 @@ func (q *Queries) CreateAnnouncementTemplate(ctx context.Context, arg CreateAnno
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -234,7 +236,7 @@ INSERT INTO announcements (title, content, summary, priority, category, is_pinne
     target_level, target_audience, target_levels, target_departments, attachments,
     requires_acknowledgment, status, scheduled_for, created_by, pin_order)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-RETURNING id, title, content, is_pinned, target_level, target_audience, expires_at, created_by, created_at, summary, priority, category, target_levels, target_departments, attachments, requires_acknowledgment, status, scheduled_for, read_count, acknowledged_count, pin_order, updated_at
+RETURNING id, title, content, is_pinned, target_level, target_audience, expires_at, created_by, created_at, summary, priority, category, target_levels, target_departments, attachments, requires_acknowledgment, status, scheduled_for, read_count, acknowledged_count, pin_order, updated_at, tenant_id
 `
 
 type CreateAnnouncementV2Params struct {
@@ -300,6 +302,7 @@ func (q *Queries) CreateAnnouncementV2(ctx context.Context, arg CreateAnnounceme
 		&i.AcknowledgedCount,
 		&i.PinOrder,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -308,9 +311,9 @@ const createReadReceipt = `-- name: CreateReadReceipt :one
 
 INSERT INTO announcement_read_receipts (announcement_id, student_id, read_at, device_type)
 VALUES ($1, $2, NOW(), $3)
-ON CONFLICT (announcement_id, student_id)
+ON CONFLICT (tenant_id, announcement_id, student_id)
 DO UPDATE SET read_at = COALESCE(announcement_read_receipts.read_at, NOW())
-RETURNING id, announcement_id, student_id, read_at, acknowledged_at, device_type, created_at
+RETURNING id, announcement_id, student_id, read_at, acknowledged_at, device_type, created_at, tenant_id
 `
 
 type CreateReadReceiptParams struct {
@@ -331,6 +334,7 @@ func (q *Queries) CreateReadReceipt(ctx context.Context, arg CreateReadReceiptPa
 		&i.AcknowledgedAt,
 		&i.DeviceType,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -339,7 +343,7 @@ const createStudentOnboarding = `-- name: CreateStudentOnboarding :one
 
 INSERT INTO student_onboardings (user_id, matric_number, verification_record_id, match_confidence, submitted_email, submitted_phone, status)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, user_id, matric_number, verification_record_id, match_confidence, submitted_email, submitted_phone, status, reviewed_by, reviewed_at, rejection_reason, created_at, updated_at
+RETURNING id, user_id, matric_number, verification_record_id, match_confidence, submitted_email, submitted_phone, status, reviewed_by, reviewed_at, rejection_reason, created_at, updated_at, tenant_id
 `
 
 type CreateStudentOnboardingParams struct {
@@ -378,6 +382,7 @@ func (q *Queries) CreateStudentOnboarding(ctx context.Context, arg CreateStudent
 		&i.RejectionReason,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -386,7 +391,7 @@ const createVerificationRecord = `-- name: CreateVerificationRecord :one
 
 INSERT INTO verification_records (matric_number, full_name, level, entry_session, department, status)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, matric_number, full_name, level, entry_session, department, status, imported_at, created_at, updated_at
+RETURNING id, matric_number, full_name, level, entry_session, department, status, imported_at, created_at, updated_at, tenant_id
 `
 
 type CreateVerificationRecordParams struct {
@@ -420,6 +425,7 @@ func (q *Queries) CreateVerificationRecord(ctx context.Context, arg CreateVerifi
 		&i.ImportedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -479,7 +485,7 @@ func (q *Queries) GetAnnouncementReceiptStats(ctx context.Context, announcementI
 }
 
 const getAnnouncementTemplate = `-- name: GetAnnouncementTemplate :one
-SELECT id, name, default_title, default_body, default_priority, default_category, default_requires_acknowledgment, created_by, created_at, updated_at FROM announcement_templates WHERE id = $1
+SELECT id, name, default_title, default_body, default_priority, default_category, default_requires_acknowledgment, created_by, created_at, updated_at, tenant_id FROM announcement_templates WHERE id = $1
 `
 
 func (q *Queries) GetAnnouncementTemplate(ctx context.Context, id uuid.UUID) (AnnouncementTemplate, error) {
@@ -496,12 +502,13 @@ func (q *Queries) GetAnnouncementTemplate(ctx context.Context, id uuid.UUID) (An
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getAnnouncementV2 = `-- name: GetAnnouncementV2 :one
-SELECT a.id, a.title, a.content, a.is_pinned, a.target_level, a.target_audience, a.expires_at, a.created_by, a.created_at, a.summary, a.priority, a.category, a.target_levels, a.target_departments, a.attachments, a.requires_acknowledgment, a.status, a.scheduled_for, a.read_count, a.acknowledged_count, a.pin_order, a.updated_at, u.full_name AS author_name
+SELECT a.id, a.title, a.content, a.is_pinned, a.target_level, a.target_audience, a.expires_at, a.created_by, a.created_at, a.summary, a.priority, a.category, a.target_levels, a.target_departments, a.attachments, a.requires_acknowledgment, a.status, a.scheduled_for, a.read_count, a.acknowledged_count, a.pin_order, a.updated_at, a.tenant_id, u.full_name AS author_name
 FROM announcements a
 JOIN users u ON u.id = a.created_by
 WHERE a.id = $1
@@ -530,6 +537,7 @@ type GetAnnouncementV2Row struct {
 	AcknowledgedCount      int32              `json:"acknowledged_count"`
 	PinOrder               *int32             `json:"pin_order"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	TenantID               uuid.UUID          `json:"tenant_id"`
 	AuthorName             *string            `json:"author_name"`
 }
 
@@ -559,13 +567,14 @@ func (q *Queries) GetAnnouncementV2(ctx context.Context, id uuid.UUID) (GetAnnou
 		&i.AcknowledgedCount,
 		&i.PinOrder,
 		&i.UpdatedAt,
+		&i.TenantID,
 		&i.AuthorName,
 	)
 	return i, err
 }
 
 const getReadReceipt = `-- name: GetReadReceipt :one
-SELECT id, announcement_id, student_id, read_at, acknowledged_at, device_type, created_at FROM announcement_read_receipts
+SELECT id, announcement_id, student_id, read_at, acknowledged_at, device_type, created_at, tenant_id FROM announcement_read_receipts
 WHERE announcement_id = $1 AND student_id = $2
 `
 
@@ -585,12 +594,13 @@ func (q *Queries) GetReadReceipt(ctx context.Context, arg GetReadReceiptParams) 
 		&i.AcknowledgedAt,
 		&i.DeviceType,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getStudentOnboardingByMatric = `-- name: GetStudentOnboardingByMatric :one
-SELECT so.id, so.user_id, so.matric_number, so.verification_record_id, so.match_confidence, so.submitted_email, so.submitted_phone, so.status, so.reviewed_by, so.reviewed_at, so.rejection_reason, so.created_at, so.updated_at, vr.full_name AS verified_name, vr.level AS verified_level
+SELECT so.id, so.user_id, so.matric_number, so.verification_record_id, so.match_confidence, so.submitted_email, so.submitted_phone, so.status, so.reviewed_by, so.reviewed_at, so.rejection_reason, so.created_at, so.updated_at, so.tenant_id, vr.full_name AS verified_name, vr.level AS verified_level
 FROM student_onboardings so
 LEFT JOIN verification_records vr ON vr.id = so.verification_record_id
 WHERE so.matric_number = $1
@@ -610,6 +620,7 @@ type GetStudentOnboardingByMatricRow struct {
 	RejectionReason      *string            `json:"rejection_reason"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	TenantID             uuid.UUID          `json:"tenant_id"`
 	VerifiedName         *string            `json:"verified_name"`
 	VerifiedLevel        *int32             `json:"verified_level"`
 }
@@ -631,6 +642,7 @@ func (q *Queries) GetStudentOnboardingByMatric(ctx context.Context, matricNumber
 		&i.RejectionReason,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 		&i.VerifiedName,
 		&i.VerifiedLevel,
 	)
@@ -638,7 +650,7 @@ func (q *Queries) GetStudentOnboardingByMatric(ctx context.Context, matricNumber
 }
 
 const getStudentOnboardingByUserID = `-- name: GetStudentOnboardingByUserID :one
-SELECT so.id, so.user_id, so.matric_number, so.verification_record_id, so.match_confidence, so.submitted_email, so.submitted_phone, so.status, so.reviewed_by, so.reviewed_at, so.rejection_reason, so.created_at, so.updated_at, vr.full_name AS verified_name, vr.level AS verified_level, vr.department AS verified_department
+SELECT so.id, so.user_id, so.matric_number, so.verification_record_id, so.match_confidence, so.submitted_email, so.submitted_phone, so.status, so.reviewed_by, so.reviewed_at, so.rejection_reason, so.created_at, so.updated_at, so.tenant_id, vr.full_name AS verified_name, vr.level AS verified_level, vr.department AS verified_department
 FROM student_onboardings so
 LEFT JOIN verification_records vr ON vr.id = so.verification_record_id
 WHERE so.user_id = $1
@@ -658,6 +670,7 @@ type GetStudentOnboardingByUserIDRow struct {
 	RejectionReason      *string            `json:"rejection_reason"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	TenantID             uuid.UUID          `json:"tenant_id"`
 	VerifiedName         *string            `json:"verified_name"`
 	VerifiedLevel        *int32             `json:"verified_level"`
 	VerifiedDepartment   *string            `json:"verified_department"`
@@ -680,6 +693,7 @@ func (q *Queries) GetStudentOnboardingByUserID(ctx context.Context, userID uuid.
 		&i.RejectionReason,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 		&i.VerifiedName,
 		&i.VerifiedLevel,
 		&i.VerifiedDepartment,
@@ -688,7 +702,7 @@ func (q *Queries) GetStudentOnboardingByUserID(ctx context.Context, userID uuid.
 }
 
 const getStudentReadAnnouncements = `-- name: GetStudentReadAnnouncements :many
-SELECT a.id, a.title, a.content, a.is_pinned, a.target_level, a.target_audience, a.expires_at, a.created_by, a.created_at, a.summary, a.priority, a.category, a.target_levels, a.target_departments, a.attachments, a.requires_acknowledgment, a.status, a.scheduled_for, a.read_count, a.acknowledged_count, a.pin_order, a.updated_at, u.full_name AS author_name, arr.read_at, arr.acknowledged_at
+SELECT a.id, a.title, a.content, a.is_pinned, a.target_level, a.target_audience, a.expires_at, a.created_by, a.created_at, a.summary, a.priority, a.category, a.target_levels, a.target_departments, a.attachments, a.requires_acknowledgment, a.status, a.scheduled_for, a.read_count, a.acknowledged_count, a.pin_order, a.updated_at, a.tenant_id, u.full_name AS author_name, arr.read_at, arr.acknowledged_at
 FROM announcements a
 JOIN users u ON u.id = a.created_by
 JOIN announcement_read_receipts arr ON arr.announcement_id = a.id
@@ -726,6 +740,7 @@ type GetStudentReadAnnouncementsRow struct {
 	AcknowledgedCount      int32              `json:"acknowledged_count"`
 	PinOrder               *int32             `json:"pin_order"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	TenantID               uuid.UUID          `json:"tenant_id"`
 	AuthorName             *string            `json:"author_name"`
 	ReadAt                 pgtype.Timestamptz `json:"read_at"`
 	AcknowledgedAt         pgtype.Timestamptz `json:"acknowledged_at"`
@@ -763,6 +778,7 @@ func (q *Queries) GetStudentReadAnnouncements(ctx context.Context, arg GetStuden
 			&i.AcknowledgedCount,
 			&i.PinOrder,
 			&i.UpdatedAt,
+			&i.TenantID,
 			&i.AuthorName,
 			&i.ReadAt,
 			&i.AcknowledgedAt,
@@ -778,7 +794,7 @@ func (q *Queries) GetStudentReadAnnouncements(ctx context.Context, arg GetStuden
 }
 
 const getUnverifiedStudents = `-- name: GetUnverifiedStudents :many
-SELECT vr.id, vr.matric_number, vr.full_name, vr.level, vr.entry_session, vr.department, vr.status, vr.imported_at, vr.created_at, vr.updated_at
+SELECT vr.id, vr.matric_number, vr.full_name, vr.level, vr.entry_session, vr.department, vr.status, vr.imported_at, vr.created_at, vr.updated_at, vr.tenant_id
 FROM verification_records vr
 WHERE NOT EXISTS (
     SELECT 1 FROM student_onboardings so
@@ -808,6 +824,7 @@ func (q *Queries) GetUnverifiedStudents(ctx context.Context) ([]VerificationReco
 			&i.ImportedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -820,7 +837,7 @@ func (q *Queries) GetUnverifiedStudents(ctx context.Context) ([]VerificationReco
 }
 
 const getVerificationRecordByMatric = `-- name: GetVerificationRecordByMatric :one
-SELECT id, matric_number, full_name, level, entry_session, department, status, imported_at, created_at, updated_at FROM verification_records WHERE matric_number = $1
+SELECT id, matric_number, full_name, level, entry_session, department, status, imported_at, created_at, updated_at, tenant_id FROM verification_records WHERE matric_number = $1
 `
 
 func (q *Queries) GetVerificationRecordByMatric(ctx context.Context, matricNumber string) (VerificationRecord, error) {
@@ -837,6 +854,7 @@ func (q *Queries) GetVerificationRecordByMatric(ctx context.Context, matricNumbe
 		&i.ImportedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -907,7 +925,7 @@ func (q *Queries) IncrementAnnouncementReadCount(ctx context.Context, id uuid.UU
 }
 
 const listAnnouncementComments = `-- name: ListAnnouncementComments :many
-SELECT ac.id, ac.announcement_id, ac.author_id, ac.parent_comment_id, ac.content, ac.is_hidden, ac.created_at, ac.updated_at, u.full_name AS author_name
+SELECT ac.id, ac.announcement_id, ac.author_id, ac.parent_comment_id, ac.content, ac.is_hidden, ac.created_at, ac.updated_at, ac.tenant_id, u.full_name AS author_name
 FROM announcement_comments ac
 JOIN users u ON u.id = ac.author_id
 WHERE ac.announcement_id = $1 AND ac.is_hidden = false
@@ -923,6 +941,7 @@ type ListAnnouncementCommentsRow struct {
 	IsHidden        bool               `json:"is_hidden"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
 	AuthorName      *string            `json:"author_name"`
 }
 
@@ -944,6 +963,7 @@ func (q *Queries) ListAnnouncementComments(ctx context.Context, announcementID u
 			&i.IsHidden,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 			&i.AuthorName,
 		); err != nil {
 			return nil, err
@@ -957,7 +977,7 @@ func (q *Queries) ListAnnouncementComments(ctx context.Context, announcementID u
 }
 
 const listAnnouncementTemplates = `-- name: ListAnnouncementTemplates :many
-SELECT id, name, default_title, default_body, default_priority, default_category, default_requires_acknowledgment, created_by, created_at, updated_at FROM announcement_templates ORDER BY name
+SELECT id, name, default_title, default_body, default_priority, default_category, default_requires_acknowledgment, created_by, created_at, updated_at, tenant_id FROM announcement_templates ORDER BY name
 `
 
 func (q *Queries) ListAnnouncementTemplates(ctx context.Context) ([]AnnouncementTemplate, error) {
@@ -980,6 +1000,7 @@ func (q *Queries) ListAnnouncementTemplates(ctx context.Context) ([]Announcement
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -992,7 +1013,7 @@ func (q *Queries) ListAnnouncementTemplates(ctx context.Context) ([]Announcement
 }
 
 const listAnnouncementsV2 = `-- name: ListAnnouncementsV2 :many
-SELECT a.id, a.title, a.content, a.is_pinned, a.target_level, a.target_audience, a.expires_at, a.created_by, a.created_at, a.summary, a.priority, a.category, a.target_levels, a.target_departments, a.attachments, a.requires_acknowledgment, a.status, a.scheduled_for, a.read_count, a.acknowledged_count, a.pin_order, a.updated_at, u.full_name AS author_name
+SELECT a.id, a.title, a.content, a.is_pinned, a.target_level, a.target_audience, a.expires_at, a.created_by, a.created_at, a.summary, a.priority, a.category, a.target_levels, a.target_departments, a.attachments, a.requires_acknowledgment, a.status, a.scheduled_for, a.read_count, a.acknowledged_count, a.pin_order, a.updated_at, a.tenant_id, u.full_name AS author_name
 FROM announcements a
 JOIN users u ON u.id = a.created_by
 WHERE ($1::announcement_status IS NULL OR a.status = $1)
@@ -1033,6 +1054,7 @@ type ListAnnouncementsV2Row struct {
 	AcknowledgedCount      int32              `json:"acknowledged_count"`
 	PinOrder               *int32             `json:"pin_order"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	TenantID               uuid.UUID          `json:"tenant_id"`
 	AuthorName             *string            `json:"author_name"`
 }
 
@@ -1074,6 +1096,7 @@ func (q *Queries) ListAnnouncementsV2(ctx context.Context, arg ListAnnouncements
 			&i.AcknowledgedCount,
 			&i.PinOrder,
 			&i.UpdatedAt,
+			&i.TenantID,
 			&i.AuthorName,
 		); err != nil {
 			return nil, err
@@ -1087,7 +1110,7 @@ func (q *Queries) ListAnnouncementsV2(ctx context.Context, arg ListAnnouncements
 }
 
 const listPublishedAnnouncements = `-- name: ListPublishedAnnouncements :many
-SELECT a.id, a.title, a.content, a.is_pinned, a.target_level, a.target_audience, a.expires_at, a.created_by, a.created_at, a.summary, a.priority, a.category, a.target_levels, a.target_departments, a.attachments, a.requires_acknowledgment, a.status, a.scheduled_for, a.read_count, a.acknowledged_count, a.pin_order, a.updated_at, u.full_name AS author_name
+SELECT a.id, a.title, a.content, a.is_pinned, a.target_level, a.target_audience, a.expires_at, a.created_by, a.created_at, a.summary, a.priority, a.category, a.target_levels, a.target_departments, a.attachments, a.requires_acknowledgment, a.status, a.scheduled_for, a.read_count, a.acknowledged_count, a.pin_order, a.updated_at, a.tenant_id, u.full_name AS author_name
 FROM announcements a
 JOIN users u ON u.id = a.created_by
 WHERE a.status = 'published'
@@ -1125,6 +1148,7 @@ type ListPublishedAnnouncementsRow struct {
 	AcknowledgedCount      int32              `json:"acknowledged_count"`
 	PinOrder               *int32             `json:"pin_order"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	TenantID               uuid.UUID          `json:"tenant_id"`
 	AuthorName             *string            `json:"author_name"`
 }
 
@@ -1160,6 +1184,7 @@ func (q *Queries) ListPublishedAnnouncements(ctx context.Context, arg ListPublis
 			&i.AcknowledgedCount,
 			&i.PinOrder,
 			&i.UpdatedAt,
+			&i.TenantID,
 			&i.AuthorName,
 		); err != nil {
 			return nil, err
@@ -1173,7 +1198,7 @@ func (q *Queries) ListPublishedAnnouncements(ctx context.Context, arg ListPublis
 }
 
 const listReadReceiptsByAnnouncement = `-- name: ListReadReceiptsByAnnouncement :many
-SELECT arr.id, arr.announcement_id, arr.student_id, arr.read_at, arr.acknowledged_at, arr.device_type, arr.created_at, u.full_name AS student_name
+SELECT arr.id, arr.announcement_id, arr.student_id, arr.read_at, arr.acknowledged_at, arr.device_type, arr.created_at, arr.tenant_id, u.full_name AS student_name
 FROM announcement_read_receipts arr
 JOIN users u ON u.id = arr.student_id
 WHERE arr.announcement_id = $1
@@ -1188,6 +1213,7 @@ type ListReadReceiptsByAnnouncementRow struct {
 	AcknowledgedAt pgtype.Timestamptz `json:"acknowledged_at"`
 	DeviceType     *string            `json:"device_type"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	TenantID       uuid.UUID          `json:"tenant_id"`
 	StudentName    *string            `json:"student_name"`
 }
 
@@ -1208,6 +1234,7 @@ func (q *Queries) ListReadReceiptsByAnnouncement(ctx context.Context, announceme
 			&i.AcknowledgedAt,
 			&i.DeviceType,
 			&i.CreatedAt,
+			&i.TenantID,
 			&i.StudentName,
 		); err != nil {
 			return nil, err
@@ -1221,7 +1248,7 @@ func (q *Queries) ListReadReceiptsByAnnouncement(ctx context.Context, announceme
 }
 
 const listStudentAnnouncements = `-- name: ListStudentAnnouncements :many
-SELECT a.id, a.title, a.content, a.is_pinned, a.target_level, a.target_audience, a.expires_at, a.created_by, a.created_at, a.summary, a.priority, a.category, a.target_levels, a.target_departments, a.attachments, a.requires_acknowledgment, a.status, a.scheduled_for, a.read_count, a.acknowledged_count, a.pin_order, a.updated_at, u.full_name AS author_name
+SELECT a.id, a.title, a.content, a.is_pinned, a.target_level, a.target_audience, a.expires_at, a.created_by, a.created_at, a.summary, a.priority, a.category, a.target_levels, a.target_departments, a.attachments, a.requires_acknowledgment, a.status, a.scheduled_for, a.read_count, a.acknowledged_count, a.pin_order, a.updated_at, a.tenant_id, u.full_name AS author_name
 FROM announcements a
 JOIN users u ON u.id = a.created_by
 WHERE a.status = 'published'
@@ -1268,6 +1295,7 @@ type ListStudentAnnouncementsRow struct {
 	AcknowledgedCount      int32              `json:"acknowledged_count"`
 	PinOrder               *int32             `json:"pin_order"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	TenantID               uuid.UUID          `json:"tenant_id"`
 	AuthorName             *string            `json:"author_name"`
 }
 
@@ -1303,6 +1331,7 @@ func (q *Queries) ListStudentAnnouncements(ctx context.Context, arg ListStudentA
 			&i.AcknowledgedCount,
 			&i.PinOrder,
 			&i.UpdatedAt,
+			&i.TenantID,
 			&i.AuthorName,
 		); err != nil {
 			return nil, err
@@ -1316,7 +1345,7 @@ func (q *Queries) ListStudentAnnouncements(ctx context.Context, arg ListStudentA
 }
 
 const listStudentOnboardings = `-- name: ListStudentOnboardings :many
-SELECT so.id, so.user_id, so.matric_number, so.verification_record_id, so.match_confidence, so.submitted_email, so.submitted_phone, so.status, so.reviewed_by, so.reviewed_at, so.rejection_reason, so.created_at, so.updated_at, vr.full_name AS verified_name, vr.level AS verified_level, vr.department AS verified_department
+SELECT so.id, so.user_id, so.matric_number, so.verification_record_id, so.match_confidence, so.submitted_email, so.submitted_phone, so.status, so.reviewed_by, so.reviewed_at, so.rejection_reason, so.created_at, so.updated_at, so.tenant_id, vr.full_name AS verified_name, vr.level AS verified_level, vr.department AS verified_department
 FROM student_onboardings so
 LEFT JOIN verification_records vr ON vr.id = so.verification_record_id
 WHERE ($1::onboarding_status IS NULL OR so.status = $1)
@@ -1346,6 +1375,7 @@ type ListStudentOnboardingsRow struct {
 	RejectionReason      *string            `json:"rejection_reason"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	TenantID             uuid.UUID          `json:"tenant_id"`
 	VerifiedName         *string            `json:"verified_name"`
 	VerifiedLevel        *int32             `json:"verified_level"`
 	VerifiedDepartment   *string            `json:"verified_department"`
@@ -1379,6 +1409,7 @@ func (q *Queries) ListStudentOnboardings(ctx context.Context, arg ListStudentOnb
 			&i.RejectionReason,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 			&i.VerifiedName,
 			&i.VerifiedLevel,
 			&i.VerifiedDepartment,
@@ -1432,7 +1463,7 @@ func (q *Queries) ListUnacknowledgedStudents(ctx context.Context, announcementID
 }
 
 const listVerificationRecords = `-- name: ListVerificationRecords :many
-SELECT id, matric_number, full_name, level, entry_session, department, status, imported_at, created_at, updated_at FROM verification_records
+SELECT id, matric_number, full_name, level, entry_session, department, status, imported_at, created_at, updated_at, tenant_id FROM verification_records
 WHERE ($1::text IS NULL OR matric_number ILIKE '%' || $1 || '%'
        OR full_name ILIKE '%' || $1 || '%')
 AND ($2::int IS NULL OR level = $2)
@@ -1475,6 +1506,7 @@ func (q *Queries) ListVerificationRecords(ctx context.Context, arg ListVerificat
 			&i.ImportedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -1489,7 +1521,7 @@ func (q *Queries) ListVerificationRecords(ctx context.Context, arg ListVerificat
 const markAnnouncementRead = `-- name: MarkAnnouncementRead :exec
 INSERT INTO announcement_read_receipts (announcement_id, student_id, read_at, device_type)
 VALUES ($1, $2, NOW(), $3)
-ON CONFLICT (announcement_id, student_id) DO NOTHING
+ON CONFLICT (tenant_id, announcement_id, student_id) DO NOTHING
 `
 
 type MarkAnnouncementReadParams struct {
@@ -1514,7 +1546,7 @@ func (q *Queries) PublishAnnouncement(ctx context.Context, id uuid.UUID) error {
 }
 
 const searchAnnouncements = `-- name: SearchAnnouncements :many
-SELECT a.id, a.title, a.content, a.is_pinned, a.target_level, a.target_audience, a.expires_at, a.created_by, a.created_at, a.summary, a.priority, a.category, a.target_levels, a.target_departments, a.attachments, a.requires_acknowledgment, a.status, a.scheduled_for, a.read_count, a.acknowledged_count, a.pin_order, a.updated_at, u.full_name AS author_name
+SELECT a.id, a.title, a.content, a.is_pinned, a.target_level, a.target_audience, a.expires_at, a.created_by, a.created_at, a.summary, a.priority, a.category, a.target_levels, a.target_departments, a.attachments, a.requires_acknowledgment, a.status, a.scheduled_for, a.read_count, a.acknowledged_count, a.pin_order, a.updated_at, a.tenant_id, u.full_name AS author_name
 FROM announcements a
 JOIN users u ON u.id = a.created_by
 WHERE a.status = 'published'
@@ -1552,6 +1584,7 @@ type SearchAnnouncementsRow struct {
 	AcknowledgedCount      int32              `json:"acknowledged_count"`
 	PinOrder               *int32             `json:"pin_order"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	TenantID               uuid.UUID          `json:"tenant_id"`
 	AuthorName             *string            `json:"author_name"`
 }
 
@@ -1587,6 +1620,7 @@ func (q *Queries) SearchAnnouncements(ctx context.Context, arg SearchAnnouncemen
 			&i.AcknowledgedCount,
 			&i.PinOrder,
 			&i.UpdatedAt,
+			&i.TenantID,
 			&i.AuthorName,
 		); err != nil {
 			return nil, err

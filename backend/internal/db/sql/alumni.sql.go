@@ -31,7 +31,7 @@ func (q *Queries) CancelEventRegistration(ctx context.Context, arg CancelEventRe
 const createAlumniEvent = `-- name: CreateAlumniEvent :one
 
 INSERT INTO alumni_events (title, description, event_type, location, is_virtual, virtual_link, start_date, end_date, max_attendees, created_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, title, description, event_type, location, is_virtual, virtual_link, start_date, end_date, max_attendees, is_active, created_by, created_at, target_audience, status, approved_by, rsvp_count, attendance_count
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, title, description, event_type, location, is_virtual, virtual_link, start_date, end_date, max_attendees, is_active, created_by, created_at, target_audience, status, approved_by, rsvp_count, attendance_count, tenant_id
 `
 
 type CreateAlumniEventParams struct {
@@ -81,6 +81,7 @@ func (q *Queries) CreateAlumniEvent(ctx context.Context, arg CreateAlumniEventPa
 		&i.ApprovedBy,
 		&i.RsvpCount,
 		&i.AttendanceCount,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -89,7 +90,7 @@ const createAlumniStatus = `-- name: CreateAlumniStatus :one
 
 INSERT INTO alumni_status (
     user_id, graduation_year, graduation_class, is_mentor_available, mentor_specialization, current_company, current_position, linkedin_url, bio
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, user_id, graduation_year, graduation_class, verification_status, verified_by, verified_at, is_mentor_available, mentor_specialization, current_company, current_position, linkedin_url, bio, created_at, updated_at, location, portfolio_url, skills, mentorship_topics, willing_to_speak, event_interests, privacy_level, donation_total, mentorship_sessions_count, jobs_posted_count, events_attended_count, status, matric_number, full_name, department, cgpa_at_graduation, email, phone, industry, job_title, profile_photo
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, user_id, graduation_year, graduation_class, verification_status, verified_by, verified_at, is_mentor_available, mentor_specialization, current_company, current_position, linkedin_url, bio, created_at, updated_at, location, portfolio_url, skills, mentorship_topics, willing_to_speak, event_interests, privacy_level, donation_total, mentorship_sessions_count, jobs_posted_count, events_attended_count, status, matric_number, full_name, department, cgpa_at_graduation, email, phone, industry, job_title, profile_photo, tenant_id
 `
 
 type CreateAlumniStatusParams struct {
@@ -155,6 +156,7 @@ func (q *Queries) CreateAlumniStatus(ctx context.Context, arg CreateAlumniStatus
 		&i.Industry,
 		&i.JobTitle,
 		&i.ProfilePhoto,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -188,7 +190,7 @@ func (q *Queries) CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) 
 const createDonation = `-- name: CreateDonation :one
 
 INSERT INTO alumni_donations (donor_id, channel, amount, currency, message, is_anonymous, recognized_tier, status, paystack_reference)
-VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8) RETURNING id, donor_id, channel, amount, currency, payment_id, receipt_url, message, is_anonymous, recognized_tier, status, created_at, updated_at, paystack_reference
+VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8) RETURNING id, donor_id, channel, amount, currency, payment_id, receipt_url, message, is_anonymous, recognized_tier, status, created_at, updated_at, paystack_reference, tenant_id
 `
 
 type CreateDonationParams struct {
@@ -230,6 +232,7 @@ func (q *Queries) CreateDonation(ctx context.Context, arg CreateDonationParams) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PaystackReference,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -237,7 +240,7 @@ func (q *Queries) CreateDonation(ctx context.Context, arg CreateDonationParams) 
 const createJobApplication = `-- name: CreateJobApplication :one
 
 INSERT INTO job_applications (job_id, applicant_id, cover_letter, resume_url)
-VALUES ($1, $2, $3, $4) RETURNING id, job_id, applicant_id, status, cover_letter, resume_url, reviewed_by, reviewed_at, created_at
+VALUES ($1, $2, $3, $4) RETURNING id, job_id, applicant_id, status, cover_letter, resume_url, reviewed_by, reviewed_at, created_at, tenant_id
 `
 
 type CreateJobApplicationParams struct {
@@ -266,6 +269,7 @@ func (q *Queries) CreateJobApplication(ctx context.Context, arg CreateJobApplica
 		&i.ReviewedBy,
 		&i.ReviewedAt,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -273,7 +277,7 @@ func (q *Queries) CreateJobApplication(ctx context.Context, arg CreateJobApplica
 const createJobPost = `-- name: CreateJobPost :one
 
 INSERT INTO job_posts (posted_by, title, company, location, job_type, description, requirements, salary_range, application_url, application_deadline)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, posted_by, title, company, location, job_type, description, requirements, salary_range, application_url, application_deadline, is_active, created_at, updated_at, industry, responsibilities, target_levels, target_departments, application_method, approved_by, views_count, applications_count
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, posted_by, title, company, location, job_type, description, requirements, salary_range, application_url, application_deadline, is_active, created_at, updated_at, industry, responsibilities, target_levels, target_departments, application_method, approved_by, views_count, applications_count, tenant_id
 `
 
 type CreateJobPostParams struct {
@@ -327,6 +331,7 @@ func (q *Queries) CreateJobPost(ctx context.Context, arg CreateJobPostParams) (J
 		&i.ApprovedBy,
 		&i.ViewsCount,
 		&i.ApplicationsCount,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -334,7 +339,7 @@ func (q *Queries) CreateJobPost(ctx context.Context, arg CreateJobPostParams) (J
 const createMentorshipRequest = `-- name: CreateMentorshipRequest :one
 
 INSERT INTO mentorship_requests (student_id, mentor_id, topic, message)
-VALUES ($1, $2, $3, $4) RETURNING id, student_id, mentor_id, status, topic, message, responded_at, started_at, ended_at, created_at
+VALUES ($1, $2, $3, $4) RETURNING id, student_id, mentor_id, status, topic, message, responded_at, started_at, ended_at, created_at, tenant_id
 `
 
 type CreateMentorshipRequestParams struct {
@@ -364,6 +369,7 @@ func (q *Queries) CreateMentorshipRequest(ctx context.Context, arg CreateMentors
 		&i.StartedAt,
 		&i.EndedAt,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -371,7 +377,7 @@ func (q *Queries) CreateMentorshipRequest(ctx context.Context, arg CreateMentors
 const createMentorshipSession = `-- name: CreateMentorshipSession :one
 
 INSERT INTO mentorship_sessions (mentorship_id, scheduled_at, format)
-VALUES ($1, $2, $3) RETURNING id, mentorship_id, scheduled_at, format, status, notes, mentor_confirmed, mentee_confirmed, created_at
+VALUES ($1, $2, $3) RETURNING id, mentorship_id, scheduled_at, format, status, notes, mentor_confirmed, mentee_confirmed, created_at, tenant_id
 `
 
 type CreateMentorshipSessionParams struct {
@@ -394,6 +400,7 @@ func (q *Queries) CreateMentorshipSession(ctx context.Context, arg CreateMentors
 		&i.MentorConfirmed,
 		&i.MenteeConfirmed,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -441,7 +448,7 @@ func (q *Queries) GetAlumniDashboardStats(ctx context.Context) (GetAlumniDashboa
 }
 
 const getAlumniEvent = `-- name: GetAlumniEvent :one
-SELECT ae.id, ae.title, ae.description, ae.event_type, ae.location, ae.is_virtual, ae.virtual_link, ae.start_date, ae.end_date, ae.max_attendees, ae.is_active, ae.created_by, ae.created_at, ae.target_audience, ae.status, ae.approved_by, ae.rsvp_count, ae.attendance_count, COUNT(ea.id) AS attendee_count
+SELECT ae.id, ae.title, ae.description, ae.event_type, ae.location, ae.is_virtual, ae.virtual_link, ae.start_date, ae.end_date, ae.max_attendees, ae.is_active, ae.created_by, ae.created_at, ae.target_audience, ae.status, ae.approved_by, ae.rsvp_count, ae.attendance_count, ae.tenant_id, COUNT(ea.id) AS attendee_count
 FROM alumni_events ae LEFT JOIN event_attendees ea ON ae.id = ea.event_id
 WHERE ae.id = $1 GROUP BY ae.id
 `
@@ -465,6 +472,7 @@ type GetAlumniEventRow struct {
 	ApprovedBy      pgtype.UUID        `json:"approved_by"`
 	RsvpCount       *int32             `json:"rsvp_count"`
 	AttendanceCount *int32             `json:"attendance_count"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
 	AttendeeCount   int64              `json:"attendee_count"`
 }
 
@@ -490,6 +498,7 @@ func (q *Queries) GetAlumniEvent(ctx context.Context, id uuid.UUID) (GetAlumniEv
 		&i.ApprovedBy,
 		&i.RsvpCount,
 		&i.AttendanceCount,
+		&i.TenantID,
 		&i.AttendeeCount,
 	)
 	return i, err
@@ -526,7 +535,7 @@ func (q *Queries) GetAlumniMyStats(ctx context.Context, requesterID uuid.UUID) (
 }
 
 const getAlumniStatus = `-- name: GetAlumniStatus :one
-SELECT id, user_id, graduation_year, graduation_class, verification_status, verified_by, verified_at, is_mentor_available, mentor_specialization, current_company, current_position, linkedin_url, bio, created_at, updated_at, location, portfolio_url, skills, mentorship_topics, willing_to_speak, event_interests, privacy_level, donation_total, mentorship_sessions_count, jobs_posted_count, events_attended_count, status, matric_number, full_name, department, cgpa_at_graduation, email, phone, industry, job_title, profile_photo FROM alumni_status WHERE user_id = $1 LIMIT 1
+SELECT id, user_id, graduation_year, graduation_class, verification_status, verified_by, verified_at, is_mentor_available, mentor_specialization, current_company, current_position, linkedin_url, bio, created_at, updated_at, location, portfolio_url, skills, mentorship_topics, willing_to_speak, event_interests, privacy_level, donation_total, mentorship_sessions_count, jobs_posted_count, events_attended_count, status, matric_number, full_name, department, cgpa_at_graduation, email, phone, industry, job_title, profile_photo, tenant_id FROM alumni_status WHERE user_id = $1 LIMIT 1
 `
 
 func (q *Queries) GetAlumniStatus(ctx context.Context, userID uuid.UUID) (AlumniStatus, error) {
@@ -569,12 +578,13 @@ func (q *Queries) GetAlumniStatus(ctx context.Context, userID uuid.UUID) (Alumni
 		&i.Industry,
 		&i.JobTitle,
 		&i.ProfilePhoto,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getDonationByReference = `-- name: GetDonationByReference :one
-SELECT id, donor_id, channel, amount, currency, payment_id, receipt_url, message, is_anonymous, recognized_tier, status, created_at, updated_at, paystack_reference FROM alumni_donations WHERE paystack_reference = $1 LIMIT 1
+SELECT id, donor_id, channel, amount, currency, payment_id, receipt_url, message, is_anonymous, recognized_tier, status, created_at, updated_at, paystack_reference, tenant_id FROM alumni_donations WHERE paystack_reference = $1 LIMIT 1
 `
 
 func (q *Queries) GetDonationByReference(ctx context.Context, paystackReference *string) (AlumniDonation, error) {
@@ -595,6 +605,7 @@ func (q *Queries) GetDonationByReference(ctx context.Context, paystackReference 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PaystackReference,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -634,7 +645,7 @@ func (q *Queries) GetDonationStats(ctx context.Context) (GetDonationStatsRow, er
 }
 
 const getJobApplication = `-- name: GetJobApplication :one
-SELECT ja.id, ja.job_id, ja.applicant_id, ja.status, ja.cover_letter, ja.resume_url, ja.reviewed_by, ja.reviewed_at, ja.created_at, u.full_name AS applicant_name
+SELECT ja.id, ja.job_id, ja.applicant_id, ja.status, ja.cover_letter, ja.resume_url, ja.reviewed_by, ja.reviewed_at, ja.created_at, ja.tenant_id, u.full_name AS applicant_name
 FROM job_applications ja JOIN users u ON ja.applicant_id = u.id
 WHERE ja.id = $1 LIMIT 1
 `
@@ -649,6 +660,7 @@ type GetJobApplicationRow struct {
 	ReviewedBy    pgtype.UUID        `json:"reviewed_by"`
 	ReviewedAt    pgtype.Timestamptz `json:"reviewed_at"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	TenantID      uuid.UUID          `json:"tenant_id"`
 	ApplicantName *string            `json:"applicant_name"`
 }
 
@@ -665,13 +677,14 @@ func (q *Queries) GetJobApplication(ctx context.Context, id uuid.UUID) (GetJobAp
 		&i.ReviewedBy,
 		&i.ReviewedAt,
 		&i.CreatedAt,
+		&i.TenantID,
 		&i.ApplicantName,
 	)
 	return i, err
 }
 
 const getJobPost = `-- name: GetJobPost :one
-SELECT jp.id, jp.posted_by, jp.title, jp.company, jp.location, jp.job_type, jp.description, jp.requirements, jp.salary_range, jp.application_url, jp.application_deadline, jp.is_active, jp.created_at, jp.updated_at, jp.industry, jp.responsibilities, jp.target_levels, jp.target_departments, jp.application_method, jp.approved_by, jp.views_count, jp.applications_count, u.full_name AS poster_name
+SELECT jp.id, jp.posted_by, jp.title, jp.company, jp.location, jp.job_type, jp.description, jp.requirements, jp.salary_range, jp.application_url, jp.application_deadline, jp.is_active, jp.created_at, jp.updated_at, jp.industry, jp.responsibilities, jp.target_levels, jp.target_departments, jp.application_method, jp.approved_by, jp.views_count, jp.applications_count, jp.tenant_id, u.full_name AS poster_name
 FROM job_posts jp JOIN users u ON jp.posted_by = u.id
 WHERE jp.id = $1 LIMIT 1
 `
@@ -699,6 +712,7 @@ type GetJobPostRow struct {
 	ApprovedBy          pgtype.UUID        `json:"approved_by"`
 	ViewsCount          *int32             `json:"views_count"`
 	ApplicationsCount   *int32             `json:"applications_count"`
+	TenantID            uuid.UUID          `json:"tenant_id"`
 	PosterName          *string            `json:"poster_name"`
 }
 
@@ -728,13 +742,14 @@ func (q *Queries) GetJobPost(ctx context.Context, id uuid.UUID) (GetJobPostRow, 
 		&i.ApprovedBy,
 		&i.ViewsCount,
 		&i.ApplicationsCount,
+		&i.TenantID,
 		&i.PosterName,
 	)
 	return i, err
 }
 
 const getMentorshipRequest = `-- name: GetMentorshipRequest :one
-SELECT id, student_id, mentor_id, status, topic, message, responded_at, started_at, ended_at, created_at FROM mentorship_requests WHERE id = $1 LIMIT 1
+SELECT id, student_id, mentor_id, status, topic, message, responded_at, started_at, ended_at, created_at, tenant_id FROM mentorship_requests WHERE id = $1 LIMIT 1
 `
 
 func (q *Queries) GetMentorshipRequest(ctx context.Context, id uuid.UUID) (MentorshipRequest, error) {
@@ -751,6 +766,7 @@ func (q *Queries) GetMentorshipRequest(ctx context.Context, id uuid.UUID) (Mento
 		&i.StartedAt,
 		&i.EndedAt,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -774,7 +790,7 @@ func (q *Queries) IncrementJobViews(ctx context.Context, id uuid.UUID) error {
 }
 
 const listAllDonations = `-- name: ListAllDonations :many
-SELECT ad.id, ad.donor_id, ad.channel, ad.amount, ad.currency, ad.payment_id, ad.receipt_url, ad.message, ad.is_anonymous, ad.recognized_tier, ad.status, ad.created_at, ad.updated_at, ad.paystack_reference, u.full_name AS donor_name
+SELECT ad.id, ad.donor_id, ad.channel, ad.amount, ad.currency, ad.payment_id, ad.receipt_url, ad.message, ad.is_anonymous, ad.recognized_tier, ad.status, ad.created_at, ad.updated_at, ad.paystack_reference, ad.tenant_id, u.full_name AS donor_name
 FROM alumni_donations ad JOIN users u ON ad.donor_id = u.id
 ORDER BY ad.created_at DESC LIMIT $1 OFFSET $2
 `
@@ -799,6 +815,7 @@ type ListAllDonationsRow struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	PaystackReference *string            `json:"paystack_reference"`
+	TenantID          uuid.UUID          `json:"tenant_id"`
 	DonorName         *string            `json:"donor_name"`
 }
 
@@ -826,6 +843,7 @@ func (q *Queries) ListAllDonations(ctx context.Context, arg ListAllDonationsPara
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.PaystackReference,
+			&i.TenantID,
 			&i.DonorName,
 		); err != nil {
 			return nil, err
@@ -839,7 +857,7 @@ func (q *Queries) ListAllDonations(ctx context.Context, arg ListAllDonationsPara
 }
 
 const listAlumni = `-- name: ListAlumni :many
-SELECT als.id, als.user_id, als.graduation_year, als.graduation_class, als.verification_status, als.verified_by, als.verified_at, als.is_mentor_available, als.mentor_specialization, als.current_company, als.current_position, als.linkedin_url, als.bio, als.created_at, als.updated_at, als.location, als.portfolio_url, als.skills, als.mentorship_topics, als.willing_to_speak, als.event_interests, als.privacy_level, als.donation_total, als.mentorship_sessions_count, als.jobs_posted_count, als.events_attended_count, als.status, als.matric_number, als.full_name, als.department, als.cgpa_at_graduation, als.email, als.phone, als.industry, als.job_title, als.profile_photo, u.full_name, u.email, u.avatar_url
+SELECT als.id, als.user_id, als.graduation_year, als.graduation_class, als.verification_status, als.verified_by, als.verified_at, als.is_mentor_available, als.mentor_specialization, als.current_company, als.current_position, als.linkedin_url, als.bio, als.created_at, als.updated_at, als.location, als.portfolio_url, als.skills, als.mentorship_topics, als.willing_to_speak, als.event_interests, als.privacy_level, als.donation_total, als.mentorship_sessions_count, als.jobs_posted_count, als.events_attended_count, als.status, als.matric_number, als.full_name, als.department, als.cgpa_at_graduation, als.email, als.phone, als.industry, als.job_title, als.profile_photo, als.tenant_id, u.full_name, u.email, u.avatar_url
 FROM alumni_status als JOIN users u ON als.user_id = u.id
 WHERE als.verification_status = 'verified'
 ORDER BY als.graduation_year DESC
@@ -888,6 +906,7 @@ type ListAlumniRow struct {
 	Industry                *string                  `json:"industry"`
 	JobTitle                *string                  `json:"job_title"`
 	ProfilePhoto            *string                  `json:"profile_photo"`
+	TenantID                uuid.UUID                `json:"tenant_id"`
 	FullName_2              *string                  `json:"full_name_2"`
 	Email_2                 string                   `json:"email_2"`
 	AvatarUrl               *string                  `json:"avatar_url"`
@@ -939,6 +958,7 @@ func (q *Queries) ListAlumni(ctx context.Context, arg ListAlumniParams) ([]ListA
 			&i.Industry,
 			&i.JobTitle,
 			&i.ProfilePhoto,
+			&i.TenantID,
 			&i.FullName_2,
 			&i.Email_2,
 			&i.AvatarUrl,
@@ -954,7 +974,7 @@ func (q *Queries) ListAlumni(ctx context.Context, arg ListAlumniParams) ([]ListA
 }
 
 const listAlumniAuditLogs = `-- name: ListAlumniAuditLogs :many
-SELECT id, alumni_id, action, actor_id, details, ip_address, created_at FROM alumni_audit_logs WHERE alumni_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
+SELECT id, alumni_id, action, actor_id, details, ip_address, created_at, tenant_id FROM alumni_audit_logs WHERE alumni_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
 `
 
 type ListAlumniAuditLogsParams struct {
@@ -980,6 +1000,7 @@ func (q *Queries) ListAlumniAuditLogs(ctx context.Context, arg ListAlumniAuditLo
 			&i.Details,
 			&i.IpAddress,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -992,7 +1013,7 @@ func (q *Queries) ListAlumniAuditLogs(ctx context.Context, arg ListAlumniAuditLo
 }
 
 const listAlumniEvents = `-- name: ListAlumniEvents :many
-SELECT ae.id, ae.title, ae.description, ae.event_type, ae.location, ae.is_virtual, ae.virtual_link, ae.start_date, ae.end_date, ae.max_attendees, ae.is_active, ae.created_by, ae.created_at, ae.target_audience, ae.status, ae.approved_by, ae.rsvp_count, ae.attendance_count, COUNT(ea.id) AS attendee_count
+SELECT ae.id, ae.title, ae.description, ae.event_type, ae.location, ae.is_virtual, ae.virtual_link, ae.start_date, ae.end_date, ae.max_attendees, ae.is_active, ae.created_by, ae.created_at, ae.target_audience, ae.status, ae.approved_by, ae.rsvp_count, ae.attendance_count, ae.tenant_id, COUNT(ea.id) AS attendee_count
 FROM alumni_events ae LEFT JOIN event_attendees ea ON ae.id = ea.event_id
 WHERE ae.is_active = true AND ae.start_date >= NOW()
 GROUP BY ae.id ORDER BY ae.start_date LIMIT $1 OFFSET $2
@@ -1022,6 +1043,7 @@ type ListAlumniEventsRow struct {
 	ApprovedBy      pgtype.UUID        `json:"approved_by"`
 	RsvpCount       *int32             `json:"rsvp_count"`
 	AttendanceCount *int32             `json:"attendance_count"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
 	AttendeeCount   int64              `json:"attendee_count"`
 }
 
@@ -1053,6 +1075,7 @@ func (q *Queries) ListAlumniEvents(ctx context.Context, arg ListAlumniEventsPara
 			&i.ApprovedBy,
 			&i.RsvpCount,
 			&i.AttendanceCount,
+			&i.TenantID,
 			&i.AttendeeCount,
 		); err != nil {
 			return nil, err
@@ -1066,7 +1089,7 @@ func (q *Queries) ListAlumniEvents(ctx context.Context, arg ListAlumniEventsPara
 }
 
 const listDonorDonations = `-- name: ListDonorDonations :many
-SELECT id, donor_id, channel, amount, currency, payment_id, receipt_url, message, is_anonymous, recognized_tier, status, created_at, updated_at, paystack_reference FROM alumni_donations WHERE donor_id = $1 ORDER BY created_at DESC
+SELECT id, donor_id, channel, amount, currency, payment_id, receipt_url, message, is_anonymous, recognized_tier, status, created_at, updated_at, paystack_reference, tenant_id FROM alumni_donations WHERE donor_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListDonorDonations(ctx context.Context, donorID uuid.UUID) ([]AlumniDonation, error) {
@@ -1093,6 +1116,7 @@ func (q *Queries) ListDonorDonations(ctx context.Context, donorID uuid.UUID) ([]
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.PaystackReference,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -1105,7 +1129,7 @@ func (q *Queries) ListDonorDonations(ctx context.Context, donorID uuid.UUID) ([]
 }
 
 const listEventAttendees = `-- name: ListEventAttendees :many
-SELECT ea.id, ea.event_id, ea.user_id, ea.rsvp_status, ea.registered_at, u.full_name, u.email, u.avatar_url
+SELECT ea.id, ea.event_id, ea.user_id, ea.rsvp_status, ea.registered_at, ea.tenant_id, u.full_name, u.email, u.avatar_url
 FROM event_attendees ea JOIN users u ON ea.user_id = u.id
 WHERE ea.event_id = $1 ORDER BY ea.registered_at
 `
@@ -1116,6 +1140,7 @@ type ListEventAttendeesRow struct {
 	UserID       uuid.UUID          `json:"user_id"`
 	RsvpStatus   string             `json:"rsvp_status"`
 	RegisteredAt pgtype.Timestamptz `json:"registered_at"`
+	TenantID     uuid.UUID          `json:"tenant_id"`
 	FullName     *string            `json:"full_name"`
 	Email        string             `json:"email"`
 	AvatarUrl    *string            `json:"avatar_url"`
@@ -1136,6 +1161,7 @@ func (q *Queries) ListEventAttendees(ctx context.Context, eventID uuid.UUID) ([]
 			&i.UserID,
 			&i.RsvpStatus,
 			&i.RegisteredAt,
+			&i.TenantID,
 			&i.FullName,
 			&i.Email,
 			&i.AvatarUrl,
@@ -1151,7 +1177,7 @@ func (q *Queries) ListEventAttendees(ctx context.Context, eventID uuid.UUID) ([]
 }
 
 const listJobApplications = `-- name: ListJobApplications :many
-SELECT ja.id, ja.job_id, ja.applicant_id, ja.status, ja.cover_letter, ja.resume_url, ja.reviewed_by, ja.reviewed_at, ja.created_at, u.full_name AS applicant_name, u.email AS applicant_email
+SELECT ja.id, ja.job_id, ja.applicant_id, ja.status, ja.cover_letter, ja.resume_url, ja.reviewed_by, ja.reviewed_at, ja.created_at, ja.tenant_id, u.full_name AS applicant_name, u.email AS applicant_email
 FROM job_applications ja JOIN users u ON ja.applicant_id = u.id
 WHERE ja.job_id = $1 ORDER BY ja.created_at DESC
 `
@@ -1166,6 +1192,7 @@ type ListJobApplicationsRow struct {
 	ReviewedBy     pgtype.UUID        `json:"reviewed_by"`
 	ReviewedAt     pgtype.Timestamptz `json:"reviewed_at"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	TenantID       uuid.UUID          `json:"tenant_id"`
 	ApplicantName  *string            `json:"applicant_name"`
 	ApplicantEmail string             `json:"applicant_email"`
 }
@@ -1189,6 +1216,7 @@ func (q *Queries) ListJobApplications(ctx context.Context, jobID uuid.UUID) ([]L
 			&i.ReviewedBy,
 			&i.ReviewedAt,
 			&i.CreatedAt,
+			&i.TenantID,
 			&i.ApplicantName,
 			&i.ApplicantEmail,
 		); err != nil {
@@ -1203,7 +1231,7 @@ func (q *Queries) ListJobApplications(ctx context.Context, jobID uuid.UUID) ([]L
 }
 
 const listJobPosts = `-- name: ListJobPosts :many
-SELECT jp.id, jp.posted_by, jp.title, jp.company, jp.location, jp.job_type, jp.description, jp.requirements, jp.salary_range, jp.application_url, jp.application_deadline, jp.is_active, jp.created_at, jp.updated_at, jp.industry, jp.responsibilities, jp.target_levels, jp.target_departments, jp.application_method, jp.approved_by, jp.views_count, jp.applications_count, u.full_name AS poster_name
+SELECT jp.id, jp.posted_by, jp.title, jp.company, jp.location, jp.job_type, jp.description, jp.requirements, jp.salary_range, jp.application_url, jp.application_deadline, jp.is_active, jp.created_at, jp.updated_at, jp.industry, jp.responsibilities, jp.target_levels, jp.target_departments, jp.application_method, jp.approved_by, jp.views_count, jp.applications_count, jp.tenant_id, u.full_name AS poster_name
 FROM job_posts jp JOIN users u ON jp.posted_by = u.id
 WHERE jp.is_active = true
 ORDER BY jp.created_at DESC LIMIT $1 OFFSET $2
@@ -1237,6 +1265,7 @@ type ListJobPostsRow struct {
 	ApprovedBy          pgtype.UUID        `json:"approved_by"`
 	ViewsCount          *int32             `json:"views_count"`
 	ApplicationsCount   *int32             `json:"applications_count"`
+	TenantID            uuid.UUID          `json:"tenant_id"`
 	PosterName          *string            `json:"poster_name"`
 }
 
@@ -1272,6 +1301,7 @@ func (q *Queries) ListJobPosts(ctx context.Context, arg ListJobPostsParams) ([]L
 			&i.ApprovedBy,
 			&i.ViewsCount,
 			&i.ApplicationsCount,
+			&i.TenantID,
 			&i.PosterName,
 		); err != nil {
 			return nil, err
@@ -1285,7 +1315,7 @@ func (q *Queries) ListJobPosts(ctx context.Context, arg ListJobPostsParams) ([]L
 }
 
 const listMentorMentorshipRequests = `-- name: ListMentorMentorshipRequests :many
-SELECT mr.id, mr.student_id, mr.mentor_id, mr.status, mr.topic, mr.message, mr.responded_at, mr.started_at, mr.ended_at, mr.created_at, u.full_name AS student_name
+SELECT mr.id, mr.student_id, mr.mentor_id, mr.status, mr.topic, mr.message, mr.responded_at, mr.started_at, mr.ended_at, mr.created_at, mr.tenant_id, u.full_name AS student_name
 FROM mentorship_requests mr JOIN users u ON mr.student_id = u.id
 WHERE mr.mentor_id = $1 ORDER BY mr.created_at DESC
 `
@@ -1301,6 +1331,7 @@ type ListMentorMentorshipRequestsRow struct {
 	StartedAt   pgtype.Timestamptz `json:"started_at"`
 	EndedAt     pgtype.Timestamptz `json:"ended_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	TenantID    uuid.UUID          `json:"tenant_id"`
 	StudentName *string            `json:"student_name"`
 }
 
@@ -1324,6 +1355,7 @@ func (q *Queries) ListMentorMentorshipRequests(ctx context.Context, mentorID uui
 			&i.StartedAt,
 			&i.EndedAt,
 			&i.CreatedAt,
+			&i.TenantID,
 			&i.StudentName,
 		); err != nil {
 			return nil, err
@@ -1337,7 +1369,7 @@ func (q *Queries) ListMentorMentorshipRequests(ctx context.Context, mentorID uui
 }
 
 const listMentorshipSessions = `-- name: ListMentorshipSessions :many
-SELECT ms.id, ms.mentorship_id, ms.scheduled_at, ms.format, ms.status, ms.notes, ms.mentor_confirmed, ms.mentee_confirmed, ms.created_at FROM mentorship_sessions ms
+SELECT ms.id, ms.mentorship_id, ms.scheduled_at, ms.format, ms.status, ms.notes, ms.mentor_confirmed, ms.mentee_confirmed, ms.created_at, ms.tenant_id FROM mentorship_sessions ms
 WHERE ms.mentorship_id = $1 ORDER BY ms.scheduled_at DESC
 `
 
@@ -1360,6 +1392,7 @@ func (q *Queries) ListMentorshipSessions(ctx context.Context, mentorshipID uuid.
 			&i.MentorConfirmed,
 			&i.MenteeConfirmed,
 			&i.CreatedAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -1372,7 +1405,7 @@ func (q *Queries) ListMentorshipSessions(ctx context.Context, mentorshipID uuid.
 }
 
 const listPendingAlumniVerifications = `-- name: ListPendingAlumniVerifications :many
-SELECT als.id, als.user_id, als.graduation_year, als.graduation_class, als.verification_status, als.verified_by, als.verified_at, als.is_mentor_available, als.mentor_specialization, als.current_company, als.current_position, als.linkedin_url, als.bio, als.created_at, als.updated_at, als.location, als.portfolio_url, als.skills, als.mentorship_topics, als.willing_to_speak, als.event_interests, als.privacy_level, als.donation_total, als.mentorship_sessions_count, als.jobs_posted_count, als.events_attended_count, als.status, als.matric_number, als.full_name, als.department, als.cgpa_at_graduation, als.email, als.phone, als.industry, als.job_title, als.profile_photo, u.full_name, u.email
+SELECT als.id, als.user_id, als.graduation_year, als.graduation_class, als.verification_status, als.verified_by, als.verified_at, als.is_mentor_available, als.mentor_specialization, als.current_company, als.current_position, als.linkedin_url, als.bio, als.created_at, als.updated_at, als.location, als.portfolio_url, als.skills, als.mentorship_topics, als.willing_to_speak, als.event_interests, als.privacy_level, als.donation_total, als.mentorship_sessions_count, als.jobs_posted_count, als.events_attended_count, als.status, als.matric_number, als.full_name, als.department, als.cgpa_at_graduation, als.email, als.phone, als.industry, als.job_title, als.profile_photo, als.tenant_id, u.full_name, u.email
 FROM alumni_status als JOIN users u ON als.user_id = u.id
 WHERE als.verification_status = 'pending'
 ORDER BY als.created_at
@@ -1415,6 +1448,7 @@ type ListPendingAlumniVerificationsRow struct {
 	Industry                *string                  `json:"industry"`
 	JobTitle                *string                  `json:"job_title"`
 	ProfilePhoto            *string                  `json:"profile_photo"`
+	TenantID                uuid.UUID                `json:"tenant_id"`
 	FullName_2              *string                  `json:"full_name_2"`
 	Email_2                 string                   `json:"email_2"`
 }
@@ -1465,6 +1499,7 @@ func (q *Queries) ListPendingAlumniVerifications(ctx context.Context) ([]ListPen
 			&i.Industry,
 			&i.JobTitle,
 			&i.ProfilePhoto,
+			&i.TenantID,
 			&i.FullName_2,
 			&i.Email_2,
 		); err != nil {
@@ -1479,7 +1514,7 @@ func (q *Queries) ListPendingAlumniVerifications(ctx context.Context) ([]ListPen
 }
 
 const listStudentJobApplications = `-- name: ListStudentJobApplications :many
-SELECT ja.id, ja.job_id, ja.applicant_id, ja.status, ja.cover_letter, ja.resume_url, ja.reviewed_by, ja.reviewed_at, ja.created_at, u.full_name AS applicant_name, jp.title AS job_title, jp.company AS job_company
+SELECT ja.id, ja.job_id, ja.applicant_id, ja.status, ja.cover_letter, ja.resume_url, ja.reviewed_by, ja.reviewed_at, ja.created_at, ja.tenant_id, u.full_name AS applicant_name, jp.title AS job_title, jp.company AS job_company
 FROM job_applications ja
 JOIN users u ON ja.applicant_id = u.id
 JOIN job_posts jp ON ja.job_id = jp.id
@@ -1497,6 +1532,7 @@ type ListStudentJobApplicationsRow struct {
 	ReviewedBy    pgtype.UUID        `json:"reviewed_by"`
 	ReviewedAt    pgtype.Timestamptz `json:"reviewed_at"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	TenantID      uuid.UUID          `json:"tenant_id"`
 	ApplicantName *string            `json:"applicant_name"`
 	JobTitle      string             `json:"job_title"`
 	JobCompany    string             `json:"job_company"`
@@ -1521,6 +1557,7 @@ func (q *Queries) ListStudentJobApplications(ctx context.Context, applicantID uu
 			&i.ReviewedBy,
 			&i.ReviewedAt,
 			&i.CreatedAt,
+			&i.TenantID,
 			&i.ApplicantName,
 			&i.JobTitle,
 			&i.JobCompany,
@@ -1536,7 +1573,7 @@ func (q *Queries) ListStudentJobApplications(ctx context.Context, applicantID uu
 }
 
 const listStudentMentorshipRequests = `-- name: ListStudentMentorshipRequests :many
-SELECT mr.id, mr.student_id, mr.mentor_id, mr.status, mr.topic, mr.message, mr.responded_at, mr.started_at, mr.ended_at, mr.created_at, u.full_name AS mentor_name
+SELECT mr.id, mr.student_id, mr.mentor_id, mr.status, mr.topic, mr.message, mr.responded_at, mr.started_at, mr.ended_at, mr.created_at, mr.tenant_id, u.full_name AS mentor_name
 FROM mentorship_requests mr JOIN users u ON mr.mentor_id = u.id
 WHERE mr.student_id = $1 ORDER BY mr.created_at DESC
 `
@@ -1552,6 +1589,7 @@ type ListStudentMentorshipRequestsRow struct {
 	StartedAt   pgtype.Timestamptz `json:"started_at"`
 	EndedAt     pgtype.Timestamptz `json:"ended_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	TenantID    uuid.UUID          `json:"tenant_id"`
 	MentorName  *string            `json:"mentor_name"`
 }
 
@@ -1575,6 +1613,7 @@ func (q *Queries) ListStudentMentorshipRequests(ctx context.Context, studentID u
 			&i.StartedAt,
 			&i.EndedAt,
 			&i.CreatedAt,
+			&i.TenantID,
 			&i.MentorName,
 		); err != nil {
 			return nil, err
@@ -1588,7 +1627,7 @@ func (q *Queries) ListStudentMentorshipRequests(ctx context.Context, studentID u
 }
 
 const listUserJobPosts = `-- name: ListUserJobPosts :many
-SELECT id, posted_by, title, company, location, job_type, description, requirements, salary_range, application_url, application_deadline, is_active, created_at, updated_at, industry, responsibilities, target_levels, target_departments, application_method, approved_by, views_count, applications_count FROM job_posts WHERE posted_by = $1 ORDER BY created_at DESC
+SELECT id, posted_by, title, company, location, job_type, description, requirements, salary_range, application_url, application_deadline, is_active, created_at, updated_at, industry, responsibilities, target_levels, target_departments, application_method, approved_by, views_count, applications_count, tenant_id FROM job_posts WHERE posted_by = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListUserJobPosts(ctx context.Context, postedBy uuid.UUID) ([]JobPost, error) {
@@ -1623,6 +1662,7 @@ func (q *Queries) ListUserJobPosts(ctx context.Context, postedBy uuid.UUID) ([]J
 			&i.ApprovedBy,
 			&i.ViewsCount,
 			&i.ApplicationsCount,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -1636,7 +1676,7 @@ func (q *Queries) ListUserJobPosts(ctx context.Context, postedBy uuid.UUID) ([]J
 
 const registerForEvent = `-- name: RegisterForEvent :one
 
-INSERT INTO event_attendees (event_id, user_id) VALUES ($1, $2) RETURNING id, event_id, user_id, rsvp_status, registered_at
+INSERT INTO event_attendees (event_id, user_id) VALUES ($1, $2) RETURNING id, event_id, user_id, rsvp_status, registered_at, tenant_id
 `
 
 type RegisterForEventParams struct {
@@ -1654,13 +1694,14 @@ func (q *Queries) RegisterForEvent(ctx context.Context, arg RegisterForEventPara
 		&i.UserID,
 		&i.RsvpStatus,
 		&i.RegisteredAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const searchAlumniDirectory = `-- name: SearchAlumniDirectory :many
 
-SELECT als.id, als.user_id, als.graduation_year, als.graduation_class, als.verification_status, als.verified_by, als.verified_at, als.is_mentor_available, als.mentor_specialization, als.current_company, als.current_position, als.linkedin_url, als.bio, als.created_at, als.updated_at, als.location, als.portfolio_url, als.skills, als.mentorship_topics, als.willing_to_speak, als.event_interests, als.privacy_level, als.donation_total, als.mentorship_sessions_count, als.jobs_posted_count, als.events_attended_count, als.status, als.matric_number, als.full_name, als.department, als.cgpa_at_graduation, als.email, als.phone, als.industry, als.job_title, als.profile_photo, u.full_name, u.email, u.avatar_url
+SELECT als.id, als.user_id, als.graduation_year, als.graduation_class, als.verification_status, als.verified_by, als.verified_at, als.is_mentor_available, als.mentor_specialization, als.current_company, als.current_position, als.linkedin_url, als.bio, als.created_at, als.updated_at, als.location, als.portfolio_url, als.skills, als.mentorship_topics, als.willing_to_speak, als.event_interests, als.privacy_level, als.donation_total, als.mentorship_sessions_count, als.jobs_posted_count, als.events_attended_count, als.status, als.matric_number, als.full_name, als.department, als.cgpa_at_graduation, als.email, als.phone, als.industry, als.job_title, als.profile_photo, als.tenant_id, u.full_name, u.email, u.avatar_url
 FROM alumni_status als JOIN users u ON als.user_id = u.id
 WHERE als.verification_status = 'verified'
     AND ($1::TEXT IS NULL OR u.full_name ILIKE '%' || $1 || '%' OR als.current_company ILIKE '%' || $1 || '%')
@@ -1721,6 +1762,7 @@ type SearchAlumniDirectoryRow struct {
 	Industry                *string                  `json:"industry"`
 	JobTitle                *string                  `json:"job_title"`
 	ProfilePhoto            *string                  `json:"profile_photo"`
+	TenantID                uuid.UUID                `json:"tenant_id"`
 	FullName_2              *string                  `json:"full_name_2"`
 	Email_2                 string                   `json:"email_2"`
 	AvatarUrl               *string                  `json:"avatar_url"`
@@ -1782,6 +1824,7 @@ func (q *Queries) SearchAlumniDirectory(ctx context.Context, arg SearchAlumniDir
 			&i.Industry,
 			&i.JobTitle,
 			&i.ProfilePhoto,
+			&i.TenantID,
 			&i.FullName_2,
 			&i.Email_2,
 			&i.AvatarUrl,
@@ -1798,7 +1841,7 @@ func (q *Queries) SearchAlumniDirectory(ctx context.Context, arg SearchAlumniDir
 
 const updateAlumniEvent = `-- name: UpdateAlumniEvent :one
 UPDATE alumni_events SET title = $2, description = $3, event_type = $4, location = $5, is_virtual = $6, virtual_link = $7, start_date = $8, end_date = $9, max_attendees = $10, is_active = $11
-WHERE id = $1 RETURNING id, title, description, event_type, location, is_virtual, virtual_link, start_date, end_date, max_attendees, is_active, created_by, created_at, target_audience, status, approved_by, rsvp_count, attendance_count
+WHERE id = $1 RETURNING id, title, description, event_type, location, is_virtual, virtual_link, start_date, end_date, max_attendees, is_active, created_by, created_at, target_audience, status, approved_by, rsvp_count, attendance_count, tenant_id
 `
 
 type UpdateAlumniEventParams struct {
@@ -1849,6 +1892,7 @@ func (q *Queries) UpdateAlumniEvent(ctx context.Context, arg UpdateAlumniEventPa
 		&i.ApprovedBy,
 		&i.RsvpCount,
 		&i.AttendanceCount,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -1856,7 +1900,7 @@ func (q *Queries) UpdateAlumniEvent(ctx context.Context, arg UpdateAlumniEventPa
 const updateAlumniStatus = `-- name: UpdateAlumniStatus :one
 UPDATE alumni_status
 SET is_mentor_available = $2, mentor_specialization = $3, current_company = $4, current_position = $5, linkedin_url = $6, bio = $7, updated_at = NOW()
-WHERE user_id = $1 RETURNING id, user_id, graduation_year, graduation_class, verification_status, verified_by, verified_at, is_mentor_available, mentor_specialization, current_company, current_position, linkedin_url, bio, created_at, updated_at, location, portfolio_url, skills, mentorship_topics, willing_to_speak, event_interests, privacy_level, donation_total, mentorship_sessions_count, jobs_posted_count, events_attended_count, status, matric_number, full_name, department, cgpa_at_graduation, email, phone, industry, job_title, profile_photo
+WHERE user_id = $1 RETURNING id, user_id, graduation_year, graduation_class, verification_status, verified_by, verified_at, is_mentor_available, mentor_specialization, current_company, current_position, linkedin_url, bio, created_at, updated_at, location, portfolio_url, skills, mentorship_topics, willing_to_speak, event_interests, privacy_level, donation_total, mentorship_sessions_count, jobs_posted_count, events_attended_count, status, matric_number, full_name, department, cgpa_at_graduation, email, phone, industry, job_title, profile_photo, tenant_id
 `
 
 type UpdateAlumniStatusParams struct {
@@ -1917,6 +1961,7 @@ func (q *Queries) UpdateAlumniStatus(ctx context.Context, arg UpdateAlumniStatus
 		&i.Industry,
 		&i.JobTitle,
 		&i.ProfilePhoto,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -1937,7 +1982,7 @@ func (q *Queries) UpdateDonationPaystackRef(ctx context.Context, arg UpdateDonat
 
 const updateJobApplicationStatus = `-- name: UpdateJobApplicationStatus :one
 UPDATE job_applications SET status = $2, reviewed_by = $3, reviewed_at = NOW()
-WHERE id = $1 RETURNING id, job_id, applicant_id, status, cover_letter, resume_url, reviewed_by, reviewed_at, created_at
+WHERE id = $1 RETURNING id, job_id, applicant_id, status, cover_letter, resume_url, reviewed_by, reviewed_at, created_at, tenant_id
 `
 
 type UpdateJobApplicationStatusParams struct {
@@ -1959,13 +2004,14 @@ func (q *Queries) UpdateJobApplicationStatus(ctx context.Context, arg UpdateJobA
 		&i.ReviewedBy,
 		&i.ReviewedAt,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const updateJobPost = `-- name: UpdateJobPost :one
 UPDATE job_posts SET title = $2, company = $3, location = $4, job_type = $5, description = $6, requirements = $7, salary_range = $8, application_url = $9, application_deadline = $10, is_active = $11, updated_at = NOW()
-WHERE id = $1 RETURNING id, posted_by, title, company, location, job_type, description, requirements, salary_range, application_url, application_deadline, is_active, created_at, updated_at, industry, responsibilities, target_levels, target_departments, application_method, approved_by, views_count, applications_count
+WHERE id = $1 RETURNING id, posted_by, title, company, location, job_type, description, requirements, salary_range, application_url, application_deadline, is_active, created_at, updated_at, industry, responsibilities, target_levels, target_departments, application_method, approved_by, views_count, applications_count, tenant_id
 `
 
 type UpdateJobPostParams struct {
@@ -2020,6 +2066,7 @@ func (q *Queries) UpdateJobPost(ctx context.Context, arg UpdateJobPostParams) (J
 		&i.ApprovedBy,
 		&i.ViewsCount,
 		&i.ApplicationsCount,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -2028,7 +2075,7 @@ const updateMentorshipSessionStatus = `-- name: UpdateMentorshipSessionStatus :o
 UPDATE mentorship_sessions SET status = $2::varchar,
     mentor_confirmed = CASE WHEN $2::varchar = 'completed' THEN true ELSE mentor_confirmed END,
     mentee_confirmed = CASE WHEN $2::varchar = 'completed' THEN true ELSE mentee_confirmed END
-WHERE id = $1 RETURNING id, mentorship_id, scheduled_at, format, status, notes, mentor_confirmed, mentee_confirmed, created_at
+WHERE id = $1 RETURNING id, mentorship_id, scheduled_at, format, status, notes, mentor_confirmed, mentee_confirmed, created_at, tenant_id
 `
 
 type UpdateMentorshipSessionStatusParams struct {
@@ -2049,6 +2096,7 @@ func (q *Queries) UpdateMentorshipSessionStatus(ctx context.Context, arg UpdateM
 		&i.MentorConfirmed,
 		&i.MenteeConfirmed,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -2058,7 +2106,7 @@ UPDATE mentorship_requests SET status = $2::mentorship_status,
     responded_at = CASE WHEN $2::mentorship_status IN ('accepted','declined') THEN NOW() ELSE responded_at END,
     started_at = CASE WHEN $2::mentorship_status = 'active' THEN NOW() ELSE started_at END,
     ended_at = CASE WHEN $2::mentorship_status = 'completed' THEN NOW() ELSE ended_at END
-WHERE id = $1 RETURNING id, student_id, mentor_id, status, topic, message, responded_at, started_at, ended_at, created_at
+WHERE id = $1 RETURNING id, student_id, mentor_id, status, topic, message, responded_at, started_at, ended_at, created_at, tenant_id
 `
 
 type UpdateMentorshipStatusParams struct {
@@ -2080,12 +2128,13 @@ func (q *Queries) UpdateMentorshipStatus(ctx context.Context, arg UpdateMentorsh
 		&i.StartedAt,
 		&i.EndedAt,
 		&i.CreatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const updateRSVPStatus = `-- name: UpdateRSVPStatus :one
-UPDATE event_attendees SET rsvp_status = $3 WHERE event_id = $1 AND user_id = $2 RETURNING id, event_id, user_id, rsvp_status, registered_at
+UPDATE event_attendees SET rsvp_status = $3 WHERE event_id = $1 AND user_id = $2 RETURNING id, event_id, user_id, rsvp_status, registered_at, tenant_id
 `
 
 type UpdateRSVPStatusParams struct {
@@ -2103,13 +2152,14 @@ func (q *Queries) UpdateRSVPStatus(ctx context.Context, arg UpdateRSVPStatusPara
 		&i.UserID,
 		&i.RsvpStatus,
 		&i.RegisteredAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const verifyAlumni = `-- name: VerifyAlumni :one
 UPDATE alumni_status SET verification_status = $2, verified_by = $3, verified_at = NOW(), updated_at = NOW()
-WHERE user_id = $1 RETURNING id, user_id, graduation_year, graduation_class, verification_status, verified_by, verified_at, is_mentor_available, mentor_specialization, current_company, current_position, linkedin_url, bio, created_at, updated_at, location, portfolio_url, skills, mentorship_topics, willing_to_speak, event_interests, privacy_level, donation_total, mentorship_sessions_count, jobs_posted_count, events_attended_count, status, matric_number, full_name, department, cgpa_at_graduation, email, phone, industry, job_title, profile_photo
+WHERE user_id = $1 RETURNING id, user_id, graduation_year, graduation_class, verification_status, verified_by, verified_at, is_mentor_available, mentor_specialization, current_company, current_position, linkedin_url, bio, created_at, updated_at, location, portfolio_url, skills, mentorship_topics, willing_to_speak, event_interests, privacy_level, donation_total, mentorship_sessions_count, jobs_posted_count, events_attended_count, status, matric_number, full_name, department, cgpa_at_graduation, email, phone, industry, job_title, profile_photo, tenant_id
 `
 
 type VerifyAlumniParams struct {
@@ -2158,6 +2208,7 @@ func (q *Queries) VerifyAlumni(ctx context.Context, arg VerifyAlumniParams) (Alu
 		&i.Industry,
 		&i.JobTitle,
 		&i.ProfilePhoto,
+		&i.TenantID,
 	)
 	return i, err
 }

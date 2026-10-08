@@ -354,7 +354,7 @@ func (q *Queries) SetUserPushToken(ctx context.Context, userID uuid.UUID, token 
 	row := q.db.QueryRow(ctx, `
 		INSERT INTO notification_preferences (user_id, push_token)
 		VALUES ($1, $2)
-		ON CONFLICT (user_id) DO UPDATE SET push_token = $2, updated_at = NOW()
+		ON CONFLICT (tenant_id, user_id) DO UPDATE SET push_token = $2, updated_at = NOW()
 		RETURNING id, user_id, email_enabled, push_enabled, in_app_enabled,
 			email_auth, email_results, email_dues, email_messages, email_connect,
 			email_skills, email_alumni, email_system,
@@ -464,7 +464,7 @@ func (q *Queries) UpsertNotificationPreferences(ctx context.Context, arg UpsertN
 		$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
 		$13, $14, $15, $16, $17, $18, $19, $20, $21, $22
 	)
-	ON CONFLICT (user_id) DO UPDATE SET
+	ON CONFLICT (tenant_id, user_id) DO UPDATE SET
 		email_enabled = COALESCE(EXCLUDED.email_enabled, notification_preferences.email_enabled),
 		push_enabled = COALESCE(EXCLUDED.push_enabled, notification_preferences.push_enabled),
 		in_app_enabled = COALESCE(EXCLUDED.in_app_enabled, notification_preferences.in_app_enabled),

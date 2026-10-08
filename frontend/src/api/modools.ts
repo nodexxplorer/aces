@@ -18,9 +18,12 @@ export const getModoolsStatus = async (): Promise<ModoolsStatus> => {
   return unwrap<ModoolsStatus>(res);
 };
 
-export const modoolsLoginUrl = () => {
+// The department travels as a query parameter: the backend reads it before it
+// starts the OAuth handshake and stores it in a cookie for the callback.
+export const modoolsLoginUrl = (tenant?: string) => {
   const base = apiClient.defaults.baseURL || '/api/v1';
-  return `${base}/auth/modools/login`;
+  const query = tenant ? `?tenant=${encodeURIComponent(tenant)}` : '';
+  return `${base}/auth/modools/login${query}`;
 };
 
 export interface ModoolsAuthPayload {

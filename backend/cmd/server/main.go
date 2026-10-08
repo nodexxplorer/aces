@@ -12,7 +12,7 @@ import (
 	"github.com/aces/backend/internal/api"
 	"github.com/aces/backend/internal/config"
 	db "github.com/aces/backend/internal/db/sql"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/aces/backend/internal/tenant"
 )
 
 func main() {
@@ -22,20 +22,32 @@ func main() {
 	defer cancel()
 
 	log.Println("Connecting to database...")
-	connPool, err := pgxpool.New(ctx, cfg.DBSource)
+	tenants, err := tenant.NewManager(ctx, cfg.DBSource, tenant.Options{
+		DefaultSlug:       cfg.DefaultTenantSlug,
+		MaxConnsPerTenant: cfg.DBMaxConnsPerTenant,
+	})
 	if err != nil {
 		log.Fatalf("cannot connect to db: %v", err)
 	}
-	defer connPool.Close()
+	defer tenants.Close()
 
-	if err := connPool.Ping(ctx); err != nil {
+	if err := tenants.Ping(ctx); err != nil {
 		log.Fatalf("database ping failed: %v", err)
+	}
+	// Refuse to run as a role that would bypass row-level security: that
+	// would let every department read every other department's data.
+	if err := tenants.CheckRuntimeRole(ctx, cfg.DBAllowRLSBypass); err != nil {
+		log.Fatalf("database role check failed: %v", err)
+	}
+	// Mobile clients send no department, so the default one must exist.
+	if _, err := tenants.Resolve(ctx, ""); err != nil {
+		log.Fatalf("default department %q is not usable (create it with cmd/tenant): %v", cfg.DefaultTenantSlug, err)
 	}
 	log.Println("Database connection established")
 
-	store := db.New(connPool)
+	store := db.New(tenants.DB())
 
-	// Seed help articles on first run
+	// Seed help articles on first run. They are global, not per department.
 	go func() {
 		seedCtx, seedCancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer seedCancel()
@@ -44,7 +56,7 @@ func main() {
 		}
 	}()
 
-	server := api.NewServer(store, connPool, cfg)
+	server := api.NewServer(store, tenants, cfg)
 
 	go server.RunBirthdayScheduler(ctx)
 	go server.RunStudyTaskReminderScheduler(ctx)
