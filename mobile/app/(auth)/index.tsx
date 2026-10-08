@@ -38,9 +38,9 @@ export default function IntroScreen() {
 
       <View style={[styles.content, { paddingBottom: insets.bottom + spacing.xl }]}>
         <Animated.View entering={FadeInUp.duration(600).delay(200)} style={styles.textBlock}>
-          <Text style={styles.title}>ACES Zone</Text>
+          <Text style={styles.title}>Admin Pack</Text>
           <Text style={styles.subtitle}>
-            Association of Computer Engineering Students — Uniuyo Chapter, in your pocket.
+            Your department, in your pocket.
           </Text>
         </Animated.View>
 

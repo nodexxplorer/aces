@@ -26,7 +26,7 @@ export default function BiometricLock({ onUnlock }: { onUnlock: () => void }) {
   const attempt = async () => {
     setAuthenticating(true);
     setFailed(false);
-    const success = await authenticateWithBiometrics('Unlock ACES Zone');
+    const success = await authenticateWithBiometrics('Unlock Admin Pack');
     setAuthenticating(false);
     if (success) {
       haptics.success();
@@ -71,7 +71,7 @@ export default function BiometricLock({ onUnlock }: { onUnlock: () => void }) {
         <View style={[styles.iconWrap, { backgroundColor: theme.primaryMuted }]}>
           <Ionicons name="finger-print" size={48} color={theme.primary} />
         </View>
-        <Text style={[styles.title, { color: theme.text }]}>ACES Zone Locked</Text>
+        <Text style={[styles.title, { color: theme.text }]}>Admin Pack Locked</Text>
         <Text style={[styles.subtitle, { color: theme.textMuted }]}>
           {failed ? `Couldn't verify — try ${label} again.` : `Use ${label} to continue.`}
         </Text>

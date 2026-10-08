@@ -1,5 +1,5 @@
 /* ──────────────────────────────────────────────
-   ACES Zone — Master Type Definitions
+   Admin Pack — Master Type Definitions
    ────────────────────────────────────────────── */
 
 // ───── Enums ─────

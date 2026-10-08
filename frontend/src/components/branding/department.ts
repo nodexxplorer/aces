@@ -15,3 +15,27 @@ export function departmentLogoUrl(logoUrl?: string): string | undefined {
 export function useCurrentDepartment(): TenantInfo | undefined {
   return useAuthStore((state) => state.user?.tenant);
 }
+
+/**
+ * The department's name without its "Department of" prefix, for example
+ * "Computer Engineering". Undefined when there is no name.
+ */
+export function departmentShortName(name?: string): string | undefined {
+  const short = name
+    ?.trim()
+    .replace(/^Department of\s+/i, '')
+    .trim();
+  return short || undefined;
+}
+
+/** The assistant's name: "Computer Engineering Assistant", or "Admin Pack Assistant" with no department. */
+export function assistantName(department?: Pick<TenantInfo, 'name'>): string {
+  const short = departmentShortName(department?.name);
+  return short ? `${short} Assistant` : 'Admin Pack Assistant';
+}
+
+/** How a department's alumni are named: "Computer Engineering alumni", or "alumni" with no department. */
+export function alumniLabel(department?: Pick<TenantInfo, 'name'>): string {
+  const short = departmentShortName(department?.name);
+  return short ? `${short} alumni` : 'alumni';
+}

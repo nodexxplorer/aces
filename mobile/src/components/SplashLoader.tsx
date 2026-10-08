@@ -82,8 +82,8 @@ export default function SplashLoader() {
         </Animated.View>
 
         <Animated.View style={textStyle}>
-          <Text style={styles.title}>ACES Zone</Text>
-          <Text style={styles.subtitle}>Association of Computer Engineering Students</Text>
+          <Text style={styles.title}>Admin Pack</Text>
+          <Text style={styles.subtitle}>Your department, in your pocket</Text>
         </Animated.View>
 
         <View style={styles.dotsRow}>

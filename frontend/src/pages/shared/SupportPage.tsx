@@ -307,7 +307,7 @@ function HelpCenterTab() {
             </div>
             <div>
               <p className="text-sm font-medium text-surface-700 dark:text-surface-300">Phone Support</p>
-              <p className="text-xs text-surface-500">+234 800 ACES HELP</p>
+              <p className="text-xs text-surface-500">+234 800 2237 4357</p>
             </div>
           </div>
         </div>

@@ -1,3 +1,4 @@
+import { alumniLabel, useCurrentDepartment } from '../../components/branding/department';
 import { useState, useEffect } from 'react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -33,6 +34,7 @@ const extractId = (v: unknown): string => {
 };
 
 const StudentJobBoardPage = () => {
+  const department = useCurrentDepartment();
   const { success, error: notifyError } = useNotification();
   const [jobs, setJobs] = useState<JobPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,7 +90,9 @@ const StudentJobBoardPage = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Job Board</h1>
-        <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Find opportunities posted by ACES alumni</p>
+        <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
+          Find opportunities posted by {alumniLabel(department)}
+        </p>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">

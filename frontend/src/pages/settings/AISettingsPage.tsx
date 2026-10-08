@@ -82,7 +82,7 @@ const AISettingsPage = () => {
       key: 'chatbot_enabled' as const,
       icon: <Bot className="w-5 h-5" />,
       title: 'AI Chatbot',
-      description: 'Enable the ACES Assistant chatbot for quick help and guidance.',
+      description: 'Enable the assistant chatbot for quick help and guidance.',
     },
     {
       key: 'personalization_enabled' as const,
@@ -120,7 +120,10 @@ const AISettingsPage = () => {
         </CardHeader>
         <div className="p-4 pt-0 space-y-4">
           {toggles.map((t) => (
-            <div key={t.key} className="flex items-center justify-between p-4 rounded-xl bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700">
+            <div
+              key={t.key}
+              className="flex items-center justify-between p-4 rounded-xl bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700"
+            >
               <div className="flex items-start gap-3">
                 <div className="p-2 rounded-lg bg-primary-50 dark:bg-primary-950/30 text-primary-500 shrink-0">
                   {t.icon}
@@ -136,9 +139,11 @@ const AISettingsPage = () => {
                   settings[t.key] ? 'bg-primary-500' : 'bg-surface-300 dark:bg-surface-600'
                 }`}
               >
-                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                  settings[t.key] ? 'translate-x-5' : 'translate-x-0'
-                }`} />
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                    settings[t.key] ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
               </button>
             </div>
           ))}

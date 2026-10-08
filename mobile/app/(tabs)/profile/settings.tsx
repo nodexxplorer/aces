@@ -1,3 +1,4 @@
+import { useAuthStore } from '../../../src/store/authStore';
 import { useEffect, useState } from 'react';
 import { View, Text as RNText, StyleSheet, Pressable, Switch, Alert, Linking } from 'react-native';
 import Text from '../../../src/components/ui/Text';
@@ -35,6 +36,7 @@ function SectionTitle({ children }: { children: string }) {
 
 export default function SettingsScreen() {
   const { theme } = useTheme();
+  const user = useAuthStore((s) => s.user);
   const router = useRouter();
   const themeMode = useSettingsStore((s) => s.themeMode);
   const setThemeMode = useSettingsStore((s) => s.setThemeMode);
@@ -276,21 +278,21 @@ export default function SettingsScreen() {
         <SectionTitle>About</SectionTitle>
         <Card style={{ gap: spacing.md }}>
           <View style={styles.aboutRow}>
-            <Text style={[styles.rowLabel, { color: theme.text }]}>ACES Zone</Text>
+            <Text style={[styles.rowLabel, { color: theme.text }]}>Admin Pack</Text>
             <Text style={[styles.rowHint, { color: theme.textFaint }]}>
               Version {appVersion}
               {buildNumber ? ` (${buildNumber})` : ''}
             </Text>
           </View>
           <Text style={[styles.aboutBody, { color: theme.textMuted }]}>
-            Association of Computer Engineering Students — Uniuyo Chapter.
+            {user?.tenant?.name ?? 'Admin Pack'}.
           </Text>
           <Pressable
             onPress={() => Linking.openURL('https://aces-ivory.vercel.app').catch(() => {})}
             style={styles.aboutLinkRow}
           >
             <Ionicons name="globe-outline" size={16} color={theme.primary} />
-            <Text style={[styles.aboutLinkText, { color: theme.primary }]}>Visit the ACES Zone website</Text>
+            <Text style={[styles.aboutLinkText, { color: theme.primary }]}>Visit the Admin Pack website</Text>
           </Pressable>
         </Card>
       </Animated.View>

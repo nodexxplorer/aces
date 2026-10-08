@@ -1,3 +1,4 @@
+import { assistantName, useCurrentDepartment } from '../../components/branding/department';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
@@ -42,7 +43,7 @@ import { cn } from '../../utils/cn';
 const sections = [
   { key: 'architecture', label: 'AI Architecture', icon: <Cpu className="w-4 h-4" /> },
   { key: 'features', label: 'AI Features', icon: <Sparkles className="w-4 h-4" /> },
-  { key: 'chatbot', label: 'ACES Assistant', icon: <Bot className="w-4 h-4" /> },
+  { key: 'chatbot', label: 'Assistant', icon: <Bot className="w-4 h-4" /> },
   { key: 'ethics', label: 'Ethics & Safeguards', icon: <Shield className="w-4 h-4" /> },
   { key: 'roadmap', label: 'Implementation Roadmap', icon: <Calendar className="w-4 h-4" /> },
   { key: 'integration', label: 'Module Integration', icon: <Layers className="w-4 h-4" /> },
@@ -683,6 +684,8 @@ const ModuleFeatureTable = ({ features }: { features: { name: string; capability
 );
 
 const AIBlueprintPage = () => {
+  const department = useCurrentDepartment();
+  const assistant = assistantName(department);
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('architecture');
   const [expandedModule, setExpandedModule] = useState<number | null>(0);
@@ -885,7 +888,7 @@ const AIBlueprintPage = () => {
                     <Bot className="w-5 h-5 text-primary-500" />
                     Chatbot Capabilities
                   </CardTitle>
-                  <CardDescription>The ACES Assistant can help with these domains</CardDescription>
+                  <CardDescription>The assistant can help with these domains</CardDescription>
                 </CardHeader>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {chatbotDomains.map((d, i) => (
@@ -922,7 +925,7 @@ const AIBlueprintPage = () => {
                 </CardHeader>
                 <div className="bg-surface-100 dark:bg-surface-800 rounded-2xl p-4 max-w-md mx-auto space-y-4">
                   <div className="text-center text-xs font-semibold text-surface-500 dark:text-surface-400">
-                    ACES Assistant
+                    {assistant}
                   </div>
                   <div className="bg-white dark:bg-surface-900 rounded-xl p-3 shadow-sm space-y-3">
                     <p className="text-xs text-surface-600 dark:text-surface-300">How can I help you today?</p>

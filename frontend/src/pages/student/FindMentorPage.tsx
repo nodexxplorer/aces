@@ -1,3 +1,4 @@
+import { alumniLabel, useCurrentDepartment } from '../../components/branding/department';
 import { useState, useEffect } from 'react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -20,6 +21,7 @@ const statusVariants: Record<string, StatusVariant> = {
 };
 
 const FindMentorPage = () => {
+  const department = useCurrentDepartment();
   const { success, error: notifyError } = useNotification();
   const [mentors, setMentors] = useState<MentorItem[]>([]);
   const [myRequests, setMyRequests] = useState<MentorshipRequestItem[]>([]);
@@ -82,7 +84,7 @@ const FindMentorPage = () => {
       <div>
         <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Find a Mentor</h1>
         <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-          Connect with ACES alumni for career guidance and industry insight
+          Connect with {alumniLabel(department)} for career guidance and industry insight
         </p>
       </div>
 

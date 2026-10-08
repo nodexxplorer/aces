@@ -7,6 +7,7 @@ import type { QuickAction } from '../../api/ai';
 import { useDarkMode } from '../../hooks/useDarkMode';
 import { useRBAC } from '../../hooks/useRBAC';
 import { cn } from '../../utils/cn';
+import { assistantName, useCurrentDepartment } from '../branding/department';
 
 interface Message {
   id: string;
@@ -26,6 +27,8 @@ const ChatbotWidget = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [quickActions, setQuickActions] = useState<QuickAction[]>([]);
   const [sessionId] = useState(() => crypto.randomUUID());
+  const department = useCurrentDepartment();
+  const assistant = assistantName(department);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -55,7 +58,9 @@ const ChatbotWidget = () => {
           id: 'welcome',
           role: 'assistant',
           content:
-            "Hello! I'm your **ACES Assistant** 🤖\n\nI can help you with schedules, grades, dues, courses, mentorship, and more.\n\nTry a quick action below or just ask me anything!",
+            "Hello! I'm your **" +
+            assistant +
+            '** 🤖\n\nI can help you with schedules, grades, dues, courses, mentorship, and more.\n\nTry a quick action below or just ask me anything!',
           timestamp: new Date(),
           suggestions: ['Show my schedule', 'Check my grades', 'How to pay dues'],
         },
@@ -64,7 +69,7 @@ const ChatbotWidget = () => {
     if (isChatOpen) {
       setTimeout(() => inputRef.current?.focus(), 300);
     }
-  }, [isChatOpen, messages.length]);
+  }, [isChatOpen, messages.length, assistant]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -171,7 +176,7 @@ const ChatbotWidget = () => {
                   <Bot className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold">ACES Assistant</h3>
+                  <h3 className="text-sm font-semibold">{assistant}</h3>
                   <p className="text-xs text-white/80">Online · Powered by AI</p>
                 </div>
               </div>

@@ -1,3 +1,5 @@
+import { useAuthStore } from '../store/authStore';
+import { assistantName } from '../utils/department';
 import { useEffect, useRef, useState } from 'react';
 import {
   View,
@@ -84,6 +86,8 @@ function newId() {
 const WEB_ONLY_HINTS = ['bulk upload', 'admin dashboard', 'print', 'export', 'spreadsheet', 'csv'];
 
 export default function ChatbotFAB() {
+  const user = useAuthStore((s) => s.user);
+  const assistant = assistantName(user?.tenant?.name);
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
@@ -154,12 +158,12 @@ export default function ChatbotFAB() {
           id: 'welcome',
           role: 'assistant',
           content:
-            "Hi! I'm your ACES Assistant. I can help with schedules, grades, dues, courses, and more, what do you need?",
+            "Hi! I'm your " + assistant + ". I can help with schedules, grades, dues, courses, and more, what do you need?",
           suggestions: ['Check my grades', 'How to pay dues'],
         },
       ]);
     }
-  }, [open, messages.length]);
+  }, [open, messages.length, assistant]);
 
   const send = async (text: string) => {
     if (!text.trim() || loading) return;
@@ -177,7 +181,7 @@ export default function ChatbotFAB() {
         {
           id: newId(),
           role: 'assistant',
-          content: webOnly ? `${res.reply}\n\nThis is easier on the ACES Zone website — want me to open it?` : res.reply,
+          content: webOnly ? `${res.reply}\n\nThis is easier on the website — want me to open it?` : res.reply,
           suggestions: res.suggestions,
         },
       ]);
@@ -211,7 +215,7 @@ export default function ChatbotFAB() {
                   <Ionicons name="sparkles" size={18} color="#fff" />
                 </View>
                 <View>
-                  <Text style={styles.headerTitle}>ACES Assistant</Text>
+                  <Text style={styles.headerTitle}>{assistant}</Text>
                   <Text style={styles.headerSubtitle}>Online · Powered by AI</Text>
                 </View>
               </View>
@@ -269,7 +273,7 @@ export default function ChatbotFAB() {
                         content={item.content}
                         style={[styles.bubbleText, { color: item.role === 'user' ? theme.onPrimary : theme.text }]}
                       />
-                      {item.content.includes('ACES Zone website') && (
+                      {item.content.includes('easier on the website') && (
                         <Pressable
                           onPress={() => Linking.openURL(WEB_ORIGIN)}
                           style={styles.webLinkRow}

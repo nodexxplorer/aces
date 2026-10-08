@@ -31,7 +31,7 @@ func passwordResetOTPEmailHTML(brand tenant.Brand, otp string) string {
 			<table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="max-width: 480px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
 				<tr>
 					<td style="background: linear-gradient(135deg, #0066CC 0%%, #003d7a 100%%); padding: 28px 40px;" align="center">
-						<div style="color: #ffffff; font-size: 18px; font-weight: 700; letter-spacing: 0.3px;">ACES Zone</div>
+						<div style="color: #ffffff; font-size: 18px; font-weight: 700; letter-spacing: 0.3px;">Admin Pack</div>
 					</td>
 				</tr>
 				<tr>
@@ -52,7 +52,7 @@ func passwordResetOTPEmailHTML(brand tenant.Brand, otp string) string {
 		</td>
 	</tr>
 </table>`, otp)
-	return strings.Replace(body, ">ACES Zone</div>", ">"+html.EscapeString(brand.Name)+"</div>", 1)
+	return strings.Replace(body, ">Admin Pack</div>", ">"+html.EscapeString(brand.Name)+"</div>", 1)
 }
 
 type otpRequest struct {

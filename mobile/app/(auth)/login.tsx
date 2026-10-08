@@ -1,3 +1,4 @@
+import { departmentShortName } from '../../src/utils/department';
 import { useState } from 'react';
 import {
   View,
@@ -37,6 +38,8 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const dept = useDepartmentChoice();
+  const departmentName =
+    departmentShortName(dept.departments.find((d) => d.slug === dept.slug)?.name) ?? 'Your department';
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
@@ -72,8 +75,8 @@ export default function LoginScreen() {
             <View style={styles.logoWrap}>
               <Image source={require('../../assets/aces-logo.png')} style={styles.logo} resizeMode="contain" />
             </View>
-            <Text style={styles.heroTitle}>ACES Zone</Text>
-            <Text style={styles.heroSubtitle}>Association of Computer Engineering Students</Text>
+            <Text style={styles.heroTitle}>Admin Pack</Text>
+            <Text style={styles.heroSubtitle}>{departmentName}</Text>
           </Animated.View>
         </LinearGradient>
 

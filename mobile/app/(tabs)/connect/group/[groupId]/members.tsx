@@ -66,7 +66,7 @@ export default function GroupMembersScreen() {
     try {
       const { invite_code } = await getGroupInviteCode(groupId);
       const link = `${WEB_ORIGIN}/connect?g=${invite_code}`;
-      await Share.share({ message: `Join "${groupName}" on ACES Zone: ${link}` });
+      await Share.share({ message: `Join "${groupName}" on Admin Pack: ${link}` });
     } catch {
       Alert.alert('Could Not Share', 'Please try again.');
     } finally {

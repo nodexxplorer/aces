@@ -194,7 +194,7 @@ export const downloadPaymentReceipt = async (paymentId: string): Promise<void> =
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = receiptFileNameFromHeaders(res.headers) || `ACES-Receipt-${paymentId.slice(0, 8)}.pdf`;
+  a.download = receiptFileNameFromHeaders(res.headers) || `Receipt-${paymentId.slice(0, 8)}.pdf`;
   document.body.appendChild(a);
   a.click();
   a.remove();

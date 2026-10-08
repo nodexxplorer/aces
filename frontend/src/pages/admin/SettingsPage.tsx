@@ -408,7 +408,7 @@ function AITab() {
       key: 'chatbot_enabled' as const,
       icon: <Bot className="w-5 h-5" />,
       title: 'AI Chatbot',
-      description: 'Enable the ACES Assistant chatbot for quick help and guidance.',
+      description: 'Enable the assistant chatbot for quick help and guidance.',
     },
     {
       key: 'personalization_enabled' as const,

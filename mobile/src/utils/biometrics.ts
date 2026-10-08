@@ -19,7 +19,7 @@ export async function getBiometricLabel(): Promise<string> {
   return 'Biometric Login';
 }
 
-export async function authenticateWithBiometrics(promptMessage = 'Unlock ACES Zone'): Promise<boolean> {
+export async function authenticateWithBiometrics(promptMessage = 'Unlock Admin Pack'): Promise<boolean> {
   if (Platform.OS === 'web') return false;
   try {
     const result = await LocalAuthentication.authenticateAsync({
