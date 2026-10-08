@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"image/png"
 	"log"
 	"math"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/fogleman/gg"
@@ -67,7 +67,9 @@ func embeddedFont(name string) (*truetype.Font, error) {
 
 // decodePNGBytes decodes PNG image bytes (for embedded logos).
 func decodePNGBytes(b []byte) (image.Image, error) {
-	return png.Decode(bytes.NewReader(b))
+	// Any registered format: PNG, JPEG or WebP, as the logo folder allows.
+	img, _, err := image.Decode(bytes.NewReader(b))
+	return img, err
 }
 
 // fontFace builds a gg font.Face from an embedded TTF at the given size.
@@ -511,4 +513,43 @@ func RenderReceiptPDF(org Org, kind ReceiptKind, number int, d ReceiptData) ([]b
 		return nil, fmt.Errorf("write receipt pdf: %w", err)
 	}
 	return out.Bytes(), nil
+}
+
+// OrgFor returns the letterhead for a department's dues receipts. The University
+// crest stays on the left. The department's name, institution, contact email
+// and logo take the association's place. A nil logo leaves that side blank.
+func OrgFor(name, institution, contactEmail string, logo []byte) Org {
+	name1, name2 := splitBrandName(strings.ToUpper(strings.TrimSpace(name)))
+	org := Org{
+		Name1:     name1,
+		Name2:     name2,
+		Chapter:   strings.ToUpper(strings.TrimSpace(institution)),
+		LogoLeft:  uniuyoLogoPNG,
+		LogoRight: logo,
+	}
+	if contactEmail != "" {
+		org.Email = "Email: " + contactEmail
+	}
+	return org
+}
+
+// splitBrandName breaks a name over two lines, as near the middle as a word
+// boundary allows. A one-word name stays on the first line.
+func splitBrandName(name string) (string, string) {
+	words := strings.Fields(name)
+	if len(words) < 2 {
+		return name, ""
+	}
+	total := len(name)
+	best, bestGap := 1, -1
+	for i := 1; i < len(words); i++ {
+		gap := len(strings.Join(words[:i], " "))*2 - total
+		if gap < 0 {
+			gap = -gap
+		}
+		if bestGap < 0 || gap < bestGap {
+			best, bestGap = i, gap
+		}
+	}
+	return strings.Join(words[:best], " "), strings.Join(words[best:], " ")
 }

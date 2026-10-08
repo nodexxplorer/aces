@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/aces/backend/internal/tenant"
 	"github.com/aces/backend/internal/utils"
 )
 
@@ -103,7 +104,9 @@ func (server *Server) downloadResultSlip(ctx *gin.Context) {
 		cumulativeCGPA = cgpaResult.CGPA
 	}
 
+	brand := tenant.BrandFrom(ctx.Request.Context())
 	pdfBytes, err := utils.GenerateResultSlipPDF(utils.ResultSlipInput{
+		BrandName:      brand.Name,
 		StudentName:    derefStrPtr(user.FullName),
 		MatricNumber:   derefStrPtr(student.MatricNumber),
 		Level:          int(student.Level),

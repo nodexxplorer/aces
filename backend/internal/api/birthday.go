@@ -11,9 +11,9 @@ import (
 // configured or a generation call fails — a few warm variants so students
 // who compare notes still don't all get the identical line.
 var birthdayMessages = []string{
-	"Wishing you an amazing day filled with joy, laughter, and everything you love. Here's to another year of growth and great memories at ACES Zone! 🎉",
+	"Wishing you an amazing day filled with joy, laughter, and everything you love. Here's to another year of growth and great memories with your department! 🎉",
 	"Happy birthday! May this new year of your life bring you closer to every goal you're working toward — academic and beyond. Enjoy your day! 🎂",
-	"On behalf of everyone at ACES Zone, happy birthday! Take today to celebrate how far you've come — we're glad to have you with us. 🥳",
+	"On behalf of everyone in your department, happy birthday! Take today to celebrate how far you've come — we're glad to have you with us. 🥳",
 }
 
 // RunBirthdayScheduler checks once immediately (covering a server restart

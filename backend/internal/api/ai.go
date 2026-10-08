@@ -58,7 +58,7 @@ func (s *AIServer) Chat(ctx *gin.Context) {
 }
 
 func (s *AIServer) GetQuickActions(ctx *gin.Context) {
-	ctx.JSON(http.StatusOK, s.aiService.GetQuickActions())
+	ctx.JSON(http.StatusOK, s.aiService.GetQuickActions(ctx.Request.Context()))
 }
 
 func (s *AIServer) Feedback(ctx *gin.Context) {

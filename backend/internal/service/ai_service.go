@@ -13,6 +13,7 @@ import (
 
 	"github.com/aces/backend/internal/config"
 	db "github.com/aces/backend/internal/db/sql"
+	"github.com/aces/backend/internal/tenant"
 	"github.com/google/uuid"
 )
 
@@ -97,16 +98,19 @@ func (s *AIService) queries() *db.Queries {
 	return s.store.(*db.Queries)
 }
 
-var quickActions = []QuickAction{
-	{ID: "grades", Label: "My Grades", Icon: "📊", Query: "What are my current grades?"},
-	{ID: "dues", Label: "Pay Dues", Icon: "💰", Query: "How much do I owe in dues?"},
-	{ID: "mentor", Label: "Find Mentor", Icon: "👥", Query: "How do I connect with an alumni mentor?"},
-	{ID: "resources", Label: "Study Resources", Icon: "📚", Query: "Where can I find study materials?"},
-	{ID: "help", Label: "Help", Icon: "🆘", Query: "How do I use ACES Zone?"},
+// quickActionsFor returns the quick actions for a department's assistant.
+func quickActionsFor(brand tenant.Brand) []QuickAction {
+	return []QuickAction{
+		{ID: "grades", Label: "My Grades", Icon: "📊", Query: "What are my current grades?"},
+		{ID: "dues", Label: "Pay Dues", Icon: "💰", Query: "How much do I owe in dues?"},
+		{ID: "mentor", Label: "Find Mentor", Icon: "👥", Query: "How do I connect with an alumni mentor?"},
+		{ID: "resources", Label: "Study Resources", Icon: "📚", Query: "Where can I find study materials?"},
+		{ID: "help", Label: "Help", Icon: "🆘", Query: "How do I use " + brand.Name + "?"},
+	}
 }
 
-func (s *AIService) GetQuickActions() []QuickAction {
-	return quickActions
+func (s *AIService) GetQuickActions(ctx context.Context) []QuickAction {
+	return quickActionsFor(tenant.BrandFrom(ctx))
 }
 
 func (s *AIService) Chat(ctx context.Context, userID uuid.UUID, message string, sessionID string) (*ChatbotResponse, error) {
@@ -142,7 +146,7 @@ func (s *AIService) Chat(ctx context.Context, userID uuid.UUID, message string, 
 
 	if response == nil {
 		response = &ChatbotResponse{
-			Reply: "I'm sorry, I don't understand that question yet. You can ask me about schedules, grades, dues, courses, mentorship, or general ACES Zone help. Type 'help' for a list of topics.",
+			Reply: "I'm sorry, I don't understand that question yet. You can ask me about schedules, grades, dues, courses, mentorship, or general " + tenant.BrandFrom(ctx).Name + " help. Type 'help' for a list of topics.",
 			Suggestions: []string{
 				"How do I register for courses?",
 				"When are my exams?",
@@ -173,7 +177,8 @@ func (s *AIService) Chat(ctx context.Context, userID uuid.UUID, message string, 
 	return response, nil
 }
 
-func (s *AIService) handleWithRules(_ context.Context, _ uuid.UUID, message string) *ChatbotResponse {
+func (s *AIService) handleWithRules(ctx context.Context, _ uuid.UUID, message string) *ChatbotResponse {
+	brand := tenant.BrandFrom(ctx)
 	lower := strings.ToLower(strings.TrimSpace(message))
 
 	type ruleMatch struct {
@@ -186,7 +191,7 @@ func (s *AIService) handleWithRules(_ context.Context, _ uuid.UUID, message stri
 			keywords: []string{"hello", "hi ", "hey", "good morning", "good afternoon", "good evening"},
 			handler: func() *ChatbotResponse {
 				return &ChatbotResponse{
-					Reply:       "Hello! I'm your ACES Assistant. I can help you with grades, dues, courses, mentorship, and more. What would you like to know?",
+					Reply:       "Hello! I'm your " + brand.Name + " Assistant. I can help you with grades, dues, courses, mentorship, and more. What would you like to know?",
 					Confidence:  0.95,
 					ModelUsed:   "rule_based",
 					Suggestions: []string{"Check my grades", "How to pay dues"},
@@ -352,14 +357,15 @@ func (s *AIService) handleWithLLM(ctx context.Context, userID uuid.UUID, message
 		UserID:    userID,
 	})
 
-	systemPrompt := `You are ACES Assistant, the AI helper for ACES Zone — the Computer Engineering Students' platform at University of Uyo, Nigeria.
+	brand := tenant.BrandFrom(ctx)
+	systemPrompt := assistantIntro(brand) + `
 
 Your role is to help students with:
 - Academic matters (grades, courses, registration)
 - Administrative tasks (dues, payments, complaints)
 - Campus life (events, study groups, announcements)
 - Career support (jobs, mentorship, alumni network)
-- General ACES Zone platform navigation
+- General platform navigation
 
 Rules:
 - Be concise and helpful (2-4 sentences max per response)
@@ -454,7 +460,7 @@ func (s *AIService) GenerateBirthdayMessage(ctx context.Context, firstName strin
 	}
 
 	prompt := fmt.Sprintf(
-		"Write one short, warm, upbeat birthday message (1-2 sentences, under 220 characters) for a university student named %s, from their department's ACES Zone platform. Vary the wording and tone each time you're asked this — don't fall back to a generic template. No hashtags. You may use up to one emoji. Reply with ONLY the message text, nothing else.",
+		"Write one short, warm, upbeat birthday message (1-2 sentences, under 220 characters) for a university student named %s, from their department's platform. Vary the wording and tone each time you're asked this — don't fall back to a generic template. No hashtags. You may use up to one emoji. Reply with ONLY the message text, nothing else.",
 		firstName,
 	)
 
@@ -651,4 +657,13 @@ func (s *AIService) UpdateSettings(ctx context.Context, userID uuid.UUID, chatbo
 		DataCollectionConsent:  consent,
 		PreferredLanguage:      lang,
 	})
+}
+
+// assistantIntro is the first line of the assistant's instructions: it speaks
+// for the department it is asked in.
+func assistantIntro(brand tenant.Brand) string {
+	if brand.Institution == "" {
+		return fmt.Sprintf("You are %s Assistant, the AI helper for %s, a students' platform.", brand.Name, brand.Name)
+	}
+	return fmt.Sprintf("You are %s Assistant, the AI helper for %s, the students' platform at %s.", brand.Name, brand.Name, brand.Institution)
 }

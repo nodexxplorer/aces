@@ -700,7 +700,7 @@ func SeedHelpArticles(ctx context.Context, store db.Querier) error {
 	t := true
 	type art struct{ cat, title, content string; ord int32 }
 	articles := []art{
-		{"Getting Started", "How to log in to ACES Zone", "1. Go to the ACES Zone login page.\n2. Enter your matric number or email and password.\n3. Click Sign In.\n\nForgot password? Click the Forgot Password link on the login page for OTP reset.", 1},
+		{"Getting Started", "How to log in to Admin Pack", "1. Go to the Admin Pack login page.\n2. Enter your matric number or email and password.\n3. Click Sign In.\n\nForgot password? Click the Forgot Password link on the login page for OTP reset.", 1},
 		{"Getting Started", "Complete your onboarding profile", "After first login you are prompted to complete onboarding.\n1. Enter date of birth, phone number, admission mode, year admitted.\n2. Provide emergency contact name and phone.\n3. Enter home address.\n4. Click Submit.\nYou must complete onboarding before accessing all features.", 2},
 		{"Getting Started", "Why is my account pending approval?", "New accounts require approval by a department admin or class representative.\nYou will be notified once approved.\nIf pending for over 48 hours, contact your class rep or HOD.", 3},
 		{"Results", "How to view your academic results", "Navigate to Results in the sidebar.\nResults are grouped by session and semester.\nClick View on any row to expand the full course breakdown.\nClick Print to print a semester result slip.", 1},

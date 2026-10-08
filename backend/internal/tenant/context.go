@@ -43,6 +43,8 @@ type Tenant struct {
 	// Description is a short line about the department, shown on the sign-in
 	// page and in the dashboard footer.
 	Description string
+	// ContactEmail is printed on the department's dues receipts. Empty means none.
+	ContactEmail string
 	// LogoType is the MIME type of the logo ("image/png", ...), or empty when
 	// the department has no logo. The bytes are read by Manager.Logo.
 	LogoType string

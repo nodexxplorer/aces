@@ -50,7 +50,7 @@ func GenerateICS(e ICSEvent) []byte {
 	lines := []string{
 		"BEGIN:VCALENDAR",
 		"VERSION:2.0",
-		"PRODID:-//ACES Zone//Department Events//EN",
+		"PRODID:-//Admin Pack//Department Events//EN",
 		"CALSCALE:GREGORIAN",
 		"METHOD:PUBLISH",
 		"BEGIN:VEVENT",
@@ -83,7 +83,7 @@ func GenerateICSFeed(calName string, events []ICSEvent) []byte {
 	lines := []string{
 		"BEGIN:VCALENDAR",
 		"VERSION:2.0",
-		"PRODID:-//ACES Zone//Calendar Feed//EN",
+		"PRODID:-//Admin Pack//Calendar Feed//EN",
 		"CALSCALE:GREGORIAN",
 		fmt.Sprintf("X-WR-CALNAME:%s", escapeICSText(calName)),
 	}

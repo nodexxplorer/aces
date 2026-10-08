@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	db "github.com/aces/backend/internal/db/sql"
+	"github.com/aces/backend/internal/tenant"
 	"github.com/aces/backend/internal/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -157,8 +158,10 @@ func (server *Server) downloadAttendancePDF(ctx *gin.Context) {
 		})
 	}
 
+	brand := tenant.BrandFrom(ctx.Request.Context())
 	pdfBytes, err := utils.GenerateAttendancePDF(utils.AttendancePDFInput{
 		DepartmentName: session.DepartmentName,
+		BrandName:      brand.Name,
 		CourseCode:     session.CourseCode,
 		CourseTitle:    session.CourseTitle,
 		ScheduledDate:  session.Date.Format("2006-01-02"),

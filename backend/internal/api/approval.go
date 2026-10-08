@@ -192,7 +192,7 @@ func (server *Server) approveSignup(ctx *gin.Context) {
 		"system",
 		"high",
 		"Account Approved",
-		"Your account has been approved! You now have full access to ACES Zone.",
+		"Your account has been approved! You now have full access to "+brandName(ctx)+".",
 		"/dashboard",
 		"Go to Dashboard",
 		nil,

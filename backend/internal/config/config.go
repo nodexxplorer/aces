@@ -69,6 +69,9 @@ type Config struct {
 	GeminiModel        string
 	AIFallbackEnabled  bool
 	FrontendPublicURL  string
+	// APIPublicURL is where the API is reachable from outside, for links in
+	// emails (department logos). It defaults to FRONTEND_PUBLIC_URL.
+	APIPublicURL string
 
 	// DefaultTenantSlug is the department used when a request names none
 	// (mobile clients, and web clients that predate tenants).
@@ -133,6 +136,7 @@ func Load() *Config {
 		GeminiModel:        getEnv("GEMINI_MODEL", "gemini-2.5-flash"),
 		AIFallbackEnabled:  getBool("AI_FALLBACK_ENABLED", true),
 		FrontendPublicURL:  getFirstEnv("FRONTEND_PUBLIC_URL", "http://localhost:5173"),
+		APIPublicURL:       getFirstEnv("API_PUBLIC_URL", getFirstEnv("FRONTEND_PUBLIC_URL", "http://localhost:5173")),
 
 		DefaultTenantSlug:   getEnv("DEFAULT_TENANT_SLUG", "uniuyo-ce"),
 		DBMaxConnsPerTenant: int32(getInt("DB_MAX_CONNS_PER_TENANT", 4)),

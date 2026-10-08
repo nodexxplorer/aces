@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/aces/backend/internal/tenant"
 	"github.com/aces/backend/internal/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -112,7 +113,12 @@ func (server *Server) getCalendarFeed(ctx *gin.Context) {
 		}
 	}
 
-	ics := utils.GenerateICSFeed("ACES Zone — "+user.FullName, events)
-	ctx.Header("Content-Disposition", `inline; filename="aces-zone.ics"`)
+	brand := tenant.BrandFrom(ctx.Request.Context())
+	ics := utils.GenerateICSFeed(brand.Name+" — "+user.FullName, events)
+	fileName := "calendar.ics"
+	if brand.Slug != "" {
+		fileName = brand.Slug + "-calendar.ics"
+	}
+	ctx.Header("Content-Disposition", `inline; filename="`+fileName+`"`)
 	ctx.Data(http.StatusOK, "text/calendar; charset=utf-8", ics)
 }

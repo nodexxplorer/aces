@@ -325,7 +325,7 @@ func (server *Server) modoolsCallback(ctx *gin.Context) {
 		"general",
 		"system",
 		"normal",
-		"Welcome to ACES Zone!",
+		"Welcome to "+brandName(ctx)+"!",
 		"Your account was created via Modools. Finish setting up your profile to continue.",
 		"/onboarding",
 		"Complete Setup",

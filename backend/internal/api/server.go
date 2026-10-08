@@ -133,7 +133,7 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		complaints:        service.NewComplaintService(store),
 		announcements:     service.NewAnnouncementService(store),
 		notifications:     service.NewNotificationService(store),
-		notificationsFull: service.NewNotificationServiceFull(store, hub, emailSender, pushSender, cfg.FrontendPublicURL),
+		notificationsFull: service.NewNotificationServiceFull(store, hub, emailSender, pushSender, cfg.FrontendPublicURL, tenantDirectory(tenants), cfg.APIPublicURL),
 		analytics:         service.NewAnalyticsService(store),
 		cgpa:              service.NewCGPAService(store),
 		roles:             service.NewRoleService(store),

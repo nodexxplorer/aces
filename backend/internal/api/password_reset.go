@@ -3,6 +3,7 @@ package api
 import (
 	"crypto/rand"
 	"fmt"
+	"html"
 	"log"
 	"math/big"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	db "github.com/aces/backend/internal/db/sql"
+	"github.com/aces/backend/internal/tenant"
 	"github.com/aces/backend/internal/util"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -21,8 +23,8 @@ import (
 // buildNotificationEmailHTML (no CTA button, no unsubscribe footer): this is
 // a security-critical transactional message sent before the user has a
 // session or any notification preferences to speak of, not a notification.
-func passwordResetOTPEmailHTML(otp string) string {
-	return fmt.Sprintf(`
+func passwordResetOTPEmailHTML(brand tenant.Brand, otp string) string {
+	body := fmt.Sprintf(`
 <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="background-color: #eef2f6; padding: 32px 16px; font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
 	<tr>
 		<td align="center">
@@ -50,6 +52,7 @@ func passwordResetOTPEmailHTML(otp string) string {
 		</td>
 	</tr>
 </table>`, otp)
+	return strings.Replace(body, ">ACES Zone</div>", ">"+html.EscapeString(brand.Name)+"</div>", 1)
 }
 
 type otpRequest struct {
@@ -155,9 +158,10 @@ func (server *Server) requestPasswordReset(ctx *gin.Context) {
 	// actually be delivered right now — silently a no-op otherwise, same
 	// as it's always been for that channel.
 	if channel == db.ResetChannelEmail && server.emailSender != nil {
+		brand := tenant.BrandFrom(ctx.Request.Context())
 		go func(to, otpCode string) {
-			body := passwordResetOTPEmailHTML(otpCode)
-			if err := server.emailSender.SendEmail([]string{to}, "Your ACES Zone password reset code", body, true); err != nil {
+			body := passwordResetOTPEmailHTML(brand, otpCode)
+			if err := server.emailSender.SendEmailFrom(brand.Name, []string{to}, "Your "+brand.Name+" password reset code", body, true); err != nil {
 				log.Printf("[password-reset] failed to send OTP email to %s: %v", to, err)
 			}
 		}(user.Email, otp)

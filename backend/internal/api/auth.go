@@ -326,7 +326,7 @@ func (server *Server) studentSignup(ctx *gin.Context) {
 		"general",
 		"system",
 		"normal",
-		"Welcome to ACES Zone!",
+		"Welcome to "+brandName(ctx)+"!",
 		"Your student account has been created. Your account is pending approval.",
 		"/dashboard",
 		"Go to Dashboard",
@@ -339,7 +339,7 @@ func (server *Server) studentSignup(ctx *gin.Context) {
 
 func (server *Server) lecturerSignup(ctx *gin.Context) {
 	if isMobileClient(ctx) {
-		ctx.JSON(http.StatusForbidden, gin.H{"error": "The ACES Zone mobile app is for students and class representatives. Please sign up on the website instead."})
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "The Admin Pack mobile app is for students and class representatives. Please sign up on the website instead."})
 		return
 	}
 
@@ -378,7 +378,7 @@ func (server *Server) lecturerSignup(ctx *gin.Context) {
 		"general",
 		"system",
 		"normal",
-		"Welcome to ACES Zone!",
+		"Welcome to "+brandName(ctx)+"!",
 		"Your lecturer account has been created. Your account is pending approval.",
 		"/dashboard",
 		"Go to Dashboard",
@@ -453,7 +453,7 @@ func (server *Server) login(ctx *gin.Context) {
 	}
 
 	if isMobileClient(ctx) && hasBlockedMobileRole(roleNames) {
-		ctx.JSON(http.StatusForbidden, gin.H{"error": "The ACES Zone mobile app is for students and class representatives. Please sign in on the website instead."})
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "The Admin Pack mobile app is for students and class representatives. Please sign in on the website instead."})
 		return
 	}
 
@@ -473,7 +473,7 @@ func (server *Server) login(ctx *gin.Context) {
 		"auth",
 		"low",
 		"Login Successful",
-		"You have successfully signed in to ACES Zone.",
+		"You have successfully signed in to "+brandName(ctx)+".",
 		"/dashboard",
 		"Go to Dashboard",
 		nil,
@@ -664,7 +664,7 @@ func (server *Server) refreshToken(ctx *gin.Context) {
 	}
 
 	if isMobileClient(ctx) && hasBlockedMobileRole(roleNames) {
-		ctx.JSON(http.StatusForbidden, gin.H{"error": "The ACES Zone mobile app is for students and class representatives. Please sign in on the website instead."})
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "The Admin Pack mobile app is for students and class representatives. Please sign in on the website instead."})
 		return
 	}
 

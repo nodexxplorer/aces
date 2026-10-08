@@ -22,15 +22,26 @@ type NotificationServiceFull struct {
 	emailSender email.EmailSender
 	pushSender  push.PushSender
 	frontendURL string
+	// tenants finds a recipient's department, for its name and logo in emails.
+	tenants TenantDirectory
+	// apiURL is where the API is reachable, for the logo link in emails.
+	apiURL string
 }
 
-func NewNotificationServiceFull(queries *db.Queries, wsHub *ws.Hub, emailSender email.EmailSender, pushSender push.PushSender, frontendURL string) *NotificationServiceFull {
+// TenantDirectory finds a department by ID. *tenant.Manager implements it.
+type TenantDirectory interface {
+	ByID(ctx context.Context, id uuid.UUID) (tenant.Tenant, error)
+}
+
+func NewNotificationServiceFull(queries *db.Queries, wsHub *ws.Hub, emailSender email.EmailSender, pushSender push.PushSender, frontendURL string, tenants TenantDirectory, apiURL string) *NotificationServiceFull {
 	return &NotificationServiceFull{
 		queries:     queries,
 		wsHub:       wsHub,
 		emailSender: emailSender,
 		pushSender:  pushSender,
 		frontendURL: strings.TrimRight(frontendURL, "/"),
+		tenants:     tenants,
+		apiURL:      strings.TrimRight(apiURL, "/"),
 	}
 }
 
@@ -104,9 +115,11 @@ func (s *NotificationServiceFull) CreateAndPush(
 				unsubscribeURL = s.frontendURL + "/notifications/unsubscribe/" + unsubscribeToken
 			}
 
-			body := s.buildNotificationEmailHTML(notifTitle, notifMsg, notifActionURL, notifActionLabel, unsubscribeURL)
+			// The email speaks for the recipient's department.
+			brand := s.brandFor(bgCtx, user.TenantID)
+			body := s.buildNotificationEmailHTML(brand, notifTitle, notifMsg, notifActionURL, notifActionLabel, unsubscribeURL)
 
-			if err := s.emailSender.SendEmail([]string{user.Email}, notifTitle, body, true); err != nil {
+			if err := s.emailSender.SendEmailFrom(brand.Name, []string{user.Email}, notifTitle, body, true); err != nil {
 				log.Printf("[email-notif] failed to send email to %s: %v", user.Email, err)
 			}
 		}(userID, title, message, actionURL, actionLabel)
@@ -126,8 +139,22 @@ func (s *NotificationServiceFull) CreateAndPush(
 
 	return notif, nil
 }
-func (s *NotificationServiceFull) buildNotificationEmailHTML(title, message, actionURL, actionLabel, unsubscribeURL string) string {
-	logoURL := s.frontendURL + "/aces-logo.png"
+// brandFor returns the brand of a department, or the platform brand when the
+// department cannot be found.
+func (s *NotificationServiceFull) brandFor(ctx context.Context, tenantID uuid.UUID) tenant.Brand {
+	if s.tenants == nil || tenantID == uuid.Nil {
+		return tenant.PlatformBrand()
+	}
+	t, err := s.tenants.ByID(ctx, tenantID)
+	if err != nil {
+		log.Printf("[email-notif] no department %s for its brand: %v", tenantID, err)
+		return tenant.PlatformBrand()
+	}
+	return tenant.BrandOf(t)
+}
+
+func (s *NotificationServiceFull) buildNotificationEmailHTML(brand tenant.Brand, title, message, actionURL, actionLabel, unsubscribeURL string) string {
+	logoURL := tenant.LogoURL(s.apiURL, brand)
 
 	resolvedActionURL := actionURL
 	if resolvedActionURL != "" && strings.HasPrefix(resolvedActionURL, "/") {
@@ -138,7 +165,7 @@ func (s *NotificationServiceFull) buildNotificationEmailHTML(title, message, act
 	if resolvedActionURL != "" {
 		label := actionLabel
 		if label == "" {
-			label = "View in ACES Zone"
+			label = "View in " + brand.Name
 		}
 		ctaBlock = fmt.Sprintf(`
 			<tr>
@@ -151,6 +178,16 @@ func (s *NotificationServiceFull) buildNotificationEmailHTML(title, message, act
 			</tr>`, html.EscapeString(resolvedActionURL), html.EscapeString(label))
 	}
 
+	nameEsc := html.EscapeString(brand.Name)
+	subtitleEsc := html.EscapeString(brand.Institution)
+	footerLine := nameEsc
+	if brand.Institution != "" {
+		footerLine += " &mdash; " + subtitleEsc
+	}
+	headerCell := ""
+	if logoURL != "" {
+		headerCell = fmt.Sprintf(`<td width="56" style="vertical-align: middle;"><img src="%s" alt="%s" width="48" height="48" style="display: block; border-radius: 8px; background-color: #1e293b;" /></td>`, html.EscapeString(logoURL), nameEsc)
+	}
 	year := time.Now().Year()
 
 	unsubscribeBlock := ""
@@ -168,12 +205,10 @@ func (s *NotificationServiceFull) buildNotificationEmailHTML(title, message, act
 					<td style="background: linear-gradient(135deg, #0066CC 0%%, #003d7a 100%%); padding: 32px 40px; border-bottom: 4px solid #0369a1;" align="left">
 						<table role="presentation" width="100%%" cellpadding="0" cellspacing="0">
 							<tr>
-								<td width="56" style="vertical-align: middle;">
-									<img src="%s" alt="ACES Zone" width="48" height="48" style="display: block; border-radius: 8px; background-color: #1e293b;" />
-								</td>
+								%s
 								<td style="padding-left: 16px; vertical-align: middle;">
-									<div style="color: #ffffff; font-size: 20px; font-weight: 700; letter-spacing: -0.2px; line-height: 1.2;">ACES Zone</div>
-									<div style="color: #94a3b8; font-size: 12px; margin-top: 2px; font-weight: 500;">Association of Computer Engineering Students &middot; Uniuyo</div>
+									<div style="color: #ffffff; font-size: 20px; font-weight: 700; letter-spacing: -0.2px; line-height: 1.2;">%s</div>
+									<div style="color: #94a3b8; font-size: 12px; margin-top: 2px; font-weight: 500;">%s</div>
 								</td>
 							</tr>
 						</table>
@@ -206,17 +241,17 @@ func (s *NotificationServiceFull) buildNotificationEmailHTML(title, message, act
 				<tr>
 					<td style="padding: 32px 40px; background-color: #f8fafc; border-top: 1px solid #f1f5f9;">
 						<p style="margin: 0 0 12px 0; color: #64748b; font-size: 12px; line-height: 1.6; text-align: center;">
-							This is an automated operational broadcast from the ACES Zone engine. Direct replies to this tracking address are unmonitored.
+							This is an automated message from %s. Direct replies to this tracking address are unmonitored.
 						</p>
 						<p style="margin: 0; color: #94a3b8; font-size: 11px; line-height: 1.6; text-align: center; font-weight: 500;">
-							&copy; %d ACES Zone &mdash; Department of Computer Engineering, University of Uyo.%s
+							&copy; %d %s.%s
 						</p>
 					</td>
 				</tr>
 			</table>
 		</td>
 	</tr>
-</table>`, logoURL, html.EscapeString(title), html.EscapeString(message), ctaBlock, year, unsubscribeBlock)
+</table>`, headerCell, nameEsc, subtitleEsc, html.EscapeString(title), html.EscapeString(message), ctaBlock, nameEsc, year, footerLine, unsubscribeBlock)
 }
 
 

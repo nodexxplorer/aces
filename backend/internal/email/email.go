@@ -4,13 +4,21 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log"
+	"mime"
 	"net/smtp"
 	"strings"
 )
 
+// DefaultFromName is the display name for mail that names no department.
+const DefaultFromName = "Admin Pack"
+
 // EmailSender defines the interface for sending emails
 type EmailSender interface {
+	// SendEmail sends from the platform's default sender name.
 	SendEmail(to []string, subject, body string, isHTML bool) error
+	// SendEmailFrom sends with fromName as the display name, so a department's
+	// mail shows the department's name.
+	SendEmailFrom(fromName string, to []string, subject, body string, isHTML bool) error
 }
 
 // SMTPSender implements EmailSender using standard SMTP
@@ -37,6 +45,12 @@ func NewSMTPSender(host string, port int, username, password, from string, useMo
 
 // SendEmail sends an email to the specified recipients
 func (s *SMTPSender) SendEmail(to []string, subject, body string, isHTML bool) error {
+	return s.SendEmailFrom(DefaultFromName, to, subject, body, isHTML)
+}
+
+// SendEmailFrom sends an email to the specified recipients, with fromName as
+// the display name in the From header.
+func (s *SMTPSender) SendEmailFrom(fromName string, to []string, subject, body string, isHTML bool) error {
 	if s.useMock {
 		log.Printf("[mock-email] Sending email to %v\nSubject: %s\nBody: %s", to, subject, body)
 		return nil
@@ -44,7 +58,7 @@ func (s *SMTPSender) SendEmail(to []string, subject, body string, isHTML bool) e
 
 	header := make(map[string]string)
 
-	header["From"] = fmt.Sprintf("ACES Zone <%s>", s.from)
+	header["From"] = formatFrom(fromName, s.from)
 	header["To"] = strings.Join(to, ", ")
 	header["Subject"] = subject
 	if isHTML {
@@ -118,4 +132,22 @@ func (s *SMTPSender) SendEmail(to []string, subject, body string, isHTML bool) e
 	}
 
 	return nil
+}
+
+// quotedNameEscaper escapes a display name for use inside a quoted-string.
+var quotedNameEscaper = strings.NewReplacer(`\`, `\\`, `"`, `\"`)
+
+// formatFrom builds a From header value. The display name is quoted, and it is
+// RFC 2047-encoded when it is not ASCII.
+func formatFrom(name, addr string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		name = DefaultFromName
+	}
+	for i := 0; i < len(name); i++ {
+		if name[i] >= 0x80 {
+			return mime.QEncoding.Encode("utf-8", name) + " <" + addr + ">"
+		}
+	}
+	return "\"" + quotedNameEscaper.Replace(name) + "\" <" + addr + ">"
 }

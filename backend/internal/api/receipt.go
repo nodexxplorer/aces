@@ -7,6 +7,7 @@ import (
 
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/aces/backend/internal/utils"
+	"github.com/aces/backend/internal/tenant"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
@@ -90,8 +91,12 @@ func nairaToWords(amount decimal.Decimal) string {
 	return strings.Join(out, " ")
 }
 
-func receiptFileName(paymentID, kind string, number int32) string {
-	return fmt.Sprintf("ACES-%s-Receipt-%04d-%s.pdf", kind, number, paymentID[:8])
+func receiptFileName(brand tenant.Brand, paymentID, kind string, number int32) string {
+	prefix := "RECEIPT"
+	if brand.Slug != "" {
+		prefix = strings.ToUpper(brand.Slug)
+	}
+	return fmt.Sprintf("%s-%s-Receipt-%04d-%s.pdf", prefix, kind, number, paymentID[:8])
 }
 
 
@@ -193,7 +198,9 @@ func (server *Server) getDuesPaymentReceipt(ctx *gin.Context) {
 		RegNo:       matric,
 	}
 
-	pdfBytes, err := utils.RenderReceiptPDF(utils.DefaultOrg, kind, int(number), data)
+	brand := tenant.BrandFrom(ctx.Request.Context())
+	org := utils.OrgFor(brand.Name, brand.Institution, brand.ContactEmail, server.departmentLogo(ctx.Request.Context(), brand))
+	pdfBytes, err := utils.RenderReceiptPDF(org, kind, int(number), data)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "could not render receipt"})
 		return
@@ -203,7 +210,7 @@ func (server *Server) getDuesPaymentReceipt(ctx *gin.Context) {
 	if kind == utils.ClassDues {
 		kindLabel = "Class-Dues"
 	}
-	filename := receiptFileName(payment.ID.String(), kindLabel, number)
+	filename := receiptFileName(brand, payment.ID.String(), kindLabel, number)
 
 	ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
 	ctx.Data(http.StatusOK, "application/pdf", pdfBytes)
