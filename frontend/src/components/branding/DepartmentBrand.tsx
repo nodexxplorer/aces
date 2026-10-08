@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Building2 } from 'lucide-react';
 import type { TenantInfo } from '../../types';
 import { departmentLogoUrl } from './department';
@@ -8,12 +9,14 @@ interface DepartmentLogoProps {
 }
 
 /**
- * The department's logo. A department without one gets a neutral badge, so no
- * other organisation's mark is shown on its pages.
+ * The department's logo. A department without one, or whose logo cannot be
+ * loaded, gets a neutral badge, so no other organisation's mark is shown on its pages.
  */
 export function DepartmentLogo({ department, className = 'w-8 h-8' }: DepartmentLogoProps) {
   const src = departmentLogoUrl(department?.logoUrl);
-  if (!src) {
+  // Remember which source failed, not a flag, so a different logo gets a fresh attempt.
+  const [failedSrc, setFailedSrc] = useState<string | undefined>(undefined);
+  if (!src || src === failedSrc) {
     return (
       <div
         role="img"
@@ -25,7 +28,14 @@ export function DepartmentLogo({ department, className = 'w-8 h-8' }: Department
     );
   }
   const alt = department?.name ? `${department.name} logo` : 'Department logo';
-  return <img src={src} alt={alt} className={`${className} shrink-0 rounded-lg object-contain`} />;
+  return (
+    <img
+      src={src}
+      alt={alt}
+      onError={() => setFailedSrc(src)}
+      className={`${className} shrink-0 rounded-lg object-contain`}
+    />
+  );
 }
 
 interface DepartmentBrandProps {
