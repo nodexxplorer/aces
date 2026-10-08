@@ -22,11 +22,3 @@ export const getMe = async () => {
   const { data } = await apiClient.get<{ data: User }>('/auth/me');
   return data.data;
 };
-
-export const forgotPassword = async (email: string) => {
-  await apiClient.post('/auth/forgot-password', { email });
-};
-
-export const resetPassword = async (token: string, password: string) => {
-  await apiClient.post('/auth/reset-password', { token, password });
-};

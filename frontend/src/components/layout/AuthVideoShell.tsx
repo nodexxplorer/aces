@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { APP_DESCRIPTION, APP_NAME } from '../../utils/constants';
 import { motion } from 'framer-motion';
 import CookieConsent from '../feedback/CookieConsent';
+import { AdminPackMark } from '../branding/AdminPackMark';
 
 interface AuthVideoShellProps {
   children: ReactNode;
@@ -40,10 +41,8 @@ const AuthVideoShell = ({ children, cardMaxWidth = 'max-w-md', tagline = APP_DES
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-primary-400/50 blur-2xl" />
             <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-accent-400/50 blur-2xl" />
           </motion.div>
-          <motion.img
-            src="/aces-logo.png"
-            alt="Admin Pack"
-            className="relative w-36 h-36 lg:w-48 lg:h-48 object-contain drop-shadow-2xl"
+          <motion.div
+            className="relative w-36 h-36 lg:w-48 lg:h-48 drop-shadow-2xl"
             initial={{ opacity: 0, scale: 0.5, rotate: -25 }}
             animate={{ opacity: 1, scale: 1, rotate: 0, y: [0, -10, 0] }}
             transition={{
@@ -52,7 +51,9 @@ const AuthVideoShell = ({ children, cardMaxWidth = 'max-w-md', tagline = APP_DES
               rotate: { duration: 0.7, type: 'spring', bounce: 0.45 },
               y: { duration: 3.5, repeat: Infinity, ease: 'easeInOut', delay: 0.7 },
             }}
-          />
+          >
+            <AdminPackMark className="h-full w-full" />
+          </motion.div>
         </div>
         <h1 className="text-3xl lg:text-4xl font-bold text-white tracking-tight">{APP_NAME}</h1>
         <p className="mt-3 max-w-xs text-sm text-white/70">{tagline}</p>

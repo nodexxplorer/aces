@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import AuthVideoShell from '../../components/layout/AuthVideoShell';
+import { AdminPackMark } from '../../components/branding/AdminPackMark';
 import { Mail, Lock, User, Briefcase } from 'lucide-react';
 import { lecturerSignup } from '../../api/signup';
 import { useDepartments } from '../../hooks/useDepartments';
@@ -81,11 +82,7 @@ const LecturerSignupPage = () => {
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
         <div className="rounded-2xl border border-white/25 bg-white/10 backdrop-blur-2xl shadow-2xl p-8">
           <div className="flex flex-col items-center gap-1 text-center mb-7">
-            <img
-              src="/aces-logo.png"
-              alt="Aces Logo"
-              className="w-14 h-14 rounded-2xl mb-2 object-contain shadow-lg md:hidden"
-            />
+            <AdminPackMark className="w-14 h-14 rounded-2xl mb-2 shadow-lg md:hidden" />
             <h2 className="text-3xl font-bold tracking-tight text-white">Lecturer Registration</h2>
             <p className="text-sm text-white/70">Register your staff account for department portal access</p>
           </div>

@@ -5,6 +5,7 @@ import { Mail, KeyRound, Lock, CheckCircle, ArrowRight } from 'lucide-react';
 import { requestPasswordReset, verifyPasswordResetOTP, resetPasswordWithOTP } from '../../api/additional-features';
 import { getErrorMessage } from '../../utils/errors';
 import AuthVideoShell from '../../components/layout/AuthVideoShell';
+import { AdminPackMark } from '../../components/branding/AdminPackMark';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { useDepartments } from '../../hooks/useDepartments';
@@ -106,11 +107,7 @@ export default function PasswordResetOTPPage() {
     <AuthVideoShell tagline="Reset your password to get back into your Admin Pack account.">
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
         <div className="rounded-2xl border border-white/25 bg-white/10 backdrop-blur-2xl shadow-2xl p-8">
-          <img
-            src="/aces-logo.png"
-            alt="Aces Logo"
-            className="w-14 h-14 rounded-2xl mb-6 object-contain shadow-lg mx-auto md:hidden"
-          />
+          <AdminPackMark className="w-14 h-14 rounded-2xl mb-6 shadow-lg mx-auto md:hidden" />
 
           {step <= 3 && (
             <div className="flex items-center justify-center gap-3 mb-8">

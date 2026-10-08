@@ -31,6 +31,13 @@ import {
   Wrench,
   Bell,
   FileClock,
+  GraduationCap,
+  MessagesSquare,
+  Wallet,
+  ChartColumn,
+  UsersRound,
+  Medal,
+  Coins,
 } from 'lucide-react';
 import type { UserRole } from '../../types';
 
@@ -50,7 +57,7 @@ interface MenuItem {
 
 interface NavSection {
   title: string;
-  icon: string;
+  icon: React.ComponentType<{ className?: string }>;
   key: string;
   items: (MenuItem & { icon: React.ComponentType<{ className?: string }> })[];
   locked?: boolean;
@@ -240,7 +247,7 @@ const menuItems: MenuItem[] = [
 const mobileSections: NavSection[] = [
   {
     title: 'ACADEMICS',
-    icon: '\u{1F4DA}',
+    icon: GraduationCap,
     key: 'academics',
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
     items: [
@@ -255,7 +262,7 @@ const mobileSections: NavSection[] = [
   },
   {
     title: 'COMMUNITY',
-    icon: '\u{1F4AC}',
+    icon: MessagesSquare,
     key: 'community',
     items: [
       { label: 'Connect', path: '/connect', icon: Users },
@@ -267,7 +274,7 @@ const mobileSections: NavSection[] = [
   },
   {
     title: 'FINANCE',
-    icon: '\u{1F4B3}',
+    icon: Wallet,
     key: 'finance',
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
     items: [{ label: 'Payments & Dues', path: '/payments', icon: CreditCard }],
@@ -282,7 +289,7 @@ const mobileSections: NavSection[] = [
   // },
   {
     title: 'OVERVIEW',
-    icon: '\u{1F4CA}',
+    icon: ChartColumn,
     key: 'admin_overview',
     roles: ['hod', 'delegated_admin', 'admin'],
     items: [
@@ -294,7 +301,7 @@ const mobileSections: NavSection[] = [
   },
   {
     title: 'ACADEMICS',
-    icon: '\u{1F4DA}',
+    icon: GraduationCap,
     key: 'admin_academics',
     roles: ['hod', 'delegated_admin', 'admin'],
     items: [
@@ -307,7 +314,7 @@ const mobileSections: NavSection[] = [
   },
   {
     title: 'USERS & ROLES',
-    icon: '\u{1F465}',
+    icon: UsersRound,
     key: 'admin_users',
     roles: ['hod', 'delegated_admin', 'admin'],
     items: [
@@ -318,7 +325,7 @@ const mobileSections: NavSection[] = [
   },
   {
     title: 'FINANCE',
-    icon: '\u{1F4B3}',
+    icon: Wallet,
     key: 'admin_finance',
     roles: ['hod', 'delegated_admin', 'admin'],
     items: [{ label: 'Dues Management', path: '/bursar/dues', icon: DollarSign }],
@@ -339,14 +346,14 @@ const mobileSections: NavSection[] = [
   // },
   {
     title: 'COMMUNICATIONS',
-    icon: '\u{1F4E2}',
+    icon: Megaphone,
     key: 'admin_comms',
     roles: ['hod', 'delegated_admin', 'admin'],
     items: [{ label: 'Announcements', path: '/admin/announcements', icon: Megaphone }],
   },
   {
     title: 'SYSTEM',
-    icon: '\u{1F9E0}',
+    icon: Settings,
     key: 'system',
     roles: ['hod', 'delegated_admin', 'admin'],
     items: [
@@ -356,7 +363,7 @@ const mobileSections: NavSection[] = [
   },
   {
     title: 'CLASS REP',
-    icon: '\u{1F397}',
+    icon: Medal,
     key: 'class_rep',
     roles: ['class_rep'],
     items: [
@@ -369,7 +376,7 @@ const mobileSections: NavSection[] = [
   },
   {
     title: 'BURSAR',
-    icon: '\u{1F4B0}',
+    icon: Coins,
     key: 'bursar',
     roles: ['class_bursar', 'dept_bursar'],
     items: [
@@ -570,6 +577,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
               {mobileSections.map((section) => {
                 const hasAccess = !section.roles || section.roles.some((r) => user?.roles.includes(r));
                 const isExpanded = expandedSections.includes(section.key);
+                const SectionIcon = section.icon;
                 const showLocked = section.locked && !isAlumni;
 
                 if (!hasAccess && !section.locked) return null;
@@ -589,7 +597,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
                       )}
                     >
                       <span className="flex items-center gap-2">
-                        <span className="text-base">{section.icon}</span>
+                        <SectionIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
                         {section.title}
                         {showLocked && (
                           <span className="text-[10px] uppercase tracking-wider text-surface-400 dark:text-surface-500 ml-1 px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800">
