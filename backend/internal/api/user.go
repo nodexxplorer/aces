@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/aces/backend/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -70,6 +72,11 @@ func (server *Server) getUser(ctx *gin.Context) {
 	}
 
 	user, err := server.users.GetByID(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// Unknown id, or one that belongs to another department (row-level security).
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return

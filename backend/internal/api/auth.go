@@ -12,6 +12,7 @@ import (
 	"github.com/aces/backend/internal/auth"
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/aces/backend/internal/middleware"
+	"github.com/aces/backend/internal/service"
 	"github.com/aces/backend/internal/tenant"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -301,8 +302,8 @@ func (server *Server) studentSignup(ctx *gin.Context) {
 
 	result, err := server.auth.StudentSignup(ctx, req.Email, req.Password, req.FirstName, req.LastName, req.Phone, req.MatricNumber, req.Level)
 	if err != nil {
-		if err.Error() == "a user with this email already exists" {
-			ctx.JSON(http.StatusConflict, gin.H{"error": "internal server error"})
+		if errors.Is(err, service.ErrEmailTaken) || errors.Is(err, service.ErrMatricTaken) {
+			ctx.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 			return
 		}
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -353,8 +354,8 @@ func (server *Server) lecturerSignup(ctx *gin.Context) {
 
 	result, err := server.auth.LecturerSignup(ctx, req.Email, req.Password, req.FirstName, req.LastName, req.Phone, req.StaffId, req.Department, req.Specialization)
 	if err != nil {
-		if err.Error() == "a user with this email already exists" {
-			ctx.JSON(http.StatusConflict, gin.H{"error": "internal server error"})
+		if errors.Is(err, service.ErrEmailTaken) || errors.Is(err, service.ErrMatricTaken) {
+			ctx.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 			return
 		}
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})

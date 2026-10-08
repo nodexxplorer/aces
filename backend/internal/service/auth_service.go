@@ -10,6 +10,7 @@ import (
 	"github.com/aces/backend/internal/util"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type AuthService struct {
@@ -20,6 +21,29 @@ func NewAuthService(store db.Querier) *AuthService {
 	return &AuthService{store: store}
 }
 
+// Sign-up conflicts. The API answers them with 409 and shows the message as
+// it is, so the wording is for the person signing up.
+var (
+	ErrEmailTaken  = errors.New("an account with this email is already registered in this department")
+	ErrMatricTaken = errors.New("this matric number is already registered in this department. If it is yours, sign in instead")
+)
+
+// isUniqueViolation reports whether err is a PostgreSQL unique-constraint
+// violation (SQLSTATE 23505). A parallel sign-up can win the race that the
+// pre-checks below lost, and the database is the final judge.
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
+
+// discardUser removes the user row a sign-up created before a later step
+// failed, so a retry is not blocked by a half-made account. The student and
+// staff rows cascade with it. The caller is already returning the real
+// failure, so a failure here is ignored.
+func (s *AuthService) discardUser(ctx context.Context, id uuid.UUID) {
+	_ = s.store.DeleteUser(ctx, id)
+}
+
 type SignupResult struct {
 	User    db.User
 	Student *db.Student
@@ -28,9 +52,16 @@ type SignupResult struct {
 
 func (s *AuthService) StudentSignup(ctx context.Context, email, password, firstName, lastName, phone, matricNumber string, level int32) (*SignupResult, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
+	matric := strings.ToUpper(strings.TrimSpace(matricNumber))
 
+	// The pre-checks run before anything is written, so a clash leaves no
+	// partial account. The unique constraints still catch a clash that a
+	// parallel request creates in between.
 	if _, err := s.store.GetUserByEmail(ctx, email); err == nil {
-		return nil, errors.New("a user with this email already exists")
+		return nil, ErrEmailTaken
+	}
+	if _, err := s.store.GetStudentByMatric(ctx, &matric); err == nil {
+		return nil, ErrMatricTaken
 	}
 
 	hashedPassword, err := util.HashPassword(password)
@@ -53,12 +84,14 @@ func (s *AuthService) StudentSignup(ctx context.Context, email, password, firstN
 		Phone:        phonePtr,
 	})
 	if err != nil {
+		if isUniqueViolation(err) {
+			return nil, ErrEmailTaken
+		}
 		return nil, errors.New("failed to create user: " + err.Error())
 	}
 
 	// matric_number / entry_year became nullable (migration 000002: OAuth
 	// students onboard later), so the generated params take pointers.
-	matric := strings.ToUpper(strings.TrimSpace(matricNumber))
 	entryYear := int32(time.Now().Year())
 	student, err := s.store.CreateStudent(ctx, db.CreateStudentParams{
 		UserID:       user.ID,
@@ -67,6 +100,10 @@ func (s *AuthService) StudentSignup(ctx context.Context, email, password, firstN
 		EntryYear:    &entryYear,
 	})
 	if err != nil {
+		s.discardUser(ctx, user.ID)
+		if isUniqueViolation(err) {
+			return nil, ErrMatricTaken
+		}
 		return nil, errors.New("failed to create student record: " + err.Error())
 	}
 
@@ -79,6 +116,7 @@ func (s *AuthService) StudentSignup(ctx context.Context, email, password, firstN
 		Status:     "pending",
 	})
 	if err != nil {
+		s.discardUser(ctx, user.ID)
 		return nil, errors.New("failed to create approval request: " + err.Error())
 	}
 
@@ -89,7 +127,7 @@ func (s *AuthService) LecturerSignup(ctx context.Context, email, password, first
 	email = strings.ToLower(strings.TrimSpace(email))
 
 	if _, err := s.store.GetUserByEmail(ctx, email); err == nil {
-		return nil, errors.New("a user with this email already exists")
+		return nil, ErrEmailTaken
 	}
 
 	hashedPassword, err := util.HashPassword(password)
@@ -112,6 +150,9 @@ func (s *AuthService) LecturerSignup(ctx context.Context, email, password, first
 		Phone:        phonePtr,
 	})
 	if err != nil {
+		if isUniqueViolation(err) {
+			return nil, ErrEmailTaken
+		}
 		return nil, errors.New("failed to create user: " + err.Error())
 	}
 
@@ -128,6 +169,7 @@ func (s *AuthService) LecturerSignup(ctx context.Context, email, password, first
 		Specialization: specPtr,
 	})
 	if err != nil {
+		s.discardUser(ctx, user.ID)
 		return nil, errors.New("failed to create staff record: " + err.Error())
 	}
 
@@ -138,6 +180,7 @@ func (s *AuthService) LecturerSignup(ctx context.Context, email, password, first
 		Status:     "pending",
 	})
 	if err != nil {
+		s.discardUser(ctx, user.ID)
 		return nil, errors.New("failed to create approval request: " + err.Error())
 	}
 
