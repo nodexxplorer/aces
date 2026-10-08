@@ -3707,6 +3707,7 @@ type Tenant struct {
 	Settings    json.RawMessage    `json:"settings"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	MatricCode  *string            `json:"matric_code"`
 }
 
 type TenantCounter struct {

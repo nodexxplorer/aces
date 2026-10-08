@@ -288,6 +288,14 @@ func (server *Server) studentSignup(ctx *gin.Context) {
 		return
 	}
 
+	// The matric number must belong to the department being signed up to.
+	// Mobile clients send no department, so they are checked against the
+	// default one.
+	if status, msg := server.departmentMatricProblem(ctx, strings.ToUpper(strings.TrimSpace(req.MatricNumber))); status != 0 {
+		ctx.JSON(status, gin.H{"error": msg})
+		return
+	}
+
 	result, err := server.auth.StudentSignup(ctx, req.Email, req.Password, req.FirstName, req.LastName, req.Phone, req.MatricNumber, req.Level)
 	if err != nil {
 		if err.Error() == "a user with this email already exists" {

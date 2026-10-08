@@ -35,19 +35,27 @@ DB_SOURCE='postgresql://aces_user:…@localhost:5432/aces_zone?sslmode=disable' 
 DB_SOURCE='postgresql://aces_user:…@localhost:5432/aces_zone?sslmode=disable' \
   APP_DB_USER=aces_app APP_DB_PASSWORD='…' make runtime-role
 
-# 3. Create a department, as the owner
+# 3. Create a department, as the owner. -matric-code is the department part of its
+#    matric numbers (EG/CO for 20/EG/CO/1234). Without it the department cannot
+#    sign up or onboard students until you run `tenant update`.
 DB_SOURCE='postgresql://aces_user:…@localhost:5432/aces_zone?sslmode=disable' \
   go run ./cmd/tenant create -slug unilag-ce -name "Department of Computer Engineering" \
-  -institution "University of Lagos" -faculty "Faculty of Engineering"
+  -matric-code EG/CO -institution "University of Lagos" -faculty "Faculty of Engineering"
 
 # 4. Create that department's first admin, as the runtime role
 DB_SOURCE='postgresql://aces_app:…@localhost:5432/aces_zone?sslmode=disable' \
   ADMIN_EMAIL=admin@example.edu ADMIN_PASSWORD='…' make seed-admin ARGS="-tenant unilag-ce"
 ```
 
-`cmd/tenant` also supports `list`, `activate` and `deactivate`.
+`cmd/tenant` also supports `list`, `update`, `activate` and `deactivate`. `update` changes only the flags you pass:
 
-The migrations create the default department `uniuyo-ce`, which holds all data from before multi-tenancy.
+```bash
+# Set or change a department's matric code (EG/EE for 20/EG/EE/1234). "" clears it.
+DB_SOURCE='postgresql://aces_user:…@localhost:5432/aces_zone?sslmode=disable' \
+  go run ./cmd/tenant update -slug unilag-ce -matric-code EG/CO
+```
+
+The migrations create the default department `uniuyo-ce`, which holds all data from before multi-tenancy. Migration `000005` gives it the matric code `EG/CO`. See [docs/multi-tenancy.md](../docs/multi-tenancy.md#matric-numbers) for how matric numbers are checked.
 
 ## Running
 

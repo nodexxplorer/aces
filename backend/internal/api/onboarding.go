@@ -30,10 +30,6 @@ type studentOnboardingRequest struct {
 	ProfilePhotoURL     string `json:"profile_photo_url"`
 }
 
-// modoolsMatricPattern is the departmental matric format, e.g. 20/EG/CO/1234.
-// Only Computer Engineering students (EG/CO) may onboard.
-var modoolsMatricPattern = regexp.MustCompile(`^\d{2}/EG/CO/\d{3,5}$`)
-
 // ngPhonePattern accepts Nigerian mobile numbers: 11 digits starting 0
 // (070/080/081/090/091 prefixes) or international +234 form.
 var ngPhonePattern = regexp.MustCompile(`^(\+234[789][01]\d{8}|0[789][01]\d{8})$`)
@@ -74,8 +70,8 @@ func (server *Server) studentOnboarding(ctx *gin.Context) {
 	}
 
 	matric := strings.ToUpper(strings.TrimSpace(req.MatricNumber))
-	if matric == "" || !modoolsMatricPattern.MatchString(matric) {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "wrong reg no"})
+	if status, msg := server.departmentMatricProblem(ctx, matric); status != 0 {
+		ctx.JSON(status, gin.H{"error": msg})
 		return
 	}
 	if q, ok := server.store.(*db.Queries); ok {

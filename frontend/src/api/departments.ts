@@ -5,6 +5,8 @@ export interface Department {
   name: string;
   institution?: string;
   faculty?: string;
+  /** Department part of its matric numbers, e.g. EG/EE for 20/EG/EE/1234. Absent until the department has one. */
+  matricCode?: string;
   /** True for the department used when none is named (mobile, and the first choice on web). */
   default?: boolean;
 }

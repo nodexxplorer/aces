@@ -16,7 +16,7 @@ One ACES deployment can serve several departments. Each department is a **tenant
 
 ## Concepts
 
-- **Registry.** The `tenants` table holds each department's `slug` (its identifier in requests, for example `unilag-ce`), `name`, `institution`, `faculty` and `is_active`. The API can read it but cannot change it.
+- **Registry.** The `tenants` table holds each department's `slug` (its identifier in requests, for example `unilag-ce`), `name`, `institution`, `faculty`, `matric_code` (see [Matric numbers](#matric-numbers)) and `is_active`. The API can read it but cannot change it.
 - **Legacy department.** Everything that existed before multi-tenancy belongs to `uniuyo-ce` (ID `00000000-0000-4000-8000-000000000001`). Access tokens issued before the change carry no department claim, and the server treats them as belonging to this department.
 - **Default department.** `DEFAULT_TENANT_SLUG` (default `uniuyo-ce`). Requests that name no department use it. Mobile clients depend on it, so it must stay active.
 - **Active and inactive.** A deactivated department cannot sign in, and its existing tokens stop working.
@@ -34,7 +34,7 @@ One ACES deployment can serve several departments. Each department is a **tenant
 | WebSocket `GET /api/v1/ws` | The authenticated user's department. |
 | Calendar feed, email unsubscribe link, Paystack webhook | The department that owns the token or payment reference. A narrow lookup function returns only the owning department's ID. |
 | Scheduled jobs (birthday greetings, study-task reminders) | Each active department, in turn. |
-| `GET /api/v1/tenants` (public) | The active departments: slug, name, institution, faculty and whether each is the default. It exposes no account data. |
+| `GET /api/v1/tenants` (public) | The active departments: slug, name, institution, faculty, matric code and whether each is the default. It exposes no account data. |
 
 Errors:
 
@@ -52,6 +52,39 @@ Tokens carry `tenant_id`, which the server trusts, and `tenant_slug`, which is f
 4. **Uniqueness within a department.** Unique constraints include `tenant_id`. The same email or matric number can exist once per department.
 5. **Receipt numbers.** Counters are kept per department (`tenant_counters`), so each department has its own receipt sequence.
 6. **Deliberately shared tables.** `tenants` (the registry), `help_articles` and `ai_models` (platform-wide catalogues) have no `tenant_id`.
+
+## Matric numbers
+
+A matric number has the form `20/EG/EE/1234`: the entry year, the faculty (`EG`), the department (`EE`) and a serial number of three to five digits. Each department has a **matric code**, the faculty and department part (`EG/EE`), stored in `tenants.matric_code`.
+
+| Department | Matric code |
+|---|---|
+| Computer Engineering (`uniuyo-ce`, the legacy department) | `EG/CO` |
+| Chemical Engineering | `EG/CE` |
+| Electrical Engineering | `EG/EE` |
+| Petroleum Engineering | `EG/PE` |
+| Agricultural Engineering | `EG/AE` |
+| Food Engineering | `EG/FE` |
+| Civil Engineering | `EG/CV` |
+| Mechanical Engineering | `EG/ME` |
+
+Migration `000005` sets `EG/CO` on `uniuyo-ce`, so its students are checked exactly as before. The other codes are set with `cmd/tenant` (see [Day-to-day operations](#day-to-day-operations)).
+
+**Rules**
+
+- The matric number must match the department the student is signing in to (onboarding) or signing up to (email sign-up). It must have the shape `^\d{2}/<code>/\d{3,5}$`, checked after the matric number is upper-cased.
+- A matric number that belongs to another active department is refused, and the message names that department: `This matric number belongs to Department of Electrical Engineering. Choose that department to continue.` The student signs in to that department instead.
+- Any other matric number gets `400` with the department's format, for example `Matric numbers for Department of Computer Engineering look like 20/EG/CO/1234.`
+- A department with no code refuses the check with `422`: `Matric numbers are not set up for <name> yet. Contact the department office.` This fails closed. No matric number is accepted until a code is set.
+- Each code is unique across departments, so a matric number maps to one department. The database enforces this with a unique index and a format check.
+- A change to a code takes effect within about a minute, when the server's department cache expires, or on restart. Accounts that already exist are not checked again.
+
+**Where it is checked**
+
+| Endpoint | Used by |
+|---|---|
+| `POST /api/v1/auth/onboarding` | The web app's onboarding page, after a Modools sign-in. The department is the one the student signed in to. |
+| `POST /api/v1/auth/signup/student` | Email sign-up. The web app's sign-up page uses Modools only, so this is the mobile app's path. Mobile sends no department, so it is checked against the default department. |
 
 ## Database roles
 
@@ -92,7 +125,7 @@ Run these steps in order, substituting your own connection strings.
 
 1. **Migrate as the owner.** `DB_SOURCE=<owner DSN> make migrate-up`
 2. **Create the runtime role.** `DB_SOURCE=<owner DSN> APP_DB_USER=aces_app APP_DB_PASSWORD=<secret> make runtime-role`
-3. **Create departments as the owner.** `DB_SOURCE=<owner DSN> go run ./cmd/tenant create -slug unilag-ce -name "Department of Computer Engineering" -institution "University of Lagos" -faculty "Faculty of Engineering"`
+3. **Create departments as the owner.** `DB_SOURCE=<owner DSN> go run ./cmd/tenant create -slug unilag-ce -name "Department of Computer Engineering" -matric-code EG/CO -institution "University of Lagos" -faculty "Faculty of Engineering"`. A department created without `-matric-code` cannot onboard or sign up students until you set one (see [Matric numbers](#matric-numbers)).
 4. **Create each department's first admin as the runtime role.** `DB_SOURCE=<runtime DSN> ADMIN_EMAIL=<email> ADMIN_PASSWORD=<password> go run ./cmd/seed_admin -tenant unilag-ce`
 5. **Run the server as the runtime role.** Set `DB_SOURCE` to the runtime DSN and set `DEFAULT_TENANT_SLUG`.
 
@@ -101,7 +134,7 @@ Pass the owner's DSN on the command line for owner-level steps. Keep only the ru
 ### Existing single-department deployment
 
 1. Back up the database.
-2. Run migration `000004_multi_tenancy` as the owner. Existing rows are assigned to `uniuyo-ce`, and existing tokens keep working as that department.
+2. Run migrations `000004_multi_tenancy` and `000005_matric_codes` as the owner. Existing rows are assigned to `uniuyo-ce`, which gets the matric code `EG/CO`, and existing tokens keep working as that department.
 3. Run `make runtime-role` as the owner.
 4. Change the server's `DB_SOURCE` from its current superuser or owner connection to the runtime role. Until you do, the server refuses to start.
 5. Deploy. The sign-in pages show a department picker once two departments are active.
@@ -110,10 +143,14 @@ Pass the owner's DSN on the command line for owner-level steps. Keep only the ru
 
 `000004_multi_tenancy.down.sql` folds the departments back into one dataset. It works only while a single department exists. Once two departments share an email or matric number, restoring the old unique constraints fails.
 
+`000005_matric_codes.down.sql` removes the matric codes. Without them the server refuses matric-based sign-up and onboarding, so roll back only with the previous release running.
+
 ## Day-to-day operations
 
-- **List departments.** `go run ./cmd/tenant list`.
-- **Add a department.** Create it with `cmd/tenant create` (owner connection), then seed its first admin with `cmd/seed_admin -tenant <slug>` (runtime connection). It appears in `GET /api/v1/tenants` straight away.
+- **List departments.** `go run ./cmd/tenant list`. It shows each department's matric code.
+- **Add a department.** Create it with `cmd/tenant create -matric-code EG/XX` (owner connection), then seed its first admin with `cmd/seed_admin -tenant <slug>` (runtime connection). It appears in `GET /api/v1/tenants` straight away.
+- **Set or change a matric code.** `go run ./cmd/tenant update -slug <slug> -matric-code EG/EE` (owner connection). The code is the faculty and department pair, such as `EG/EE`, not `EE`. `-matric-code ""` clears it, and the department then refuses matric-based sign-up and onboarding. The change takes effect within about a minute.
+- **Change a department's name or details.** `go run ./cmd/tenant update -slug <slug> [-name ...] [-institution ...] [-faculty ...]`. Only the flags you pass are changed. `-institution ""` and `-faculty ""` clear those fields.
 - **Deactivate a department.** `go run ./cmd/tenant deactivate -slug <slug>`. Sign-in is refused at once, and existing access tokens stop working within about a minute, which is the registry cache lifetime. Use `activate` to reverse it. There is no delete command. Deactivate instead, because the department's rows still reference it.
 - **Connection budget.** Each department's pool opens connections when the department is first used, and holds up to `DB_MAX_CONNS_PER_TENANT` (default 4). Budget roughly `departments in use × DB_MAX_CONNS_PER_TENANT + 4` connections, and size PostgreSQL `max_connections` to match.
 - **Connection poolers.** Use session pooling or direct connections. A transaction-pooling PgBouncer could hand a request a connection that is not bound to its department.
@@ -126,7 +163,7 @@ Pass the owner's DSN on the command line for owner-level steps. Keep only the ru
 - **New tenant tables.** Add `tenant_id UUID NOT NULL DEFAULT app_current_tenant()` with a foreign key to `tenants`, an index, the `tenant_isolation` policy and tenant-scoped unique constraints. Follow `000004_multi_tenancy.up.sql`. Then re-run `runtime-role.sql`.
 - **Composite keys.** Reference tenant tables with keys that include `tenant_id`, not with the bare `id`.
 - **sqlc.** `ON CONFLICT` targets on tenant tables must lead with `tenant_id`. Generated models include a `TenantID` field.
-- **Tests.** `DB_SOURCE=<a role that may create databases and roles> go test ./internal/tenant/` runs the database integration tests. They create and drop their own database and a non-login role. Without `DB_SOURCE` they are skipped.
+- **Tests.** `DB_SOURCE=<a role that may create databases and roles> go test ./internal/tenant/` runs the database integration tests. They create and drop their own database and a non-login role. Without `DB_SOURCE` they are skipped. The matric rules have unit tests in `internal/tenant/matric_test.go` and `internal/api/matric_test.go`.
 
 ## Department picker in the web app
 
@@ -136,7 +173,9 @@ The sign-in and sign-up pages list the active departments from `GET /api/v1/tena
 
 - Login, signup and password-reset requests accept a new optional `tenant` field (a department slug).
 - Login responses include a `tenant` object: `{slug, name, institution, faculty}`.
-- `GET /api/v1/tenants` is new and public.
+- `GET /api/v1/tenants` is new and public. Each department may carry `matricCode` (for example `EG/EE`), which is absent until the department has one.
+- Login and auth responses' `tenant` object may carry `matricCode`.
+- Onboarding and email sign-up now check the matric number against the department (see [Matric numbers](#matric-numbers)). Their error messages changed: `wrong reg no` is replaced by the messages in that section, and a department without a code returns `422`.
 - Access and refresh tokens carry `tenant_id` and `tenant_slug`.
 - Some JSON responses that serialize database rows gain a `tenant_id` field. The change is additive.
 - `GET /api/v1/auth/modools/login` accepts `?tenant=`.
@@ -144,6 +183,8 @@ The sign-in and sign-up pages list the active departments from `GET /api/v1/tena
 ## Mobile app
 
 The mobile app sends no department, so it signs in to `DEFAULT_TENANT_SLUG`. It keeps working as long as the default department is active. Making the mobile app department-aware is a follow-up.
+
+Because mobile signs up to the default department, a mobile sign-up whose matric number belongs to another department is refused until the app has a department picker. Mobile onboarding (`POST /auth/onboarding`) does not send `matric_number` at all, so the server refuses it. That predates this change, and the mobile app needs a fix before onboarding works there.
 
 ## Known gaps
 
@@ -156,11 +197,12 @@ These are not fixed by this change.
    These should read from the tenant record.
 2. **Uploaded files are public and shared.** `/uploads` is a static directory with no authentication and no department prefix. Anyone with a file's URL can read it, whichever department owns the file. Serve files through an authorized endpoint and store them per department before departments with sensitive files share this server.
 3. **Modools sign-in uses one OAuth client** (the `MODOOLS_*` settings). The department the person picks decides where the account is created. If departments use different Modools sites, each needs its own client.
-4. **The mobile app** is not department-aware (see above).
+4. **The mobile app** is not department-aware (see above). Its sign-up refuses students from other departments, and its onboarding request has no matric number, so the server refuses it.
 5. **Existing issues, not caused by this change.** `GET /users/:id` returns 500 for an unknown ID. A foreign ID gets the same response, so this does not leak data. The web app's `forgotPassword` and `resetPassword` helpers in `src/api/auth.ts` call endpoints that do not exist, and nothing uses them.
 
 ## Testing
 
 - **Backend.** `DB_SOURCE=<a role that may create databases and roles> go test ./...` runs the unit tests and the database integration tests. The integration tests cover row-level security, composite foreign keys, token and reference lookups, the runtime-role check and deactivation.
 - **Web app.** Vitest covers the department picker, the department hook, the Modools URL builder and the sign-in page.
+- **Matric checks.** A run of the API against a freshly migrated database, with departments created by `cmd/tenant`, covered: mobile sign-up refused for another department's matric and accepted for the default department's; sign-up in a chosen department accepted for its own code and refused for another's, with the other department named; a department without a code refused with `422` at sign-up and onboarding; onboarding refused for another department's matric; a lowercase matric accepted; and an unset code refusing onboarding once the one-minute cache expired.
 - **Scratch-environment checks.** A run against a freshly migrated database covered: the same email signing in to two departments with different passwords; a password from one department rejected by the other; unknown and forged departments rejected; refresh keeping the department; the same student signing up in two departments; and a deactivated department refusing sign-in and then existing tokens.

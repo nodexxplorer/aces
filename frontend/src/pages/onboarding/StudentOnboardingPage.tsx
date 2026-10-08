@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
+import { useDepartments } from '../../hooks/useDepartments';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -29,7 +30,7 @@ const onboardingSchema = z.object({
   matricNumber: z
     .string()
     .min(1, 'Matric number is required')
-    .regex(/^\d{2}\/[A-Z]+\/[A-Z]+\/\d{1,5}$/i, 'Format: 20/EG/CO/1234'),
+    .regex(/^\d{2}\/[A-Z]{2}\/[A-Z]{2}\/\d{3,5}$/i, 'Use the format 20/EG/XX/1234 (year, faculty, department, serial)'),
   level: z.string().min(1, 'Level is required'),
   middleName: z.string().optional(),
   dateOfBirth: z
@@ -59,6 +60,11 @@ type OnboardingValues = z.infer<typeof onboardingSchema>;
 
 const StudentOnboardingPage = () => {
   const { updateUser } = useAuth();
+  // The matric format depends on the department the student signed in to. The
+  // server enforces it; this only shows the expected shape.
+  const { departments, selected } = useDepartments();
+  const matricCode = departments.find((d) => d.slug === selected)?.matricCode;
+  const matricExample = matricCode ? `20/${matricCode}/1234` : '20/EG/XX/1234';
   const { success, error } = useNotification();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
@@ -279,7 +285,8 @@ const StudentOnboardingPage = () => {
 
                 <Input
                   label="Matric Number"
-                  placeholder="20/EG/CO/1234"
+                  placeholder={matricExample}
+                  hint={matricCode ? `Your department's matric numbers look like ${matricExample}.` : undefined}
                   leftIcon={<BookOpen className="w-4 h-4" />}
                   error={errors.matricNumber?.message}
                   {...register('matricNumber')}

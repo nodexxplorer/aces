@@ -36,7 +36,11 @@ type Tenant struct {
 	Name        string
 	Institution string
 	Faculty     string
-	IsActive    bool
+	// MatricCode is the department part of its matric numbers, such as EG/EE
+	// for 20/EG/EE/1234. Empty means the department has no code yet, and it
+	// then refuses matric-based sign-up and onboarding (see matric.go).
+	MatricCode string
+	IsActive   bool
 }
 
 type ctxKey struct{}

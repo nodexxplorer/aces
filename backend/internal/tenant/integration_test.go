@@ -256,6 +256,55 @@ func TestDatabaseTenancy(t *testing.T) {
 		if def.ID != tenant.LegacyID || def.Slug != legacySlug || !def.IsActive {
 			t.Fatalf("default tenant = %+v, want the legacy tenant", def)
 		}
+		if def.MatricCode != "EG/CO" {
+			t.Fatalf("legacy matric code = %q, want EG/CO (backfilled by migration 000005)", def.MatricCode)
+		}
+	})
+
+	t.Run("matric codes are read with the department and kept unique", func(t *testing.T) {
+		mustExec(t, e.admin, `INSERT INTO tenants (slug, name, matric_code) VALUES ('matric-ee', 'Department of EE', 'EG/EE')`)
+
+		got, err := e.mgr.Resolve(e.ctx, "matric-ee")
+		if err != nil {
+			t.Fatalf("Resolve: %v", err)
+		}
+		if got.MatricCode != "EG/EE" {
+			t.Fatalf("Resolve: matric code = %q, want EG/EE", got.MatricCode)
+		}
+		active, err := e.mgr.Active(e.ctx)
+		if err != nil {
+			t.Fatalf("Active: %v", err)
+		}
+		listed := false
+		for _, a := range active {
+			if a.Slug == "matric-ee" && a.MatricCode == "EG/EE" {
+				listed = true
+			}
+		}
+		if !listed {
+			t.Fatal("Active does not list the matric code of matric-ee")
+		}
+
+		// Two departments cannot share a code, or a matric number could not be
+		// traced to one department.
+		_, err = e.admin.Exec(e.ctx, `INSERT INTO tenants (slug, name, matric_code) VALUES ('matric-ee-copy', 'Copy', 'EG/EE')`)
+		if pgCode(err) != "23505" {
+			t.Fatalf("duplicate code: got %v, want unique violation 23505", err)
+		}
+		// The format is enforced by the database as well as by the server.
+		_, err = e.admin.Exec(e.ctx, `INSERT INTO tenants (slug, name, matric_code) VALUES ('matric-bad', 'Bad', 'EE')`)
+		if pgCode(err) != "23514" {
+			t.Fatalf("bad format: got %v, want check violation 23514", err)
+		}
+		// Departments without a code do not collide with each other.
+		_, err = e.admin.Exec(e.ctx, `INSERT INTO tenants (slug, name) VALUES ('matric-none-a', 'A'), ('matric-none-b', 'B')`)
+		if err != nil {
+			t.Fatalf("two departments without a code: %v", err)
+		}
+		none, err := e.mgr.Resolve(e.ctx, "matric-none-a")
+		if err != nil || none.MatricCode != "" {
+			t.Fatalf("department without a code: %+v, %v; want empty matric code", none, err)
+		}
 	})
 
 	t.Run("unknown department is not found", func(t *testing.T) {

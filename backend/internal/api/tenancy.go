@@ -21,6 +21,7 @@ type tenantResponse struct {
 	Name        string `json:"name"`
 	Institution string `json:"institution,omitempty"`
 	Faculty     string `json:"faculty,omitempty"`
+	MatricCode  string `json:"matricCode,omitempty"`
 }
 
 func toTenantResponse(t tenant.Tenant) *tenantResponse {
@@ -29,6 +30,7 @@ func toTenantResponse(t tenant.Tenant) *tenantResponse {
 		Name:        t.Name,
 		Institution: t.Institution,
 		Faculty:     t.Faculty,
+		MatricCode:  t.MatricCode,
 	}
 }
 
@@ -39,6 +41,10 @@ type tenantListItem struct {
 	Name        string `json:"name"`
 	Institution string `json:"institution,omitempty"`
 	Faculty     string `json:"faculty,omitempty"`
+	// MatricCode is the department part of its matric numbers (EG/EE for
+	// 20/EG/EE/1234). It is not sensitive: every matric number contains it.
+	// Sign-up and onboarding forms use it to show the expected format.
+	MatricCode string `json:"matricCode,omitempty"`
 	// Default marks the department used when a request names none (mobile
 	// clients, and sign-in forms before a choice is made).
 	Default bool `json:"default,omitempty"`
@@ -61,6 +67,7 @@ func (server *Server) listTenants(ctx *gin.Context) {
 			Name:        t.Name,
 			Institution: t.Institution,
 			Faculty:     t.Faculty,
+			MatricCode:  t.MatricCode,
 			Default:     t.Slug == server.tenants.DefaultSlug(),
 		})
 	}
