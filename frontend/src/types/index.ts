@@ -282,6 +282,9 @@ export interface Payment extends BaseEntity {
   verified_by?: string;
   verified_at?: string;
   paid_at?: string;
+  // Official dues receipt number — null until the student first downloads
+  // the receipt PDF for a dept/class dues payment.
+  receipt_number?: number | null;
   // Joined fields
   matric_number?: string;
   student_name?: string;

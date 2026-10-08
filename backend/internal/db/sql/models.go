@@ -238,6 +238,51 @@ func (ns NullAlumniVerificationStatus) Value() (driver.Value, error) {
 	return string(ns.AlumniVerificationStatus), nil
 }
 
+type AppealStatus string
+
+const (
+	AppealStatusSubmitted      AppealStatus = "submitted"
+	AppealStatusLecturerReview AppealStatus = "lecturer_review"
+	AppealStatusHodReview      AppealStatus = "hod_review"
+	AppealStatusResolved       AppealStatus = "resolved"
+	AppealStatusRejected       AppealStatus = "rejected"
+)
+
+func (e *AppealStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AppealStatus(s)
+	case string:
+		*e = AppealStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AppealStatus: %T", src)
+	}
+	return nil
+}
+
+type NullAppealStatus struct {
+	AppealStatus AppealStatus `json:"appeal_status"`
+	Valid        bool         `json:"valid"` // Valid is true if AppealStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAppealStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.AppealStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AppealStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAppealStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AppealStatus), nil
+}
+
 type ApplicationStatus string
 
 const (
@@ -325,49 +370,6 @@ func (ns NullBackupStatus) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.BackupStatus), nil
-}
-
-type BroadcastPriority string
-
-const (
-	BroadcastPriorityNormal   BroadcastPriority = "normal"
-	BroadcastPriorityUrgent   BroadcastPriority = "urgent"
-	BroadcastPriorityCritical BroadcastPriority = "critical"
-)
-
-func (e *BroadcastPriority) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = BroadcastPriority(s)
-	case string:
-		*e = BroadcastPriority(s)
-	default:
-		return fmt.Errorf("unsupported scan type for BroadcastPriority: %T", src)
-	}
-	return nil
-}
-
-type NullBroadcastPriority struct {
-	BroadcastPriority BroadcastPriority `json:"broadcast_priority"`
-	Valid             bool              `json:"valid"` // Valid is true if BroadcastPriority is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullBroadcastPriority) Scan(value interface{}) error {
-	if value == nil {
-		ns.BroadcastPriority, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.BroadcastPriority.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullBroadcastPriority) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.BroadcastPriority), nil
 }
 
 type CalendarEventType string
@@ -637,6 +639,50 @@ func (ns NullConnectionStatus) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.ConnectionStatus), nil
+}
+
+type CourseMaterialType string
+
+const (
+	CourseMaterialTypeSlide        CourseMaterialType = "slide"
+	CourseMaterialTypePastQuestion CourseMaterialType = "past_question"
+	CourseMaterialTypeReading      CourseMaterialType = "reading"
+	CourseMaterialTypeOther        CourseMaterialType = "other"
+)
+
+func (e *CourseMaterialType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = CourseMaterialType(s)
+	case string:
+		*e = CourseMaterialType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for CourseMaterialType: %T", src)
+	}
+	return nil
+}
+
+type NullCourseMaterialType struct {
+	CourseMaterialType CourseMaterialType `json:"course_material_type"`
+	Valid              bool               `json:"valid"` // Valid is true if CourseMaterialType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullCourseMaterialType) Scan(value interface{}) error {
+	if value == nil {
+		ns.CourseMaterialType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.CourseMaterialType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullCourseMaterialType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.CourseMaterialType), nil
 }
 
 type DocumentStatus string
@@ -1410,6 +1456,7 @@ type PaymentType string
 const (
 	PaymentTypeDeptDues      PaymentType = "dept_dues"
 	PaymentTypeClassDues     PaymentType = "class_dues"
+	PaymentTypeManual        PaymentType = "manual"
 	PaymentTypeMaterials     PaymentType = "materials"
 	PaymentTypeTranscriptFee PaymentType = "transcript_fee"
 	PaymentTypeOther         PaymentType = "other"
@@ -1548,6 +1595,10 @@ const (
 	ReportStatusGenerating ReportStatus = "generating"
 	ReportStatusCompleted  ReportStatus = "completed"
 	ReportStatusFailed     ReportStatus = "failed"
+	ReportStatusPending    ReportStatus = "pending"
+	ReportStatusReviewed   ReportStatus = "reviewed"
+	ReportStatusResolved   ReportStatus = "resolved"
+	ReportStatusDismissed  ReportStatus = "dismissed"
 )
 
 func (e *ReportStatus) Scan(src interface{}) error {
@@ -1719,6 +1770,8 @@ type SemesterSeason string
 const (
 	SemesterSeasonHarmattan SemesterSeason = "harmattan"
 	SemesterSeasonRain      SemesterSeason = "rain"
+	SemesterSeasonFirst     SemesterSeason = "first"
+	SemesterSeasonSecond    SemesterSeason = "second"
 )
 
 func (e *SemesterSeason) Scan(src interface{}) error {
@@ -1976,6 +2029,51 @@ func (ns NullTradeStatus) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.TradeStatus), nil
+}
+
+type TranscriptStatus string
+
+const (
+	TranscriptStatusRequested      TranscriptStatus = "requested"
+	TranscriptStatusPendingPayment TranscriptStatus = "pending_payment"
+	TranscriptStatusProcessing     TranscriptStatus = "processing"
+	TranscriptStatusReady          TranscriptStatus = "ready"
+	TranscriptStatusSent           TranscriptStatus = "sent"
+)
+
+func (e *TranscriptStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = TranscriptStatus(s)
+	case string:
+		*e = TranscriptStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for TranscriptStatus: %T", src)
+	}
+	return nil
+}
+
+type NullTranscriptStatus struct {
+	TranscriptStatus TranscriptStatus `json:"transcript_status"`
+	Valid            bool             `json:"valid"` // Valid is true if TranscriptStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullTranscriptStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.TranscriptStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.TranscriptStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullTranscriptStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.TranscriptStatus), nil
 }
 
 type UserRole string
@@ -2369,13 +2467,6 @@ type Backup struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
-type BroadcastAcknowledgment struct {
-	ID             uuid.UUID          `json:"id"`
-	BroadcastID    uuid.UUID          `json:"broadcast_id"`
-	UserID         uuid.UUID          `json:"user_id"`
-	AcknowledgedAt pgtype.Timestamptz `json:"acknowledged_at"`
-}
-
 type BursarAssignment struct {
 	ID         uuid.UUID          `json:"id"`
 	UserID     uuid.UUID          `json:"user_id"`
@@ -2409,11 +2500,24 @@ type CampusReport struct {
 	TargetID    uuid.UUID          `json:"target_id"`
 	Reason      string             `json:"reason"`
 	Description *string            `json:"description"`
-	Status      ReportStatus       `json:"status"`
+	Status      string             `json:"status"`
 	ReviewedBy  pgtype.UUID        `json:"reviewed_by"`
 	ReviewedAt  pgtype.Timestamptz `json:"reviewed_at"`
 	ActionTaken *string            `json:"action_taken"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type CarryoverCourse struct {
+	ID                uuid.UUID          `json:"id"`
+	StudentID         uuid.UUID          `json:"student_id"`
+	CourseID          uuid.UUID          `json:"course_id"`
+	OriginalResultID  uuid.UUID          `json:"original_result_id"`
+	OriginalSessionID uuid.UUID          `json:"original_session_id"`
+	AttemptCount      int32              `json:"attempt_count"`
+	MaxAttempts       int32              `json:"max_attempts"`
+	IsResolved        bool               `json:"is_resolved"`
+	ResolvedResultID  pgtype.UUID        `json:"resolved_result_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 }
 
 type CgpaRule struct {
@@ -2439,7 +2543,7 @@ type ClassNotice struct {
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 	Level         *int32             `json:"level"`
-	TargetUserIds []byte             `json:"target_user_ids"`
+	TargetUserIds json.RawMessage    `json:"target_user_ids"`
 }
 
 type ClassNoticeComment struct {
@@ -2534,6 +2638,17 @@ type Complaint struct {
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 }
 
+type ComplaintStatusHistory struct {
+	ID            uuid.UUID          `json:"id"`
+	ComplaintID   uuid.UUID          `json:"complaint_id"`
+	FromStatus    *ComplaintStatus   `json:"from_status"`
+	ToStatus      ComplaintStatus    `json:"to_status"`
+	ChangedBy     uuid.UUID          `json:"changed_by"`
+	ChangedByRole string             `json:"changed_by_role"`
+	Note          *string            `json:"note"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
 type Connection struct {
 	ID          uuid.UUID          `json:"id"`
 	RequesterID uuid.UUID          `json:"requester_id"`
@@ -2586,6 +2701,23 @@ type Course struct {
 	RequirementType string             `json:"requirement_type"`
 }
 
+type CourseMaterial struct {
+	ID            uuid.UUID          `json:"id"`
+	CourseID      uuid.UUID          `json:"course_id"`
+	UploadedBy    uuid.UUID          `json:"uploaded_by"`
+	SessionID     pgtype.UUID        `json:"session_id"`
+	Title         string             `json:"title"`
+	Description   *string            `json:"description"`
+	MaterialType  CourseMaterialType `json:"material_type"`
+	FileUrl       string             `json:"file_url"`
+	FileName      string             `json:"file_name"`
+	FileSize      int32              `json:"file_size"`
+	DownloadCount int32              `json:"download_count"`
+	IsActive      bool               `json:"is_active"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
 type CourseRegistration struct {
 	ID         uuid.UUID          `json:"id"`
 	StudentID  uuid.UUID          `json:"student_id"`
@@ -2605,6 +2737,44 @@ type CourseSubcategory struct {
 	WeightPercentage int32              `json:"weight_percentage"`
 	IsActive         bool               `json:"is_active"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
+type CrfBacklogPrice struct {
+	ID               int32              `json:"id"`
+	AmountPerBacklog decimal.Decimal    `json:"amount_per_backlog"`
+	UpdatedBy        pgtype.UUID        `json:"updated_by"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CrfBacklogRequest struct {
+	ID             uuid.UUID          `json:"id"`
+	UserID         uuid.UUID          `json:"user_id"`
+	RequestedCount int32              `json:"requested_count"`
+	Amount         decimal.Decimal    `json:"amount"`
+	PaymentID      pgtype.UUID        `json:"payment_id"`
+	Status         string             `json:"status"`
+	FormsSubmitted int32              `json:"forms_submitted"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	PaidAt         pgtype.Timestamptz `json:"paid_at"`
+}
+
+type CrfSignatureAsset struct {
+	ID         uuid.UUID          `json:"id"`
+	Kind       string             `json:"kind"`
+	FilePath   string             `json:"file_path"`
+	UploadedBy pgtype.UUID        `json:"uploaded_by"`
+	UploadedAt pgtype.Timestamptz `json:"uploaded_at"`
+}
+
+type CrfSigningSubmission struct {
+	ID               uuid.UUID          `json:"id"`
+	UserID           uuid.UUID          `json:"user_id"`
+	SemesterID       uuid.UUID          `json:"semester_id"`
+	OriginalFilePath string             `json:"original_file_path"`
+	SignedFilePath   string             `json:"signed_file_path"`
+	Status           string             `json:"status"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	Placements       json.RawMessage    `json:"placements"`
 }
 
 type DepartmentalEvent struct {
@@ -2655,19 +2825,6 @@ type ElectionVote struct {
 	NomineeID  uuid.UUID          `json:"nominee_id"`
 	VoterID    uuid.UUID          `json:"voter_id"`
 	VotedAt    pgtype.Timestamptz `json:"voted_at"`
-}
-
-type EmergencyBroadcast struct {
-	ID                     uuid.UUID          `json:"id"`
-	SenderID               uuid.UUID          `json:"sender_id"`
-	Title                  string             `json:"title"`
-	Message                string             `json:"message"`
-	Priority               BroadcastPriority  `json:"priority"`
-	Template               *string            `json:"template"`
-	Channels               []byte             `json:"channels"`
-	TargetRoles            []byte             `json:"target_roles"`
-	RequiresAcknowledgment *bool              `json:"requires_acknowledgment"`
-	CreatedAt              pgtype.Timestamptz `json:"created_at"`
 }
 
 type EventAttendee struct {
@@ -2758,6 +2915,47 @@ type GpaScenario struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
+type GradeAppeal struct {
+	ID               uuid.UUID          `json:"id"`
+	StudentID        uuid.UUID          `json:"student_id"`
+	CourseID         uuid.UUID          `json:"course_id"`
+	SemesterID       uuid.UUID          `json:"semester_id"`
+	SessionID        uuid.UUID          `json:"session_id"`
+	Reason           string             `json:"reason"`
+	EvidenceUrls     []byte             `json:"evidence_urls"`
+	Status           AppealStatus       `json:"status"`
+	LecturerResponse *string            `json:"lecturer_response"`
+	LecturerID       pgtype.UUID        `json:"lecturer_id"`
+	HodResponse      *string            `json:"hod_response"`
+	HodID            pgtype.UUID        `json:"hod_id"`
+	OriginalScore    *float64           `json:"original_score"`
+	RevisedScore     *float64           `json:"revised_score"`
+	ResolvedAt       pgtype.Timestamptz `json:"resolved_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type GraduationFee struct {
+	ID        int32              `json:"id"`
+	Amount    decimal.Decimal    `json:"amount"`
+	UpdatedBy pgtype.UUID        `json:"updated_by"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type GraduationRequest struct {
+	ID            uuid.UUID          `json:"id"`
+	UserID        uuid.UUID          `json:"user_id"`
+	AmountCharged decimal.Decimal    `json:"amount_charged"`
+	PaymentID     pgtype.UUID        `json:"payment_id"`
+	Status        string             `json:"status"`
+	Waived        bool               `json:"waived"`
+	CreatedBy     uuid.UUID          `json:"created_by"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	PaidAt        pgtype.Timestamptz `json:"paid_at"`
+	ClearedBy     pgtype.UUID        `json:"cleared_by"`
+	ClearedAt     pgtype.Timestamptz `json:"cleared_at"`
+}
+
 type Group struct {
 	ID          uuid.UUID          `json:"id"`
 	Name        string             `json:"name"`
@@ -2769,6 +2967,7 @@ type Group struct {
 	CreatedBy   uuid.UUID          `json:"created_by"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	InviteCode  *string            `json:"invite_code"`
 }
 
 type GroupFile struct {
@@ -2906,6 +3105,21 @@ type LecturerPerformance struct {
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 }
 
+type LevelPromotion struct {
+	ID            uuid.UUID          `json:"id"`
+	StudentID     uuid.UUID          `json:"student_id"`
+	FromSessionID pgtype.UUID        `json:"from_session_id"`
+	ToSessionID   uuid.UUID          `json:"to_session_id"`
+	FromLevel     int32              `json:"from_level"`
+	ToLevel       int32              `json:"to_level"`
+	Status        string             `json:"status"`
+	Reason        string             `json:"reason"`
+	ConfirmedBy   pgtype.UUID        `json:"confirmed_by"`
+	ConfirmedAt   pgtype.Timestamptz `json:"confirmed_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
 type MeetingAttendee struct {
 	ID          uuid.UUID          `json:"id"`
 	MeetingID   uuid.UUID          `json:"meeting_id"`
@@ -2959,15 +3173,54 @@ type MessageReaction struct {
 }
 
 type Notification struct {
-	ID        uuid.UUID          `json:"id"`
-	UserID    uuid.UUID          `json:"user_id"`
-	Type      NotificationType   `json:"type"`
-	Title     string             `json:"title"`
-	Message   string             `json:"message"`
-	IsRead    bool               `json:"is_read"`
-	ActionUrl *string            `json:"action_url"`
-	EmailSent bool               `json:"email_sent"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ID          uuid.UUID          `json:"id"`
+	UserID      uuid.UUID          `json:"user_id"`
+	Type        string             `json:"type"`
+	Title       string             `json:"title"`
+	Message     string             `json:"message"`
+	IsRead      bool               `json:"is_read"`
+	ActionUrl   *string            `json:"action_url"`
+	EmailSent   bool               `json:"email_sent"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	Category    *string            `json:"category"`
+	Priority    *string            `json:"priority"`
+	SenderID    pgtype.UUID        `json:"sender_id"`
+	EntityType  *string            `json:"entity_type"`
+	EntityID    pgtype.UUID        `json:"entity_id"`
+	ActionLabel *string            `json:"action_label"`
+	ImageUrl    *string            `json:"image_url"`
+	Metadata    []byte             `json:"metadata"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+}
+
+type NotificationPreference struct {
+	ID                  uuid.UUID          `json:"id"`
+	UserID              uuid.UUID          `json:"user_id"`
+	EmailEnabled        *bool              `json:"email_enabled"`
+	PushEnabled         *bool              `json:"push_enabled"`
+	InAppEnabled        *bool              `json:"in_app_enabled"`
+	EmailAuth           *bool              `json:"email_auth"`
+	EmailResults        *bool              `json:"email_results"`
+	EmailDues           *bool              `json:"email_dues"`
+	EmailMessages       *bool              `json:"email_messages"`
+	EmailConnect        *bool              `json:"email_connect"`
+	EmailSkills         *bool              `json:"email_skills"`
+	EmailAlumni         *bool              `json:"email_alumni"`
+	EmailSystem         *bool              `json:"email_system"`
+	PushAuth            *bool              `json:"push_auth"`
+	PushResults         *bool              `json:"push_results"`
+	PushDues            *bool              `json:"push_dues"`
+	PushMessages        *bool              `json:"push_messages"`
+	PushConnect         *bool              `json:"push_connect"`
+	PushSkills          *bool              `json:"push_skills"`
+	PushAlumni          *bool              `json:"push_alumni"`
+	PushSystem          *bool              `json:"push_system"`
+	QuietHoursStart     pgtype.Time        `json:"quiet_hours_start"`
+	QuietHoursEnd       pgtype.Time        `json:"quiet_hours_end"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	UnsubscribeToken    *string            `json:"unsubscribe_token"`
+	PushToken           *string            `json:"push_token"`
+	WebPushSubscription *string            `json:"web_push_subscription"`
 }
 
 type PasswordReset struct {
@@ -3001,6 +3254,7 @@ type Payment struct {
 	ReceiptUrl        *string            `json:"receipt_url"`
 	RecordedBy        pgtype.UUID        `json:"recorded_by"`
 	Notes             *string            `json:"notes"`
+	ReceiptNumber     *int32             `json:"receipt_number"`
 }
 
 type PaymentBatch struct {
@@ -3102,7 +3356,7 @@ type Report struct {
 
 type Result struct {
 	ID              uuid.UUID          `json:"id"`
-	StudentID       *uuid.UUID         `json:"student_id"`
+	StudentID       pgtype.UUID        `json:"student_id"`
 	CourseID        uuid.UUID          `json:"course_id"`
 	CaScore         decimal.Decimal    `json:"ca_score"`
 	ExamScore       decimal.Decimal    `json:"exam_score"`
@@ -3208,42 +3462,6 @@ type SignupApproval struct {
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 }
 
-type SkillCategory struct {
-	ID          uuid.UUID          `json:"id"`
-	Name        string             `json:"name"`
-	Description *string            `json:"description"`
-	Icon        *string            `json:"icon"`
-	IsActive    bool               `json:"is_active"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-}
-
-type SkillListing struct {
-	ID                uuid.UUID          `json:"id"`
-	UserID            uuid.UUID          `json:"user_id"`
-	CategoryID        uuid.UUID          `json:"category_id"`
-	Title             string             `json:"title"`
-	Description       *string            `json:"description"`
-	SkillLevel        SkillLevel         `json:"skill_level"`
-	Price             pgtype.Numeric     `json:"price"`
-	IsFree            bool               `json:"is_free"`
-	BarterAvailable   bool               `json:"barter_available"`
-	BarterDescription *string            `json:"barter_description"`
-	PortfolioUrl      *string            `json:"portfolio_url"`
-	IsActive          bool               `json:"is_active"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
-}
-
-type SkillRating struct {
-	ID          uuid.UUID          `json:"id"`
-	TradeID     uuid.UUID          `json:"trade_id"`
-	RaterID     uuid.UUID          `json:"rater_id"`
-	RatedUserID uuid.UUID          `json:"rated_user_id"`
-	Rating      int32              `json:"rating"`
-	Review      *string            `json:"review"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-}
-
 type Staff struct {
 	ID               uuid.UUID          `json:"id"`
 	UserID           uuid.UUID          `json:"user_id"`
@@ -3285,9 +3503,9 @@ type StaffMeeting struct {
 type Student struct {
 	ID                   uuid.UUID          `json:"id"`
 	UserID               uuid.UUID          `json:"user_id"`
-	MatricNumber         string             `json:"matric_number"`
+	MatricNumber         *string            `json:"matric_number"`
 	Level                int32              `json:"level"`
-	EntryYear            int32              `json:"entry_year"`
+	EntryYear            *int32             `json:"entry_year"`
 	CurrentSessionID     pgtype.UUID        `json:"current_session_id"`
 	CurrentSemester      *SemesterSeason    `json:"current_semester"`
 	Cgpa                 pgtype.Numeric     `json:"cgpa"`
@@ -3373,47 +3591,76 @@ type SubcategoryAssignment struct {
 	AssignedBy    pgtype.UUID        `json:"assigned_by"`
 }
 
-type TradeOffer struct {
-	ID               uuid.UUID          `json:"id"`
-	FromUserID       uuid.UUID          `json:"from_user_id"`
-	ToUserID         uuid.UUID          `json:"to_user_id"`
-	OfferedSkillID   uuid.UUID          `json:"offered_skill_id"`
-	RequestedSkillID pgtype.UUID        `json:"requested_skill_id"`
-	Status           TradeStatus        `json:"status"`
-	Message          *string            `json:"message"`
-	PriceOffered     pgtype.Numeric     `json:"price_offered"`
-	IsBarter         bool               `json:"is_barter"`
-	RespondedAt      pgtype.Timestamptz `json:"responded_at"`
-	CompletedAt      pgtype.Timestamptz `json:"completed_at"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+type Timetable struct {
+	ID              uuid.UUID          `json:"id"`
+	CourseID        uuid.UUID          `json:"course_id"`
+	ExamDate        pgtype.Timestamptz `json:"exam_date"`
+	StartTime       pgtype.Timestamptz `json:"start_time"`
+	EndTime         pgtype.Timestamptz `json:"end_time"`
+	Venue           string             `json:"venue"`
+	SessionID       pgtype.UUID        `json:"session_id"`
+	SemesterID      pgtype.UUID        `json:"semester_id"`
+	HasConflict     bool               `json:"has_conflict"`
+	ConflictDetails []byte             `json:"conflict_details"`
+	CreatedBy       pgtype.UUID        `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	DayOfWeek       *int32             `json:"day_of_week"`
+	Level           *int32             `json:"level"`
+	EntryType       string             `json:"entry_type"`
+	ClassType       *string            `json:"class_type"`
+	LecturerID      pgtype.UUID        `json:"lecturer_id"`
+	ExamType        *string            `json:"exam_type"`
+	Invigilators    *string            `json:"invigilators"`
+	IsPublished     bool               `json:"is_published"`
+	PublishedAt     pgtype.Timestamptz `json:"published_at"`
+}
+
+type TranscriptRequest struct {
+	ID           uuid.UUID          `json:"id"`
+	StudentID    uuid.UUID          `json:"student_id"`
+	Purpose      string             `json:"purpose"`
+	Status       TranscriptStatus   `json:"status"`
+	FeePaid      bool               `json:"fee_paid"`
+	FeeAmount    pgtype.Numeric     `json:"fee_amount"`
+	PdfUrl       *string            `json:"pdf_url"`
+	QrCodeUrl    *string            `json:"qr_code_url"`
+	SentViaEmail bool               `json:"sent_via_email"`
+	EmailedAt    pgtype.Timestamptz `json:"emailed_at"`
+	ProcessedBy  pgtype.UUID        `json:"processed_by"`
+	ProcessedAt  pgtype.Timestamptz `json:"processed_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
 type User struct {
-	ID                    uuid.UUID          `json:"id"`
-	Email                 string             `json:"email"`
-	PasswordHash          string             `json:"password_hash"`
-	Role                  UserRole           `json:"role"`
-	FullName              string             `json:"full_name"`
-	MiddleName            *string            `json:"middle_name"`
-	Phone                 *string            `json:"phone"`
-	AvatarUrl             *string            `json:"avatar_url"`
-	IsActive              bool               `json:"is_active"`
-	EmailVerified         bool               `json:"email_verified"`
-	TwoFactorEnabled      bool               `json:"two_factor_enabled"`
-	LastLoginAt           pgtype.Timestamptz `json:"last_login_at"`
-	CreatedAt             pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt             pgtype.Timestamptz `json:"deleted_at"`
-	CreatedByHodID        pgtype.UUID        `json:"created_by_hod_id"`
-	IsApproved            bool               `json:"is_approved"`
-	ApprovedBy            pgtype.UUID        `json:"approved_by"`
-	ApprovedAt            pgtype.Timestamptz `json:"approved_at"`
-	DateOfBirth           pgtype.Date        `json:"date_of_birth"`
-	EmergencyContactName  *string            `json:"emergency_contact_name"`
-	EmergencyContactPhone *string            `json:"emergency_contact_phone"`
-	HomeAddress           *string            `json:"home_address"`
-	FirstName             string             `json:"first_name"`
-	LastName              string             `json:"last_name"`
+	ID                      uuid.UUID          `json:"id"`
+	Email                   string             `json:"email"`
+	PasswordHash            string             `json:"password_hash"`
+	Role                    UserRole           `json:"role"`
+	Phone                   *string            `json:"phone"`
+	AvatarUrl               *string            `json:"avatar_url"`
+	IsActive                bool               `json:"is_active"`
+	EmailVerified           bool               `json:"email_verified"`
+	TwoFactorEnabled        bool               `json:"two_factor_enabled"`
+	LastLoginAt             pgtype.Timestamptz `json:"last_login_at"`
+	CreatedAt               pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt               pgtype.Timestamptz `json:"deleted_at"`
+	CreatedByHodID          pgtype.UUID        `json:"created_by_hod_id"`
+	IsApproved              bool               `json:"is_approved"`
+	ApprovedBy              pgtype.UUID        `json:"approved_by"`
+	ApprovedAt              pgtype.Timestamptz `json:"approved_at"`
+	DateOfBirth             pgtype.Date        `json:"date_of_birth"`
+	EmergencyContactName    *string            `json:"emergency_contact_name"`
+	EmergencyContactPhone   *string            `json:"emergency_contact_phone"`
+	HomeAddress             *string            `json:"home_address"`
+	MiddleName              *string            `json:"middle_name"`
+	FirstName               string             `json:"first_name"`
+	LastName                string             `json:"last_name"`
+	FullName                *string            `json:"full_name"`
+	CalendarFeedToken       *string            `json:"calendar_feed_token"`
+	LastBirthdayGreetedYear *int16             `json:"last_birthday_greeted_year"`
+	ModoolsSub              *string            `json:"modools_sub"`
+	ModoolsRefreshToken     *string            `json:"modools_refresh_token"`
 }
 
 type UserReputation struct {

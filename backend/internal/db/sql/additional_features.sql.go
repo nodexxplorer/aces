@@ -103,7 +103,7 @@ type CreateClassNoticeParams struct {
 	AttachmentUrl *string            `json:"attachment_url"`
 	ExpiresAt     pgtype.Timestamptz `json:"expires_at"`
 	Level         *int32             `json:"level"`
-	TargetUserIds []byte             `json:"target_user_ids"`
+	TargetUserIds json.RawMessage    `json:"target_user_ids"`
 }
 
 func (q *Queries) CreateClassNotice(ctx context.Context, arg CreateClassNoticeParams) (ClassNotice, error) {
@@ -372,6 +372,53 @@ func (q *Queries) CreateGPAScenario(ctx context.Context, arg CreateGPAScenarioPa
 		&i.UserID,
 		&i.Name,
 		&i.Courses,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createGradeAppeal = `-- name: CreateGradeAppeal :one
+INSERT INTO grade_appeals (student_id, course_id, semester_id, session_id, reason, evidence_urls)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, student_id, course_id, semester_id, session_id, reason, evidence_urls, status, lecturer_response, lecturer_id, hod_response, hod_id, original_score, revised_score, resolved_at, created_at, updated_at
+`
+
+type CreateGradeAppealParams struct {
+	StudentID    uuid.UUID `json:"student_id"`
+	CourseID     uuid.UUID `json:"course_id"`
+	SemesterID   uuid.UUID `json:"semester_id"`
+	SessionID    uuid.UUID `json:"session_id"`
+	Reason       string    `json:"reason"`
+	EvidenceUrls []byte    `json:"evidence_urls"`
+}
+
+func (q *Queries) CreateGradeAppeal(ctx context.Context, arg CreateGradeAppealParams) (GradeAppeal, error) {
+	row := q.db.QueryRow(ctx, createGradeAppeal,
+		arg.StudentID,
+		arg.CourseID,
+		arg.SemesterID,
+		arg.SessionID,
+		arg.Reason,
+		arg.EvidenceUrls,
+	)
+	var i GradeAppeal
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.CourseID,
+		&i.SemesterID,
+		&i.SessionID,
+		&i.Reason,
+		&i.EvidenceUrls,
+		&i.Status,
+		&i.LecturerResponse,
+		&i.LecturerID,
+		&i.HodResponse,
+		&i.HodID,
+		&i.OriginalScore,
+		&i.RevisedScore,
+		&i.ResolvedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -726,7 +773,7 @@ func (q *Queries) GetBudgetAlerts(ctx context.Context) ([]ExpenseBudget, error) 
 }
 
 const getClassNotice = `-- name: GetClassNotice :one
-SELECT cn.id, cn.class_rep_id, cn.title, cn.content, cn.is_pinned, cn.pinned_order, cn.allow_comments, cn.attachment_url, cn.expires_at, cn.created_at, cn.updated_at, u.full_name AS author_name
+SELECT cn.id, cn.class_rep_id, cn.title, cn.content, cn.is_pinned, cn.pinned_order, cn.allow_comments, cn.attachment_url, cn.expires_at, cn.created_at, cn.updated_at, cn.level, cn.target_user_ids, u.full_name AS author_name
 FROM class_notices cn
 JOIN users u ON u.id = cn.class_rep_id
 WHERE cn.id = $1
@@ -744,7 +791,9 @@ type GetClassNoticeRow struct {
 	ExpiresAt     pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
-	AuthorName    string             `json:"author_name"`
+	Level         *int32             `json:"level"`
+	TargetUserIds json.RawMessage    `json:"target_user_ids"`
+	AuthorName    *string            `json:"author_name"`
 }
 
 func (q *Queries) GetClassNotice(ctx context.Context, id uuid.UUID) (GetClassNoticeRow, error) {
@@ -762,6 +811,8 @@ func (q *Queries) GetClassNotice(ctx context.Context, id uuid.UUID) (GetClassNot
 		&i.ExpiresAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Level,
+		&i.TargetUserIds,
 		&i.AuthorName,
 	)
 	return i, err
@@ -788,7 +839,7 @@ type GetDepartmentalEventRow struct {
 	IsAllDay       *bool              `json:"is_all_day"`
 	Color          *string            `json:"color"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	CreatorName    string             `json:"creator_name"`
+	CreatorName    *string            `json:"creator_name"`
 }
 
 func (q *Queries) GetDepartmentalEvent(ctx context.Context, id uuid.UUID) (GetDepartmentalEventRow, error) {
@@ -833,7 +884,7 @@ type GetExpenseRow struct {
 	ApprovedAt      pgtype.Timestamptz `json:"approved_at"`
 	RejectionReason *string            `json:"rejection_reason"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	SubmittedByName string             `json:"submitted_by_name"`
+	SubmittedByName *string            `json:"submitted_by_name"`
 }
 
 func (q *Queries) GetExpense(ctx context.Context, id uuid.UUID) (GetExpenseRow, error) {
@@ -994,7 +1045,7 @@ type GetFeedbackRow struct {
 	AdminResponse *string            `json:"admin_response"`
 	RespondedAt   pgtype.Timestamptz `json:"responded_at"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UserName      string             `json:"user_name"`
+	UserName      *string            `json:"user_name"`
 }
 
 func (q *Queries) GetFeedback(ctx context.Context, id uuid.UUID) (GetFeedbackRow, error) {
@@ -1037,6 +1088,66 @@ func (q *Queries) GetGPAScenario(ctx context.Context, arg GetGPAScenarioParams) 
 		&i.Courses,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getGradeAppeal = `-- name: GetGradeAppeal :one
+SELECT ga.id, ga.student_id, ga.course_id, ga.semester_id, ga.session_id, ga.reason, ga.evidence_urls, ga.status, ga.lecturer_response, ga.lecturer_id, ga.hod_response, ga.hod_id, ga.original_score, ga.revised_score, ga.resolved_at, ga.created_at, ga.updated_at, c.code AS course_code, c.title AS course_title,
+       u.full_name AS student_name
+FROM grade_appeals ga
+JOIN courses c ON c.id = ga.course_id
+JOIN users u ON u.id = ga.student_id
+WHERE ga.id = $1
+`
+
+type GetGradeAppealRow struct {
+	ID               uuid.UUID          `json:"id"`
+	StudentID        uuid.UUID          `json:"student_id"`
+	CourseID         uuid.UUID          `json:"course_id"`
+	SemesterID       uuid.UUID          `json:"semester_id"`
+	SessionID        uuid.UUID          `json:"session_id"`
+	Reason           string             `json:"reason"`
+	EvidenceUrls     []byte             `json:"evidence_urls"`
+	Status           AppealStatus       `json:"status"`
+	LecturerResponse *string            `json:"lecturer_response"`
+	LecturerID       pgtype.UUID        `json:"lecturer_id"`
+	HodResponse      *string            `json:"hod_response"`
+	HodID            pgtype.UUID        `json:"hod_id"`
+	OriginalScore    *float64           `json:"original_score"`
+	RevisedScore     *float64           `json:"revised_score"`
+	ResolvedAt       pgtype.Timestamptz `json:"resolved_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	CourseCode       string             `json:"course_code"`
+	CourseTitle      string             `json:"course_title"`
+	StudentName      *string            `json:"student_name"`
+}
+
+func (q *Queries) GetGradeAppeal(ctx context.Context, id uuid.UUID) (GetGradeAppealRow, error) {
+	row := q.db.QueryRow(ctx, getGradeAppeal, id)
+	var i GetGradeAppealRow
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.CourseID,
+		&i.SemesterID,
+		&i.SessionID,
+		&i.Reason,
+		&i.EvidenceUrls,
+		&i.Status,
+		&i.LecturerResponse,
+		&i.LecturerID,
+		&i.HodResponse,
+		&i.HodID,
+		&i.OriginalScore,
+		&i.RevisedScore,
+		&i.ResolvedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CourseCode,
+		&i.CourseTitle,
+		&i.StudentName,
 	)
 	return i, err
 }
@@ -1169,7 +1280,7 @@ type GetStaffMeetingRow struct {
 	Status            MeetingStatus      `json:"status"`
 	MinutesUrl        *string            `json:"minutes_url"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	OrganizerName     string             `json:"organizer_name"`
+	OrganizerName     *string            `json:"organizer_name"`
 }
 
 func (q *Queries) GetStaffMeeting(ctx context.Context, id uuid.UUID) (GetStaffMeetingRow, error) {
@@ -1350,6 +1461,63 @@ func (q *Queries) IsFeatureEnabledForUser(ctx context.Context, arg IsFeatureEnab
 	return is_enabled, err
 }
 
+const listAllFeedback = `-- name: ListAllFeedback :many
+SELECT fs.id, fs.user_id, fs.feedback_type, fs.title, fs.description, fs.rating, fs.screenshot_url, fs.device_info, fs.status, fs.admin_response, fs.responded_at, fs.created_at, u.full_name AS user_name
+FROM feedback_submissions fs
+JOIN users u ON u.id = fs.user_id
+ORDER BY fs.created_at DESC
+`
+
+type ListAllFeedbackRow struct {
+	ID            uuid.UUID          `json:"id"`
+	UserID        uuid.UUID          `json:"user_id"`
+	FeedbackType  FeedbackType       `json:"feedback_type"`
+	Title         string             `json:"title"`
+	Description   string             `json:"description"`
+	Rating        *int32             `json:"rating"`
+	ScreenshotUrl *string            `json:"screenshot_url"`
+	DeviceInfo    []byte             `json:"device_info"`
+	Status        FeedbackStatus     `json:"status"`
+	AdminResponse *string            `json:"admin_response"`
+	RespondedAt   pgtype.Timestamptz `json:"responded_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UserName      *string            `json:"user_name"`
+}
+
+func (q *Queries) ListAllFeedback(ctx context.Context) ([]ListAllFeedbackRow, error) {
+	rows, err := q.db.Query(ctx, listAllFeedback)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAllFeedbackRow{}
+	for rows.Next() {
+		var i ListAllFeedbackRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.FeedbackType,
+			&i.Title,
+			&i.Description,
+			&i.Rating,
+			&i.ScreenshotUrl,
+			&i.DeviceInfo,
+			&i.Status,
+			&i.AdminResponse,
+			&i.RespondedAt,
+			&i.CreatedAt,
+			&i.UserName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listClassNoticesForViewer = `-- name: ListClassNoticesForViewer :many
 SELECT cn.id, cn.class_rep_id, cn.title, cn.content, cn.is_pinned, cn.pinned_order, cn.allow_comments, cn.attachment_url, cn.expires_at, cn.created_at, cn.updated_at, cn.level, cn.target_user_ids, u.full_name AS author_name
 FROM class_notices cn
@@ -1378,10 +1546,14 @@ type ListClassNoticesForViewerRow struct {
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 	Level         *int32             `json:"level"`
-	TargetUserIds []byte             `json:"target_user_ids"`
-	AuthorName    string             `json:"author_name"`
+	TargetUserIds json.RawMessage    `json:"target_user_ids"`
+	AuthorName    *string            `json:"author_name"`
 }
 
+// level = NULL on the notice means campus-wide; a non-null viewer_level only
+// matches notices for that level (staff pass a NULL viewer_level and see
+// every level). target_user_ids = '[]' means "everyone in scope"; otherwise
+// only the listed user IDs can see it.
 func (q *Queries) ListClassNoticesForViewer(ctx context.Context, arg ListClassNoticesForViewerParams) ([]ListClassNoticesForViewerRow, error) {
 	rows, err := q.db.Query(ctx, listClassNoticesForViewer, arg.ViewerLevel, arg.ViewerID)
 	if err != nil {
@@ -1444,7 +1616,7 @@ type ListDepartmentalEventsRow struct {
 	IsAllDay       *bool              `json:"is_all_day"`
 	Color          *string            `json:"color"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	CreatorName    string             `json:"creator_name"`
+	CreatorName    *string            `json:"creator_name"`
 }
 
 func (q *Queries) ListDepartmentalEvents(ctx context.Context, arg ListDepartmentalEventsParams) ([]ListDepartmentalEventsRow, error) {
@@ -1503,7 +1675,7 @@ type ListExpensesRow struct {
 	ApprovedAt      pgtype.Timestamptz `json:"approved_at"`
 	RejectionReason *string            `json:"rejection_reason"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	SubmittedByName string             `json:"submitted_by_name"`
+	SubmittedByName *string            `json:"submitted_by_name"`
 }
 
 func (q *Queries) ListExpenses(ctx context.Context, dollar_1 interface{}) ([]ListExpensesRow, error) {
@@ -1596,52 +1768,11 @@ type ListFeedbackRow struct {
 	AdminResponse *string            `json:"admin_response"`
 	RespondedAt   pgtype.Timestamptz `json:"responded_at"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UserName      string             `json:"user_name"`
+	UserName      *string            `json:"user_name"`
 }
 
-func (q *Queries) ListFeedback(ctx context.Context, dollar_1 interface{}) ([]ListFeedbackRow, error) {
+func (q *Queries) ListFeedback(ctx context.Context, dollar_1 FeedbackStatus) ([]ListFeedbackRow, error) {
 	rows, err := q.db.Query(ctx, listFeedback, dollar_1)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListFeedbackRow{}
-	for rows.Next() {
-		var i ListFeedbackRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.UserID,
-			&i.FeedbackType,
-			&i.Title,
-			&i.Description,
-			&i.Rating,
-			&i.ScreenshotUrl,
-			&i.DeviceInfo,
-			&i.Status,
-			&i.AdminResponse,
-			&i.RespondedAt,
-			&i.CreatedAt,
-			&i.UserName,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listAllFeedback = `-- name: ListAllFeedback :many
-SELECT fs.id, fs.user_id, fs.feedback_type, fs.title, fs.description, fs.rating, fs.screenshot_url, fs.device_info, fs.status, fs.admin_response, fs.responded_at, fs.created_at, u.full_name AS user_name
-FROM feedback_submissions fs
-JOIN users u ON u.id = fs.user_id
-ORDER BY fs.created_at DESC
-`
-
-func (q *Queries) ListAllFeedback(ctx context.Context) ([]ListFeedbackRow, error) {
-	rows, err := q.db.Query(ctx, listAllFeedback)
 	if err != nil {
 		return nil, err
 	}
@@ -1793,7 +1924,7 @@ type ListMeetingAttendeesRow struct {
 	Responded     *bool              `json:"responded"`
 	Attending     *bool              `json:"attending"`
 	RespondedAt   pgtype.Timestamptz `json:"responded_at"`
-	AttendeeName  string             `json:"attendee_name"`
+	AttendeeName  *string            `json:"attendee_name"`
 	AttendeeEmail string             `json:"attendee_email"`
 }
 
@@ -1840,7 +1971,7 @@ type ListNoticeCommentsRow struct {
 	UserID     uuid.UUID          `json:"user_id"`
 	Content    string             `json:"content"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	AuthorName string             `json:"author_name"`
+	AuthorName *string            `json:"author_name"`
 }
 
 func (q *Queries) ListNoticeComments(ctx context.Context, noticeID uuid.UUID) ([]ListNoticeCommentsRow, error) {
@@ -1859,6 +1990,150 @@ func (q *Queries) ListNoticeComments(ctx context.Context, noticeID uuid.UUID) ([
 			&i.Content,
 			&i.CreatedAt,
 			&i.AuthorName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPendingAppeals = `-- name: ListPendingAppeals :many
+SELECT ga.id, ga.student_id, ga.course_id, ga.semester_id, ga.session_id, ga.reason, ga.evidence_urls, ga.status, ga.lecturer_response, ga.lecturer_id, ga.hod_response, ga.hod_id, ga.original_score, ga.revised_score, ga.resolved_at, ga.created_at, ga.updated_at, c.code AS course_code, c.title AS course_title,
+       u.full_name AS student_name
+FROM grade_appeals ga
+JOIN courses c ON c.id = ga.course_id
+JOIN users u ON u.id = ga.student_id
+WHERE ga.status = $1
+ORDER BY ga.created_at DESC
+`
+
+type ListPendingAppealsRow struct {
+	ID               uuid.UUID          `json:"id"`
+	StudentID        uuid.UUID          `json:"student_id"`
+	CourseID         uuid.UUID          `json:"course_id"`
+	SemesterID       uuid.UUID          `json:"semester_id"`
+	SessionID        uuid.UUID          `json:"session_id"`
+	Reason           string             `json:"reason"`
+	EvidenceUrls     []byte             `json:"evidence_urls"`
+	Status           AppealStatus       `json:"status"`
+	LecturerResponse *string            `json:"lecturer_response"`
+	LecturerID       pgtype.UUID        `json:"lecturer_id"`
+	HodResponse      *string            `json:"hod_response"`
+	HodID            pgtype.UUID        `json:"hod_id"`
+	OriginalScore    *float64           `json:"original_score"`
+	RevisedScore     *float64           `json:"revised_score"`
+	ResolvedAt       pgtype.Timestamptz `json:"resolved_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	CourseCode       string             `json:"course_code"`
+	CourseTitle      string             `json:"course_title"`
+	StudentName      *string            `json:"student_name"`
+}
+
+func (q *Queries) ListPendingAppeals(ctx context.Context, status AppealStatus) ([]ListPendingAppealsRow, error) {
+	rows, err := q.db.Query(ctx, listPendingAppeals, status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPendingAppealsRow{}
+	for rows.Next() {
+		var i ListPendingAppealsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.StudentID,
+			&i.CourseID,
+			&i.SemesterID,
+			&i.SessionID,
+			&i.Reason,
+			&i.EvidenceUrls,
+			&i.Status,
+			&i.LecturerResponse,
+			&i.LecturerID,
+			&i.HodResponse,
+			&i.HodID,
+			&i.OriginalScore,
+			&i.RevisedScore,
+			&i.ResolvedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CourseCode,
+			&i.CourseTitle,
+			&i.StudentName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStudentAppeals = `-- name: ListStudentAppeals :many
+SELECT ga.id, ga.student_id, ga.course_id, ga.semester_id, ga.session_id, ga.reason, ga.evidence_urls, ga.status, ga.lecturer_response, ga.lecturer_id, ga.hod_response, ga.hod_id, ga.original_score, ga.revised_score, ga.resolved_at, ga.created_at, ga.updated_at, c.code AS course_code, c.title AS course_title
+FROM grade_appeals ga
+JOIN courses c ON c.id = ga.course_id
+WHERE ga.student_id = $1
+ORDER BY ga.created_at DESC
+`
+
+type ListStudentAppealsRow struct {
+	ID               uuid.UUID          `json:"id"`
+	StudentID        uuid.UUID          `json:"student_id"`
+	CourseID         uuid.UUID          `json:"course_id"`
+	SemesterID       uuid.UUID          `json:"semester_id"`
+	SessionID        uuid.UUID          `json:"session_id"`
+	Reason           string             `json:"reason"`
+	EvidenceUrls     []byte             `json:"evidence_urls"`
+	Status           AppealStatus       `json:"status"`
+	LecturerResponse *string            `json:"lecturer_response"`
+	LecturerID       pgtype.UUID        `json:"lecturer_id"`
+	HodResponse      *string            `json:"hod_response"`
+	HodID            pgtype.UUID        `json:"hod_id"`
+	OriginalScore    *float64           `json:"original_score"`
+	RevisedScore     *float64           `json:"revised_score"`
+	ResolvedAt       pgtype.Timestamptz `json:"resolved_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	CourseCode       string             `json:"course_code"`
+	CourseTitle      string             `json:"course_title"`
+}
+
+func (q *Queries) ListStudentAppeals(ctx context.Context, studentID uuid.UUID) ([]ListStudentAppealsRow, error) {
+	rows, err := q.db.Query(ctx, listStudentAppeals, studentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListStudentAppealsRow{}
+	for rows.Next() {
+		var i ListStudentAppealsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.StudentID,
+			&i.CourseID,
+			&i.SemesterID,
+			&i.SessionID,
+			&i.Reason,
+			&i.EvidenceUrls,
+			&i.Status,
+			&i.LecturerResponse,
+			&i.LecturerID,
+			&i.HodResponse,
+			&i.HodID,
+			&i.OriginalScore,
+			&i.RevisedScore,
+			&i.ResolvedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CourseCode,
+			&i.CourseTitle,
 		); err != nil {
 			return nil, err
 		}
@@ -1891,7 +2166,7 @@ type ListUpcomingMeetingsRow struct {
 	Status            MeetingStatus      `json:"status"`
 	MinutesUrl        *string            `json:"minutes_url"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	OrganizerName     string             `json:"organizer_name"`
+	OrganizerName     *string            `json:"organizer_name"`
 }
 
 func (q *Queries) ListUpcomingMeetings(ctx context.Context, meetingDate pgtype.Timestamptz) ([]ListUpcomingMeetingsRow, error) {
@@ -1937,19 +2212,19 @@ ORDER BY fs.created_at DESC
 `
 
 type ListUserFeedbackRow struct {
-	ID            uuid.UUID           `json:"id"`
-	UserID        uuid.UUID           `json:"user_id"`
-	FeedbackType  FeedbackType        `json:"feedback_type"`
-	Title         string              `json:"title"`
-	Description   string              `json:"description"`
-	Rating        *int32              `json:"rating"`
-	ScreenshotUrl *string             `json:"screenshot_url"`
-	DeviceInfo    []byte              `json:"device_info"`
-	Status        FeedbackStatus      `json:"status"`
-	AdminResponse *string             `json:"admin_response"`
-	RespondedAt   pgtype.Timestamptz  `json:"responded_at"`
-	CreatedAt     pgtype.Timestamptz  `json:"created_at"`
-	UserName      *string             `json:"user_name"`
+	ID            uuid.UUID          `json:"id"`
+	UserID        uuid.UUID          `json:"user_id"`
+	FeedbackType  FeedbackType       `json:"feedback_type"`
+	Title         string             `json:"title"`
+	Description   string             `json:"description"`
+	Rating        *int32             `json:"rating"`
+	ScreenshotUrl *string            `json:"screenshot_url"`
+	DeviceInfo    []byte             `json:"device_info"`
+	Status        FeedbackStatus     `json:"status"`
+	AdminResponse *string            `json:"admin_response"`
+	RespondedAt   pgtype.Timestamptz `json:"responded_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UserName      *string            `json:"user_name"`
 }
 
 func (q *Queries) ListUserFeedback(ctx context.Context, userID uuid.UUID) ([]ListUserFeedbackRow, error) {
@@ -2385,30 +2660,26 @@ func (q *Queries) UpdateDepartmentalEvent(ctx context.Context, arg UpdateDepartm
 	return err
 }
 
-// Two bugs fixed here: $2 needs an explicit cast at every occurrence or
-// Postgres can't pick one type for it ("text versus expense_status",
-// SQLSTATE 42P08), and expenses has no updated_at column at all — both
-// meant every single expense approval/rejection 500'd outright.
 const updateExpenseStatus = `-- name: UpdateExpenseStatus :exec
 UPDATE expenses
-SET status = $2::expense_status, approved_by = $3, approved_at = CASE WHEN $2::expense_status IN ('approved', 'rejected') THEN NOW() ELSE approved_at END,
-    rejection_reason = $4
-WHERE id = $1
+SET status = $1::expense_status, approved_by = $2, approved_at = CASE WHEN $1::expense_status IN ('approved', 'rejected') THEN NOW() ELSE approved_at END,
+    rejection_reason = $3
+WHERE $4 = id
 `
 
 type UpdateExpenseStatusParams struct {
-	ID              uuid.UUID     `json:"id"`
 	Status          ExpenseStatus `json:"status"`
 	ApprovedBy      pgtype.UUID   `json:"approved_by"`
 	RejectionReason *string       `json:"rejection_reason"`
+	ID              uuid.UUID     `json:"id"`
 }
 
 func (q *Queries) UpdateExpenseStatus(ctx context.Context, arg UpdateExpenseStatusParams) error {
 	_, err := q.db.Exec(ctx, updateExpenseStatus,
-		arg.ID,
 		arg.Status,
 		arg.ApprovedBy,
 		arg.RejectionReason,
+		arg.ID,
 	)
 	return err
 }
@@ -2480,6 +2751,46 @@ func (q *Queries) UpdateGPAScenario(ctx context.Context, arg UpdateGPAScenarioPa
 	return err
 }
 
+const updateGradeAppealStatus = `-- name: UpdateGradeAppealStatus :exec
+UPDATE grade_appeals
+SET status = $2::appeal_status,
+    lecturer_response = COALESCE($3, lecturer_response),
+    lecturer_id = COALESCE($4, lecturer_id),
+    hod_response = COALESCE($5, hod_response),
+    hod_id = COALESCE($6, hod_id),
+    revised_score = COALESCE($7, revised_score),
+    resolved_at = CASE WHEN $2::text IN ('resolved', 'rejected') THEN NOW() ELSE resolved_at END,
+    updated_at = NOW()
+WHERE id = $1
+`
+
+type UpdateGradeAppealStatusParams struct {
+	ID               uuid.UUID    `json:"id"`
+	Column2          AppealStatus `json:"column_2"`
+	LecturerResponse *string      `json:"lecturer_response"`
+	LecturerID       pgtype.UUID  `json:"lecturer_id"`
+	HodResponse      *string      `json:"hod_response"`
+	HodID            pgtype.UUID  `json:"hod_id"`
+	RevisedScore     *float64     `json:"revised_score"`
+}
+
+// COALESCE so a transition that only touches one side (e.g. lecturer_review
+// -> hod_review, which sets hod_id/hod_response and leaves lecturer_id/
+// lecturer_response unset) doesn't null out the other reviewer's notes from
+// an earlier stage.
+func (q *Queries) UpdateGradeAppealStatus(ctx context.Context, arg UpdateGradeAppealStatusParams) error {
+	_, err := q.db.Exec(ctx, updateGradeAppealStatus,
+		arg.ID,
+		arg.Column2,
+		arg.LecturerResponse,
+		arg.LecturerID,
+		arg.HodResponse,
+		arg.HodID,
+		arg.RevisedScore,
+	)
+	return err
+}
+
 const updateHelpArticle = `-- name: UpdateHelpArticle :exec
 UPDATE help_articles
 SET category = $2, title = $3, content = $4, sort_order = $5, is_published = $6, updated_at = NOW()
@@ -2533,34 +2844,34 @@ func (q *Queries) UpdateSessionActivity(ctx context.Context, sessionToken string
 
 const updateStudyTask = `-- name: UpdateStudyTask :exec
 UPDATE study_tasks
-SET title = $3, description = $4, priority = $5::task_priority, status = $6::task_status,
-    due_date = $7, reminder_at = $8,
-    completed_at = CASE WHEN $6::task_status = 'completed'::task_status THEN NOW() ELSE completed_at END,
+SET title = $1, description = $2, priority = $3::task_priority, status = $4::task_status,
+    due_date = $5, reminder_at = $6,
+    completed_at = CASE WHEN $4::task_status = 'completed'::task_status THEN NOW() ELSE completed_at END,
     updated_at = NOW()
-WHERE id = $1 AND user_id = $2
+WHERE $7 = id AND $8 = user_id
 `
 
 type UpdateStudyTaskParams struct {
-	ID          uuid.UUID          `json:"id"`
-	UserID      uuid.UUID          `json:"user_id"`
 	Title       string             `json:"title"`
 	Description *string            `json:"description"`
 	Priority    TaskPriority       `json:"priority"`
 	Status      TaskStatus         `json:"status"`
 	DueDate     pgtype.Timestamptz `json:"due_date"`
 	ReminderAt  pgtype.Timestamptz `json:"reminder_at"`
+	ID          uuid.UUID          `json:"id"`
+	UserID      uuid.UUID          `json:"user_id"`
 }
 
 func (q *Queries) UpdateStudyTask(ctx context.Context, arg UpdateStudyTaskParams) error {
 	_, err := q.db.Exec(ctx, updateStudyTask,
-		arg.ID,
-		arg.UserID,
 		arg.Title,
 		arg.Description,
 		arg.Priority,
 		arg.Status,
 		arg.DueDate,
 		arg.ReminderAt,
+		arg.ID,
+		arg.UserID,
 	)
 	return err
 }

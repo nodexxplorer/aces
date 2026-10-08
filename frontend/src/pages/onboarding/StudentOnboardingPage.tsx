@@ -26,6 +26,11 @@ import { getErrorMessage } from '../../utils/errors';
 import apiClient from '../../api/client';
 
 const onboardingSchema = z.object({
+  matricNumber: z
+    .string()
+    .min(1, 'Matric number is required')
+    .regex(/^\d{2}\/[A-Z]+\/[A-Z]+\/\d{1,5}$/i, 'Format: 20/EG/CO/1234'),
+  level: z.string().min(1, 'Level is required'),
   middleName: z.string().optional(),
   dateOfBirth: z
     .string()
@@ -78,7 +83,7 @@ const StudentOnboardingPage = () => {
 
   const stepFields: Record<number, (keyof OnboardingValues)[]> = {
     1: ['middleName', 'dateOfBirth', 'profilePhotoUrl'],
-    2: ['admissionMode', 'yearAdmitted'],
+    2: ['matricNumber', 'level', 'admissionMode', 'yearAdmitted'],
     3: ['phone', 'emergencyContact', 'emergencyContactPhone', 'homeAddress'],
     4: [],
   };
@@ -99,6 +104,8 @@ const StudentOnboardingPage = () => {
     setSubmitting(true);
     try {
       await apiClient.post('/auth/onboarding', {
+        matric_number: data.matricNumber.toUpperCase(),
+        level: Number(data.level),
         phone: data.phone,
         bio: '',
         avatar: data.profilePhotoUrl || '',
@@ -113,6 +120,8 @@ const StudentOnboardingPage = () => {
       });
       updateUser({
         onboardingCompleted: true,
+        matricNumber: data.matricNumber.toUpperCase(),
+        level: Number(data.level),
         phone: data.phone,
         avatar: data.profilePhotoUrl || undefined,
         middleName: data.middleName || undefined,
@@ -266,6 +275,29 @@ const StudentOnboardingPage = () => {
                   {errors.admissionMode && (
                     <p className="text-xs text-danger-500 mt-1">{errors.admissionMode.message}</p>
                   )}
+                </div>
+
+                <Input
+                  label="Matric Number"
+                  placeholder="20/EG/CO/1234"
+                  leftIcon={<BookOpen className="w-4 h-4" />}
+                  error={errors.matricNumber?.message}
+                  {...register('matricNumber')}
+                />
+
+                <div>
+                  <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-2">Level</label>
+                  <div className="flex gap-2">
+                    {['100', '200', '300', '400', '500'].map((l) => (
+                      <label key={l} className="flex-1 cursor-pointer">
+                        <input type="radio" value={l} className="peer sr-only" {...register('level')} />
+                        <div className="text-center py-2 rounded-lg border text-sm font-medium transition-all peer-checked:border-primary-500 peer-checked:bg-primary-500/10 peer-checked:text-primary-600 dark:peer-checked:text-primary-400 border-surface-200 dark:border-surface-700 text-surface-600 dark:text-surface-400 hover:border-primary-300">
+                          {l}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                  {errors.level && <p className="text-xs text-danger-500 mt-1">{errors.level.message}</p>}
                 </div>
 
                 <Input

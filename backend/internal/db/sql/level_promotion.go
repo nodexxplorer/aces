@@ -21,9 +21,11 @@ import (
 // reviews per level, may flip individuals, then confirms — confirmation
 // atomically bumps levels and rolls students into the new session.
 
-// LevelPromotion is one student's proposed/confirmed outcome for a
-// session roll-over.
-type LevelPromotion struct {
+// LevelPromotionWithStudent is one student's proposed/confirmed outcome for
+// a session roll-over, joined with student/user display fields. It is NOT
+// the generated LevelPromotionWithStudent table model (models.go), which holds only
+// the raw level_promotions columns.
+type LevelPromotionWithStudent struct {
 	ID            uuid.UUID          `json:"id"`
 	StudentID     uuid.UUID          `json:"student_id"`
 	UserID        uuid.UUID          `json:"user_id"`
@@ -49,8 +51,8 @@ const levelPromotionJoins = `FROM level_promotions lp
 	JOIN students s ON s.id = lp.student_id
 	JOIN users u ON u.id = s.user_id`
 
-func scanLevelPromotion(row pgx.Row) (LevelPromotion, error) {
-	var p LevelPromotion
+func scanLevelPromotion(row pgx.Row) (LevelPromotionWithStudent, error) {
+	var p LevelPromotionWithStudent
 	err := row.Scan(
 		&p.ID, &p.StudentID, &p.UserID, &p.FullName, &p.MatricNumber,
 		&p.Level, &p.FromSessionID, &p.ToSessionID, &p.FromLevel, &p.ToLevel,
@@ -118,7 +120,7 @@ func (q *Queries) GenerateLevelPromotionProposals(ctx context.Context, toSession
 
 // ListLevelPromotionProposals returns every proposal for a session,
 // optionally filtered by the student's current (from) level.
-func (q *Queries) ListLevelPromotionProposals(ctx context.Context, toSessionID uuid.UUID, fromLevel *int32) ([]LevelPromotion, error) {
+func (q *Queries) ListLevelPromotionProposals(ctx context.Context, toSessionID uuid.UUID, fromLevel *int32) ([]LevelPromotionWithStudent, error) {
 	sql := `SELECT ` + levelPromotionColumns + ` ` + levelPromotionJoins + `
 		WHERE lp.to_session_id = $1`
 	args := []interface{}{toSessionID}
@@ -134,7 +136,7 @@ func (q *Queries) ListLevelPromotionProposals(ctx context.Context, toSessionID u
 	}
 	defer rows.Close()
 
-	out := make([]LevelPromotion, 0)
+	out := make([]LevelPromotionWithStudent, 0)
 	for rows.Next() {
 		p, err := scanLevelPromotion(rows)
 		if err != nil {
@@ -189,7 +191,7 @@ func (q *Queries) SummarizeLevelPromotions(ctx context.Context, toSessionID uuid
 // confirmation. Flipping adjusts to_level so the batch applies the right
 // outcome: carryover keeps the current level, promote goes +100.
 // Confirmed rows are immutable via this path.
-func (q *Queries) SetLevelPromotionStatus(ctx context.Context, promotionID uuid.UUID, status, reason string) (LevelPromotion, error) {
+func (q *Queries) SetLevelPromotionStatus(ctx context.Context, promotionID uuid.UUID, status, reason string) (LevelPromotionWithStudent, error) {
 	row := q.db.QueryRow(ctx, `
 		UPDATE level_promotions
 		SET status = $2,
@@ -205,9 +207,9 @@ func (q *Queries) SetLevelPromotionStatus(ctx context.Context, promotionID uuid.
 	p, err := scanLevelPromotion(row)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return LevelPromotion{}, fmt.Errorf("proposal not found or already confirmed")
+			return LevelPromotionWithStudent{}, fmt.Errorf("proposal not found or already confirmed")
 		}
-		return LevelPromotion{}, err
+		return LevelPromotionWithStudent{}, err
 	}
 	return p, nil
 }

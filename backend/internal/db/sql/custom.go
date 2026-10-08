@@ -23,21 +23,66 @@ func (q *Queries) GetDB() DBTX {
 	return q.db
 }
 
-func (q *Queries) GetAttendanceSession(ctx context.Context, id uuid.UUID) (AttendanceSession, error) {
-	var i AttendanceSession
+// ==================== DUES RECEIPTS ====================
+
+// AssignReceiptNumber returns the payment's official receipt number,
+// allocating one from the per-type Postgres sequence the first time a
+// receipt is ever generated for this payment. Numbers are only consumed
+// when a receipt is actually issued (like tearing a page off a receipt
+// book), so failed/abandoned payments never burn numbers, and a payment
+// always keeps the same number no matter how many times its receipt is
+// re-downloaded.
+//
+// The sequence name comes from the payment type: department dues and class
+// dues each have their own "receipt book" (department_receipt_seq /
+// class_receipt_seq). Anything else is rejected by the API layer before
+// reaching here, but we still fail closed with an error rather than
+// inventing a number.
+//
+// Two rows racing on the same payment both run nextval + the guarded
+// UPDATE; only one UPDATE matches (receipt_number IS NULL), so exactly one
+// receipt number is ever committed for a given payment.
+func (q *Queries) AssignReceiptNumber(ctx context.Context, paymentID uuid.UUID, paymentType PaymentType) (int32, error) {
+	var seq string
+	switch paymentType {
+	case PaymentTypeDeptDues:
+		seq = "department_receipt_seq"
+	case PaymentTypeClassDues:
+		seq = "class_receipt_seq"
+	default:
+		return 0, fmt.Errorf("receipts are only issued for department or class dues, not %q", paymentType)
+	}
+
+	var n int32
 	err := q.db.QueryRow(ctx, `
-		SELECT id, course_id, class_rep_id, session_id, semester_id, date, method,
-		       venue, status, started_at, closed_at, total_present, total_absent,
-		       total_students, created_at
-		FROM attendance_sessions
-		WHERE id = $1
-	`, id).Scan(
-		&i.ID, &i.CourseID, &i.ClassRepID, &i.SessionID, &i.SemesterID, &i.Date,
-		&i.Method, &i.Venue, &i.Status, &i.StartedAt, &i.ClosedAt, &i.TotalPresent,
-		&i.TotalAbsent, &i.TotalStudents, &i.CreatedAt,
-	)
-	return i, err
+		WITH next AS (SELECT nextval($2) AS num)
+		UPDATE payments p
+		SET receipt_number = next.num
+		FROM next
+		WHERE p.id = $1 AND p.receipt_number IS NULL
+		RETURNING p.receipt_number
+	`, paymentID, seq).Scan(&n)
+	if err == nil {
+		return n, nil
+	}
+	if err != pgx.ErrNoRows {
+		return 0, err
+	}
+
+	// No row updated: either the number was already assigned, or the payment
+	// doesn't exist. Distinguish via a plain read.
+	var existing *int32
+	err = q.db.QueryRow(ctx, `SELECT receipt_number FROM payments WHERE id = $1`, paymentID).Scan(&existing)
+	if err != nil {
+		return 0, err
+	}
+	if existing == nil {
+		return 0, fmt.Errorf("payment %s has no receipt number after allocation race", paymentID)
+	}
+	return *existing, nil
 }
+
+// GetAttendanceSession is generated in attendance.sql.go — identical query.
 
 func (q *Queries) SumRegisteredCourseUnits(ctx context.Context, registrationID uuid.UUID) (int32, error) {
 	var total int32
@@ -360,10 +405,8 @@ func (q *Queries) ListAllResults(ctx context.Context, limit, offset int32) ([]Li
 }
 
 // DeleteResult permanently removes a result record.
-func (q *Queries) DeleteResult(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, `DELETE FROM results WHERE id = $1`, id)
-	return err
-}
+// (Generated in results.sql.go — kept out of this file to avoid a duplicate
+// method declaration.)
 
 // ==================== LIST USERS WITH STUDENT DATA ====================
 
@@ -708,22 +751,6 @@ func (q *Queries) RemoveCourseAssignment(ctx context.Context, id uuid.UUID) erro
 	return err
 }
 
-type IsLecturerAssignedToCourseParams struct {
-	LecturerID uuid.UUID
-	CourseID   uuid.UUID
-}
-
-func (q *Queries) IsLecturerAssignedToCourse(ctx context.Context, arg IsLecturerAssignedToCourseParams) (bool, error) {
-	var assigned bool
-	err := q.db.QueryRow(ctx, `
-		SELECT EXISTS(
-			SELECT 1 FROM lecturer_course_assignments
-			WHERE lecturer_id = $1 AND course_id = $2
-		) AS assigned
-	`, arg.LecturerID, arg.CourseID).Scan(&assigned)
-	return assigned, err
-}
-
 func (q *Queries) GetLecturerWorkload(ctx context.Context, lecturerID uuid.UUID, sessionID uuid.UUID) (int32, error) {
 	var total int32
 	err := q.db.QueryRow(ctx, `
@@ -734,7 +761,6 @@ func (q *Queries) GetLecturerWorkload(ctx context.Context, lecturerID uuid.UUID,
 	`, lecturerID, sessionID).Scan(&total)
 	return total, err
 }
-
 type CreateLeaveRequestParams struct {
 	LecturerID     uuid.UUID
 	LeaveType      string
@@ -2593,19 +2619,8 @@ func (q *Queries) ListGroupConversations(ctx context.Context, userID uuid.UUID) 
 // CRF signing fee (admin-editable) instead, then get their course form
 // signed. Same singleton-price + payment-pipeline pattern as CRF backlog.
 
-type GraduationRequest struct {
-	ID            uuid.UUID       `json:"id"`
-	UserID        uuid.UUID       `json:"user_id"`
-	AmountCharged decimal.Decimal `json:"amount_charged"`
-	PaymentID     *uuid.UUID      `json:"payment_id"`
-	Status        string          `json:"status"`
-	Waived        bool            `json:"waived"`
-	CreatedBy     uuid.UUID       `json:"created_by"`
-	CreatedAt     time.Time       `json:"created_at"`
-	PaidAt        *time.Time      `json:"paid_at"`
-	ClearedBy     *uuid.UUID      `json:"cleared_by"`
-	ClearedAt     *time.Time      `json:"cleared_at"`
-}
+// GraduationRequest comes from models.go (generated) — single source of
+// truth for the graduation_requests table row.
 
 const graduationRequestColumns = `id, user_id, amount_charged, payment_id, status, waived, created_by, created_at, paid_at, cleared_by, cleared_at`
 
@@ -2618,11 +2633,8 @@ func scanGraduationRequest(row pgx.Row) (GraduationRequest, error) {
 	return g, err
 }
 
-type GraduationFee struct {
-	Amount    decimal.Decimal `json:"amount"`
-	UpdatedBy *uuid.UUID      `json:"updated_by"`
-	UpdatedAt time.Time       `json:"updated_at"`
-}
+// GraduationFee comes from models.go (generated) — single source of truth
+// for the graduation_fee table row.
 
 func (q *Queries) GetGraduationFee(ctx context.Context) (GraduationFee, error) {
 	row := q.db.QueryRow(ctx, `SELECT amount, updated_by, updated_at FROM graduation_fee WHERE id = 1`)

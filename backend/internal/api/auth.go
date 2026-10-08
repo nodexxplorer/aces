@@ -1,7 +1,10 @@
 package api
 
 import (
+	"log"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -83,25 +86,13 @@ type tokenPair struct {
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`
 	ExpiresAt    string `json:"expiresAt"`
-	// CsrfToken is echoed here in addition to the aces_csrf_token cookie set
-	// by setTokenCookies. The frontend and backend can live on unrelated
-	// domains (e.g. Vercel + Render), where document.cookie can never read a
-	// cookie set by a cross-origin response — so the frontend holds this
-	// value in memory instead and echoes it back as X-CSRF-Token. See
-	// middleware.CSRFProtect.
+	
 	CsrfToken string `json:"csrfToken,omitempty"`
 }
 
-// setTokenCookies sets the auth + CSRF cookies and returns the generated
-// CSRF token so callers can also echo it into the JSON response body — see
-// the CsrfToken field on tokenPair for why the body copy is needed.
 func (server *Server) setTokenCookies(ctx *gin.Context, pair *tokenPair) string {
 	secure := server.config.IsProduction() || ctx.GetHeader("X-Forwarded-Proto") == "https"
 
-	// SameSite=None cookies are silently dropped by browsers unless Secure is
-	// also set, which requires HTTPS. Local dev runs over plain HTTP, so fall
-	// back to Lax there — it still works since frontend/backend share the
-	// "localhost" site even on different ports.
 	if secure {
 		ctx.SetSameSite(http.SameSiteNoneMode)
 	} else {
@@ -110,10 +101,6 @@ func (server *Server) setTokenCookies(ctx *gin.Context, pair *tokenPair) string 
 	ctx.SetCookie("aces_access_token", pair.AccessToken, int(server.config.JWTAccessDuration.Seconds()), "/", "", secure, true)
 	ctx.SetCookie("aces_refresh_token", pair.RefreshToken, int(server.config.JWTRefreshDuration.Seconds()), "/", "", secure, true)
 
-	// Non-httpOnly by design — same-origin deployments can read this and
-	// echo it back as the X-CSRF-Token header directly; see
-	// middleware.CSRFProtect. Cross-origin deployments can't read it (see
-	// tokenPair.CsrfToken), so it's also returned below for that case.
 	csrfToken, err := middleware.GenerateCSRFToken()
 	if err != nil {
 		return ""
@@ -155,21 +142,12 @@ func (server *Server) getRefreshTokenFromRequest(ctx *gin.Context) string {
 	return ""
 }
 
-// mobileBlockedRoles are roles that must never authenticate through the
-// mobile app — it's built for students and their delegated student duties
-// (class_rep, bursar, etc.), not staff. roleNames arrives here as raw DB
-// enum values (see the comment on generateAuthResponse for why the JWT
-// deliberately isn't normalized), so this checks the raw forms too.
 var mobileBlockedRoles = map[string]bool{
 	"lecturer": true,
 	"hod":      true,
 	"admin":    true,
 }
 
-// isMobileClient reports whether the caller is the mobile app, which
-// identifies itself with this header on every request (see
-// mobile/src/api/client.ts) — the web app never sends it, so a lecturer/
-// hod/admin can still sign in there as usual.
 func isMobileClient(ctx *gin.Context) bool {
 	return ctx.GetHeader("X-Client-Platform") == "mobile"
 }
@@ -251,25 +229,11 @@ func (server *Server) generateAuthResponse(ctx *gin.Context, u db.User, onboardi
 	if len(allRoles) == 0 {
 		allRoles = []string{string(u.Role)}
 	}
-	// The JWT intentionally carries the raw DB enum role names ("bursar_dept",
-	// "admin"), not the normalized display forms ("dept_bursar",
-	// "delegated_admin") — every middleware.RequireRoles(...) gate in
-	// server.go (34+ call sites) checks against the raw names exclusively, so
-	// minting the token with normalized names would silently break every one
-	// of those routes for bursar_dept/bursar_class/admin users. Where a
-	// normalized form genuinely needs checking (e.g. isStaffRole in
-	// payment.go), fix that check site to accept both forms instead of
-	// changing what the token carries.
 	pair, err := server.tokenManager.GeneratePair(u.ID, string(u.Role), u.Email, allRoles)
 	if err != nil {
 		return nil, err
 	}
 
-	// Tracked by refresh token, not access token — access tokens are
-	// short-lived (60min default) and expire naturally; the refresh token is
-	// the long-lived (7-day default) credential that "revoke session"/logout
-	// actually needs to kill, since a stolen refresh token is what lets an
-	// attacker keep minting fresh access tokens indefinitely.
 	server.createUserSession(ctx, u.ID, pair.RefreshToken, "", ctx.ClientIP(), ctx.GetHeader("User-Agent"), time.Now().Add(server.config.JWTRefreshDuration))
 
 	resp := toUserResponse(u, onboardingCompleted)
@@ -409,7 +373,7 @@ func (server *Server) login(ctx *gin.Context) {
 		normalized := strings.ToLower(identifier)
 		if u, err := q.GetUserByEmail(ctx, normalized); err == nil {
 			preloadedUser = &u
-		} else if s, err := q.GetStudentByMatric(ctx, strings.ToUpper(identifier)); err == nil {
+		} else if s, err := q.GetStudentByMatric(ctx, strPtr(strings.ToUpper(identifier))); err == nil {
 			if u2, err := q.GetUser(ctx, s.UserID); err == nil {
 				preloadedUser = &u2
 			}
@@ -510,9 +474,8 @@ func (server *Server) getMe(ctx *gin.Context) {
 	if err == nil {
 		level := int(student.Level)
 		resp.Level = &level
-		resp.MatricNumber = &student.MatricNumber
-		entryYear := student.EntryYear
-		resp.EntryYear = &entryYear
+		resp.MatricNumber = student.MatricNumber
+		resp.EntryYear = student.EntryYear
 		if student.AdmissionMode != nil {
 			resp.AdmissionMode = student.AdmissionMode
 		}
@@ -564,18 +527,50 @@ func (server *Server) getMe(ctx *gin.Context) {
 }
 
 func (server *Server) logout(ctx *gin.Context) {
-	// Revoke the tracked session for this refresh token so it disappears
-	// from "active sessions" and — more importantly — can no longer be used
-	// to mint a fresh access token via refreshToken below.
+	
 	if q, ok := server.store.(*db.Queries); ok {
 		if rt := server.getRefreshTokenFromRequest(ctx); rt != "" {
 			if session, err := q.GetActiveSessionByToken(ctx, rt); err == nil {
 				_ = q.DeleteActiveSession(ctx, db.DeleteActiveSessionParams{ID: session.ID, UserID: session.UserID})
 			}
+			
+			if userID, uerr := uuid.Parse(ctx.GetString("userID")); uerr == nil {
+				if mrt, gerr := q.GetModoolsRefreshToken(ctx, userID); gerr == nil && mrt != "" {
+					go server.revokeModoolsToken(mrt)
+				}
+			}
 		}
 	}
 	server.clearTokenCookies(ctx)
 	ctx.JSON(http.StatusOK, gin.H{"message": "logged out successfully"})
+}
+
+func (server *Server) revokeModoolsToken(refreshToken string) {
+	clientID := strings.TrimSpace(os.Getenv("MODOOLS_CLIENT_ID"))
+	clientSecret := strings.TrimSpace(os.Getenv("MODOOLS_CLIENT_SECRET"))
+	issuer := strings.TrimSpace(os.Getenv("MODOOLS_ISSUER"))
+	if clientID == "" || issuer == "" {
+		return
+	}
+	revokeURL := strings.TrimSuffix(issuer, "/") + "/oauth2/revoke"
+	form := url.Values{"token": {refreshToken}, "client_id": {clientID}}
+	if clientSecret != "" {
+		form.Set("client_secret", clientSecret)
+	}
+	req, err := http.NewRequest(http.MethodPost, revokeURL, strings.NewReader(form.Encode()))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Printf("[modools] revoke request failed (non-fatal): %v", err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		log.Printf("[modools] revoke returned %d (non-fatal)", resp.StatusCode)
+	}
 }
 
 func (server *Server) refreshToken(ctx *gin.Context) {
@@ -604,10 +599,6 @@ func (server *Server) refreshToken(ctx *gin.Context) {
 		return
 	}
 
-	// The refresh token is cryptographically valid, but a revoked session
-	// (logout, "revoke session", "revoke all sessions") deletes its row here
-	// — without this check, revocation was cosmetic and a copied refresh
-	// token kept minting fresh access tokens until its own 7-day expiry.
 	q, ok := server.store.(*db.Queries)
 	if !ok {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -630,25 +621,17 @@ func (server *Server) refreshToken(ctx *gin.Context) {
 		roleNames = []string{string(user.Role)}
 	}
 
-	// A lecturer/hod/admin session that existed before this check was added
-	// (or was somehow issued another way) shouldn't be able to keep itself
-	// alive via refresh either — same rule as login.
 	if isMobileClient(ctx) && hasBlockedMobileRole(roleNames) {
 		ctx.JSON(http.StatusForbidden, gin.H{"error": "The ACES Zone mobile app is for students and class representatives. Please sign in on the website instead."})
 		return
 	}
 
-	// Raw DB enum role names, matching login — see the comment in
-	// generateAuthResponse for why these must NOT be normalized here.
 	pair, err := server.tokenManager.GeneratePair(user.ID, string(user.Role), user.Email, roleNames)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate tokens"})
 		return
 	}
 
-	// Rotate: the old refresh token's session row is replaced by one for the
-	// newly-issued refresh token, so a revoked/used-up token can't be reused
-	// and the active-sessions list doesn't accumulate a row per refresh.
 	_ = q.DeleteActiveSession(ctx, db.DeleteActiveSessionParams{ID: session.ID, UserID: session.UserID})
 	server.createUserSession(ctx, user.ID, pair.RefreshToken, "", ctx.ClientIP(), ctx.GetHeader("User-Agent"), time.Now().Add(server.config.JWTRefreshDuration))
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math"
 	"math/big"
+	"strings"
 	"time"
 
 	db "github.com/aces/backend/internal/db/sql"
@@ -22,11 +23,15 @@ func NewStudentService(store db.Querier) *StudentService {
 }
 
 func (s *StudentService) Create(ctx context.Context, userID uuid.UUID, matricNumber string, level int32) (db.Student, error) {
+	// matric_number / entry_year became nullable (migration 000002: OAuth
+	// students onboard later), so the generated params take pointers.
+	matric := strings.ToUpper(strings.TrimSpace(matricNumber))
+	entryYear := int32(time.Now().Year())
 	return s.store.CreateStudent(ctx, db.CreateStudentParams{
 		UserID:       userID,
-		MatricNumber: matricNumber,
+		MatricNumber: &matric,
 		Level:        level,
-		EntryYear:    int32(time.Now().Year()),
+		EntryYear:    &entryYear,
 	})
 }
 
@@ -39,7 +44,8 @@ func (s *StudentService) GetByUserID(ctx context.Context, userID uuid.UUID) (db.
 }
 
 func (s *StudentService) GetByMatric(ctx context.Context, matricNumber string) (db.Student, error) {
-	return s.store.GetStudentByMatric(ctx, matricNumber)
+	matric := strings.ToUpper(strings.TrimSpace(matricNumber))
+	return s.store.GetStudentByMatric(ctx, &matric)
 }
 
 func (s *StudentService) List(ctx context.Context, limit, offset int32) ([]db.Student, error) {
@@ -59,7 +65,7 @@ func (s *StudentService) CalculateCGPA(ctx context.Context, studentID uuid.UUID)
 		return nil, errors.New("student record not found")
 	}
 
-	results, err := s.store.GetStudentApprovedResultsWithUnits(ctx, studentID)
+	results, err := s.store.GetStudentApprovedResultsWithUnits(ctx, pgtype.UUID{Bytes: studentID, Valid: true})
 	if err != nil {
 		return nil, errors.New("failed to fetch student results: " + err.Error())
 	}

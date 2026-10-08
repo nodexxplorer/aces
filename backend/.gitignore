@@ -82,4 +82,4 @@ metrics_example
 ### GeoIP Database ###
 GeoLite2-City.mmdb
 
-commit_40.py
+visual_output/

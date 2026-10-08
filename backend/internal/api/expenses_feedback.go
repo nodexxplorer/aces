@@ -223,9 +223,18 @@ func (server *Server) listFeedback(ctx *gin.Context) {
 	var err error
 
 	if statusFilter != "" {
-		feedbacks, err = queries.ListFeedback(ctx, statusFilter)
+		feedbacks, err = queries.ListFeedback(ctx, db.FeedbackStatus(statusFilter))
 	} else {
-		feedbacks, err = queries.ListAllFeedback(ctx)
+		var all []db.ListAllFeedbackRow
+		all, err = queries.ListAllFeedback(ctx)
+		if err == nil {
+			// ListAllFeedbackRow and ListFeedbackRow share the same
+			// notification_feedback columns; convert so the handler has one
+			// response shape.
+			for _, f := range all {
+				feedbacks = append(feedbacks, db.ListFeedbackRow(f))
+			}
+		}
 	}
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list feedback"})

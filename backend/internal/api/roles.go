@@ -213,7 +213,7 @@ func (server *Server) searchStudentsForRoleManagement(ctx *gin.Context) {
 		result[i] = studentResponse{
 			ID:           s.ID.String(),
 			Email:        s.Email,
-			FullName:     s.FullName,
+			FullName:     derefStrPtr(s.FullName),
 			AvatarUrl:    s.AvatarUrl,
 			StudentID:    studentID,
 			MatricNumber: s.MatricNumber,

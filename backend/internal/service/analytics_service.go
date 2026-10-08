@@ -81,9 +81,13 @@ func (s *AnalyticsService) GetRecentActivity(ctx context.Context) ([]ActivityIte
 			if u.CreatedAt.Valid {
 				ts = u.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00")
 			}
+			fullName := ""
+			if u.FullName != nil {
+				fullName = *u.FullName
+			}
 			items = append(items, ActivityItem{
 				ID:          u.ID.String(),
-				Description: "New user registered: " + u.FullName + " (" + string(u.Role) + ")",
+				Description: "New user registered: " + fullName + " (" + string(u.Role) + ")",
 				Type:        "user_signup",
 				Timestamp:   ts,
 			})

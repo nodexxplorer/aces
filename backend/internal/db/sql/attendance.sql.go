@@ -250,30 +250,30 @@ func (q *Queries) ListStudentAttendance(ctx context.Context, arg ListStudentAtte
 const updateAttendanceSheet = `-- name: UpdateAttendanceSheet :one
 UPDATE attendance_sheets
 SET
-    attendance_data = $2,
-    status = $3::varchar,
-    pdf_url = $4,
-    finalized_at = CASE WHEN $3::varchar = 'finalized' THEN NOW() ELSE finalized_at END,
-    emailed_to_lecturer = $5
-WHERE id = $1
+    attendance_data = $1,
+    status = $2::varchar,
+    pdf_url = $3,
+    finalized_at = CASE WHEN $2::varchar = 'finalized' THEN NOW() ELSE finalized_at END,
+    emailed_to_lecturer = $4
+WHERE $5 = id
 RETURNING id, course_id, date, class_rep_id, attendance_data, pdf_url, status, finalized_at, emailed_to_lecturer, session_id, created_at
 `
 
 type UpdateAttendanceSheetParams struct {
-	ID                uuid.UUID       `json:"id"`
 	AttendanceData    json.RawMessage `json:"attendance_data"`
 	Status            string          `json:"status"`
 	PdfUrl            *string         `json:"pdf_url"`
 	EmailedToLecturer bool            `json:"emailed_to_lecturer"`
+	ID                uuid.UUID       `json:"id"`
 }
 
 func (q *Queries) UpdateAttendanceSheet(ctx context.Context, arg UpdateAttendanceSheetParams) (AttendanceSheet, error) {
 	row := q.db.QueryRow(ctx, updateAttendanceSheet,
-		arg.ID,
 		arg.AttendanceData,
 		arg.Status,
 		arg.PdfUrl,
 		arg.EmailedToLecturer,
+		arg.ID,
 	)
 	var i AttendanceSheet
 	err := row.Scan(

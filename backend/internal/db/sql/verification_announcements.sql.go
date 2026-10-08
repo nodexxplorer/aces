@@ -530,7 +530,7 @@ type GetAnnouncementV2Row struct {
 	AcknowledgedCount      int32              `json:"acknowledged_count"`
 	PinOrder               *int32             `json:"pin_order"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
-	AuthorName             string             `json:"author_name"`
+	AuthorName             *string            `json:"author_name"`
 }
 
 func (q *Queries) GetAnnouncementV2(ctx context.Context, id uuid.UUID) (GetAnnouncementV2Row, error) {
@@ -726,7 +726,7 @@ type GetStudentReadAnnouncementsRow struct {
 	AcknowledgedCount      int32              `json:"acknowledged_count"`
 	PinOrder               *int32             `json:"pin_order"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
-	AuthorName             string             `json:"author_name"`
+	AuthorName             *string            `json:"author_name"`
 	ReadAt                 pgtype.Timestamptz `json:"read_at"`
 	AcknowledgedAt         pgtype.Timestamptz `json:"acknowledged_at"`
 }
@@ -923,7 +923,7 @@ type ListAnnouncementCommentsRow struct {
 	IsHidden        bool               `json:"is_hidden"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
-	AuthorName      string             `json:"author_name"`
+	AuthorName      *string            `json:"author_name"`
 }
 
 func (q *Queries) ListAnnouncementComments(ctx context.Context, announcementID uuid.UUID) ([]ListAnnouncementCommentsRow, error) {
@@ -1033,7 +1033,7 @@ type ListAnnouncementsV2Row struct {
 	AcknowledgedCount      int32              `json:"acknowledged_count"`
 	PinOrder               *int32             `json:"pin_order"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
-	AuthorName             string             `json:"author_name"`
+	AuthorName             *string            `json:"author_name"`
 }
 
 func (q *Queries) ListAnnouncementsV2(ctx context.Context, arg ListAnnouncementsV2Params) ([]ListAnnouncementsV2Row, error) {
@@ -1125,7 +1125,7 @@ type ListPublishedAnnouncementsRow struct {
 	AcknowledgedCount      int32              `json:"acknowledged_count"`
 	PinOrder               *int32             `json:"pin_order"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
-	AuthorName             string             `json:"author_name"`
+	AuthorName             *string            `json:"author_name"`
 }
 
 func (q *Queries) ListPublishedAnnouncements(ctx context.Context, arg ListPublishedAnnouncementsParams) ([]ListPublishedAnnouncementsRow, error) {
@@ -1188,7 +1188,7 @@ type ListReadReceiptsByAnnouncementRow struct {
 	AcknowledgedAt pgtype.Timestamptz `json:"acknowledged_at"`
 	DeviceType     *string            `json:"device_type"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	StudentName    string             `json:"student_name"`
+	StudentName    *string            `json:"student_name"`
 }
 
 func (q *Queries) ListReadReceiptsByAnnouncement(ctx context.Context, announcementID uuid.UUID) ([]ListReadReceiptsByAnnouncementRow, error) {
@@ -1268,15 +1268,11 @@ type ListStudentAnnouncementsRow struct {
 	AcknowledgedCount      int32              `json:"acknowledged_count"`
 	PinOrder               *int32             `json:"pin_order"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
-	AuthorName             string             `json:"author_name"`
+	AuthorName             *string            `json:"author_name"`
 }
 
 func (q *Queries) ListStudentAnnouncements(ctx context.Context, arg ListStudentAnnouncementsParams) ([]ListStudentAnnouncementsRow, error) {
-	rows, err := q.db.Query(ctx, listStudentAnnouncements,
-		arg.TargetLevel,
-		arg.Limit,
-		arg.Offset,
-	)
+	rows, err := q.db.Query(ctx, listStudentAnnouncements, arg.TargetLevel, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -1411,7 +1407,7 @@ ORDER BY u.full_name
 
 type ListUnacknowledgedStudentsRow struct {
 	ID       uuid.UUID `json:"id"`
-	FullName string    `json:"full_name"`
+	FullName *string   `json:"full_name"`
 	Email    string    `json:"email"`
 }
 
@@ -1556,7 +1552,7 @@ type SearchAnnouncementsRow struct {
 	AcknowledgedCount      int32              `json:"acknowledged_count"`
 	PinOrder               *int32             `json:"pin_order"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
-	AuthorName             string             `json:"author_name"`
+	AuthorName             *string            `json:"author_name"`
 }
 
 func (q *Queries) SearchAnnouncements(ctx context.Context, arg SearchAnnouncementsParams) ([]SearchAnnouncementsRow, error) {

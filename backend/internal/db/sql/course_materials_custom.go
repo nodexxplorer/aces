@@ -7,22 +7,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type CourseMaterial struct {
-	ID            uuid.UUID          `json:"id"`
-	CourseID      uuid.UUID          `json:"course_id"`
-	UploadedBy    uuid.UUID          `json:"uploaded_by"`
-	SessionID     pgtype.UUID        `json:"session_id"`
-	Title         string             `json:"title"`
-	Description   *string            `json:"description"`
-	MaterialType  string             `json:"material_type"`
-	FileUrl       string             `json:"file_url"`
-	FileName      string             `json:"file_name"`
-	FileSize      int32              `json:"file_size"`
-	DownloadCount int32              `json:"download_count"`
-	IsActive      bool               `json:"is_active"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
-}
+// CourseMaterial comes from models.go (generated) — single source of truth
+// for the course_materials table row.
 
 // CourseMaterialWithCourse joins in course code/title for list views.
 type CourseMaterialWithCourse struct {

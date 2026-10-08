@@ -104,8 +104,8 @@ func (server *Server) downloadResultSlip(ctx *gin.Context) {
 	}
 
 	pdfBytes, err := utils.GenerateResultSlipPDF(utils.ResultSlipInput{
-		StudentName:    user.FullName,
-		MatricNumber:   student.MatricNumber,
+		StudentName:    derefStrPtr(user.FullName),
+		MatricNumber:   derefStrPtr(student.MatricNumber),
 		Level:          int(student.Level),
 		SessionName:    session.Name,
 		SemesterName:   string(semester.Name),
@@ -118,7 +118,7 @@ func (server *Server) downloadResultSlip(ctx *gin.Context) {
 		return
 	}
 
-	filename := fmt.Sprintf("result-slip-%s-%s.pdf", student.MatricNumber, semester.Name)
+	filename := fmt.Sprintf("result-slip-%s-%s.pdf", derefStrPtr(student.MatricNumber), semester.Name)
 	ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
 	ctx.Data(http.StatusOK, "application/pdf", pdfBytes)
 }

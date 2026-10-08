@@ -128,7 +128,7 @@ type CreateNotificationInput struct {
 func (s *NotificationService) Create(ctx context.Context, input CreateNotificationInput) (db.Notification, error) {
 	arg := db.CreateNotificationParams{
 		UserID:    input.UserID,
-		Type:      db.NotificationType(input.Type),
+		Type:      input.Type,
 		Title:     input.Title,
 		Message:   input.Message,
 		EmailSent: input.EmailSent,

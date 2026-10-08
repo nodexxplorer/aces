@@ -5,6 +5,7 @@ import type { UserRole } from './types';
 
 /* ── Lazy-loaded pages ───────────────────────── */
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
+const StaffPortalLoginPage = lazy(() => import('./pages/auth/StaffPortalLoginPage'));
 const LoginCelebrationPage = lazy(() => import('./pages/auth/LoginCelebrationPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/auth/PasswordResetOTPPage'));
 const StudentSignupPage = lazy(() => import('./pages/auth/StudentSignupPage'));
@@ -214,10 +215,13 @@ export const router = createBrowserRouter([
     element: <PublicOnlyRoute />,
     children: [
       { path: '/login', element: <LoginPage /> },
+      // Hidden staff portal: separate, unlinked route so student and staff
+      // sign-in never share a URL. Rotatable via VITE_STAFF_PORTAL_PATH.
+      { path: (import.meta.env.VITE_STAFF_PORTAL_PATH || '/portalsign') + '/login', element: <StaffPortalLoginPage /> },
       { path: '/forgot-password', element: <ForgotPasswordPage /> },
       { path: '/reset-password-otp', element: <PasswordResetOTPPage /> },
       { path: '/signup/student', element: <StudentSignupPage /> },
-      { path: '/signup/lecturer', element: <LecturerSignupPage /> },
+      { path: 'lecturer/signup', element: <LecturerSignupPage /> },
     ],
   },
   {

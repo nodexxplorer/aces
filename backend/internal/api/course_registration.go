@@ -508,7 +508,7 @@ func (server *Server) submitRegistration(ctx *gin.Context) {
 			studentUser, err := server.store.GetUser(bgCtx, studentUserID)
 			studentName := "A student"
 			if err == nil {
-				studentName = studentUser.FullName
+				studentName = derefStrPtr(studentUser.FullName)
 			}
 
 			entType := "course_registration"

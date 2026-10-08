@@ -16,6 +16,7 @@ import {
   removeFromCart,
   clearStudentCart,
   checkDuePaid,
+  downloadPaymentReceipt,
 } from '../../api/payments';
 import type { CartItem } from '../../api/payments';
 import { useAuth } from '../../hooks/useAuth';
@@ -61,6 +62,25 @@ const PaymentsPage = () => {
   const [txSearch, setTxSearch] = useState('');
   const [txStatusFilter, setTxStatusFilter] = useState<PaymentStatus | 'all'>('all');
   const [txTypeFilter, setTxTypeFilter] = useState<PaymentType | 'all'>('all');
+  const [receiptBusyId, setReceiptBusyId] = useState<string | null>(null);
+
+  // Receipts are only issued for department/class dues payments, and only
+  // once the payment has completed — mirrors the backend's gate.
+  const isDuesReceiptEligible = (p: Payment) =>
+    p.status === 'completed' && (p.type === 'dept_dues' || p.type === 'class_dues');
+
+  const handleDownloadReceipt = async (row: Payment) => {
+    setReceiptBusyId(row.id);
+    try {
+      await downloadPaymentReceipt(row.id);
+      success('Receipt Downloaded', 'Your official receipt PDF has been saved.');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not download receipt';
+      notifyError('Download Failed', message);
+    } finally {
+      setReceiptBusyId(null);
+    }
+  };
 
   const totalCartCount = cart.length;
   // Dues already in the cart must be excluded from "add to cart" — the
@@ -208,16 +228,35 @@ const PaymentsPage = () => {
     },
     { key: 'type', label: 'Type', render: (v) => TYPE_LABELS[v as string] ?? (v as string) },
     { key: 'amount', label: 'Amount', sortable: true, render: (v) => formatCurrency(v as number) },
-    { key: 'paystack_reference', label: 'Reference', render: (v) => (v as string) || 'N/A' },
+    {
+      key: 'paystack_reference',
+      label: 'Reference',
+      render: (v, row) =>
+        (v as string) || (row.receipt_number ? `Receipt No. ${String(row.receipt_number).padStart(4, '0')}` : 'N/A'),
+    },
     { key: 'status', label: 'Status', render: (v) => <StatusBadge status={v as string} /> },
     {
       key: 'id',
       label: 'Action',
       render: (_v, row) =>
-        row.status === 'completed' ? (
-          <Button variant="outline" size="xs" leftIcon={<Download className="w-3.5 h-3.5" />}>
+        isDuesReceiptEligible(row) ? (
+          <Button
+            variant="outline"
+            size="xs"
+            leftIcon={
+              receiptBusyId === row.id ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Download className="w-3.5 h-3.5" />
+              )
+            }
+            onClick={() => handleDownloadReceipt(row)}
+            disabled={receiptBusyId === row.id}
+          >
             Receipt
           </Button>
+        ) : row.status === 'completed' ? (
+          <span className="text-xs text-surface-400">—</span>
         ) : (
           <Button
             size="xs"

@@ -7,6 +7,7 @@ import (
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type GPAPredictionItem struct {
@@ -30,7 +31,7 @@ func (server *Server) getStudentGPAPrediction(ctx *gin.Context) {
 		return
 	}
 
-	grades, err := queries.GetStudentGPAPrediction(ctx, studentID)
+	grades, err := queries.GetStudentGPAPrediction(ctx, pgtype.UUID{Bytes: studentID, Valid: true})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
@@ -44,7 +45,7 @@ func (server *Server) getStudentGPAPrediction(ctx *gin.Context) {
 		item := GPAPredictionItem{
 			CourseCode:  g.CourseCode,
 			Credits:     g.Credits,
-			TotalScore:  g.TotalScore,
+			TotalScore:  g.TotalScore.InexactFloat64(),
 			GradePoints: g.GradePoints,
 			GradeLetter: g.GradeLetter,
 		}

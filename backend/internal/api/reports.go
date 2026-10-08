@@ -97,7 +97,7 @@ func (server *Server) generateReport(ctx *gin.Context) {
 		}
 		for _, s := range students {
 			pdfInput.Rows = append(pdfInput.Rows, []string{
-				s.MatricNumber, s.FullName, fmt.Sprintf("%d", s.Level),
+				derefStrPtr(s.MatricNumber), derefStrPtr(s.FullName), fmt.Sprintf("%d", s.Level),
 				fmt.Sprintf("%.2f", s.Cgpa), s.RiskLevel, s.RiskReason,
 			})
 		}

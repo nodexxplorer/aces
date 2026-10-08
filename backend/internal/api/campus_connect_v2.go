@@ -671,7 +671,7 @@ func (server *Server) updateCampusReportStatus(ctx *gin.Context) {
 
 	if err := queries.UpdateCampusReportStatus(ctx, db.UpdateCampusReportStatusParams{
 		ID:          reportID,
-		Status:      db.ReportStatus(req.Status),
+		Status:      req.Status,
 		ReviewedBy:  reviewedByUUID,
 		ActionTaken: req.ActionTaken,
 	}); err != nil {

@@ -4,6 +4,7 @@ import { router } from './router';
 import ThemeInitializer from './components/ThemeInitializer';
 import ErrorBoundary from './components/feedback/ErrorBoundary';
 import { ToastContainer } from './components/feedback/Toast';
+import ModoolsSessionHydrator from './auth/ModoolsSessionHydrator';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,6 +21,7 @@ function App() {
     <ErrorBoundary>
       <ThemeInitializer>
         <QueryClientProvider client={queryClient}>
+          <ModoolsSessionHydrator />
           <RouterProvider router={router} />
           {/* Rendered once at the app root — any route lacking AppShell/
               PublicLayout (onboarding, login/celebration, etc.) previously

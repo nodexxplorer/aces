@@ -94,7 +94,7 @@ func (server *Server) submitAttendanceSession(ctx *gin.Context) {
 				"system",
 				"high",
 				"Attendance Awaiting Review",
-				fmt.Sprintf("%s | Submitted by Class Rep %s for review.", course.Code, repUser.FullName),
+				fmt.Sprintf("%s | Submitted by Class Rep %s for review.", course.Code, derefStrPtr(repUser.FullName)),
 				fmt.Sprintf("/lecturer/attendance-review?session_id=%s", sessionID),
 				"Review Attendance",
 				&entType,
@@ -150,8 +150,8 @@ func (server *Server) downloadAttendancePDF(ctx *gin.Context) {
 			st = *c.Remark
 		}
 		records = append(records, utils.AttendancePDFRecord{
-			MatricNumber: c.MatricNumber,
-			FullName:     c.StudentName,
+			MatricNumber: derefStrPtr(c.MatricNumber),
+			FullName:     derefStrPtr(c.StudentName),
 			Level:        int(session.Level),
 			Status:       st,
 		})

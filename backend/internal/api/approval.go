@@ -81,7 +81,7 @@ func (server *Server) listPendingApprovals(ctx *gin.Context) {
 		res[i] = toApprovalResponse(a)
 		u, errUser := server.store.GetUser(ctx, a.UserID)
 		if errUser == nil {
-			res[i].FullName = u.FullName
+			res[i].FullName = derefStrPtr(u.FullName)
 			res[i].Email = u.Email
 		}
 	}

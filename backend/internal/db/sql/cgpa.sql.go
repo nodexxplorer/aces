@@ -149,11 +149,6 @@ func (q *Queries) GetCgpaRules(ctx context.Context) ([]CgpaRule, error) {
 	return items, nil
 }
 
-// DISTINCT ON (r.course_id) keeps only the latest attempt per course — a
-// carryover/repeat course has no unique constraint stopping a second
-// approved result row for the same course in a later session, and without
-// this dedup both the original failing attempt and the resit were summed
-// into the CGPA together.
 const getStudentApprovedResultsWithUnits = `-- name: GetStudentApprovedResultsWithUnits :many
 SELECT DISTINCT ON (r.course_id) r.grade_point, c.unit, r.session_id, r.semester_id
 FROM results r
@@ -170,7 +165,12 @@ type GetStudentApprovedResultsWithUnitsRow struct {
 	SemesterID uuid.UUID      `json:"semester_id"`
 }
 
-func (q *Queries) GetStudentApprovedResultsWithUnits(ctx context.Context, studentID uuid.UUID) ([]GetStudentApprovedResultsWithUnitsRow, error) {
+// DISTINCT ON (r.course_id) keeps only the latest attempt per course — a
+// carryover/repeat course has no unique constraint stopping a second
+// approved result row for the same course in a later session, and without
+// this dedup both the original failing attempt and the resit were summed
+// into the CGPA together.
+func (q *Queries) GetStudentApprovedResultsWithUnits(ctx context.Context, studentID pgtype.UUID) ([]GetStudentApprovedResultsWithUnitsRow, error) {
 	rows, err := q.db.Query(ctx, getStudentApprovedResultsWithUnits, studentID)
 	if err != nil {
 		return nil, err

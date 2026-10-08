@@ -219,7 +219,7 @@ func (s *NotificationServiceFull) buildNotificationEmailHTML(title, message, act
 }
 
 
-func categoryEmailAllowed(prefs db.NotificationPreference, category string) bool {
+func categoryEmailAllowed(prefs db.NotificationPreferenceView, category string) bool {
 	switch category {
 	case "auth":
 		return prefs.EmailAuth
@@ -242,7 +242,7 @@ func categoryEmailAllowed(prefs db.NotificationPreference, category string) bool
 	}
 }
 
-func categoryPushAllowed(prefs db.NotificationPreference, category string) bool {
+func categoryPushAllowed(prefs db.NotificationPreferenceView, category string) bool {
 	switch category {
 	case "auth":
 		return prefs.PushAuth
@@ -289,11 +289,11 @@ func (s *NotificationServiceFull) Delete(ctx context.Context, id, userID uuid.UU
 	return s.queries.DeleteNotificationFull(ctx, id, userID)
 }
 
-func (s *NotificationServiceFull) GetPreferences(ctx context.Context, userID uuid.UUID) (db.NotificationPreference, error) {
+func (s *NotificationServiceFull) GetPreferences(ctx context.Context, userID uuid.UUID) (db.NotificationPreferenceView, error) {
 	return s.queries.GetNotificationPreferences(ctx, userID)
 }
 
-func (s *NotificationServiceFull) UpdatePreferences(ctx context.Context, arg db.UpsertNotificationPreferencesParams) (db.NotificationPreference, error) {
+func (s *NotificationServiceFull) UpdatePreferences(ctx context.Context, arg db.UpsertNotificationPreferencesParams) (db.NotificationPreferenceView, error) {
 	return s.queries.UpsertNotificationPreferences(ctx, arg)
 }
 

@@ -22,9 +22,9 @@ INSERT INTO students (
 
 type CreateStudentParams struct {
 	UserID           uuid.UUID       `json:"user_id"`
-	MatricNumber     string          `json:"matric_number"`
+	MatricNumber     *string         `json:"matric_number"`
 	Level            int32           `json:"level"`
-	EntryYear        int32           `json:"entry_year"`
+	EntryYear        *int32          `json:"entry_year"`
 	CurrentSessionID pgtype.UUID     `json:"current_session_id"`
 	CurrentSemester  *SemesterSeason `json:"current_semester"`
 }
@@ -100,7 +100,7 @@ SELECT id, user_id, matric_number, level, entry_year, current_session_id, curren
 WHERE matric_number = $1 LIMIT 1
 `
 
-func (q *Queries) GetStudentByMatric(ctx context.Context, matricNumber string) (Student, error) {
+func (q *Queries) GetStudentByMatric(ctx context.Context, matricNumber *string) (Student, error) {
 	row := q.db.QueryRow(ctx, getStudentByMatric, matricNumber)
 	var i Student
 	err := row.Scan(

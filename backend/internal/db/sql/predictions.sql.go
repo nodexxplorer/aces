@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/shopspring/decimal"
 )
 
 const getAtRiskStudents = `-- name: GetAtRiskStudents :many
@@ -111,8 +112,8 @@ LIMIT $1
 
 type GetAtRiskStudentsRow struct {
 	StudentID       uuid.UUID   `json:"student_id"`
-	FullName        string      `json:"full_name"`
-	MatricNumber    string      `json:"matric_number"`
+	FullName        *string     `json:"full_name"`
+	MatricNumber    *string     `json:"matric_number"`
 	Level           int32       `json:"level"`
 	Cgpa            float64     `json:"cgpa"`
 	AttendanceRate  interface{} `json:"attendance_rate"`
@@ -360,7 +361,7 @@ WITH student_grades AS (
     FROM results r
     JOIN courses c ON c.id = r.course_id
     WHERE r.student_id = $1
-    AND r.total_score > 0
+    AND r.exam_score IS NOT NULL
 )
 SELECT
     student_id,
@@ -381,15 +382,15 @@ ORDER BY course_code
 `
 
 type GetStudentGPAPredictionRow struct {
-	StudentID   uuid.UUID `json:"student_id"`
-	CourseCode  string    `json:"course_code"`
-	Credits     int32     `json:"credits"`
-	TotalScore  float64   `json:"total_score"`
-	GradePoints float64   `json:"grade_points"`
-	GradeLetter string    `json:"grade_letter"`
+	StudentID   pgtype.UUID     `json:"student_id"`
+	CourseCode  string          `json:"course_code"`
+	Credits     int32           `json:"credits"`
+	TotalScore  decimal.Decimal `json:"total_score"`
+	GradePoints float64         `json:"grade_points"`
+	GradeLetter string          `json:"grade_letter"`
 }
 
-func (q *Queries) GetStudentGPAPrediction(ctx context.Context, studentID uuid.UUID) ([]GetStudentGPAPredictionRow, error) {
+func (q *Queries) GetStudentGPAPrediction(ctx context.Context, studentID pgtype.UUID) ([]GetStudentGPAPredictionRow, error) {
 	rows, err := q.db.Query(ctx, getStudentGPAPrediction, studentID)
 	if err != nil {
 		return nil, err

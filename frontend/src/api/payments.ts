@@ -163,3 +163,46 @@ export const checkoutCart = async () => {
   const res = await apiClient.post('/payments/checkout-cart');
   return unwrap<{ authorization_url: string; reference: string; access_code: string; batch_id: string }>(res);
 };
+
+// ─── Dues Receipts ──────────────────────────────────────────────────────────
+
+// Downloads the official receipt PDF for a completed department/class dues
+// payment. The backend streams application/pdf with a Content-Disposition
+// filename, so this is a blob request — not a normal JSON call — and must
+// carry the session cookie like every other authenticated request.
+export const downloadPaymentReceipt = async (paymentId: string): Promise<void> => {
+  const res = await apiClient.get(`/payments/${paymentId}/receipt`, { responseType: 'blob' });
+
+  // Axios surfaces error bodies as text when a blob responseType is set;
+  // parse JSON error payloads (e.g. 400 "only issued for department or
+  // class dues") so the user sees the real message instead of a corrupt
+  // "PDF" download.
+  const contentType = String(res.headers?.['content-type'] ?? '');
+  if (contentType.includes('application/json')) {
+    const text = await (res.data as Blob).text();
+    let message = 'Could not download receipt';
+    try {
+      const body = JSON.parse(text);
+      if (body?.error) message = body.error;
+    } catch {
+      // not JSON — keep the generic message
+    }
+    throw new Error(message);
+  }
+
+  const blob = new Blob([res.data as BlobPart], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = receiptFileNameFromHeaders(res.headers) || `ACES-Receipt-${paymentId.slice(0, 8)}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+};
+
+function receiptFileNameFromHeaders(headers: Record<string, unknown> | undefined): string | null {
+  const disposition = String(headers?.['content-disposition'] ?? '');
+  const match = /filename\*?=(?:UTF-8''|")?([^";]+)/i.exec(disposition);
+  return match ? decodeURIComponent(match[1].replace(/"/g, '')) : null;
+}

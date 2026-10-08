@@ -50,8 +50,8 @@ SELECT EXISTS(
 `
 
 type CheckDuePaidParams struct {
-	StudentID uuid.UUID `json:"student_id"`
-	DueID     uuid.UUID `json:"due_id"`
+	StudentID uuid.UUID   `json:"student_id"`
+	DueID     pgtype.UUID `json:"due_id"`
 }
 
 func (q *Queries) CheckDuePaid(ctx context.Context, arg CheckDuePaidParams) (bool, error) {
@@ -128,7 +128,7 @@ INSERT INTO payments (
     student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, 'pending'
-) RETURNING id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes
+) RETURNING id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes, receipt_number
 `
 
 type CreatePaymentParams struct {
@@ -173,6 +173,7 @@ func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (P
 		&i.ReceiptUrl,
 		&i.RecordedBy,
 		&i.Notes,
+		&i.ReceiptNumber,
 	)
 	return i, err
 }
@@ -262,7 +263,7 @@ func (q *Queries) GetDue(ctx context.Context, id uuid.UUID) (Due, error) {
 }
 
 const getPayment = `-- name: GetPayment :one
-SELECT id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes FROM payments
+SELECT id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes, receipt_number FROM payments
 WHERE id = $1 LIMIT 1
 `
 
@@ -289,6 +290,7 @@ func (q *Queries) GetPayment(ctx context.Context, id uuid.UUID) (Payment, error)
 		&i.ReceiptUrl,
 		&i.RecordedBy,
 		&i.Notes,
+		&i.ReceiptNumber,
 	)
 	return i, err
 }
@@ -315,7 +317,7 @@ func (q *Queries) GetPaymentBatch(ctx context.Context, id uuid.UUID) (PaymentBat
 }
 
 const getPaymentByReference = `-- name: GetPaymentByReference :one
-SELECT p.id, p.student_id, p.batch_id, p.due_id, p.type, p.item_name, p.amount, p.paystack_reference, p.status, p.verified_by, p.verified_at, p.paid_at, p.created_at, p.payment_method, p.bank_reference, p.bank_name, p.receipt_url, p.recorded_by, p.notes, s.matric_number, u.full_name AS student_name, d.name AS due_name
+SELECT p.id, p.student_id, p.batch_id, p.due_id, p.type, p.item_name, p.amount, p.paystack_reference, p.status, p.verified_by, p.verified_at, p.paid_at, p.created_at, p.payment_method, p.bank_reference, p.bank_name, p.receipt_url, p.recorded_by, p.notes, p.receipt_number, s.matric_number, u.full_name AS student_name, d.name AS due_name
 FROM payments p
 JOIN students s ON s.id = p.student_id
 JOIN users u ON u.id = s.user_id
@@ -344,8 +346,9 @@ type GetPaymentByReferenceRow struct {
 	ReceiptUrl        *string            `json:"receipt_url"`
 	RecordedBy        pgtype.UUID        `json:"recorded_by"`
 	Notes             *string            `json:"notes"`
-	MatricNumber      string             `json:"matric_number"`
-	StudentName       string             `json:"student_name"`
+	ReceiptNumber     *int32             `json:"receipt_number"`
+	MatricNumber      *string            `json:"matric_number"`
+	StudentName       *string            `json:"student_name"`
 	DueName           *string            `json:"due_name"`
 }
 
@@ -372,6 +375,7 @@ func (q *Queries) GetPaymentByReference(ctx context.Context, paystackReference *
 		&i.ReceiptUrl,
 		&i.RecordedBy,
 		&i.Notes,
+		&i.ReceiptNumber,
 		&i.MatricNumber,
 		&i.StudentName,
 		&i.DueName,
@@ -409,7 +413,7 @@ func (q *Queries) GetStudentPaymentSummary(ctx context.Context, studentID uuid.U
 }
 
 const listAllPayments = `-- name: ListAllPayments :many
-SELECT p.id, p.student_id, p.batch_id, p.due_id, p.type, p.item_name, p.amount, p.paystack_reference, p.status, p.verified_by, p.verified_at, p.paid_at, p.created_at, p.payment_method, p.bank_reference, p.bank_name, p.receipt_url, p.recorded_by, p.notes, s.matric_number, u.full_name AS student_name, d.name AS due_name
+SELECT p.id, p.student_id, p.batch_id, p.due_id, p.type, p.item_name, p.amount, p.paystack_reference, p.status, p.verified_by, p.verified_at, p.paid_at, p.created_at, p.payment_method, p.bank_reference, p.bank_name, p.receipt_url, p.recorded_by, p.notes, p.receipt_number, s.matric_number, u.full_name AS student_name, d.name AS due_name
 FROM payments p
 JOIN students s ON s.id = p.student_id
 JOIN users u ON u.id = s.user_id
@@ -443,8 +447,9 @@ type ListAllPaymentsRow struct {
 	ReceiptUrl        *string            `json:"receipt_url"`
 	RecordedBy        pgtype.UUID        `json:"recorded_by"`
 	Notes             *string            `json:"notes"`
-	MatricNumber      string             `json:"matric_number"`
-	StudentName       string             `json:"student_name"`
+	ReceiptNumber     *int32             `json:"receipt_number"`
+	MatricNumber      *string            `json:"matric_number"`
+	StudentName       *string            `json:"student_name"`
 	DueName           *string            `json:"due_name"`
 }
 
@@ -477,6 +482,7 @@ func (q *Queries) ListAllPayments(ctx context.Context, arg ListAllPaymentsParams
 			&i.ReceiptUrl,
 			&i.RecordedBy,
 			&i.Notes,
+			&i.ReceiptNumber,
 			&i.MatricNumber,
 			&i.StudentName,
 			&i.DueName,
@@ -492,7 +498,7 @@ func (q *Queries) ListAllPayments(ctx context.Context, arg ListAllPaymentsParams
 }
 
 const listBatchPayments = `-- name: ListBatchPayments :many
-SELECT id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes FROM payments
+SELECT id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes, receipt_number FROM payments
 WHERE batch_id = $1
 ORDER BY created_at
 `
@@ -526,6 +532,7 @@ func (q *Queries) ListBatchPayments(ctx context.Context, batchID pgtype.UUID) ([
 			&i.ReceiptUrl,
 			&i.RecordedBy,
 			&i.Notes,
+			&i.ReceiptNumber,
 		); err != nil {
 			return nil, err
 		}
@@ -561,8 +568,8 @@ ORDER BY total_outstanding DESC
 
 type ListDefaultersByLevelRow struct {
 	StudentID        uuid.UUID       `json:"student_id"`
-	FullName         string          `json:"full_name"`
-	MatricNumber     string          `json:"matric_number"`
+	FullName         *string         `json:"full_name"`
+	MatricNumber     *string         `json:"matric_number"`
 	Level            int32           `json:"level"`
 	UnpaidDuesCount  int32           `json:"unpaid_dues_count"`
 	TotalOutstanding decimal.Decimal `json:"total_outstanding"`
@@ -679,6 +686,91 @@ func (q *Queries) ListDuesByLevel(ctx context.Context, level *int32) ([]Due, err
 	return items, nil
 }
 
+const listRecentVerifiedPayments = `-- name: ListRecentVerifiedPayments :many
+SELECT p.id, p.student_id, p.batch_id, p.due_id, p.type, p.item_name, p.amount, p.paystack_reference, p.status, p.verified_by, p.verified_at, p.paid_at, p.created_at, p.payment_method, p.bank_reference, p.bank_name, p.receipt_url, p.recorded_by, p.notes, p.receipt_number,
+    u.full_name AS student_name,
+    s.matric_number AS matric_number
+FROM payments p
+JOIN students s ON s.id = p.student_id
+JOIN users u ON u.id = s.user_id
+WHERE p.status = 'completed'
+ORDER BY p.verified_at DESC NULLS LAST
+LIMIT $1 OFFSET $2
+`
+
+type ListRecentVerifiedPaymentsParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+type ListRecentVerifiedPaymentsRow struct {
+	ID                uuid.UUID          `json:"id"`
+	StudentID         uuid.UUID          `json:"student_id"`
+	BatchID           pgtype.UUID        `json:"batch_id"`
+	DueID             pgtype.UUID        `json:"due_id"`
+	Type              PaymentType        `json:"type"`
+	ItemName          string             `json:"item_name"`
+	Amount            decimal.Decimal    `json:"amount"`
+	PaystackReference *string            `json:"paystack_reference"`
+	Status            PaymentStatus      `json:"status"`
+	VerifiedBy        pgtype.UUID        `json:"verified_by"`
+	VerifiedAt        pgtype.Timestamptz `json:"verified_at"`
+	PaidAt            pgtype.Timestamptz `json:"paid_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	PaymentMethod     *string            `json:"payment_method"`
+	BankReference     *string            `json:"bank_reference"`
+	BankName          *string            `json:"bank_name"`
+	ReceiptUrl        *string            `json:"receipt_url"`
+	RecordedBy        pgtype.UUID        `json:"recorded_by"`
+	Notes             *string            `json:"notes"`
+	ReceiptNumber     *int32             `json:"receipt_number"`
+	StudentName       *string            `json:"student_name"`
+	MatricNumber      *string            `json:"matric_number"`
+}
+
+func (q *Queries) ListRecentVerifiedPayments(ctx context.Context, arg ListRecentVerifiedPaymentsParams) ([]ListRecentVerifiedPaymentsRow, error) {
+	rows, err := q.db.Query(ctx, listRecentVerifiedPayments, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListRecentVerifiedPaymentsRow{}
+	for rows.Next() {
+		var i ListRecentVerifiedPaymentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.StudentID,
+			&i.BatchID,
+			&i.DueID,
+			&i.Type,
+			&i.ItemName,
+			&i.Amount,
+			&i.PaystackReference,
+			&i.Status,
+			&i.VerifiedBy,
+			&i.VerifiedAt,
+			&i.PaidAt,
+			&i.CreatedAt,
+			&i.PaymentMethod,
+			&i.BankReference,
+			&i.BankName,
+			&i.ReceiptUrl,
+			&i.RecordedBy,
+			&i.Notes,
+			&i.ReceiptNumber,
+			&i.StudentName,
+			&i.MatricNumber,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listStudentCart = `-- name: ListStudentCart :many
 SELECT id, student_id, due_id, amount, added_at FROM payment_cart
 WHERE student_id = $1
@@ -754,7 +846,7 @@ func (q *Queries) ListStudentPaymentBatches(ctx context.Context, arg ListStudent
 }
 
 const listStudentPayments = `-- name: ListStudentPayments :many
-SELECT id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes FROM payments
+SELECT id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes, receipt_number FROM payments
 WHERE student_id = $1
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3
@@ -795,6 +887,7 @@ func (q *Queries) ListStudentPayments(ctx context.Context, arg ListStudentPaymen
 			&i.ReceiptUrl,
 			&i.RecordedBy,
 			&i.Notes,
+			&i.ReceiptNumber,
 		); err != nil {
 			return nil, err
 		}
@@ -913,7 +1006,7 @@ SET
     status = $2,
     paid_at = $3
 WHERE id = $1
-RETURNING id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes
+RETURNING id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes, receipt_number
 `
 
 type UpdatePaymentStatusParams struct {
@@ -945,6 +1038,7 @@ func (q *Queries) UpdatePaymentStatus(ctx context.Context, arg UpdatePaymentStat
 		&i.ReceiptUrl,
 		&i.RecordedBy,
 		&i.Notes,
+		&i.ReceiptNumber,
 	)
 	return i, err
 }
@@ -957,7 +1051,7 @@ SET
     verified_at = NOW(),
     paid_at = NOW()
 WHERE id = $1
-RETURNING id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes
+RETURNING id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes, receipt_number
 `
 
 type VerifyPaymentParams struct {
@@ -988,60 +1082,7 @@ func (q *Queries) VerifyPayment(ctx context.Context, arg VerifyPaymentParams) (P
 		&i.ReceiptUrl,
 		&i.RecordedBy,
 		&i.Notes,
+		&i.ReceiptNumber,
 	)
 	return i, err
-}
-
-const listRecentVerifiedPayments = `-- name: ListRecentVerifiedPayments :many
-SELECT p.id, p.student_id, p.batch_id, p.due_id, p.type, p.item_name, p.amount, p.paystack_reference, p.status, p.verified_by, p.verified_at, p.paid_at, p.created_at, p.payment_method, p.bank_reference, p.bank_name, p.receipt_url, p.recorded_by, p.notes, s.matric_number, u.full_name AS student_name, d.name AS due_name
-FROM payments p
-JOIN students s ON s.id = p.student_id
-JOIN users u ON u.id = s.user_id
-LEFT JOIN dues d ON d.id = p.due_id
-WHERE p.status = 'completed'
-ORDER BY p.verified_at DESC NULLS LAST
-LIMIT $1 OFFSET $2
-`
-
-func (q *Queries) ListRecentVerifiedPayments(ctx context.Context, arg ListAllPaymentsParams) ([]ListAllPaymentsRow, error) {
-	rows, err := q.db.Query(ctx, listRecentVerifiedPayments, arg.Limit, arg.Offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListAllPaymentsRow{}
-	for rows.Next() {
-		var i ListAllPaymentsRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.StudentID,
-			&i.BatchID,
-			&i.DueID,
-			&i.Type,
-			&i.ItemName,
-			&i.Amount,
-			&i.PaystackReference,
-			&i.Status,
-			&i.VerifiedBy,
-			&i.VerifiedAt,
-			&i.PaidAt,
-			&i.CreatedAt,
-			&i.PaymentMethod,
-			&i.BankReference,
-			&i.BankName,
-			&i.ReceiptUrl,
-			&i.RecordedBy,
-			&i.Notes,
-			&i.MatricNumber,
-			&i.StudentName,
-			&i.DueName,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }

@@ -9,11 +9,20 @@ import (
 )
 
 type CampusConnectService struct {
-	store db.Querier
+	// store is the concrete *db.Queries (not the generated Querier
+	// interface) because several Connect queries (DM/group conversations,
+	// invite codes, member roles) are hand-written in db/sql/custom.go and
+	// therefore not part of the interface.
+	store *db.Queries
 }
 
 func NewCampusConnectService(store db.Querier) *CampusConnectService {
-	return &CampusConnectService{store: store}
+	if q, ok := store.(*db.Queries); ok {
+		return &CampusConnectService{store: q}
+	}
+	// Transaction-backed stores are wrapped below; unreachable in the
+	// current wiring where the pool-backed *db.Queries is always passed.
+	return &CampusConnectService{store: nil}
 }
 
 // Connections
@@ -136,7 +145,9 @@ func (s *CampusConnectService) ListGroupConversations(ctx context.Context, userI
 
 // Directory
 func (s *CampusConnectService) GetStudentDirectory(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]db.GetStudentDirectoryRow, error) {
-	return s.store.GetStudentDirectory(ctx, db.GetStudentDirectoryParams{UserID: userID, Limit: limit, Offset: offset})
+	// The .sql query names its exclusion parameter $1 (used 5×), which sqlc
+	// names after the first column it matches — hence ID, not UserID.
+	return s.store.GetStudentDirectory(ctx, db.GetStudentDirectoryParams{ID: userID, Limit: limit, Offset: offset})
 }
 
 func (s *CampusConnectService) GetAlumniDirectory(ctx context.Context, limit, offset int32) ([]db.GetAlumniDirectoryRow, error) {

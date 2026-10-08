@@ -104,7 +104,7 @@ func (server *Server) createGraduationRequest(ctx *gin.Context) {
 			ctx.JSON(http.StatusConflict, gin.H{"error": "your graduation signing fee is already settled", "graduation_request": existing})
 			return
 		}
-		if existing.PaymentID != nil {
+		if existing.PaymentID.Valid {
 			ctx.JSON(http.StatusOK, gin.H{"graduation_request": existing, "resumed": true})
 			return
 		}
@@ -203,7 +203,7 @@ func (server *Server) createWaivedGraduationRequest(ctx *gin.Context) {
 		return
 	}
 
-	student, err := queries.GetStudentByMatric(ctx, req.MatricNumber)
+	student, err := queries.GetStudentByMatric(ctx, &req.MatricNumber)
 	if err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "no student found with that matric number"})
 		return

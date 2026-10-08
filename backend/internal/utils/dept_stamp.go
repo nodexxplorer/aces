@@ -137,18 +137,20 @@ func GenerateStamp(width, height int, cfg StampConfig) *gg.Context {
 	textRY := (outerRY - doubleGapY + innerRY) / 2
 
 	// --- Top curved text: "DEPARTMENT OF COMPUTER ENGINEERING" ---
-	if err := dc.LoadFontFace(FontBoldPath, float64(height)/21); err != nil {
+	topFontSize := float64(height) / 17 // was height/21
+	if err := dc.LoadFontFace(FontBoldPath, topFontSize); err != nil {
 		log.Printf("warning: could not load bold font (%v); falling back to default", err)
 	}
+	// Centered on 270° (12 o'clock), running clockwise (left to right).
 	drawArcText(dc, cfg.CompanyName, cx, cy, nameRX, nameRY,
-		degToRad(218), degToRad(322), false)
+		degToRad(270), true, 0)
 
-	// Stars at the two ends of the top curve, matching the reference image.
+	// Stars at the far left (9 o'clock) and far right (3 o'clock) of the
+	// oval, where the curve is tightest. They sit on the middle of the band
+	// between the outer and inner borders so they touch neither line.
 	dc.SetColor(StampBlue)
-	starRadiusX := (outerRX - doubleGapX) * 0.97
-	starRadiusY := (outerRY - doubleGapY) * 0.97
-	drawStarAt(dc, cx, cy, starRadiusX, starRadiusY, degToRad(213), 8)
-	drawStarAt(dc, cx, cy, starRadiusX, starRadiusY, degToRad(327), 8)
+	drawStarAt(dc, cx, cy, textRX, textRY, math.Pi, 9)
+	drawStarAt(dc, cx, cy, textRX, textRY, 0, 9)
 
 	// --- Padding gap between the curved name / stars and the content below ---
 	const contentTopPad = 0.50 // fraction of innerRY reserved as breathing room
@@ -196,11 +198,15 @@ func GenerateStamp(width, height int, cfg StampConfig) *gg.Context {
 	drawLabelWithDottedLine(dc, cfg.SignLabel, leftX, rightX, signY, rowFontSize)
 
 	// --- Bottom curved text: "FACULTY OF ENGINEERING UNIUYO" ---
-	if err := dc.LoadFontFace(FontRegularPath, float64(height)/24); err != nil {
+	bottomFontSize := float64(height) / 16 // was height/24
+	if err := dc.LoadFontFace(FontRegularPath, bottomFontSize); err != nil {
 		log.Printf("warning: could not load regular font (%v)", err)
 	}
+	// Centered on 90° (6 o'clock), running counter-clockwise so it still
+	// reads left to right and right-side up. A little extra letter spacing
+	// keeps the lighter font from looking cramped.
 	drawArcText(dc, cfg.AddressLine, cx, cy, textRX, textRY,
-		degToRad(142), degToRad(38), true)
+		degToRad(90), false, bottomFontSize*0.1)
 
 	return dc
 }
@@ -217,49 +223,103 @@ func DeptStampPNG(width, height int, cfg StampConfig) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// drawArcText draws text following an elliptical arc, walking directly
-// from startAngle to endAngle (radians, 0 = +x axis, increasing = clockwise,
-// since image coordinates have y pointing down). Choose startAngle/endAngle
-// so the *direct* interpolation between them already passes through the
-// side of the ellipse you want (e.g. 218°->322° sweeps across the top;
-// 142°->38° sweeps across the bottom) — the function does not wrap around
-// the long way.
+// drawArcText draws text along an elliptical arc, centered on centerAngle
+// (radians, 0 = +x axis, increasing = clockwise, since image coordinates
+// have y pointing down). Use 270° for the top of the ellipse and 90° for
+// the bottom.
 //
-// If flip is true, each glyph is additionally rotated 180° so text that
-// runs along the *bottom* of the ellipse still reads left-to-right and
-// right-side up instead of upside down.
-func drawArcText(dc *gg.Context, text string, cx, cy, rx, ry, startAngle, endAngle float64, flip bool) {
+// Letters are placed by real arc length using each glyph's measured width,
+// so spacing stays even and letters never overlap, even on an ellipse
+// where equal angle steps would bunch them up near the sides. Each glyph
+// is rotated to the tangent of the ellipse so the text follows the curve.
+//
+// clockwise = true  -> text travels in the direction of increasing angle
+//                      (left to right across the top).
+// clockwise = false -> text travels in the direction of decreasing angle
+//                      (left to right across the bottom, right-side up).
+// tracking is extra spacing in pixels added between letters.
+func drawArcText(dc *gg.Context, text string, cx, cy, rx, ry, centerAngle float64, clockwise bool, tracking float64) {
 	runes := []rune(text)
 	n := len(runes)
 	if n == 0 {
 		return
 	}
 
-	step := (endAngle - startAngle) / float64(n)
+	dir := 1.0
+	if !clockwise {
+		dir = -1.0
+	}
 
-	angle := startAngle + step/2 // center each glyph within its slice
-	for _, r := range runes {
+	// Measure every glyph and the total text length.
+	widths := make([]float64, n)
+	total := 0.0
+	for i, r := range runes {
+		w, _ := dc.MeasureString(string(r))
+		widths[i] = w
+		total += w
+	}
+	total += tracking * float64(n-1)
+
+	pos := 0.0 // distance from the start of the text to the current glyph's left edge
+	for i, r := range runes {
+		// Offset of this glyph's centre from the middle of the text,
+		// measured along the direction of travel.
+		offset := pos + widths[i]/2 - total/2
+		pos += widths[i] + tracking
+
+		var angle float64
+		if offset >= 0 {
+			angle = angleAtArcDistance(rx, ry, centerAngle, offset, dir)
+		} else {
+			angle = angleAtArcDistance(rx, ry, centerAngle, -offset, -dir)
+		}
+
 		x := cx + rx*math.Cos(angle)
 		y := cy + ry*math.Sin(angle)
 
+		// Tangent of the ellipse at this point, in the direction of
+		// increasing angle. For a circle this reduces to angle + π/2.
+		rot := math.Atan2(ry*math.Cos(angle), -rx*math.Sin(angle))
+		if !clockwise {
+			rot += math.Pi // travelling the other way round
+		}
+
 		dc.Push()
 		dc.Translate(x, y)
-		rot := angle + math.Pi/2
-		if flip {
-			rot += math.Pi
-		}
+		dc.Rotate(rot)
 		dc.DrawStringAnchored(string(r), 0, 0, 0.5, 0.5)
 		dc.Pop()
-
-		angle += step
 	}
 }
 
-// drawStarAt places a small 5-point star on the ellipse at the given angle.
+// angleAtArcDistance walks along the ellipse from angle `from`, in
+// direction dir (+1 = increasing angle, -1 = decreasing), until it has
+// covered `dist` pixels of arc, and returns the angle it ends up at.
+func angleAtArcDistance(rx, ry, from, dist, dir float64) float64 {
+	const dTheta = 0.0005
+	a := from
+	covered := 0.0
+	for covered < dist {
+		ds := math.Hypot(rx*math.Sin(a), ry*math.Cos(a)) * dTheta
+		if ds <= 0 {
+			break
+		}
+		if covered+ds >= dist {
+			a += dir * dTheta * (dist - covered) / ds
+			break
+		}
+		covered += ds
+		a += dir * dTheta
+	}
+	return a
+}
+
+// drawStarAt places a small upright 5-point star on the ellipse at the
+// given angle.
 func drawStarAt(dc *gg.Context, cx, cy, rx, ry, angle, size float64) {
 	x := cx + rx*math.Cos(angle)
 	y := cy + ry*math.Sin(angle)
-	drawStar(dc, x, y, size, size/2.2, 5, angle+math.Pi/2)
+	drawStar(dc, x, y, size, size/2.2, 5, 0)
 }
 
 // drawStar draws a filled 5-point star centered at (cx, cy). rotation=0

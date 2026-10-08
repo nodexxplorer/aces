@@ -40,7 +40,13 @@ type CategoryCount struct {
 	Count    int    `json:"count"`
 }
 
-type NotificationPreference struct {
+// NotificationPreferenceView is the API-facing notification preference row.
+// It is NOT the generated NotificationPreference table model (models.go):
+// this view casts quiet-hours to text for JSON and flattens nulls, which
+// the raw table model cannot express. If you add a .sql query that returns
+// notification_preferences rows, it will emit the generated model — keep
+// the two distinct.
+type NotificationPreferenceView struct {
 	ID             uuid.UUID          `json:"id"`
 	UserID         uuid.UUID          `json:"user_id"`
 	EmailEnabled   bool               `json:"email_enabled"`
@@ -322,7 +328,7 @@ func (q *Queries) DeleteExpiredNotifications(ctx context.Context) error {
 	return err
 }
 
-func (q *Queries) GetNotificationPreferences(ctx context.Context, userID uuid.UUID) (NotificationPreference, error) {
+func (q *Queries) GetNotificationPreferences(ctx context.Context, userID uuid.UUID) (NotificationPreferenceView, error) {
 	query := `SELECT id, user_id, email_enabled, push_enabled, in_app_enabled,
 		email_auth, email_results, email_dues, email_messages, email_connect,
 		email_skills, email_alumni, email_system,
@@ -332,7 +338,7 @@ func (q *Queries) GetNotificationPreferences(ctx context.Context, userID uuid.UU
 		FROM notification_preferences WHERE user_id = $1`
 
 	row := q.db.QueryRow(ctx, query, userID)
-	var p NotificationPreference
+	var p NotificationPreferenceView
 	err := row.Scan(
 		&p.ID, &p.UserID, &p.EmailEnabled, &p.PushEnabled, &p.InAppEnabled,
 		&p.EmailAuth, &p.EmailResults, &p.EmailDues, &p.EmailMessages, &p.EmailConnect,
@@ -344,7 +350,7 @@ func (q *Queries) GetNotificationPreferences(ctx context.Context, userID uuid.UU
 	return p, err
 }
 
-func (q *Queries) SetUserPushToken(ctx context.Context, userID uuid.UUID, token string) (NotificationPreference, error) {
+func (q *Queries) SetUserPushToken(ctx context.Context, userID uuid.UUID, token string) (NotificationPreferenceView, error) {
 	row := q.db.QueryRow(ctx, `
 		INSERT INTO notification_preferences (user_id, push_token)
 		VALUES ($1, $2)
@@ -357,7 +363,7 @@ func (q *Queries) SetUserPushToken(ctx context.Context, userID uuid.UUID, token 
 			quiet_hours_start::text, quiet_hours_end::text, push_token, updated_at
 	`, userID, token)
 
-	var p NotificationPreference
+	var p NotificationPreferenceView
 	err := row.Scan(
 		&p.ID, &p.UserID, &p.EmailEnabled, &p.PushEnabled, &p.InAppEnabled,
 		&p.EmailAuth, &p.EmailResults, &p.EmailDues, &p.EmailMessages, &p.EmailConnect,
@@ -369,7 +375,7 @@ func (q *Queries) SetUserPushToken(ctx context.Context, userID uuid.UUID, token 
 	return p, err
 }
 
-func (q *Queries) UpsertNotificationPreferences(ctx context.Context, arg UpsertNotificationPreferencesParams) (NotificationPreference, error) {
+func (q *Queries) UpsertNotificationPreferences(ctx context.Context, arg UpsertNotificationPreferencesParams) (NotificationPreferenceView, error) {
 	emailEnabled := true
 	if arg.EmailEnabled != nil {
 		emailEnabled = *arg.EmailEnabled
@@ -497,7 +503,7 @@ func (q *Queries) UpsertNotificationPreferences(ctx context.Context, arg UpsertN
 		arg.QuietHoursStart, arg.QuietHoursEnd,
 	)
 
-	var p NotificationPreference
+	var p NotificationPreferenceView
 	err := row.Scan(
 		&p.ID, &p.UserID, &p.EmailEnabled, &p.PushEnabled, &p.InAppEnabled,
 		&p.EmailAuth, &p.EmailResults, &p.EmailDues, &p.EmailMessages, &p.EmailConnect,

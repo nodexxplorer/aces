@@ -82,10 +82,10 @@ func (server *Server) getUser(ctx *gin.Context) {
 	if ok {
 		student, studentErr := queries.GetStudentByUserIDFull(ctx, id)
 		if studentErr == nil {
-			resp.MatricNumber = &student.MatricNumber
+			resp.MatricNumber = student.MatricNumber
 			level := int(student.Level)
 			resp.Level = &level
-			resp.EntryYear = &student.EntryYear
+			resp.EntryYear = student.EntryYear
 			resp.AdmissionMode = student.AdmissionMode
 			resp.YearAdmitted = student.YearAdmitted
 			if student.Cgpa.Valid {
@@ -360,10 +360,10 @@ func (server *Server) updateUser(ctx *gin.Context) {
 		if string(user.Role) == "student" {
 			student, studentErr := queries.GetStudentByUserIDFull(ctx, id)
 			if studentErr == nil {
-				resp.MatricNumber = &student.MatricNumber
+				resp.MatricNumber = student.MatricNumber
 				level := int(student.Level)
 				resp.Level = &level
-				resp.EntryYear = &student.EntryYear
+				resp.EntryYear = student.EntryYear
 				resp.AdmissionMode = student.AdmissionMode
 				resp.YearAdmitted = student.YearAdmitted
 			if student.Cgpa.Valid {

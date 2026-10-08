@@ -1,68 +1,34 @@
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { useAuth } from '../../hooks/useAuth';
-import { useNotification } from '../../hooks/useNotification';
-import { useNavigate, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
-import Select from '../../components/ui/Select';
 import AuthVideoShell from '../../components/layout/AuthVideoShell';
-import { Mail, Lock, User, UserCheck, MapPin } from 'lucide-react';
-import { studentSignup } from '../../api/signup';
+import { GraduationCap, ShieldOff, LogIn } from 'lucide-react';
+import { modoolsLoginUrl, getModoolsStatus } from '../../api/modools';
 
-const studentSignupSchema = z
-  .object({
-    firstName: z.string().min(2, 'First name is too short'),
-    lastName: z.string().min(2, 'Last name is too short'),
-    email: z.string().email('Please enter a valid email address'),
-    matricNumber: z.string(),
-    level: z.string().min(1, 'Please select your current level'),
-    gender: z.string().min(1, 'Please select your gender'),
-    address: z.string().min(5, 'Address must be at least 5 characters'),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
-    confirmPassword: z.string(),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: 'Passwords must match',
-    path: ['confirmPassword'],
-  });
-
-type StudentSignupValues = z.infer<typeof studentSignupSchema>;
-
+// Student registration: Modools OAuth only. Accounts are created
+// automatically on first sign-in; profile details (matric number, level,
+// phone, DOB, emergency contact) are collected in the onboarding flow
+// afterwards. There is no manual form here anymore — the /auth/signup/student
+// endpoint still exists for the mobile app, but the web flow is Modools-only.
 const StudentSignupPage = () => {
-  const { login } = useAuth();
-  const { success, error } = useNotification();
-  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [modoolsConfigured, setModoolsConfigured] = useState<boolean | null>(null);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<StudentSignupValues>({
-    resolver: zodResolver(studentSignupSchema),
-  });
-
-  const onSubmit = async (data: StudentSignupValues) => {
-    try {
-      const response = await studentSignup({
-        email: data.email,
-        password: data.password,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        matricNumber: data.matricNumber,
-        level: parseInt(data.level),
-        department: 'Computer Engineering', // Default for ACES
-      });
-
-      login({ ...response.user, onboardingCompleted: false }, response.tokens);
-      success('Sign Up Successful', 'Welcome to ACES Zone! Please complete your profile onboarding.');
-      navigate('/onboarding');
-    } catch (err) {
-      error('Sign Up Failed', err instanceof Error ? err.message : 'An error occurred during account registration.');
+  useEffect(() => {
+    const errParam = searchParams.get('error');
+    if (errParam === 'auth_failed') {
+      setAuthError('Modools sign-in was cancelled or failed. Please try again.');
+    } else if (errParam === 'staff_email') {
+      setAuthError('This email belongs to a staff account. Staff sign in at the staff portal.');
+    } else if (errParam === 'account_deactivated') {
+      setAuthError('This account has been deactivated. Contact the department office.');
     }
-  };
+    getModoolsStatus()
+      .then((s) => setModoolsConfigured(s.configured))
+      .catch(() => setModoolsConfigured(false));
+  }, [searchParams]);
 
   return (
     <AuthVideoShell cardMaxWidth="max-w-lg">
@@ -74,101 +40,56 @@ const StudentSignupPage = () => {
               alt="Aces Logo"
               className="w-14 h-14 rounded-2xl mb-2 object-contain shadow-lg md:hidden"
             />
-            <h2 className="text-3xl font-bold tracking-tight text-white">Student Registration</h2>
-            <p className="text-sm text-white/70">Create your student account to join the ACES academic zone</p>
+            <h2 className="text-3xl font-bold tracking-tight text-white">Join ACES Zone</h2>
+            <p className="text-sm text-white/70">Sign up with Modools your account is created automatically</p>
           </div>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="First Name"
-                placeholder="e.g. John"
-                leftIcon={<User className="w-4 h-4" />}
-                error={errors.firstName?.message}
-                {...register('firstName')}
-              />
-              <Input
-                label="Last Name"
-                placeholder="e.g. Doe"
-                leftIcon={<User className="w-4 h-4" />}
-                error={errors.lastName?.message}
-                {...register('lastName')}
-              />
-            </div>
-            <Input
-              label="Email Address"
-              placeholder="e.g. john.doe@student.uniuyo.edu.ng"
-              leftIcon={<Mail className="w-4 h-4" />}
-              error={errors.email?.message}
-              {...register('email')}
-            />
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="Matric Number"
-                placeholder="e.g. ENG/2022/123"
-                leftIcon={<UserCheck className="w-4 h-4" />}
-                error={errors.matricNumber?.message}
-                {...register('matricNumber')}
-              />
-              <Select
-                label="Level"
-                placeholder="Select Level"
-                options={[
-                  { value: '100', label: '100 Level' },
-                  { value: '200', label: '200 Level' },
-                  { value: '300', label: '300 Level' },
-                  { value: '400', label: '400 Level' },
-                  { value: '500', label: '500 Level' },
-                ]}
-                error={errors.level?.message}
-                {...register('level')}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Select
-                label="Gender"
-                placeholder="Select Gender"
-                options={[
-                  { value: 'male', label: 'Male' },
-                  { value: 'female', label: 'Female' },
-                ]}
-                error={errors.gender?.message}
-                {...register('gender')}
-              />
-              <Input
-                label="Address"
-                placeholder="e.g. 123 Main St"
-                leftIcon={<MapPin className="w-4 h-4" />}
-                error={errors.address?.message}
-                {...register('address')}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="Password"
-                type="password"
-                placeholder="••••••••"
-                leftIcon={<Lock className="w-4 h-4" />}
-                error={errors.password?.message}
-                {...register('password')}
-              />
-              <Input
-                label="Confirm Password"
-                type="password"
-                placeholder="••••••••"
-                leftIcon={<Lock className="w-4 h-4" />}
-                error={errors.confirmPassword?.message}
-                {...register('confirmPassword')}
-              />
-            </div>
-            <Button type="submit" className="w-full mt-2" isLoading={isSubmitting}>
-              Register Account
+
+          <div className="space-y-5">
+            {authError && (
+              <div className="relative overflow-hidden rounded-xl border border-danger-200 dark:border-danger-800/40 bg-gradient-to-r from-danger-50 via-danger-50/80 to-danger-100/60 dark:from-danger-950/30 dark:via-danger-950/20 dark:to-danger-900/20">
+                <div className="absolute top-0 left-0 w-1 h-full bg-danger-500 rounded-l-xl" />
+                <div className="relative flex items-start gap-3 p-4">
+                  <ShieldOff className="w-5 h-5 text-danger-500 dark:text-danger-400 shrink-0 mt-0.5" />
+                  <p className="text-sm font-semibold text-danger-700 dark:text-danger-300">{authError}</p>
+                </div>
+              </div>
+            )}
+
+            <Button
+              type="button"
+              className="w-full"
+              disabled={modoolsConfigured === false}
+              onClick={() => {
+                window.location.href = modoolsLoginUrl();
+              }}
+              leftIcon={
+                modoolsConfigured === false ? <LogIn className="w-5 h-5" /> : <GraduationCap className="w-5 h-5" />
+              }
+            >
+              {modoolsConfigured === false ? 'Modools sign-in unavailable' : 'Continue with Modools'}
             </Button>
-          </form>
-          <div className="mt-6 text-center text-xs text-white/60">
-            Already have an account?{' '}
-            <Link to="/login" className="text-primary-300 hover:text-primary-200 font-semibold transition-colors">
-              Sign In
-            </Link>
+
+            <ul className="text-xs text-white/50 space-y-1.5 max-w-xs mx-auto">
+              <li> After your first sign-in you'll set up your matric number, level and contact details.</li>
+            </ul>
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-white/10 text-center text-xs text-white/60">
+            <div>
+              Already have an account?{' '}
+              <Link to="/login" className="text-primary-300 hover:text-primary-200 font-semibold transition-colors">
+                Sign In
+              </Link>
+            </div>
+            <div className="pt-2">
+              Don't have a Modool Account?{' '}
+              <Link
+                to="https://cpeuniuyo.modools.app/"
+                className="text-primary-300 hover:text-primary-200 font-semibold transition-colors"
+              >
+                Create a Modool account
+              </Link>
+            </div>
           </div>
         </div>
       </motion.div>

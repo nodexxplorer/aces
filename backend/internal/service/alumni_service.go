@@ -60,7 +60,7 @@ func (s *AlumniService) ListMentorRequests(ctx context.Context, mentorID uuid.UU
 
 func (s *AlumniService) UpdateMentorshipStatus(ctx context.Context, id uuid.UUID, status string) (db.MentorshipRequest, error) {
 	return s.store.UpdateMentorshipStatus(ctx, db.UpdateMentorshipStatusParams{
-		ID: id, Status: db.MentorshipStatus(status),
+		ID: id, Column2: db.MentorshipStatus(status),
 	})
 }
 

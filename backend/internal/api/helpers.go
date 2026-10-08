@@ -16,6 +16,16 @@ import (
 )
 
 // getUserID extracts the userID from gin context.
+// derefStrPtr returns *s or "" when nil — small convenience for the
+// nullable text columns (full_name, matric_number, ...) that the generated
+// models expose as *string.
+func derefStrPtr(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
 func getUserID(ctx *gin.Context) uuid.UUID {
 	val, exists := ctx.Get("userID")
 	if !exists {
@@ -124,12 +134,6 @@ func requireOwnershipOrStaffByStudentIDParam(ctx *gin.Context, store db.Querier)
 	return student.ID, true
 }
 
-// unpaidRequiredDues returns the names of any active department/class dues
-// (dept_dues, class_dues — deliberately excluding materials/transcript_fee/
-// other, which don't gate anything) for the student's level that they
-// haven't completed payment on yet. An empty slice means they're clear.
-// Course registration and course-form signing both refuse to proceed while
-// this is non-empty.
 func unpaidRequiredDues(ctx context.Context, store db.Querier, studentID uuid.UUID, level int32) ([]string, error) {
 	dues, err := store.ListDuesByLevel(ctx, &level)
 	if err != nil {
@@ -144,7 +148,7 @@ func unpaidRequiredDues(ctx context.Context, store db.Querier, studentID uuid.UU
 		if due.Type != db.PaymentTypeDeptDues && due.Type != db.PaymentTypeClassDues {
 			continue
 		}
-		paid, err := store.CheckDuePaid(ctx, db.CheckDuePaidParams{StudentID: studentID, DueID: due.ID})
+		paid, err := store.CheckDuePaid(ctx, db.CheckDuePaidParams{StudentID: studentID, DueID: pgtype.UUID{Bytes: due.ID, Valid: true}})
 		if err != nil {
 			return nil, err
 		}
@@ -155,15 +159,9 @@ func unpaidRequiredDues(ctx context.Context, store db.Querier, studentID uuid.UU
 	return unpaid, nil
 }
 
-// finalYearLevel is the terminal level: final-year students are on the
-// graduation path instead of the regular dues cycle.
+
 const finalYearLevel = int32(500)
 
-// blockOnUnpaidDues writes the gating error response and returns true when
-// the student may not proceed with course-form signing / registration.
-// Final-year (500 level) students never answer for level dues — they settle
-// the graduation signing fee (or get it waived) instead; everyone else must
-// clear their active dept/class dues.
 func (server *Server) blockOnUnpaidDues(ctx *gin.Context, student db.Student, action string) bool {
 	if student.Level >= finalYearLevel {
 		if queries, ok := server.store.(*db.Queries); ok {
@@ -187,6 +185,52 @@ func (server *Server) blockOnUnpaidDues(ctx *gin.Context, student db.Student, ac
 		return true
 	}
 	return false
+}
+
+func (server *Server) RequireStudentOnboarded(ctx *gin.Context) {
+	userIDStr, exists := ctx.Get("userID")
+	if !exists {
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	roleNames, _ := server.roles.ListUserRolesByName(ctx, userID)
+	if hasStaffRole(roleNames) {
+		ctx.Next()
+		return
+	}
+	user, err := server.store.GetUser(ctx, userID)
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	if user.Role != db.UserRoleStudent {
+		ctx.Next()
+		return
+	}
+
+	q, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	student, err := q.GetStudentByUserId(ctx, userID)
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "student profile not found"})
+		return
+	}
+	if !student.OnboardingCompleted {
+		ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+			"error":             "finish setting up your profile first",
+			"onboarding_needed": true,
+		})
+		return
+	}
+	ctx.Next()
 }
 
 func (server *Server) notifyUser(

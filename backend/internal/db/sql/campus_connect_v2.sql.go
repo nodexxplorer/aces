@@ -499,7 +499,7 @@ type GetConnectionSuggestionsParams struct {
 
 type GetConnectionSuggestionsRow struct {
 	ID           uuid.UUID       `json:"id"`
-	FullName     string          `json:"full_name"`
+	FullName     *string         `json:"full_name"`
 	AvatarUrl    *string         `json:"avatar_url"`
 	Role         UserRole        `json:"role"`
 	MatricNumber *string         `json:"matric_number"`
@@ -568,7 +568,7 @@ type GetFeedPostRow struct {
 	IsHidden       bool               `json:"is_hidden"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-	AuthorName     string             `json:"author_name"`
+	AuthorName     *string            `json:"author_name"`
 	AuthorAvatar   *string            `json:"author_avatar"`
 	AuthorRole     UserRole           `json:"author_role"`
 }
@@ -633,7 +633,7 @@ type GetMessageReactionsRow struct {
 	UserID       uuid.UUID          `json:"user_id"`
 	ReactionType string             `json:"reaction_type"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	FullName     string             `json:"full_name"`
+	FullName     *string            `json:"full_name"`
 }
 
 func (q *Queries) GetMessageReactions(ctx context.Context, messageID uuid.UUID) ([]GetMessageReactionsRow, error) {
@@ -855,12 +855,12 @@ type ListCampusReportsRow struct {
 	TargetID     uuid.UUID          `json:"target_id"`
 	Reason       string             `json:"reason"`
 	Description  *string            `json:"description"`
-	Status       ReportStatus       `json:"status"`
+	Status       string             `json:"status"`
 	ReviewedBy   pgtype.UUID        `json:"reviewed_by"`
 	ReviewedAt   pgtype.Timestamptz `json:"reviewed_at"`
 	ActionTaken  *string            `json:"action_taken"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	ReporterName string             `json:"reporter_name"`
+	ReporterName *string            `json:"reporter_name"`
 }
 
 func (q *Queries) ListCampusReports(ctx context.Context, dollar_1 interface{}) ([]ListCampusReportsRow, error) {
@@ -913,7 +913,7 @@ type ListCommentRepliesRow struct {
 	LikeCount       int32              `json:"like_count"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
-	AuthorName      string             `json:"author_name"`
+	AuthorName      *string            `json:"author_name"`
 	AuthorAvatar    *string            `json:"author_avatar"`
 }
 
@@ -991,7 +991,7 @@ type ListFeedPostsRow struct {
 	IsHidden       bool               `json:"is_hidden"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-	AuthorName     string             `json:"author_name"`
+	AuthorName     *string            `json:"author_name"`
 	AuthorAvatar   *string            `json:"author_avatar"`
 	AuthorRole     UserRole           `json:"author_role"`
 	UserLiked      bool               `json:"user_liked"`
@@ -1068,7 +1068,7 @@ type ListGroupFeedPostsRow struct {
 	IsHidden       bool               `json:"is_hidden"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-	AuthorName     string             `json:"author_name"`
+	AuthorName     *string            `json:"author_name"`
 	AuthorAvatar   *string            `json:"author_avatar"`
 	UserLiked      bool               `json:"user_liked"`
 }
@@ -1133,7 +1133,7 @@ type ListGroupFilesRow struct {
 	FileType       *string            `json:"file_type"`
 	FileSize       *int64             `json:"file_size"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UploadedByName string             `json:"uploaded_by_name"`
+	UploadedByName *string            `json:"uploaded_by_name"`
 }
 
 func (q *Queries) ListGroupFiles(ctx context.Context, groupID uuid.UUID) ([]ListGroupFilesRow, error) {
@@ -1190,7 +1190,7 @@ type ListPostCommentsRow struct {
 	LikeCount       int32              `json:"like_count"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
-	AuthorName      string             `json:"author_name"`
+	AuthorName      *string            `json:"author_name"`
 	AuthorAvatar    *string            `json:"author_avatar"`
 }
 
@@ -1239,7 +1239,7 @@ type ListPostReactionsRow struct {
 	UserID       uuid.UUID          `json:"user_id"`
 	ReactionType string             `json:"reaction_type"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	FullName     string             `json:"full_name"`
+	FullName     *string            `json:"full_name"`
 }
 
 func (q *Queries) ListPostReactions(ctx context.Context, postID uuid.UUID) ([]ListPostReactionsRow, error) {
@@ -1293,7 +1293,7 @@ type ListUserBookmarksRow struct {
 	IsHidden       bool               `json:"is_hidden"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-	AuthorName     string             `json:"author_name"`
+	AuthorName     *string            `json:"author_name"`
 	AuthorAvatar   *string            `json:"author_avatar"`
 }
 
@@ -1432,7 +1432,7 @@ type SearchCampusProfilesRow struct {
 	PostCount          int32              `json:"post_count"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
-	FullName           string             `json:"full_name"`
+	FullName           *string            `json:"full_name"`
 	AvatarUrl          *string            `json:"avatar_url"`
 	Role               UserRole           `json:"role"`
 }
@@ -1496,7 +1496,7 @@ type SearchPeopleParams struct {
 
 type SearchPeopleRow struct {
 	ID                 uuid.UUID       `json:"id"`
-	FullName           string          `json:"full_name"`
+	FullName           *string         `json:"full_name"`
 	AvatarUrl          *string         `json:"avatar_url"`
 	Role               UserRole        `json:"role"`
 	Email              string          `json:"email"`
@@ -1571,10 +1571,10 @@ WHERE id = $1
 `
 
 type UpdateCampusReportStatusParams struct {
-	ID          uuid.UUID    `json:"id"`
-	Status      ReportStatus `json:"status"`
-	ReviewedBy  pgtype.UUID  `json:"reviewed_by"`
-	ActionTaken *string      `json:"action_taken"`
+	ID          uuid.UUID   `json:"id"`
+	Status      string      `json:"status"`
+	ReviewedBy  pgtype.UUID `json:"reviewed_by"`
+	ActionTaken *string     `json:"action_taken"`
 }
 
 func (q *Queries) UpdateCampusReportStatus(ctx context.Context, arg UpdateCampusReportStatusParams) error {

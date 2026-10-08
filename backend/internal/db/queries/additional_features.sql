@@ -154,11 +154,11 @@ WHERE st.id = $1 AND st.user_id = $2;
 
 -- name: UpdateStudyTask :exec
 UPDATE study_tasks
-SET title = $3, description = $4, priority = $5::task_priority, status = $6::task_status,
-    due_date = $7, reminder_at = $8,
-    completed_at = CASE WHEN $6::task_status = 'completed'::task_status THEN NOW() ELSE completed_at END,
+SET title = sqlc.arg(title), description = sqlc.arg(description), priority = sqlc.arg(priority)::task_priority, status = sqlc.arg(status)::task_status,
+    due_date = sqlc.arg(due_date), reminder_at = sqlc.arg(reminder_at),
+    completed_at = CASE WHEN sqlc.arg(status)::task_status = 'completed'::task_status THEN NOW() ELSE completed_at END,
     updated_at = NOW()
-WHERE id = $1 AND user_id = $2;
+WHERE sqlc.arg(id) = id AND sqlc.arg(user_id) = user_id;
 
 -- name: DeleteStudyTask :exec
 UPDATE study_tasks SET status = 'cancelled', updated_at = NOW() WHERE id = $1 AND user_id = $2;
@@ -308,9 +308,9 @@ WHERE e.id = $1;
 
 -- name: UpdateExpenseStatus :exec
 UPDATE expenses
-SET status = $2::expense_status, approved_by = $3, approved_at = CASE WHEN $2::expense_status IN ('approved', 'rejected') THEN NOW() ELSE approved_at END,
-    rejection_reason = $4
-WHERE id = $1;
+SET status = sqlc.arg(status)::expense_status, approved_by = sqlc.arg(approved_by), approved_at = CASE WHEN sqlc.arg(status)::expense_status IN ('approved', 'rejected') THEN NOW() ELSE approved_at END,
+    rejection_reason = sqlc.arg(rejection_reason)
+WHERE sqlc.arg(id) = id;
 
 -- name: GetExpenseSummary :one
 SELECT

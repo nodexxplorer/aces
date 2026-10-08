@@ -78,12 +78,13 @@ func (server *Server) updateStudentBasicInfo(ctx *gin.Context) {
 	if sErr == nil && q != nil {
 		ip := ctx.ClientIP()
 		if req.FirstName != nil || req.LastName != nil {
+			oldFullName := derefStrPtr(currentUser.FullName)
 			newFullName := user.FullName
 			q.CreateProfileEditLog(ctx, db.CreateProfileEditLogParams{
 				StudentID:     student.ID,
 				FieldName:     "full_name",
-				OldValue:      &currentUser.FullName,
-				NewValue:      &newFullName,
+				OldValue:      &oldFullName,
+				NewValue:      newFullName,
 				ChangedBy:     userID,
 				ChangedByRole: "student",
 				ChangeType:    db.ProfileChangeTypeSelfEdit,
@@ -115,9 +116,8 @@ func (server *Server) updateStudentBasicInfo(ctx *gin.Context) {
 	if sErr == nil {
 		level := int(student.Level)
 		resp.Level = &level
-		resp.MatricNumber = &student.MatricNumber
-		entryYear := student.EntryYear
-		resp.EntryYear = &entryYear
+		resp.MatricNumber = student.MatricNumber
+		resp.EntryYear = student.EntryYear
 	}
 
 	if q != nil {
@@ -212,14 +212,15 @@ func (server *Server) hodEditStudent(ctx *gin.Context) {
 		if q != nil && (req.FirstName != nil || req.LastName != nil) {
 			// Re-fetch user to get computed full_name
 			updatedUser, _ := server.users.GetByID(ctx, targetUserID)
-			newFullName := targetUser.FullName
-			if updatedUser.FullName != "" {
-				newFullName = updatedUser.FullName
+			newFullName := derefStrPtr(targetUser.FullName)
+			if updatedUser.FullName != nil {
+				newFullName = derefStrPtr(updatedUser.FullName)
 			}
+			oldTargetFullName := derefStrPtr(targetUser.FullName)
 			q.CreateProfileEditLog(ctx, db.CreateProfileEditLogParams{
 				StudentID:     student.ID,
 				FieldName:     "full_name",
-				OldValue:      &targetUser.FullName,
+				OldValue:      &oldTargetFullName,
 				NewValue:      &newFullName,
 				ChangedBy:     userID,
 				ChangedByRole: "hod",
@@ -249,11 +250,11 @@ func (server *Server) hodEditStudent(ctx *gin.Context) {
 			req.YearAdmitted,
 		)
 
-		if req.MatricNumber != nil && *req.MatricNumber != student.MatricNumber {
+		if req.MatricNumber != nil && *req.MatricNumber != derefStrPtr(student.MatricNumber) {
 			q.CreateProfileEditLog(ctx, db.CreateProfileEditLogParams{
 				StudentID:     student.ID,
 				FieldName:     "matric_number",
-				OldValue:      &student.MatricNumber,
+				OldValue:      student.MatricNumber,
 				NewValue:      req.MatricNumber,
 				ChangedBy:     userID,
 				ChangedByRole: "hod",
@@ -316,9 +317,8 @@ func (server *Server) hodEditStudent(ctx *gin.Context) {
 	student, _ = server.store.GetStudentByUserId(ctx, targetUserID)
 	level := int(student.Level)
 	resp.Level = &level
-	resp.MatricNumber = &student.MatricNumber
-	entryYear := student.EntryYear
-	resp.EntryYear = &entryYear
+	resp.MatricNumber = student.MatricNumber
+	resp.EntryYear = student.EntryYear
 	if student.AdmissionMode != nil {
 		resp.AdmissionMode = student.AdmissionMode
 	}
@@ -567,9 +567,8 @@ func (server *Server) getStudentFullProfile(ctx *gin.Context) {
 	if sErr == nil {
 		level := int(student.Level)
 		resp.Level = &level
-		resp.MatricNumber = &student.MatricNumber
-		entryYear := student.EntryYear
-		resp.EntryYear = &entryYear
+		resp.MatricNumber = student.MatricNumber
+		resp.EntryYear = student.EntryYear
 		if student.AdmissionMode != nil {
 			resp.AdmissionMode = student.AdmissionMode
 		}

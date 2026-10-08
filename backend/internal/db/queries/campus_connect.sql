@@ -184,7 +184,7 @@ LIMIT $2 OFFSET $3;
 
 -- name: GetAllConnectionUserIds :many
 SELECT DISTINCT
-    CASE WHEN c.requester_id = $1 THEN c.receiver_id ELSE c.requester_id END AS user_id
+    CASE WHEN c.requester_id = $1 THEN c.receiver_id ELSE c.requester_id END::uuid AS user_id
 FROM connections c
 WHERE c.requester_id = $1 OR c.receiver_id = $1;
 

@@ -510,7 +510,7 @@ func (server *Server) recordManualPayment(ctx *gin.Context) {
 	// (cart add, result submission) — this one didn't, so a double-click or
 	// resubmit created two completed, already-verified payment rows for the
 	// same student/due, inflating their paid total.
-	alreadyPaid, err := server.store.CheckDuePaid(ctx, db.CheckDuePaidParams{StudentID: studentID, DueID: dueID})
+	alreadyPaid, err := server.store.CheckDuePaid(ctx, db.CheckDuePaidParams{StudentID: studentID, DueID: pgtype.UUID{Bytes: dueID, Valid: true}})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return

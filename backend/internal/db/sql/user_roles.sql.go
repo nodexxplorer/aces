@@ -292,9 +292,9 @@ type ListPromotableStudentsParams struct {
 type ListPromotableStudentsRow struct {
 	ID                   uuid.UUID          `json:"id"`
 	UserID               uuid.UUID          `json:"user_id"`
-	MatricNumber         string             `json:"matric_number"`
+	MatricNumber         *string            `json:"matric_number"`
 	Level                int32              `json:"level"`
-	EntryYear            int32              `json:"entry_year"`
+	EntryYear            *int32             `json:"entry_year"`
 	CurrentSessionID     pgtype.UUID        `json:"current_session_id"`
 	CurrentSemester      *SemesterSeason    `json:"current_semester"`
 	Cgpa                 pgtype.Numeric     `json:"cgpa"`
@@ -309,7 +309,7 @@ type ListPromotableStudentsRow struct {
 	AdmissionMode        *string            `json:"admission_mode"`
 	YearAdmitted         *int32             `json:"year_admitted"`
 	OnboardingCompleted  bool               `json:"onboarding_completed"`
-	FullName             string             `json:"full_name"`
+	FullName             *string            `json:"full_name"`
 	Email                string             `json:"email"`
 	Role                 UserRole           `json:"role"`
 }
@@ -491,7 +491,7 @@ type ListStudentsForRoleManagementParams struct {
 type ListStudentsForRoleManagementRow struct {
 	ID           uuid.UUID   `json:"id"`
 	Email        string      `json:"email"`
-	FullName     string      `json:"full_name"`
+	FullName     *string     `json:"full_name"`
 	AvatarUrl    *string     `json:"avatar_url"`
 	IsActive     bool        `json:"is_active"`
 	IsApproved   bool        `json:"is_approved"`

@@ -56,11 +56,15 @@ func (s *AuthService) StudentSignup(ctx context.Context, email, password, firstN
 		return nil, errors.New("failed to create user: " + err.Error())
 	}
 
+	// matric_number / entry_year became nullable (migration 000002: OAuth
+	// students onboard later), so the generated params take pointers.
+	matric := strings.ToUpper(strings.TrimSpace(matricNumber))
+	entryYear := int32(time.Now().Year())
 	student, err := s.store.CreateStudent(ctx, db.CreateStudentParams{
 		UserID:       user.ID,
-		MatricNumber: strings.ToUpper(strings.TrimSpace(matricNumber)),
+		MatricNumber: &matric,
 		Level:        level,
-		EntryYear:    int32(time.Now().Year()),
+		EntryYear:    &entryYear,
 	})
 	if err != nil {
 		return nil, errors.New("failed to create student record: " + err.Error())
@@ -146,7 +150,8 @@ func (s *AuthService) Login(ctx context.Context, identifier, password string) (*
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			student, errMatric := s.store.GetStudentByMatric(ctx, strings.ToUpper(identifier))
+			matric := strings.ToUpper(identifier)
+			student, errMatric := s.store.GetStudentByMatric(ctx, &matric)
 			if errMatric == nil {
 				user, err = s.store.GetUser(ctx, student.UserID)
 			} else {

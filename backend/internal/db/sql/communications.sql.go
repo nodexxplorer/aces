@@ -12,6 +12,37 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countNotificationsByCategory = `-- name: CountNotificationsByCategory :many
+SELECT category, COUNT(*)::int as count FROM notifications
+WHERE user_id = $1 AND is_read = false
+GROUP BY category
+`
+
+type CountNotificationsByCategoryRow struct {
+	Category *string `json:"category"`
+	Count    int32   `json:"count"`
+}
+
+func (q *Queries) CountNotificationsByCategory(ctx context.Context, userID uuid.UUID) ([]CountNotificationsByCategoryRow, error) {
+	rows, err := q.db.Query(ctx, countNotificationsByCategory, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CountNotificationsByCategoryRow{}
+	for rows.Next() {
+		var i CountNotificationsByCategoryRow
+		if err := rows.Scan(&i.Category, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const createAnnouncement = `-- name: CreateAnnouncement :one
 INSERT INTO announcements (
     title, content, is_pinned, target_level, target_audience, expires_at, created_by
@@ -70,19 +101,27 @@ func (q *Queries) CreateAnnouncement(ctx context.Context, arg CreateAnnouncement
 
 const createNotification = `-- name: CreateNotification :one
 INSERT INTO notifications (
-    user_id, type, title, message, action_url, email_sent
+    user_id, type, title, message, action_url, email_sent, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata
 ) VALUES (
-    $1, $2, $3, $4, $5, $6
-) RETURNING id, user_id, type, title, message, is_read, action_url, email_sent, created_at
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+) RETURNING id, user_id, type, title, message, is_read, action_url, email_sent, created_at, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata, expires_at
 `
 
 type CreateNotificationParams struct {
-	UserID    uuid.UUID        `json:"user_id"`
-	Type      NotificationType `json:"type"`
-	Title     string           `json:"title"`
-	Message   string           `json:"message"`
-	ActionUrl *string          `json:"action_url"`
-	EmailSent bool             `json:"email_sent"`
+	UserID      uuid.UUID   `json:"user_id"`
+	Type        string      `json:"type"`
+	Title       string      `json:"title"`
+	Message     string      `json:"message"`
+	ActionUrl   *string     `json:"action_url"`
+	EmailSent   bool        `json:"email_sent"`
+	Category    *string     `json:"category"`
+	Priority    *string     `json:"priority"`
+	SenderID    pgtype.UUID `json:"sender_id"`
+	EntityType  *string     `json:"entity_type"`
+	EntityID    pgtype.UUID `json:"entity_id"`
+	ActionLabel *string     `json:"action_label"`
+	ImageUrl    *string     `json:"image_url"`
+	Metadata    []byte      `json:"metadata"`
 }
 
 func (q *Queries) CreateNotification(ctx context.Context, arg CreateNotificationParams) (Notification, error) {
@@ -93,6 +132,14 @@ func (q *Queries) CreateNotification(ctx context.Context, arg CreateNotification
 		arg.Message,
 		arg.ActionUrl,
 		arg.EmailSent,
+		arg.Category,
+		arg.Priority,
+		arg.SenderID,
+		arg.EntityType,
+		arg.EntityID,
+		arg.ActionLabel,
+		arg.ImageUrl,
+		arg.Metadata,
 	)
 	var i Notification
 	err := row.Scan(
@@ -105,6 +152,81 @@ func (q *Queries) CreateNotification(ctx context.Context, arg CreateNotification
 		&i.ActionUrl,
 		&i.EmailSent,
 		&i.CreatedAt,
+		&i.Category,
+		&i.Priority,
+		&i.SenderID,
+		&i.EntityType,
+		&i.EntityID,
+		&i.ActionLabel,
+		&i.ImageUrl,
+		&i.Metadata,
+		&i.ExpiresAt,
+	)
+	return i, err
+}
+
+const createNotificationForUser = `-- name: CreateNotificationForUser :one
+INSERT INTO notifications (
+    user_id, type, title, message, action_url, email_sent, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+) RETURNING id, user_id, type, title, message, is_read, action_url, email_sent, created_at, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata, expires_at
+`
+
+type CreateNotificationForUserParams struct {
+	UserID      uuid.UUID   `json:"user_id"`
+	Type        string      `json:"type"`
+	Title       string      `json:"title"`
+	Message     string      `json:"message"`
+	ActionUrl   *string     `json:"action_url"`
+	EmailSent   bool        `json:"email_sent"`
+	Category    *string     `json:"category"`
+	Priority    *string     `json:"priority"`
+	SenderID    pgtype.UUID `json:"sender_id"`
+	EntityType  *string     `json:"entity_type"`
+	EntityID    pgtype.UUID `json:"entity_id"`
+	ActionLabel *string     `json:"action_label"`
+	ImageUrl    *string     `json:"image_url"`
+	Metadata    []byte      `json:"metadata"`
+}
+
+func (q *Queries) CreateNotificationForUser(ctx context.Context, arg CreateNotificationForUserParams) (Notification, error) {
+	row := q.db.QueryRow(ctx, createNotificationForUser,
+		arg.UserID,
+		arg.Type,
+		arg.Title,
+		arg.Message,
+		arg.ActionUrl,
+		arg.EmailSent,
+		arg.Category,
+		arg.Priority,
+		arg.SenderID,
+		arg.EntityType,
+		arg.EntityID,
+		arg.ActionLabel,
+		arg.ImageUrl,
+		arg.Metadata,
+	)
+	var i Notification
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Type,
+		&i.Title,
+		&i.Message,
+		&i.IsRead,
+		&i.ActionUrl,
+		&i.EmailSent,
+		&i.CreatedAt,
+		&i.Category,
+		&i.Priority,
+		&i.SenderID,
+		&i.EntityType,
+		&i.EntityID,
+		&i.ActionLabel,
+		&i.ImageUrl,
+		&i.Metadata,
+		&i.ExpiresAt,
 	)
 	return i, err
 }
@@ -170,7 +292,7 @@ func (q *Queries) GetAnnouncement(ctx context.Context, id uuid.UUID) (Announceme
 }
 
 const getNotification = `-- name: GetNotification :one
-SELECT id, user_id, type, title, message, is_read, action_url, email_sent, created_at FROM notifications
+SELECT id, user_id, type, title, message, is_read, action_url, email_sent, created_at, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata, expires_at FROM notifications
 WHERE id = $1 LIMIT 1
 `
 
@@ -187,6 +309,15 @@ func (q *Queries) GetNotification(ctx context.Context, id uuid.UUID) (Notificati
 		&i.ActionUrl,
 		&i.EmailSent,
 		&i.CreatedAt,
+		&i.Category,
+		&i.Priority,
+		&i.SenderID,
+		&i.EntityType,
+		&i.EntityID,
+		&i.ActionLabel,
+		&i.ImageUrl,
+		&i.Metadata,
+		&i.ExpiresAt,
 	)
 	return i, err
 }
@@ -246,8 +377,60 @@ func (q *Queries) ListActiveAnnouncements(ctx context.Context, arg ListActiveAnn
 	return items, nil
 }
 
+const listUnreadUserNotifications = `-- name: ListUnreadUserNotifications :many
+SELECT id, user_id, type, title, message, is_read, action_url, email_sent, created_at, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata, expires_at FROM notifications
+WHERE user_id = $1 AND is_read = false
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListUnreadUserNotificationsParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Limit  int32     `json:"limit"`
+	Offset int32     `json:"offset"`
+}
+
+func (q *Queries) ListUnreadUserNotifications(ctx context.Context, arg ListUnreadUserNotificationsParams) ([]Notification, error) {
+	rows, err := q.db.Query(ctx, listUnreadUserNotifications, arg.UserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Notification{}
+	for rows.Next() {
+		var i Notification
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Type,
+			&i.Title,
+			&i.Message,
+			&i.IsRead,
+			&i.ActionUrl,
+			&i.EmailSent,
+			&i.CreatedAt,
+			&i.Category,
+			&i.Priority,
+			&i.SenderID,
+			&i.EntityType,
+			&i.EntityID,
+			&i.ActionLabel,
+			&i.ImageUrl,
+			&i.Metadata,
+			&i.ExpiresAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUserNotifications = `-- name: ListUserNotifications :many
-SELECT id, user_id, type, title, message, is_read, action_url, email_sent, created_at FROM notifications
+SELECT id, user_id, type, title, message, is_read, action_url, email_sent, created_at, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata, expires_at FROM notifications
 WHERE user_id = $1
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3
@@ -278,6 +461,73 @@ func (q *Queries) ListUserNotifications(ctx context.Context, arg ListUserNotific
 			&i.ActionUrl,
 			&i.EmailSent,
 			&i.CreatedAt,
+			&i.Category,
+			&i.Priority,
+			&i.SenderID,
+			&i.EntityType,
+			&i.EntityID,
+			&i.ActionLabel,
+			&i.ImageUrl,
+			&i.Metadata,
+			&i.ExpiresAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUserNotificationsByCategory = `-- name: ListUserNotificationsByCategory :many
+SELECT id, user_id, type, title, message, is_read, action_url, email_sent, created_at, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata, expires_at FROM notifications
+WHERE user_id = $1 AND category = $2
+ORDER BY created_at DESC
+LIMIT $3 OFFSET $4
+`
+
+type ListUserNotificationsByCategoryParams struct {
+	UserID   uuid.UUID `json:"user_id"`
+	Category *string   `json:"category"`
+	Limit    int32     `json:"limit"`
+	Offset   int32     `json:"offset"`
+}
+
+func (q *Queries) ListUserNotificationsByCategory(ctx context.Context, arg ListUserNotificationsByCategoryParams) ([]Notification, error) {
+	rows, err := q.db.Query(ctx, listUserNotificationsByCategory,
+		arg.UserID,
+		arg.Category,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Notification{}
+	for rows.Next() {
+		var i Notification
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Type,
+			&i.Title,
+			&i.Message,
+			&i.IsRead,
+			&i.ActionUrl,
+			&i.EmailSent,
+			&i.CreatedAt,
+			&i.Category,
+			&i.Priority,
+			&i.SenderID,
+			&i.EntityType,
+			&i.EntityID,
+			&i.ActionLabel,
+			&i.ImageUrl,
+			&i.Metadata,
+			&i.ExpiresAt,
 		); err != nil {
 			return nil, err
 		}
@@ -304,7 +554,7 @@ const markNotificationAsRead = `-- name: MarkNotificationAsRead :one
 UPDATE notifications
 SET is_read = true
 WHERE id = $1 AND user_id = $2
-RETURNING id, user_id, type, title, message, is_read, action_url, email_sent, created_at
+RETURNING id, user_id, type, title, message, is_read, action_url, email_sent, created_at, category, priority, sender_id, entity_type, entity_id, action_label, image_url, metadata, expires_at
 `
 
 type MarkNotificationAsReadParams struct {
@@ -325,6 +575,15 @@ func (q *Queries) MarkNotificationAsRead(ctx context.Context, arg MarkNotificati
 		&i.ActionUrl,
 		&i.EmailSent,
 		&i.CreatedAt,
+		&i.Category,
+		&i.Priority,
+		&i.SenderID,
+		&i.EntityType,
+		&i.EntityID,
+		&i.ActionLabel,
+		&i.ImageUrl,
+		&i.Metadata,
+		&i.ExpiresAt,
 	)
 	return i, err
 }

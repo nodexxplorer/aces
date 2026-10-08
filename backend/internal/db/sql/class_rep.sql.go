@@ -630,7 +630,7 @@ type ListAllClassRepReportsRow struct {
 	ReviewNotes  *string            `json:"review_notes"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-	ClassRepName string             `json:"class_rep_name"`
+	ClassRepName *string            `json:"class_rep_name"`
 }
 
 func (q *Queries) ListAllClassRepReports(ctx context.Context, dollar_1 string) ([]ListAllClassRepReportsRow, error) {
@@ -684,8 +684,8 @@ type ListAttendanceSessionCheckinsRow struct {
 	Method       string             `json:"method"`
 	Present      bool               `json:"present"`
 	Remark       *string            `json:"remark"`
-	StudentName  string             `json:"student_name"`
-	MatricNumber string             `json:"matric_number"`
+	StudentName  *string            `json:"student_name"`
+	MatricNumber *string            `json:"matric_number"`
 }
 
 func (q *Queries) ListAttendanceSessionCheckins(ctx context.Context, sessionID uuid.UUID) ([]ListAttendanceSessionCheckinsRow, error) {
@@ -912,7 +912,7 @@ type ListElectionNomineesRow struct {
 	Status      string             `json:"status"`
 	ApprovedBy  pgtype.UUID        `json:"approved_by"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	StudentName string             `json:"student_name"`
+	StudentName *string            `json:"student_name"`
 }
 
 func (q *Queries) ListElectionNominees(ctx context.Context, electionID uuid.UUID) ([]ListElectionNomineesRow, error) {
@@ -966,8 +966,8 @@ type ListPendingCourseRegistrationsByLevelRow struct {
 	SessionID    uuid.UUID          `json:"session_id"`
 	Status       string             `json:"status"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	StudentName  string             `json:"student_name"`
-	MatricNumber string             `json:"matric_number"`
+	StudentName  *string            `json:"student_name"`
+	MatricNumber *string            `json:"matric_number"`
 	CoursesCount int64              `json:"courses_count"`
 }
 

@@ -187,7 +187,7 @@ type ListAllProfileEditLogsRow struct {
 	IpAddress     *string            `json:"ip_address"`
 	RequestID     pgtype.UUID        `json:"request_id"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	ChangedByName string             `json:"changed_by_name"`
+	ChangedByName *string            `json:"changed_by_name"`
 }
 
 func (q *Queries) ListAllProfileEditLogs(ctx context.Context, arg ListAllProfileEditLogsParams) ([]ListAllProfileEditLogsRow, error) {
@@ -300,8 +300,8 @@ type ListStudentDocumentsByStatusRow struct {
 	RejectionReason *string            `json:"rejection_reason"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
-	StudentName     string             `json:"student_name"`
-	MatricNumber    string             `json:"matric_number"`
+	StudentName     *string            `json:"student_name"`
+	MatricNumber    *string            `json:"matric_number"`
 }
 
 func (q *Queries) ListStudentDocumentsByStatus(ctx context.Context, arg ListStudentDocumentsByStatusParams) ([]ListStudentDocumentsByStatusRow, error) {

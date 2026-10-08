@@ -1009,7 +1009,7 @@ func (server *Server) checkDuePaid(ctx *gin.Context) {
 
 	isPaid, err := server.store.CheckDuePaid(ctx, db.CheckDuePaidParams{
 		StudentID: studentID,
-		DueID:     dueID,
+		DueID:     pgtype.UUID{Bytes: dueID, Valid: true},
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -1256,7 +1256,7 @@ func (server *Server) listRecentVerifiedPayments(ctx *gin.Context) {
 		q.Limit = 50
 	}
 
-	payments, err := server.store.ListRecentVerifiedPayments(ctx, db.ListAllPaymentsParams{
+	payments, err := server.store.ListRecentVerifiedPayments(ctx, db.ListRecentVerifiedPaymentsParams{
 		Limit:  q.Limit,
 		Offset: q.Offset,
 	})

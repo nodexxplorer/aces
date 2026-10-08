@@ -61,7 +61,7 @@ func (s *ResultService) Create(ctx context.Context, input CreateResultInput) (db
 	if input.StudentID != "" {
 		studentID, err := uuid.Parse(input.StudentID)
 		if err == nil {
-			arg.StudentID = &studentID
+			arg.StudentID = pgtype.UUID{Bytes: studentID, Valid: true}
 		}
 	}
 
@@ -83,7 +83,7 @@ func (s *ResultService) GetByID(ctx context.Context, id uuid.UUID) (db.Result, e
 }
 
 func (s *ResultService) ListByStudent(ctx context.Context, studentID uuid.UUID) ([]db.Result, error) {
-	return s.store.ListStudentResults(ctx, studentID)
+	return s.store.ListStudentResults(ctx, pgtype.UUID{Bytes: studentID, Valid: true})
 }
 
 func (s *ResultService) ListByCourse(ctx context.Context, courseID, sessionID uuid.UUID) ([]db.Result, error) {

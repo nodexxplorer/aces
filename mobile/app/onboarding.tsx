@@ -146,14 +146,10 @@ export default function OnboardingScreen() {
       };
       await submitOnboarding(payload);
       haptics.success();
-      // Refetch rather than build the user locally — matches waiting.tsx's
-      // pattern and guarantees every derived/server-computed field (not just
-      // the ones this form collected) is fresh.
       const freshUser = await getMe();
+      
       if (freshUser) setUser(freshUser);
-      // Stack.Protected in app/_layout.tsx swaps this screen out for (tabs)
-      // automatically once onboardingCompleted flips to true — no manual
-      // navigation needed here.
+
     } catch (err) {
       haptics.error();
       setFormError(getErrorMessage(err));

@@ -649,7 +649,7 @@ type GetJobApplicationRow struct {
 	ReviewedBy    pgtype.UUID        `json:"reviewed_by"`
 	ReviewedAt    pgtype.Timestamptz `json:"reviewed_at"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	ApplicantName string             `json:"applicant_name"`
+	ApplicantName *string            `json:"applicant_name"`
 }
 
 func (q *Queries) GetJobApplication(ctx context.Context, id uuid.UUID) (GetJobApplicationRow, error) {
@@ -699,7 +699,7 @@ type GetJobPostRow struct {
 	ApprovedBy          pgtype.UUID        `json:"approved_by"`
 	ViewsCount          *int32             `json:"views_count"`
 	ApplicationsCount   *int32             `json:"applications_count"`
-	PosterName          string             `json:"poster_name"`
+	PosterName          *string            `json:"poster_name"`
 }
 
 func (q *Queries) GetJobPost(ctx context.Context, id uuid.UUID) (GetJobPostRow, error) {
@@ -799,7 +799,7 @@ type ListAllDonationsRow struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	PaystackReference *string            `json:"paystack_reference"`
-	DonorName         string             `json:"donor_name"`
+	DonorName         *string            `json:"donor_name"`
 }
 
 func (q *Queries) ListAllDonations(ctx context.Context, arg ListAllDonationsParams) ([]ListAllDonationsRow, error) {
@@ -888,7 +888,7 @@ type ListAlumniRow struct {
 	Industry                *string                  `json:"industry"`
 	JobTitle                *string                  `json:"job_title"`
 	ProfilePhoto            *string                  `json:"profile_photo"`
-	FullName_2              string                   `json:"full_name_2"`
+	FullName_2              *string                  `json:"full_name_2"`
 	Email_2                 string                   `json:"email_2"`
 	AvatarUrl               *string                  `json:"avatar_url"`
 }
@@ -1116,7 +1116,7 @@ type ListEventAttendeesRow struct {
 	UserID       uuid.UUID          `json:"user_id"`
 	RsvpStatus   string             `json:"rsvp_status"`
 	RegisteredAt pgtype.Timestamptz `json:"registered_at"`
-	FullName     string             `json:"full_name"`
+	FullName     *string            `json:"full_name"`
 	Email        string             `json:"email"`
 	AvatarUrl    *string            `json:"avatar_url"`
 }
@@ -1166,7 +1166,7 @@ type ListJobApplicationsRow struct {
 	ReviewedBy     pgtype.UUID        `json:"reviewed_by"`
 	ReviewedAt     pgtype.Timestamptz `json:"reviewed_at"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	ApplicantName  string             `json:"applicant_name"`
+	ApplicantName  *string            `json:"applicant_name"`
 	ApplicantEmail string             `json:"applicant_email"`
 }
 
@@ -1237,7 +1237,7 @@ type ListJobPostsRow struct {
 	ApprovedBy          pgtype.UUID        `json:"approved_by"`
 	ViewsCount          *int32             `json:"views_count"`
 	ApplicationsCount   *int32             `json:"applications_count"`
-	PosterName          string             `json:"poster_name"`
+	PosterName          *string            `json:"poster_name"`
 }
 
 func (q *Queries) ListJobPosts(ctx context.Context, arg ListJobPostsParams) ([]ListJobPostsRow, error) {
@@ -1301,7 +1301,7 @@ type ListMentorMentorshipRequestsRow struct {
 	StartedAt   pgtype.Timestamptz `json:"started_at"`
 	EndedAt     pgtype.Timestamptz `json:"ended_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	StudentName string             `json:"student_name"`
+	StudentName *string            `json:"student_name"`
 }
 
 func (q *Queries) ListMentorMentorshipRequests(ctx context.Context, mentorID uuid.UUID) ([]ListMentorMentorshipRequestsRow, error) {
@@ -1415,7 +1415,7 @@ type ListPendingAlumniVerificationsRow struct {
 	Industry                *string                  `json:"industry"`
 	JobTitle                *string                  `json:"job_title"`
 	ProfilePhoto            *string                  `json:"profile_photo"`
-	FullName_2              string                   `json:"full_name_2"`
+	FullName_2              *string                  `json:"full_name_2"`
 	Email_2                 string                   `json:"email_2"`
 }
 
@@ -1497,7 +1497,7 @@ type ListStudentJobApplicationsRow struct {
 	ReviewedBy    pgtype.UUID        `json:"reviewed_by"`
 	ReviewedAt    pgtype.Timestamptz `json:"reviewed_at"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	ApplicantName string             `json:"applicant_name"`
+	ApplicantName *string            `json:"applicant_name"`
 	JobTitle      string             `json:"job_title"`
 	JobCompany    string             `json:"job_company"`
 }
@@ -1552,7 +1552,7 @@ type ListStudentMentorshipRequestsRow struct {
 	StartedAt   pgtype.Timestamptz `json:"started_at"`
 	EndedAt     pgtype.Timestamptz `json:"ended_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	MentorName  string             `json:"mentor_name"`
+	MentorName  *string            `json:"mentor_name"`
 }
 
 func (q *Queries) ListStudentMentorshipRequests(ctx context.Context, studentID uuid.UUID) ([]ListStudentMentorshipRequestsRow, error) {
@@ -1721,7 +1721,7 @@ type SearchAlumniDirectoryRow struct {
 	Industry                *string                  `json:"industry"`
 	JobTitle                *string                  `json:"job_title"`
 	ProfilePhoto            *string                  `json:"profile_photo"`
-	FullName_2              string                   `json:"full_name_2"`
+	FullName_2              *string                  `json:"full_name_2"`
 	Email_2                 string                   `json:"email_2"`
 	AvatarUrl               *string                  `json:"avatar_url"`
 }
@@ -2024,9 +2024,6 @@ func (q *Queries) UpdateJobPost(ctx context.Context, arg UpdateJobPostParams) (J
 	return i, err
 }
 
-// SQLSTATE 42P08 ("inconsistent types deduced for parameter") if $2 isn't
-// cast the same way at every occurrence — same pattern already fixed
-// elsewhere this session (see UpdateLeaveStatus in custom.go).
 const updateMentorshipSessionStatus = `-- name: UpdateMentorshipSessionStatus :one
 UPDATE mentorship_sessions SET status = $2::varchar,
     mentor_confirmed = CASE WHEN $2::varchar = 'completed' THEN true ELSE mentor_confirmed END,
@@ -2035,12 +2032,12 @@ WHERE id = $1 RETURNING id, mentorship_id, scheduled_at, format, status, notes, 
 `
 
 type UpdateMentorshipSessionStatusParams struct {
-	ID     uuid.UUID `json:"id"`
-	Status string    `json:"status"`
+	ID      uuid.UUID `json:"id"`
+	Column2 string    `json:"column_2"`
 }
 
 func (q *Queries) UpdateMentorshipSessionStatus(ctx context.Context, arg UpdateMentorshipSessionStatusParams) (MentorshipSession, error) {
-	row := q.db.QueryRow(ctx, updateMentorshipSessionStatus, arg.ID, arg.Status)
+	row := q.db.QueryRow(ctx, updateMentorshipSessionStatus, arg.ID, arg.Column2)
 	var i MentorshipSession
 	err := row.Scan(
 		&i.ID,
@@ -2056,9 +2053,6 @@ func (q *Queries) UpdateMentorshipSessionStatus(ctx context.Context, arg UpdateM
 	return i, err
 }
 
-// SQLSTATE 42P08 ("inconsistent types deduced for parameter") if $2 isn't
-// cast the same way at every occurrence — same pattern already fixed
-// elsewhere this session (see UpdateLeaveStatus in custom.go).
 const updateMentorshipStatus = `-- name: UpdateMentorshipStatus :one
 UPDATE mentorship_requests SET status = $2::mentorship_status,
     responded_at = CASE WHEN $2::mentorship_status IN ('accepted','declined') THEN NOW() ELSE responded_at END,
@@ -2068,12 +2062,12 @@ WHERE id = $1 RETURNING id, student_id, mentor_id, status, topic, message, respo
 `
 
 type UpdateMentorshipStatusParams struct {
-	ID     uuid.UUID        `json:"id"`
-	Status MentorshipStatus `json:"status"`
+	ID      uuid.UUID        `json:"id"`
+	Column2 MentorshipStatus `json:"column_2"`
 }
 
 func (q *Queries) UpdateMentorshipStatus(ctx context.Context, arg UpdateMentorshipStatusParams) (MentorshipRequest, error) {
-	row := q.db.QueryRow(ctx, updateMentorshipStatus, arg.ID, arg.Status)
+	row := q.db.QueryRow(ctx, updateMentorshipStatus, arg.ID, arg.Column2)
 	var i MentorshipRequest
 	err := row.Scan(
 		&i.ID,

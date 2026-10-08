@@ -4,19 +4,10 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type ComplaintStatusHistory struct {
-	ID             uuid.UUID          `json:"id"`
-	ComplaintID    uuid.UUID          `json:"complaint_id"`
-	FromStatus     *ComplaintStatus   `json:"from_status"`
-	ToStatus       ComplaintStatus    `json:"to_status"`
-	ChangedBy      uuid.UUID          `json:"changed_by"`
-	ChangedByRole  string             `json:"changed_by_role"`
-	Note           *string            `json:"note"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-}
+// ComplaintStatusHistory comes from models.go (generated) — identical shape
+// to the struct that used to live here.
 
 func (q *Queries) AssignComplaint(ctx context.Context, id, assignedTo uuid.UUID) (Complaint, error) {
 	var c Complaint

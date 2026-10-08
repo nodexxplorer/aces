@@ -80,19 +80,6 @@ func (q *Queries) CheckGroupMembership(ctx context.Context, arg CheckGroupMember
 	return is_member, err
 }
 
-const countUnreadMessages = `-- name: CountUnreadMessages :one
-SELECT COUNT(*) AS unread_count
-FROM messages
-WHERE receiver_id = $1 AND is_read = false
-`
-
-func (q *Queries) CountUnreadMessages(ctx context.Context, receiverID uuid.UUID) (int64, error) {
-	row := q.db.QueryRow(ctx, countUnreadMessages, receiverID)
-	var unread_count int64
-	err := row.Scan(&unread_count)
-	return unread_count, err
-}
-
 const countUnreadBySender = `-- name: CountUnreadBySender :many
 SELECT sender_id, COUNT(*)::int AS unread_count
 FROM messages
@@ -111,7 +98,7 @@ func (q *Queries) CountUnreadBySender(ctx context.Context, receiverID uuid.UUID)
 		return nil, err
 	}
 	defer rows.Close()
-	var items []CountUnreadBySenderRow
+	items := []CountUnreadBySenderRow{}
 	for rows.Next() {
 		var i CountUnreadBySenderRow
 		if err := rows.Scan(&i.SenderID, &i.UnreadCount); err != nil {
@@ -119,7 +106,23 @@ func (q *Queries) CountUnreadBySender(ctx context.Context, receiverID uuid.UUID)
 		}
 		items = append(items, i)
 	}
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const countUnreadMessages = `-- name: CountUnreadMessages :one
+SELECT COUNT(*) AS unread_count
+FROM messages
+WHERE receiver_id = $1 AND is_read = false
+`
+
+func (q *Queries) CountUnreadMessages(ctx context.Context, receiverID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countUnreadMessages, receiverID)
+	var unread_count int64
+	err := row.Scan(&unread_count)
+	return unread_count, err
 }
 
 const createConnection = `-- name: CreateConnection :one
@@ -159,7 +162,7 @@ INSERT INTO groups (
     name, description, category, avatar_url, max_members, is_private, created_by
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7
-) RETURNING id, name, description, category, avatar_url, max_members, is_private, created_by, created_at, updated_at
+) RETURNING id, name, description, category, avatar_url, max_members, is_private, created_by, created_at, updated_at, invite_code
 `
 
 type CreateGroupParams struct {
@@ -195,6 +198,7 @@ func (q *Queries) CreateGroup(ctx context.Context, arg CreateGroupParams) (Group
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.InviteCode,
 	)
 	return i, err
 }
@@ -268,6 +272,33 @@ func (q *Queries) DeleteGroup(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const getAllConnectionUserIds = `-- name: GetAllConnectionUserIds :many
+SELECT DISTINCT
+    CASE WHEN c.requester_id = $1 THEN c.receiver_id ELSE c.requester_id END::uuid AS user_id
+FROM connections c
+WHERE c.requester_id = $1 OR c.receiver_id = $1
+`
+
+func (q *Queries) GetAllConnectionUserIds(ctx context.Context, requesterID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, getAllConnectionUserIds, requesterID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []uuid.UUID{}
+	for rows.Next() {
+		var user_id uuid.UUID
+		if err := rows.Scan(&user_id); err != nil {
+			return nil, err
+		}
+		items = append(items, user_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getAlumniDirectory = `-- name: GetAlumniDirectory :many
 SELECT u.id, u.full_name, u.avatar_url, u.email,
        als.graduation_year, als.current_company, als.current_position, als.is_mentor_available
@@ -285,7 +316,7 @@ type GetAlumniDirectoryParams struct {
 
 type GetAlumniDirectoryRow struct {
 	ID                uuid.UUID `json:"id"`
-	FullName          string    `json:"full_name"`
+	FullName          *string   `json:"full_name"`
 	AvatarUrl         *string   `json:"avatar_url"`
 	Email             string    `json:"email"`
 	GraduationYear    int32     `json:"graduation_year"`
@@ -343,8 +374,35 @@ func (q *Queries) GetConnection(ctx context.Context, id uuid.UUID) (Connection, 
 	return i, err
 }
 
+const getExistingConnection = `-- name: GetExistingConnection :one
+SELECT id, requester_id, receiver_id, status, message, responded_at, created_at FROM connections
+WHERE (requester_id = $1 AND receiver_id = $2)
+   OR (requester_id = $2 AND receiver_id = $1)
+LIMIT 1
+`
+
+type GetExistingConnectionParams struct {
+	RequesterID uuid.UUID `json:"requester_id"`
+	ReceiverID  uuid.UUID `json:"receiver_id"`
+}
+
+func (q *Queries) GetExistingConnection(ctx context.Context, arg GetExistingConnectionParams) (Connection, error) {
+	row := q.db.QueryRow(ctx, getExistingConnection, arg.RequesterID, arg.ReceiverID)
+	var i Connection
+	err := row.Scan(
+		&i.ID,
+		&i.RequesterID,
+		&i.ReceiverID,
+		&i.Status,
+		&i.Message,
+		&i.RespondedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getGroup = `-- name: GetGroup :one
-SELECT id, name, description, category, avatar_url, max_members, is_private, created_by, created_at, updated_at FROM groups
+SELECT id, name, description, category, avatar_url, max_members, is_private, created_by, created_at, updated_at, invite_code FROM groups
 WHERE id = $1 LIMIT 1
 `
 
@@ -362,6 +420,7 @@ func (q *Queries) GetGroup(ctx context.Context, id uuid.UUID) (Group, error) {
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.InviteCode,
 	)
 	return i, err
 }
@@ -382,22 +441,22 @@ LIMIT $2 OFFSET $3
 `
 
 type GetStudentDirectoryParams struct {
-	UserID uuid.UUID `json:"user_id"`
+	ID     uuid.UUID `json:"id"`
 	Limit  int32     `json:"limit"`
 	Offset int32     `json:"offset"`
 }
 
 type GetStudentDirectoryRow struct {
 	ID           uuid.UUID `json:"id"`
-	FullName     string    `json:"full_name"`
+	FullName     *string   `json:"full_name"`
 	AvatarUrl    *string   `json:"avatar_url"`
 	Email        string    `json:"email"`
-	MatricNumber string    `json:"matric_number"`
+	MatricNumber *string   `json:"matric_number"`
 	Level        int32     `json:"level"`
 }
 
 func (q *Queries) GetStudentDirectory(ctx context.Context, arg GetStudentDirectoryParams) ([]GetStudentDirectoryRow, error) {
-	rows, err := q.db.Query(ctx, getStudentDirectory, arg.UserID, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, getStudentDirectory, arg.ID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -421,30 +480,6 @@ func (q *Queries) GetStudentDirectory(ctx context.Context, arg GetStudentDirecto
 		return nil, err
 	}
 	return items, nil
-}
-
-const getAllConnectionUserIds = `-- name: GetAllConnectionUserIds :many
-SELECT DISTINCT
-    CASE WHEN c.requester_id = $1 THEN c.receiver_id ELSE c.requester_id END AS user_id
-FROM connections c
-WHERE c.requester_id = $1 OR c.receiver_id = $1
-`
-
-func (q *Queries) GetAllConnectionUserIds(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
-	rows, err := q.db.Query(ctx, getAllConnectionUserIds, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []uuid.UUID
-	for rows.Next() {
-		var user_id uuid.UUID
-		if err := rows.Scan(&user_id); err != nil {
-			return nil, err
-		}
-		items = append(items, user_id)
-	}
-	return items, rows.Err()
 }
 
 const listConversation = `-- name: ListConversation :many
@@ -509,7 +544,7 @@ type ListGroupMembersRow struct {
 	UserID    uuid.UUID          `json:"user_id"`
 	Role      string             `json:"role"`
 	JoinedAt  pgtype.Timestamptz `json:"joined_at"`
-	FullName  string             `json:"full_name"`
+	FullName  *string            `json:"full_name"`
 	AvatarUrl *string            `json:"avatar_url"`
 	Email     string             `json:"email"`
 }
@@ -564,7 +599,7 @@ type ListGroupMessagesRow struct {
 	SenderID  uuid.UUID          `json:"sender_id"`
 	Content   string             `json:"content"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	FullName  string             `json:"full_name"`
+	FullName  *string            `json:"full_name"`
 	AvatarUrl *string            `json:"avatar_url"`
 }
 
@@ -597,7 +632,7 @@ func (q *Queries) ListGroupMessages(ctx context.Context, arg ListGroupMessagesPa
 }
 
 const listGroups = `-- name: ListGroups :many
-SELECT g.id, g.name, g.description, g.category, g.avatar_url, g.max_members, g.is_private, g.created_by, g.created_at, g.updated_at, COUNT(gm.id) AS member_count
+SELECT g.id, g.name, g.description, g.category, g.avatar_url, g.max_members, g.is_private, g.created_by, g.created_at, g.updated_at, g.invite_code, COUNT(gm.id) AS member_count
 FROM groups g
 LEFT JOIN group_members gm ON g.id = gm.group_id
 WHERE g.is_private = false
@@ -622,6 +657,7 @@ type ListGroupsRow struct {
 	CreatedBy   uuid.UUID          `json:"created_by"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	InviteCode  *string            `json:"invite_code"`
 	MemberCount int64              `json:"member_count"`
 }
 
@@ -645,6 +681,7 @@ func (q *Queries) ListGroups(ctx context.Context, arg ListGroupsParams) ([]ListG
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.InviteCode,
 			&i.MemberCount,
 		); err != nil {
 			return nil, err
@@ -673,7 +710,7 @@ type ListPendingConnectionRequestsRow struct {
 	Message     *string            `json:"message"`
 	RespondedAt pgtype.Timestamptz `json:"responded_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	FullName    string             `json:"full_name"`
+	FullName    *string            `json:"full_name"`
 	AvatarUrl   *string            `json:"avatar_url"`
 	Role        UserRole           `json:"role"`
 }
@@ -734,7 +771,7 @@ type ListUserConnectionsRow struct {
 	Message     *string            `json:"message"`
 	RespondedAt pgtype.Timestamptz `json:"responded_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	FullName    string             `json:"full_name"`
+	FullName    *string            `json:"full_name"`
 	AvatarUrl   *string            `json:"avatar_url"`
 	Role        UserRole           `json:"role"`
 }
@@ -771,7 +808,7 @@ func (q *Queries) ListUserConnections(ctx context.Context, arg ListUserConnectio
 }
 
 const listUserGroups = `-- name: ListUserGroups :many
-SELECT g.id, g.name, g.description, g.category, g.avatar_url, g.max_members, g.is_private, g.created_by, g.created_at, g.updated_at, gm.role AS member_role
+SELECT g.id, g.name, g.description, g.category, g.avatar_url, g.max_members, g.is_private, g.created_by, g.created_at, g.updated_at, g.invite_code, gm.role AS member_role
 FROM groups g
 JOIN group_members gm ON g.id = gm.group_id
 WHERE gm.user_id = $1
@@ -789,6 +826,7 @@ type ListUserGroupsRow struct {
 	CreatedBy   uuid.UUID          `json:"created_by"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	InviteCode  *string            `json:"invite_code"`
 	MemberRole  string             `json:"member_role"`
 }
 
@@ -812,6 +850,7 @@ func (q *Queries) ListUserGroups(ctx context.Context, userID uuid.UUID) ([]ListU
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.InviteCode,
 			&i.MemberRole,
 		); err != nil {
 			return nil, err
@@ -893,7 +932,7 @@ UPDATE groups
 SET name = $2, description = $3, category = $4, avatar_url = $5,
     max_members = $6, is_private = $7, updated_at = NOW()
 WHERE id = $1
-RETURNING id, name, description, category, avatar_url, max_members, is_private, created_by, created_at, updated_at
+RETURNING id, name, description, category, avatar_url, max_members, is_private, created_by, created_at, updated_at, invite_code
 `
 
 type UpdateGroupParams struct {
@@ -928,6 +967,7 @@ func (q *Queries) UpdateGroup(ctx context.Context, arg UpdateGroupParams) (Group
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.InviteCode,
 	)
 	return i, err
 }

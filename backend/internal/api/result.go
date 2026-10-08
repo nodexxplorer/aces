@@ -133,8 +133,8 @@ func (server *Server) getResult(ctx *gin.Context) {
 		return
 	}
 
-	if result.StudentID != nil {
-		if !requireOwnershipOrStaff(ctx, server.store, *result.StudentID) {
+	if result.StudentID.Valid {
+		if !requireOwnershipOrStaff(ctx, server.store, result.StudentID.Bytes) {
 			return
 		}
 	} else if !isStaffCaller(ctx) {
@@ -325,8 +325,8 @@ func (server *Server) updateResultStatus(ctx *gin.Context) {
 	}
 
 	// Notify student about result status change
-	if result.StudentID != nil {
-		if student, err := server.store.GetStudent(ctx, *result.StudentID); err == nil {
+	if result.StudentID.Valid {
+		if student, err := server.store.GetStudent(ctx, result.StudentID.Bytes); err == nil {
 			eType := "result"
 			eID := result.ID
 			title := "Result Status Updated"

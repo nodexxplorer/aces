@@ -144,9 +144,7 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 	ls, _ := storage.NewLocalStorage(cfg.StorageLocalPath)
 	server.storage = ls
 
-	// Wire raw-socket chat persistence so messages sent via the WS channel
-	// (as opposed to the REST sendMessage endpoint) are saved the same way,
-	// not just relayed live and lost if the recipient is offline.
+	
 	hub.PersistChat = func(from, to uuid.UUID, content string) (json.RawMessage, error) {
 		msg, err := server.campusConnect.SendMessage(context.Background(), from, to, content)
 		if err != nil {
@@ -162,7 +160,6 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		return json.Marshal(msg)
 	}
 
-	// Initialize Redis cache (optional — gracefully falls back to in-memory)
 	var rc *cache.RedisCache
 	if cfg.RedisAddress != "" {
 		rc = cache.NewRedisCache(cfg.RedisAddress, cfg.RedisPassword)
@@ -212,6 +209,11 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		authProtected.POST("/change-password", server.changePassword)
 	}
 
+	v1.GET("/auth/modools/login", server.modoolsLogin)
+	v1.GET("/auth/modools/callback", server.modoolsCallback)
+	v1.GET("/auth/modools/complete", server.modoolsComplete)
+	v1.GET("/auth/modools/status", server.modoolsStatus)
+
 	authPublic := v1.Group("/auth")
 	{
 		authPublic.POST("/signup/student", rl, server.studentSignup)
@@ -225,18 +227,16 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 
 	v1.POST("/payments/webhook/paystack", server.handlePaystackWebhook)
 
-	// Public — calendar clients (Google/Apple/Outlook "subscribe by URL")
-	// fetch subscription URLs with no auth headers, so this can't sit
-	// behind JWTAuth; the token in the path is the only credential.
+	
 	v1.GET("/calendar/feed/:token", server.getCalendarFeed)
 
-	// Public — the "Unsubscribe" link in outbound notification emails is
-	// opened directly from a mail client with no auth headers, so the
-	// token in the path is the only credential.
+
 	v1.GET("/notifications/unsubscribe/:token", server.unsubscribeFromEmails)
 
 	api := v1.Group("")
 	api.Use(middleware.JWTAuth(tm))
+
+	api.Use(server.RequireStudentOnboarded)
 
 	api.GET("/ws", server.handleWebSocket)
 
@@ -471,6 +471,9 @@ func NewServer(store db.Querier, dbPool *pgxpool.Pool, cfg *config.Config) *Serv
 		payments.GET("/student/:student_id", server.listStudentPayments)
 		payments.GET("/summary/:student_id", server.getStudentPaymentSummary)
 		payments.GET("/check-paid", server.checkDuePaid)
+		// Static segment — must stay registered before GET /payments/:id so
+		// "receipt" isn't swallowed as an :id.
+		payments.GET("/:id/receipt", server.getDuesPaymentReceipt)
 		payments.GET("/my-reference", middleware.RequireRoles("student"), server.getMyPaymentByReference)
 		payments.POST("/confirm", middleware.RequireRoles("student"), server.confirmMyPaymentByReference)
 		payments.GET("/by-reference", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.getPaymentByReference)

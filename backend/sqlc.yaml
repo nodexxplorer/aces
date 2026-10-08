@@ -10,10 +10,24 @@ sql:
         sql_package: "pgx/v5"
         emit_json_tags: true
         emit_prepared_queries: true
-        emit_interface: true
+        # emit_interface is OFF: db/sql/querier.go is hand-maintained as the
+        # union of generated methods AND the hand-written *_custom.go methods
+        # (sqlc can only emit methods for .sql queries, so an auto-generated
+        # interface can never include the custom ones — and every regeneration
+        # would wipe manual additions). If you add/rename a query, update
+        # querier.go in the same change; the compiler flags every missed call
+        # site.
         emit_exact_table_names: false
         emit_empty_slices: true
         emit_pointers_for_null_types: true
+        # NOTE: sqlc emits a Go model for EVERY table in the schema, even
+        # tables whose queries are hand-written in *_custom.go. If a custom
+        # struct must keep the table's name (joined fields, JSON-friendly
+        # null types), give the custom struct a distinct name instead —
+        # redeclaring the table name collides on the next `sqlc generate`.
+        # Queries that duplicate hand-written methods were removed from
+        # queries/*.sql for the same reason (search the *_custom.go files
+        # for "Generated in" comments).
 
         overrides:
           - db_type: "uuid"

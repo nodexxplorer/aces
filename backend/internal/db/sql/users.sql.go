@@ -20,7 +20,7 @@ SET
     approved_at = $4,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, email, password_hash, role, first_name, last_name, middle_name, full_name, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at, date_of_birth, emergency_contact_name, emergency_contact_phone, home_address
+RETURNING id, email, password_hash, role, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at, date_of_birth, emergency_contact_name, emergency_contact_phone, home_address, middle_name, first_name, last_name, full_name, calendar_feed_token, last_birthday_greeted_year, modools_sub, modools_refresh_token
 `
 
 type ApproveUserStatusParams struct {
@@ -43,10 +43,6 @@ func (q *Queries) ApproveUserStatus(ctx context.Context, arg ApproveUserStatusPa
 		&i.Email,
 		&i.PasswordHash,
 		&i.Role,
-		&i.FirstName,
-		&i.LastName,
-		&i.MiddleName,
-		&i.FullName,
 		&i.Phone,
 		&i.AvatarUrl,
 		&i.IsActive,
@@ -64,6 +60,14 @@ func (q *Queries) ApproveUserStatus(ctx context.Context, arg ApproveUserStatusPa
 		&i.EmergencyContactName,
 		&i.EmergencyContactPhone,
 		&i.HomeAddress,
+		&i.MiddleName,
+		&i.FirstName,
+		&i.LastName,
+		&i.FullName,
+		&i.CalendarFeedToken,
+		&i.LastBirthdayGreetedYear,
+		&i.ModoolsSub,
+		&i.ModoolsRefreshToken,
 	)
 	return i, err
 }
@@ -73,7 +77,7 @@ INSERT INTO users (
     email, password_hash, role, first_name, last_name, phone, avatar_url, created_by_hod_id
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8
-) RETURNING id, email, password_hash, role, first_name, last_name, middle_name, full_name, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at, date_of_birth, emergency_contact_name, emergency_contact_phone, home_address
+) RETURNING id, email, password_hash, role, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at, date_of_birth, emergency_contact_name, emergency_contact_phone, home_address, middle_name, first_name, last_name, full_name, calendar_feed_token, last_birthday_greeted_year, modools_sub, modools_refresh_token
 `
 
 type CreateUserParams struct {
@@ -104,10 +108,6 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Email,
 		&i.PasswordHash,
 		&i.Role,
-		&i.FirstName,
-		&i.LastName,
-		&i.MiddleName,
-		&i.FullName,
 		&i.Phone,
 		&i.AvatarUrl,
 		&i.IsActive,
@@ -125,6 +125,14 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.EmergencyContactName,
 		&i.EmergencyContactPhone,
 		&i.HomeAddress,
+		&i.MiddleName,
+		&i.FirstName,
+		&i.LastName,
+		&i.FullName,
+		&i.CalendarFeedToken,
+		&i.LastBirthdayGreetedYear,
+		&i.ModoolsSub,
+		&i.ModoolsRefreshToken,
 	)
 	return i, err
 }
@@ -140,7 +148,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, email, password_hash, role, first_name, last_name, middle_name, full_name, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at, date_of_birth, emergency_contact_name, emergency_contact_phone, home_address FROM users
+SELECT id, email, password_hash, role, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at, date_of_birth, emergency_contact_name, emergency_contact_phone, home_address, middle_name, first_name, last_name, full_name, calendar_feed_token, last_birthday_greeted_year, modools_sub, modools_refresh_token FROM users
 WHERE id = $1 LIMIT 1
 `
 
@@ -152,10 +160,6 @@ func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.Email,
 		&i.PasswordHash,
 		&i.Role,
-		&i.FirstName,
-		&i.LastName,
-		&i.MiddleName,
-		&i.FullName,
 		&i.Phone,
 		&i.AvatarUrl,
 		&i.IsActive,
@@ -173,12 +177,20 @@ func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.EmergencyContactName,
 		&i.EmergencyContactPhone,
 		&i.HomeAddress,
+		&i.MiddleName,
+		&i.FirstName,
+		&i.LastName,
+		&i.FullName,
+		&i.CalendarFeedToken,
+		&i.LastBirthdayGreetedYear,
+		&i.ModoolsSub,
+		&i.ModoolsRefreshToken,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, role, first_name, last_name, middle_name, full_name, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at, date_of_birth, emergency_contact_name, emergency_contact_phone, home_address FROM users
+SELECT id, email, password_hash, role, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at, date_of_birth, emergency_contact_name, emergency_contact_phone, home_address, middle_name, first_name, last_name, full_name, calendar_feed_token, last_birthday_greeted_year, modools_sub, modools_refresh_token FROM users
 WHERE email = $1 LIMIT 1
 `
 
@@ -190,10 +202,6 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.Email,
 		&i.PasswordHash,
 		&i.Role,
-		&i.FirstName,
-		&i.LastName,
-		&i.MiddleName,
-		&i.FullName,
 		&i.Phone,
 		&i.AvatarUrl,
 		&i.IsActive,
@@ -211,12 +219,20 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.EmergencyContactName,
 		&i.EmergencyContactPhone,
 		&i.HomeAddress,
+		&i.MiddleName,
+		&i.FirstName,
+		&i.LastName,
+		&i.FullName,
+		&i.CalendarFeedToken,
+		&i.LastBirthdayGreetedYear,
+		&i.ModoolsSub,
+		&i.ModoolsRefreshToken,
 	)
 	return i, err
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, email, password_hash, role, first_name, last_name, middle_name, full_name, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at, date_of_birth, emergency_contact_name, emergency_contact_phone, home_address FROM users
+SELECT id, email, password_hash, role, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at, date_of_birth, emergency_contact_name, emergency_contact_phone, home_address, middle_name, first_name, last_name, full_name, calendar_feed_token, last_birthday_greeted_year, modools_sub, modools_refresh_token FROM users
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2
 `
@@ -240,10 +256,6 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 			&i.Email,
 			&i.PasswordHash,
 			&i.Role,
-			&i.FirstName,
-			&i.LastName,
-			&i.MiddleName,
-			&i.FullName,
 			&i.Phone,
 			&i.AvatarUrl,
 			&i.IsActive,
@@ -261,6 +273,14 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 			&i.EmergencyContactName,
 			&i.EmergencyContactPhone,
 			&i.HomeAddress,
+			&i.MiddleName,
+			&i.FirstName,
+			&i.LastName,
+			&i.FullName,
+			&i.CalendarFeedToken,
+			&i.LastBirthdayGreetedYear,
+			&i.ModoolsSub,
+			&i.ModoolsRefreshToken,
 		); err != nil {
 			return nil, err
 		}
@@ -284,7 +304,7 @@ SET
     two_factor_enabled = $8,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, email, password_hash, role, first_name, last_name, middle_name, full_name, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at, date_of_birth, emergency_contact_name, emergency_contact_phone, home_address
+RETURNING id, email, password_hash, role, phone, avatar_url, is_active, email_verified, two_factor_enabled, last_login_at, created_at, updated_at, deleted_at, created_by_hod_id, is_approved, approved_by, approved_at, date_of_birth, emergency_contact_name, emergency_contact_phone, home_address, middle_name, first_name, last_name, full_name, calendar_feed_token, last_birthday_greeted_year, modools_sub, modools_refresh_token
 `
 
 type UpdateUserParams struct {
@@ -315,10 +335,6 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.Email,
 		&i.PasswordHash,
 		&i.Role,
-		&i.FirstName,
-		&i.LastName,
-		&i.MiddleName,
-		&i.FullName,
 		&i.Phone,
 		&i.AvatarUrl,
 		&i.IsActive,
@@ -336,6 +352,14 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.EmergencyContactName,
 		&i.EmergencyContactPhone,
 		&i.HomeAddress,
+		&i.MiddleName,
+		&i.FirstName,
+		&i.LastName,
+		&i.FullName,
+		&i.CalendarFeedToken,
+		&i.LastBirthdayGreetedYear,
+		&i.ModoolsSub,
+		&i.ModoolsRefreshToken,
 	)
 	return i, err
 }

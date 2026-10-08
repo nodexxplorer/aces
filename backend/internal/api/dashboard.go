@@ -107,8 +107,8 @@ func (server *Server) getStudentDashboard(ctx *gin.Context) {
 	}
 	resp := studentDashboardResponse{
 		Student: &studentInfo{
-			FullName:     user.FullName,
-			MatricNumber: student.MatricNumber,
+			FullName:     derefStrPtr(user.FullName),
+			MatricNumber: derefStrPtr(student.MatricNumber),
 			Level:        level,
 			CGPA:         cgpaFloat,
 			Standing:     standing,
@@ -160,7 +160,7 @@ func (server *Server) getStudentDashboard(ctx *gin.Context) {
 			if due.IsActive {
 				paid, _ := queries.CheckDuePaid(ctx, db.CheckDuePaidParams{
 					StudentID: student.ID,
-					DueID:     due.ID,
+					DueID:     pgtype.UUID{Bytes: due.ID, Valid: true},
 				})
 				if !paid {
 					unpaidCount++
@@ -188,7 +188,7 @@ func (server *Server) getStudentDashboard(ctx *gin.Context) {
 	}
 
 	// 7. Recent grades (last 5) — need to join with courses for code/title
-	results, err := queries.ListStudentResults(ctx, student.ID)
+	results, err := queries.ListStudentResults(ctx, pgtype.UUID{Bytes: student.ID, Valid: true})
 	if err == nil {
 		limit := 5
 		if len(results) < limit {
@@ -286,8 +286,8 @@ func (server *Server) getClassRepClassList(ctx *gin.Context) {
 		result = append(result, classRepStudent{
 			ID:           s.ID.String(),
 			UserID:       s.UserID.String(),
-			FullName:     user.FullName,
-			MatricNumber: s.MatricNumber,
+			FullName:     derefStrPtr(user.FullName),
+			MatricNumber: derefStrPtr(s.MatricNumber),
 			Email:        user.Email,
 			Level:        s.Level,
 			IsDefaulter:  s.IsDefaulter,
@@ -329,7 +329,7 @@ func (server *Server) listClassReps(ctx *gin.Context) {
 		result = append(result, classRepInfo{
 			ID:               a.ID.String(),
 			ClassRepID:       a.ClassRepID.String(),
-			FullName:         user.FullName,
+			FullName:         derefStrPtr(user.FullName),
 			Level:            int32(a.Level),
 			AcademicYear:     a.AcademicYear,
 			AppointmentType:  a.AppointmentType,
@@ -1060,7 +1060,7 @@ func (server *Server) listPendingStudentRegistrations(ctx *gin.Context) {
 			items = append(items, pendingStudentRegistration{
 				ID:           app.ID.String(),
 				UserID:       app.UserID.String(),
-				FullName:     user.FullName,
+				FullName:     derefStrPtr(user.FullName),
 				MatricNumber: regNo,
 				Email:        user.Email,
 				Level:        level,
@@ -1084,8 +1084,8 @@ func (server *Server) listPendingStudentRegistrations(ctx *gin.Context) {
 			items = append(items, pendingStudentRegistration{
 				ID:           user.ID.String(),
 				UserID:       user.ID.String(),
-				FullName:     user.FullName,
-				MatricNumber: s.MatricNumber,
+				FullName:     derefStrPtr(user.FullName),
+				MatricNumber: derefStrPtr(s.MatricNumber),
 				Email:        user.Email,
 				Level:        level,
 				Type:         "account",

@@ -150,6 +150,14 @@ apiClient.interceptors.response.use(
       }
     }
     if (error.response?.status === 403) {
+      // Onboarding hard wall (server-side): any endpoint refusing an
+      // not-yet-onboarded student carries this flag — redirect to the
+      // onboarding page instead of surfacing an error toast.
+      if (error.response?.data?.onboarding_needed) {
+        useAuthStore.getState().updateUser({ onboardingCompleted: false });
+        window.location.href = '/onboarding';
+        return new Promise(() => {}); // hold the request; page is navigating
+      }
       const msg = error.response?.data?.error || 'You do not have permission to access this resource.';
       error.displayMessage = msg;
     }

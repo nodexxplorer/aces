@@ -303,7 +303,7 @@ func (server *Server) unsubscribeFromEmails(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "You've been unsubscribed from email notifications."})
 }
 
-func notificationPreferencesToUpsertParams(p db.NotificationPreference) db.UpsertNotificationPreferencesParams {
+func notificationPreferencesToUpsertParams(p db.NotificationPreferenceView) db.UpsertNotificationPreferencesParams {
 	return db.UpsertNotificationPreferencesParams{
 		UserID:          p.UserID,
 		EmailEnabled:    &p.EmailEnabled,
@@ -325,8 +325,6 @@ func notificationPreferencesToUpsertParams(p db.NotificationPreference) db.Upser
 		PushSkills:      &p.PushSkills,
 		PushAlumni:      &p.PushAlumni,
 		PushSystem:      &p.PushSystem,
-		QuietHoursStart: p.QuietHoursStart,
-		QuietHoursEnd:   p.QuietHoursEnd,
 	}
 }
 

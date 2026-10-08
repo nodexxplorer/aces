@@ -25,12 +25,12 @@ ORDER BY date DESC;
 -- name: UpdateAttendanceSheet :one
 UPDATE attendance_sheets
 SET
-    attendance_data = $2,
-    status = $3::varchar,
-    pdf_url = $4,
-    finalized_at = CASE WHEN $3::varchar = 'finalized' THEN NOW() ELSE finalized_at END,
-    emailed_to_lecturer = $5
-WHERE id = $1
+    attendance_data = sqlc.arg(attendance_data),
+    status = sqlc.arg(status)::varchar,
+    pdf_url = sqlc.arg(pdf_url),
+    finalized_at = CASE WHEN sqlc.arg(status)::varchar = 'finalized' THEN NOW() ELSE finalized_at END,
+    emailed_to_lecturer = sqlc.arg(emailed_to_lecturer)
+WHERE sqlc.arg(id) = id
 RETURNING *;
 
 -- name: FinalizeAttendanceSheet :one
