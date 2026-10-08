@@ -16,6 +16,9 @@ import { useTheme } from '../../src/theme/ThemeProvider';
 import { fontFamily, fontSize, radius, spacing } from '../../src/theme/typography';
 import Button from '../../src/components/ui/Button';
 import { signupStudent } from '../../src/api/auth';
+import DepartmentPicker from '../../src/components/DepartmentPicker';
+import { useDepartmentChoice } from '../../src/hooks/useDepartmentChoice';
+import { storeDepartment } from '../../src/store/departmentStore';
 import { useAuthStore } from '../../src/store/authStore';
 import { getErrorMessage } from '../../src/utils/errors';
 
@@ -83,8 +86,13 @@ export default function SignupScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const dept = useDepartmentChoice();
 
   const handleSignup = async () => {
+    if (!dept.slug) {
+      setError('Choose your department first.');
+      return;
+    }
     if (!firstName.trim() || !lastName.trim() || !email.trim() || !matricNumber.trim() || !level) {
       setError('Fill in all required fields.');
       return;
@@ -109,7 +117,9 @@ export default function SignupScreen() {
         phone: phone.trim() || undefined,
         matricNumber: matricNumber.trim().toUpperCase(),
         level,
+        tenant: dept.slug,
       });
+      await storeDepartment(dept.slug);
       await login(user, tokens);
     } catch (err) {
       setError(getErrorMessage(err, 'Could not create your account. Please try again.'));
@@ -139,6 +149,14 @@ export default function SignupScreen() {
         >
           <View style={styles.row}>
             <View style={styles.flex}>
+              <DepartmentPicker
+                departments={dept.departments}
+                value={dept.slug}
+                onChange={dept.setSlug}
+                loading={dept.loading}
+                error={dept.error}
+                onRetry={dept.reload}
+              />
               <Field label="First Name" value={firstName} onChangeText={setFirstName} autoCapitalize="words" />
             </View>
             <View style={styles.flex}>

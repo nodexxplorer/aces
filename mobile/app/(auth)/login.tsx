@@ -19,6 +19,9 @@ import { fontFamily, fontSize, radius, spacing } from '../../src/theme/typograph
 import { palette } from '../../src/theme/colors';
 import Button from '../../src/components/ui/Button';
 import { login as loginRequest } from '../../src/api/auth';
+import DepartmentPicker from '../../src/components/DepartmentPicker';
+import { useDepartmentChoice } from '../../src/hooks/useDepartmentChoice';
+import { storeDepartment } from '../../src/store/departmentStore';
 import { useAuthStore } from '../../src/store/authStore';
 import { getErrorMessage } from '../../src/utils/errors';
 
@@ -33,6 +36,7 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const dept = useDepartmentChoice();
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
@@ -42,7 +46,8 @@ export default function LoginScreen() {
     setError('');
     setLoading(true);
     try {
-      const { user, tokens } = await loginRequest(email.trim(), password);
+      const { user, tokens } = await loginRequest(email.trim(), password, dept.slug || undefined);
+      await storeDepartment(dept.slug);
       await login(user, tokens);
     } catch (err) {
       setError(getErrorMessage(err, 'Invalid email or password.'));
@@ -81,6 +86,14 @@ export default function LoginScreen() {
 
           <View style={styles.form}>
             <View>
+              <DepartmentPicker
+                departments={dept.departments}
+                value={dept.slug}
+                onChange={dept.setSlug}
+                loading={dept.loading}
+                error={dept.error}
+                onRetry={dept.reload}
+              />
               <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>Email or Matric Number</Text>
               <TextInput
                 value={email}

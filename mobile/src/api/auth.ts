@@ -26,8 +26,9 @@ interface LoginResponse {
   tokens: AuthTokens;
 }
 
-export const login = async (email: string, password: string) => {
-  const { data } = await apiClient.post<{ data: LoginResponse }>('/auth/login', { email, password });
+/** tenant is the department slug. Omitted means the default department. */
+export const login = async (email: string, password: string, tenant?: string) => {
+  const { data } = await apiClient.post<{ data: LoginResponse }>('/auth/login', { email, password, tenant });
   const { user, tokens } = data.data;
   const authUser: AuthUser = { ...user };
   return { user: authUser, tokens };
@@ -41,6 +42,8 @@ export interface StudentSignupPayload {
   phone?: string;
   matricNumber: string;
   level: number;
+  /** The department slug. The matric number must belong to this department. */
+  tenant: string;
   department?: string;
 }
 
@@ -70,6 +73,8 @@ export const changePassword = async (currentPassword: string, newPassword: strin
 
 export interface OnboardingPayload {
   phone: string;
+  matricNumber: string;
+  level?: number;
   middleName?: string;
   dateOfBirth: string; // YYYY-MM-DD
   admissionMode: 'UTME' | 'Direct Entry';
@@ -82,6 +87,8 @@ export interface OnboardingPayload {
 
 export const submitOnboarding = async (payload: OnboardingPayload) => {
   await apiClient.post('/auth/onboarding', {
+    matric_number: payload.matricNumber.trim().toUpperCase(),
+    ...(payload.level ? { level: payload.level } : {}),
     phone: payload.phone,
     bio: '',
     avatar: payload.profilePhotoUrl || '',

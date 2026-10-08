@@ -84,6 +84,7 @@ export default function OnboardingScreen() {
   const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
   const [admissionMode, setAdmissionMode] = useState<'UTME' | 'Direct Entry'>('UTME');
   const [yearAdmitted, setYearAdmitted] = useState(String(new Date().getFullYear()));
+  const [matricNumber, setMatricNumber] = useState('');
   const [phone, setPhone] = useState('');
   const [emergencyContact, setEmergencyContact] = useState('');
   const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
@@ -98,6 +99,7 @@ export default function OnboardingScreen() {
       else if (!isValidDateOfBirth(dateOfBirth.trim())) next.dateOfBirth = 'Use YYYY-MM-DD, and you must be 16+';
     }
     if (s === 2) {
+      if (!matricNumber.trim()) next.matricNumber = 'Enter your matric number';
       const year = parseInt(yearAdmitted, 10);
       if (!yearAdmitted.trim() || Number.isNaN(year) || year < 1900 || year > new Date().getFullYear()) {
         next.yearAdmitted = 'Enter a valid year';
@@ -134,6 +136,7 @@ export default function OnboardingScreen() {
     setSubmitting(true);
     try {
       const payload: OnboardingPayload = {
+        matricNumber: matricNumber.trim(),
         phone: phone.trim(),
         middleName: middleName.trim() || undefined,
         dateOfBirth: dateOfBirth.trim(),
@@ -262,6 +265,13 @@ export default function OnboardingScreen() {
                   </View>
                 </View>
                 <Field
+                  label="Matric Number"
+                  value={matricNumber}
+                  onChangeText={setMatricNumber}
+                  placeholder="e.g. 20/EG/EE/1234"
+                  error={errors.matricNumber}
+                />
+                <Field
                   label="Year Admitted"
                   value={yearAdmitted}
                   onChangeText={setYearAdmitted}
@@ -317,6 +327,7 @@ export default function OnboardingScreen() {
                   {middleName.trim() !== '' && <ReviewRow label="Middle Name" value={middleName} />}
                   <ReviewRow label="Date of Birth" value={dateOfBirth ? `${dateOfBirth} (${getAge(dateOfBirth)})` : ''} />
                   <ReviewRow label="Admission Mode" value={admissionMode} />
+                  <ReviewRow label="Matric Number" value={matricNumber} />
                   <ReviewRow label="Year Admitted" value={yearAdmitted} />
                   <ReviewRow label="Phone" value={phone} />
                   <ReviewRow label="Emergency Contact" value={emergencyContact} />
