@@ -487,7 +487,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
           <div className="flex items-center gap-2 min-w-0">
             <DepartmentLogo department={department} className="w-8 h-8 shadow-md" />
             <div className="min-w-0">
-              <p className="font-bold text-base leading-tight text-surface-900 dark:text-white truncate">
+              <p className="font-bold text-base leading-tight text-surface-900 dark:text-white line-clamp-2">
                 {department?.name ?? APP_NAME}
               </p>
               <p className="text-[10px] uppercase tracking-wider text-surface-400">{APP_NAME}</p>
@@ -690,7 +690,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
             <DepartmentLogo department={department} className="w-8 h-8 shadow-md" />
             {!collapsed && (
               <div className="hidden md:block min-w-0">
-                <p className="font-bold text-base leading-tight text-surface-900 dark:text-white truncate max-w-[10rem]">
+                <p className="font-bold text-base leading-tight text-surface-900 dark:text-white line-clamp-2">
                   {department?.name ?? APP_NAME}
                 </p>
                 <p className="text-[10px] uppercase tracking-wider text-surface-400">{APP_NAME}</p>

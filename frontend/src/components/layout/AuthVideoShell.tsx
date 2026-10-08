@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { APP_NAME } from '../../utils/constants';
+import { APP_DESCRIPTION, APP_NAME } from '../../utils/constants';
 import { motion } from 'framer-motion';
 import CookieConsent from '../feedback/CookieConsent';
 
@@ -15,11 +15,7 @@ interface AuthVideoShellProps {
 // a desktop-only left panel and the page's own glass card on the right.
 // Extracted from the original login page so all auth screens stay visually
 // identical without copy-pasting the video/animation markup four times.
-const AuthVideoShell = ({
-  children,
-  cardMaxWidth = 'max-w-md',
-  tagline = 'Association of Computer Engineering Students, Uniuyo Chapter',
-}: AuthVideoShellProps) => (
+const AuthVideoShell = ({ children, cardMaxWidth = 'max-w-md', tagline = APP_DESCRIPTION }: AuthVideoShellProps) => (
   <div className="relative min-h-screen w-full overflow-hidden bg-surface-950 select-none">
     <video autoPlay loop muted playsInline className="absolute inset-0 h-full w-full object-cover" src="/login.mp4" />
     {/* Dims the raw footage so both the left wordmark and the glass card

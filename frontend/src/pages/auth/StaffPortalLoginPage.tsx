@@ -14,6 +14,7 @@ import { login as apiLogin } from '../../api/auth';
 import { getErrorMessage } from '../../utils/errors';
 import { useDepartments } from '../../hooks/useDepartments';
 import DepartmentSelect from '../../components/auth/DepartmentSelect';
+import { DepartmentBrand } from '../../components/branding/DepartmentBrand';
 
 const staffLoginSchema = z.object({
   identifier: z.string().min(3, 'Email or Staff ID is required'),
@@ -101,6 +102,10 @@ const StaffPortalLoginPage = () => {
             </AnimatePresence>
 
             <DepartmentSelect departments={departments} value={selected} onChange={select} />
+
+            <div className="mt-4">
+              <DepartmentBrand department={departments.find((d) => d.slug === selected)} />
+            </div>
             <Input
               label="Email or Staff ID"
               placeholder="e.g. ENG/12345 or lecturer@aces.com"

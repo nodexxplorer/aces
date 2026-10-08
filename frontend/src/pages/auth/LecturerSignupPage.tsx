@@ -12,6 +12,7 @@ import { Mail, Lock, User, Briefcase } from 'lucide-react';
 import { lecturerSignup } from '../../api/signup';
 import { useDepartments } from '../../hooks/useDepartments';
 import DepartmentSelect from '../../components/auth/DepartmentSelect';
+import { DepartmentBrand } from '../../components/branding/DepartmentBrand';
 
 const lecturerSignupSchema = z
   .object({
@@ -90,6 +91,9 @@ const LecturerSignupPage = () => {
           </div>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <DepartmentSelect departments={departments} value={selected} onChange={select} />
+            <div className="mt-4">
+              <DepartmentBrand department={departments.find((d) => d.slug === selected)} />
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <Input
                 label="First Name"

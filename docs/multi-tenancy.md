@@ -97,7 +97,7 @@ Each department has its own name, description and logo. The sign-in and sign-up 
 | `description` | `cmd/tenant update -description`, up to 500 characters | Sign-in and sign-up pages, dashboard footer |
 | `logo` | `cmd/tenant update -logo <file>` | Sign-in and sign-up pages, navbar, sidebar, footer |
 
-- **Logo rules.** The file must be a PNG, JPEG or WebP image of at most 256 KiB. The server checks the file's contents, not its extension. SVG is refused because it can carry script, and GIF is refused as well. `-remove-logo` removes it.
+- **Logo rules.** The file must be a PNG, JPEG or WebP image of at most 256 KiB. The server checks the file's contents, not its extension. SVG is refused because it can carry script, and GIF is refused as well. `-remove-logo` removes it. A department without a logo shows a neutral building icon in its place, never another organisation's mark.
 - **Serving.** `GET /api/v1/tenants/:slug/logo` returns the logo with its image type. It is public, because the sign-in page shows the logo before anyone has signed in. It is cached for five minutes. A missing, inactive or logo-less department gets `404`.
 - **Where the user's department comes from.** The `user` object in every auth response, and `GET /api/v1/auth/me`, carry the user's `tenant` (slug, name, institution, faculty, matric code, description and `logoUrl`). The dashboard reads it from there.
 - **Not branded yet.** Receipts, printed result slips, PDFs, emails and the AI assistant's prompt still use the University of Uyo and ACES wording. See [Known gaps](#known-gaps).

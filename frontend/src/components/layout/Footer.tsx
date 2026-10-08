@@ -8,7 +8,7 @@ const Footer = () => {
   const displayName = department?.name ?? APP_NAME;
 
   return (
-    <footer className="bg-white dark:bg-surface-900 border-t border-surface-200 dark:border-surface-800 py-6 px-8 text-xs text-surface-500 dark:text-surface-400">
+    <footer className="bg-white dark:bg-surface-900 border-t border-surface-200 dark:border-surface-800 py-6 px-8 md:pr-20 text-xs text-surface-500 dark:text-surface-400">
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
         <div className="flex items-start gap-3 max-w-xl">
           {department && <DepartmentLogo department={department} className="w-10 h-10 shadow-sm" />}
