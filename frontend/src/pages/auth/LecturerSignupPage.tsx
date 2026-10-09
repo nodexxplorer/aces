@@ -79,7 +79,7 @@ const LecturerSignupPage = () => {
   };
 
   return (
-    <AuthVideoShell cardMaxWidth="max-w-lg">
+    <AuthVideoShell cardMaxWidth="max-w-lg" department={departments.find((d) => d.slug === selected)}>
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
         <div className="rounded-2xl border border-white/25 bg-white/10 backdrop-blur-2xl shadow-2xl p-8">
           <div className="flex flex-col items-center gap-1 text-center mb-7">
@@ -89,7 +89,7 @@ const LecturerSignupPage = () => {
           </div>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <DepartmentSelect departments={departments} value={selected} onChange={select} />
-            <div className="mt-4">
+            <div className="mt-4 md:hidden">
               <DepartmentBrand department={departments.find((d) => d.slug === selected)} />
             </div>
             <div className="grid grid-cols-2 gap-4">

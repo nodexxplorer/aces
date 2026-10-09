@@ -393,7 +393,10 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
   const { activeRole } = useRBAC();
   const { user, logout } = useAuth();
   const department = useCurrentDepartment();
-  const [expandedSections, setExpandedSections] = useState<string[]>(['academics', 'admin_overview']);
+  // Every group starts open, so no item is hidden behind a closed group (the
+  // drawer used to open with Community and Finance shut). A group can still be
+  // closed by hand.
+  const [expandedSections, setExpandedSections] = useState<string[]>(() => mobileSections.map((s) => s.key));
 
   const isPendingApproval =
     user &&
