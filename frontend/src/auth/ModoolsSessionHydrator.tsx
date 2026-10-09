@@ -2,12 +2,10 @@ import { useEffect } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import { takeModoolsPayload } from '../api/modools';
 
-// Modools OAuth returns the session through a URL-fragment handoff (see
-// backend modoolsComplete): the backend's /auth/modools/complete page stashes
-// the login-shaped payload in localStorage and redirects into the SPA. This
-// component runs before the router renders and consumes that stash exactly
-// once, so the OAuth return behaves identically to a normal login POST —
-// the existing router guard then sends unfinished students to /onboarding.
+// Modools OAuth returns the session in the URL fragment of /login (see the
+// backend's modoolsFinish). This component reads it once and clears it, so the
+// OAuth return behaves like a normal login. The existing router guard then
+// sends unfinished students to /onboarding.
 export default function ModoolsSessionHydrator() {
   const login = useAuthStore((s) => s.login);
 

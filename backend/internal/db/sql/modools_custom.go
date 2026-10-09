@@ -49,14 +49,14 @@ type CreateModoolsUserParams struct {
 // unverified email (the IdP already proved it), no password login
 // (placeholder hash — the account is only reachable via Modools), and the
 // Modools subject + refresh token stamped for logout revocation.
-// The full_name column is derived from first/last, matching manual signup.
+// full_name is a generated column (migration 000023), built from first and last
+// name, so it is not written here. Writing it fails with SQLSTATE 428C9.
 func (q *Queries) CreateModoolsUser(ctx context.Context, arg CreateModoolsUserParams) (uuid.UUID, error) {
-	fullName := arg.FirstName + " " + arg.LastName
 	row := q.db.QueryRow(ctx, `
-		INSERT INTO users (email, password_hash, role, full_name, first_name, last_name, avatar_url, is_active, is_approved, email_verified, modools_sub, modools_refresh_token)
-		VALUES ($1, $2, 'student', $3, $4, $5, $6, true, true, false, $7, $8)
+		INSERT INTO users (email, password_hash, role, first_name, last_name, avatar_url, is_active, is_approved, email_verified, modools_sub, modools_refresh_token)
+		VALUES ($1, $2, 'student', $3, $4, $5, true, true, false, $6, $7)
 		RETURNING id
-	`, arg.Email, arg.PasswordHash, fullName, arg.FirstName, arg.LastName, arg.AvatarURL, arg.ModoolsSub, arg.RefreshToken)
+	`, arg.Email, arg.PasswordHash, arg.FirstName, arg.LastName, arg.AvatarURL, arg.ModoolsSub, arg.RefreshToken)
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err

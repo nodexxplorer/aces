@@ -4,10 +4,8 @@ import type { User, AuthTokens } from '../types';
 // ─── Modools OAuth (students) ────────────────────────────────────────────
 // Login is a browser redirect to the backend's /auth/modools/login (which
 // 302s on to Modools) — never an XHR, since the whole point is leaving the
-// SPA. The backend hands the session back through /auth/modools/complete,
-// which stashes the login-shaped payload in localStorage under
-// 'aces_auth_payload' before bouncing into the app; takeModoolsPayload()
-// is the one-time consumer of that stash.
+// SPA. The backend sends the session back to /login with the payload in the
+// URL fragment; takeModoolsPayload() reads it once and clears the fragment.
 
 export interface ModoolsStatus {
   configured: boolean;
@@ -31,17 +29,21 @@ export interface ModoolsAuthPayload {
   tokens: AuthTokens;
 }
 
-const PAYLOAD_KEY = 'aces_auth_payload';
-
-// Consume the stashed OAuth session payload exactly once (returns null when
-// absent or corrupt). The base64url decode mirrors the backend's
-// RawURLEncoding; TextDecoder handles the UTF-8 names correctly.
+/**
+ * Read the session that the backend returned in the fragment of this page's
+ * address (/login#auth=<base64url JSON of {user, tokens}>), then clear the
+ * fragment so the tokens stay out of the address bar and browser history.
+ * Returns null when there is no session or it cannot be read.
+ */
 export const takeModoolsPayload = (): ModoolsAuthPayload | null => {
   try {
-    const raw = localStorage.getItem(PAYLOAD_KEY);
-    if (!raw) return null;
-    localStorage.removeItem(PAYLOAD_KEY);
-    const b64 = raw.replace(/-/g, '+').replace(/_/g, '/');
+    const hash = window.location.hash.replace(/^#/, '');
+    const auth = new URLSearchParams(hash).get('auth');
+    if (!auth) return null;
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    // base64url, unpadded, as the backend's RawURLEncoding writes it. TextDecoder
+    // handles the UTF-8 names correctly.
+    const b64 = auth.replace(/-/g, '+').replace(/_/g, '/');
     const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
     const parsed = JSON.parse(new TextDecoder().decode(bytes));
     if (parsed?.user && parsed?.tokens) return parsed as ModoolsAuthPayload;

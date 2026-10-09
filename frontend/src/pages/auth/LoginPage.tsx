@@ -14,7 +14,7 @@ import { Link } from 'react-router-dom';
 
 // Student sign-in: Modools OAuth only (see the /portalsign route for the
 // staff email/password portal). The backend starts the handshake with PKCE +
-// state cookies and hands the session back through /auth/modools/complete.
+// state cookies and hands the session back in the fragment of this page's address.
 const LoginPage = ({ urlCode }: { urlCode?: string } = {}) => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();

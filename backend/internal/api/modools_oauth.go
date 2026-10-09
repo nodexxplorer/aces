@@ -27,7 +27,13 @@ const (
 	modoolsStateCookie   = "aces_modools_state"
 	modoolsVerifierCkie  = "aces_modools_verifier"
 	modoolsTenantCookie  = "aces_modools_tenant"
+	modoolsClientCookie  = "aces_modools_client"
 	modoolsCallbackError = "auth_failed"
+
+	// mobileModoolsReturn is where a mobile sign-in ends. It uses the app's URL
+	// scheme (app.json "scheme"), so the app can take it back. The app asks for
+	// this with client=mobile and never names a URL, so there is no open redirect.
+	mobileModoolsReturn = "aceszone://modools-complete"
 )
 
 var (
@@ -109,7 +115,32 @@ func (server *Server) frontendBase() string {
 	return base
 }
 
+// modoolsStartsOnMobile reports whether a sign-in is starting in the mobile app.
+// Only the exact value "mobile" counts.
+func modoolsStartsOnMobile(ctx *gin.Context) bool {
+	return ctx.Query("client") == "mobile"
+}
+
+// modoolsIsMobile reports whether this round trip started in the mobile app,
+// as recorded in the client cookie at the start of the sign-in.
+func modoolsIsMobile(ctx *gin.Context) bool {
+	client, err := ctx.Cookie(modoolsClientCookie)
+	return err == nil && client == "mobile"
+}
+
+// modoolsBack sends the browser back at the end of a Modools round trip. The
+// app receives the query through its URL scheme; the website gets it on its
+// sign-in page.
+func (server *Server) modoolsBack(ctx *gin.Context, mobile bool, query string) {
+	if mobile {
+		ctx.Redirect(http.StatusFound, mobileModoolsReturn+"?"+query)
+		return
+	}
+	ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?"+query)
+}
+
 func (server *Server) modoolsLogin(ctx *gin.Context) {
+	mobile := modoolsStartsOnMobile(ctx)
 	_, cfg, err := modoolsInit(ctx.Request.Context())
 	if err != nil {
 		ctx.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
@@ -121,7 +152,7 @@ func (server *Server) modoolsLogin(ctx *gin.Context) {
 	// to know it.
 	bound, err := server.bindTenantSlug(ctx.Request.Context(), ctx.Query("tenant"))
 	if err != nil {
-		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error=unknown_department")
+		server.modoolsBack(ctx, mobile, "error=unknown_department")
 		return
 	}
 	t, _ := tenant.From(bound)
@@ -133,6 +164,11 @@ func (server *Server) modoolsLogin(ctx *gin.Context) {
 	server.setShortCookie(ctx, modoolsStateCookie, state, 600)
 	server.setShortCookie(ctx, modoolsVerifierCkie, verifier, 600)
 	server.setShortCookie(ctx, modoolsTenantCookie, t.Slug, 600)
+	client := "web"
+	if mobile {
+		client = "mobile"
+	}
+	server.setShortCookie(ctx, modoolsClientCookie, client, 600)
 
 	authURL := cfg.AuthCodeURL(
 		state,
@@ -154,24 +190,24 @@ func (server *Server) modoolsCallback(ctx *gin.Context) {
 
 	if errParam := ctx.Query("error"); errParam != "" {
 		log.Printf("[modools] provider error: %s (%s)", errParam, ctx.Query("error_description"))
-		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
+		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
 		return
 	}
 	code := ctx.Query("code")
 	if code == "" {
-		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
+		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
 		return
 	}
 
 	state := ctx.Query("state")
 	storedState, err := ctx.Cookie(modoolsStateCookie)
 	if err != nil || state == "" || storedState == "" || state != storedState {
-		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
+		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
 		return
 	}
 	verifier, err := ctx.Cookie(modoolsVerifierCkie)
 	if err != nil || verifier == "" {
-		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
+		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
 		return
 	}
 	// Cookies are single-use — clear them immediately.
@@ -179,12 +215,14 @@ func (server *Server) modoolsCallback(ctx *gin.Context) {
 	server.setShortCookie(ctx, modoolsStateCookie, "", -1)
 	server.setShortCookie(ctx, modoolsVerifierCkie, "", -1)
 	server.setShortCookie(ctx, modoolsTenantCookie, "", -1)
+	// The client cookie is not cleared. It only says where errors go, and the
+	// next sign-in sets it again, so a replayed callback still ends in the app.
 
 	// Bind the department before any database work. A flow started before this
 	// deploy has no tenant cookie and belongs to the default department.
 	bound, err := server.bindTenantSlug(ctx.Request.Context(), tenantSlug)
 	if err != nil {
-		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error=unknown_department")
+		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error=unknown_department")
 		return
 	}
 	ctx.Request = ctx.Request.WithContext(bound)
@@ -192,7 +230,7 @@ func (server *Server) modoolsCallback(ctx *gin.Context) {
 	provider, cfg, err := modoolsInit(ctx.Request.Context())
 	if err != nil {
 		log.Printf("[modools] init failed: %v", err)
-		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
+		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
 		return
 	}
 
@@ -200,31 +238,31 @@ func (server *Server) modoolsCallback(ctx *gin.Context) {
 		oauth2.SetAuthURLParam("code_verifier", verifier))
 	if err != nil {
 		log.Printf("[modools] token exchange failed: %v", err)
-		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
+		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
 		return
 	}
 	rawIDToken, ok := oauthToken.Extra("id_token").(string)
 	if !ok || rawIDToken == "" {
 		log.Printf("[modools] no id_token in token response")
-		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
+		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
 		return
 	}
 	idTokenVerifier := provider.Verifier(&oidc.Config{ClientID: cfg.ClientID})
 	idToken, err := idTokenVerifier.Verify(ctx.Request.Context(), rawIDToken)
 	if err != nil {
 		log.Printf("[modools] id_token verification failed: %v", err)
-		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
+		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
 		return
 	}
 	var claims modoolsClaims
 	if err := idToken.Claims(&claims); err != nil {
 		log.Printf("[modools] claim parse failed: %v", err)
-		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
+		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
 		return
 	}
 	if claims.Subject == "" || claims.Email == "" {
 		log.Printf("[modools] id_token missing sub/email")
-		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
+		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
 		return
 	}
 	email := strings.ToLower(strings.TrimSpace(claims.Email))
@@ -235,14 +273,14 @@ func (server *Server) modoolsCallback(ctx *gin.Context) {
 
 	queries, ok := server.store.(*db.Queries)
 	if !ok {
-		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
+		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
 		return
 	}
 
 	// 1) Existing Modools link → straight in.
 	if mu, err := queries.GetUserByModoolsSub(ctx, claims.Subject); err == nil {
 		if !mu.IsActive || mu.DeletedAt.Valid {
-			ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error=account_deactivated")
+			server.modoolsBack(ctx, modoolsIsMobile(ctx), "error=account_deactivated")
 			return
 		}
 		server.modoolsFinish(ctx, mu, oauthToken)
@@ -256,16 +294,16 @@ func (server *Server) modoolsCallback(ctx *gin.Context) {
 		if hasStaffRole(roleNames) || existing.Role != db.UserRoleStudent {
 			// Staff emails must never be claimable through the student IdP.
 			log.Printf("[modools] staff email %s attempted Modools login — rejected", email)
-			ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error=staff_email")
+			server.modoolsBack(ctx, modoolsIsMobile(ctx), "error=staff_email")
 			return
 		}
 		if err := queries.LinkModoolsAccount(ctx, existing.ID, claims.Subject, strPtr(oauthToken.RefreshToken)); err != nil {
 			log.Printf("[modools] link failed: %v", err)
-			ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
+			server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
 			return
 		}
 		if !existing.IsActive || existing.DeletedAt.Valid {
-			ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error=account_deactivated")
+			server.modoolsBack(ctx, modoolsIsMobile(ctx), "error=account_deactivated")
 			return
 		}
 		server.modoolsFinish(ctx, existing, oauthToken)
@@ -275,14 +313,14 @@ func (server *Server) modoolsCallback(ctx *gin.Context) {
 	hashedPassword, err := util.HashPassword(randomToken(40)) // unusable; password login is not offered
 	if err != nil {
 		log.Printf("[modools] password hash failed: %v", err)
-		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
+		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
 		return
 	}
 
 	tx, err := server.dbPool.Begin(ctx)
 	if err != nil {
 		log.Printf("[modools] begin tx failed: %v", err)
-		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
+		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
 		return
 	}
 	defer tx.Rollback(ctx)
@@ -299,24 +337,24 @@ func (server *Server) modoolsCallback(ctx *gin.Context) {
 	})
 	if err != nil {
 		log.Printf("[modools] auto-create failed: %v", err)
-		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
+		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
 		return
 	}
 	if err := txq.CreateModoolsStudentRow(ctx, userID); err != nil {
 		log.Printf("[modools] student row create failed: %v", err)
-		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
+		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
 		return
 	}
 	if err := tx.Commit(ctx); err != nil {
 		log.Printf("[modools] create commit failed: %v", err)
-		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
+		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
 		return
 	}
 
 	created, err := queries.GetUser(ctx, userID)
 	if err != nil {
 		log.Printf("[modools] post-create fetch failed: %v", err)
-		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
+		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
 		return
 	}
 	server.notifyUser(
@@ -369,17 +407,23 @@ func (server *Server) modoolsFinish(ctx *gin.Context, user db.User, oauthToken *
 	resp, err := server.generateAuthResponse(ctx, user, onboardingCompleted, roleNames)
 	if err != nil {
 		log.Printf("[modools] session issue failed: %v", err)
-		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
+		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
 		return
 	}
 	resp.Tokens.CsrfToken = server.setTokenCookies(ctx, &resp.Tokens)
 	payload, err := json.Marshal(gin.H{"user": resp.User, "tokens": resp.Tokens})
 	if err != nil {
-		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
+		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
 		return
 	}
+	if modoolsIsMobile(ctx) {
+		ctx.Redirect(http.StatusFound, mobileModoolsReturn+"#auth="+base64.RawURLEncoding.EncodeToString(payload))
+		return
+	}
+	// The session goes back in the fragment of the web app's own address, so the
+	// app can read it and clear it. The fragment is never sent to a server.
 	ctx.Redirect(http.StatusFound,
-		"/auth/modools/complete#auth="+base64.RawURLEncoding.EncodeToString(payload))
+		server.frontendBase()+"/login#auth="+base64.RawURLEncoding.EncodeToString(payload))
 }
 
 func splitFullName(name string) (first, last string) {
@@ -391,28 +435,6 @@ func splitFullName(name string) (first, last string) {
 		return parts[0], ""
 	}
 	return parts[0], strings.Join(parts[1:], " ")
-}
-
-func (server *Server) modoolsComplete(ctx *gin.Context) {
-	page := `<!doctype html><html><body><script>
-(function(){
-  try {
-    var h = location.hash.substring(1), p = new URLSearchParams(h);
-    var auth = p.get('auth');
-    if (auth) {
-      localStorage.setItem('aces_auth_payload', auth);
-      var b64 = auth.replace(/-/g,'+').replace(/_/g,'/');
-      var bytes = Uint8Array.from(atob(b64), function(c){ return c.charCodeAt(0); });
-      var payload = JSON.parse(new TextDecoder().decode(bytes));
-      var onb = payload && payload.user && payload.user.onboardingCompleted;
-      location.replace(onb === false ? '/onboarding' : '/login/celebration');
-      return;
-    }
-  } catch (e) {}
-  location.replace('/login?error=auth_failed');
-})();
-</script></body></html>`
-	ctx.Data(http.StatusOK, "text/html; charset=utf-8", []byte(page))
 }
 
 func (server *Server) modoolsStatus(ctx *gin.Context) {
