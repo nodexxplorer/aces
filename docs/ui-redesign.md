@@ -18,7 +18,7 @@ Observed in the scratch build against the live API, on the approval page, the dr
 - **Sidebar groups start collapsed.** Community and Finance open closed, so their items are hidden until a student opens them.
 - **Colour competes.** The amber used for "waiting" sits beside the primary blue. On the approval card the department badge is blue on pale amber.
 - **Mobile status screens wrap badly.** The approval title wraps to two lines at 390 px, and the status icon floats alone on the left edge.
-- **Mobile screens were built for one association.** Splash, welcome, sign-in and settings now say "Admin Pack" and the department's name, but their layouts were not designed for several departments and have not been reviewed.
+- **Mobile screens were built for one association.** Splash, sign-in and settings now say "Admin Pack" and the department's name, but their layouts were not designed for several departments and have not been reviewed.
 
 ## Principles (proposed)
 
