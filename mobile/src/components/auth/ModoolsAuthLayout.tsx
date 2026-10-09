@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -39,9 +39,17 @@ export default function ModoolsAuthLayout({ departmentName, title, subtitle, chi
         entering={FadeInDown.duration(500).delay(150).springify()}
         style={[styles.sheet, { backgroundColor: theme.background }]}
       >
-        <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
-        <Text style={[styles.subtitle, { color: theme.textMuted }]}>{subtitle}</Text>
-        <View style={styles.body}>{children}</View>
+        {/* The sheet scrolls: a department picker with eight departments is
+            taller than the sheet, and the button below it must stay reachable. */}
+        <ScrollView
+          contentContainerStyle={[styles.sheetContent, { paddingBottom: insets.bottom + spacing.xl }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
+          <Text style={[styles.subtitle, { color: theme.textMuted }]}>{subtitle}</Text>
+          <View style={styles.body}>{children}</View>
+        </ScrollView>
       </Animated.View>
     </View>
   );
@@ -77,6 +85,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radius['2xl'],
     paddingHorizontal: spacing.xl,
     paddingTop: spacing['2xl'],
+  },
+  sheetContent: {
+    flexGrow: 1,
   },
   title: {
     fontFamily: fontFamily.bold,

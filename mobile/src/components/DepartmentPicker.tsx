@@ -1,4 +1,4 @@
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from './ui/Text';
 import { useTheme } from '../theme/ThemeProvider';
@@ -35,7 +35,7 @@ export default function DepartmentPicker({ label = 'Department', departments, va
       </Pressable>
     );
   } else {
-    body = departments.map((d) => {
+    const rows = departments.map((d) => {
       const selected = d.slug === value;
       const ink = selected ? theme.onPrimary : theme.text;
       const sub = selected ? theme.onPrimary : theme.textMuted;
@@ -55,6 +55,21 @@ export default function DepartmentPicker({ label = 'Department', departments, va
         </Pressable>
       );
     });
+    // A full faculty is eight departments. Past a screenful the list scrolls on
+    // its own, so the button under it stays in view instead of being pushed off.
+    body =
+      departments.length > maxRowsInView ? (
+        <ScrollView
+          style={styles.list}
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {rows}
+        </ScrollView>
+      ) : (
+        rows
+      );
   }
 
   return (
@@ -66,8 +81,14 @@ export default function DepartmentPicker({ label = 'Department', departments, va
   );
 }
 
+// About five rows: tall enough to show that the list scrolls, short enough to
+// leave the rest of the form on screen.
+const maxRowsInView = 5;
+const rowHeight = 58; // name + institution, padding and the gap below
+
 const styles = StyleSheet.create({
   wrap: { marginBottom: spacing.md },
+  list: { maxHeight: maxRowsInView * rowHeight },
   label: { fontFamily: fontFamily.regular, fontSize: fontSize.sm, marginBottom: spacing.xs },
   status: { paddingVertical: spacing.md, alignItems: 'center' },
   row: {
