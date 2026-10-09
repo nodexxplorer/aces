@@ -208,8 +208,8 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	router.Use(middleware.CSRFProtect())
 	router.MaxMultipartMemory = 32 << 20
 
-	// Serve uploaded files
-	router.Static("/uploads", cfg.StorageLocalPath)
+	// Stored files, served only with a link signed by SignUploadLinks.
+	server.registerUploadRoutes(router)
 
 	// Per-route rate limiters: prefer Redis, fall back to in-memory
 	var rl, authRL gin.HandlerFunc
