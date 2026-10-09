@@ -44,3 +44,10 @@ func refuseSeedPasswordEnv(name string) {
 func reportSeedPassword(email, slug, password string) {
 	fmt.Printf("\nSeeded %s in department %s.\nPassword (shown once, store it now): %s\n\n", email, slug, password)
 }
+
+// reportResetPassword prints the new password once, as reportSeedPassword does.
+// Access tokens already issued stay valid until they expire (JWT_ACCESS_MINUTES);
+// the refresh token stops working at once.
+func reportResetPassword(email, slug, password string) {
+	fmt.Printf("\nPassword reset for %s in department %s. The account is unlocked and signed out of every session.\nNew password (shown once, store it now): %s\n\n", email, slug, password)
+}

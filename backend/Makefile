@@ -60,6 +60,7 @@ install:
 	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
-# Creates the first admin of a department: make seed-admin ARGS="-tenant unilag-ce"
+# Creates the first admin of a department: make seed-admin ARGS="-tenant unilag-ce".
+# Gives that admin a new password after a lost one: add ARGS="... -reset-password".
 seed-admin:
 	go run ./cmd/seed_admin $(ARGS)

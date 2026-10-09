@@ -41,20 +41,29 @@ func init() {
 	}
 }
 
-// Usage: seed_admin [-tenant <slug>]
+// Usage: seed_admin [-tenant <slug>] [-role admin|lecturer] [-reset-password]
 //
 // Creates the first admin account for a department. Accounts are per
 // department, so the same email can be an admin in several. The password is
 // generated for each new account and printed once; ADMIN_PASSWORD is refused
 // so that no department can share a password by accident.
+//
+// With -reset-password it gives the existing account a new generated password
+// instead, and unlocks it and signs it out everywhere. It is the recovery path
+// for a lost password.
 func main() {
 	ctx := context.Background()
 
 	tenantSlug := flag.String("tenant", os.Getenv("DEFAULT_TENANT_SLUG"), "department slug to seed (default: DEFAULT_TENANT_SLUG, else uniuyo-ce)")
 	role := flag.String("role", "admin", "account to seed: admin (default) or lecturer")
+	resetPassword := flag.Bool("reset-password", false, "give the existing account (ADMIN_EMAIL, or LECTURER_EMAIL with -role lecturer) a new password, unlock it and sign it out everywhere")
 	flag.Parse()
 	if *tenantSlug == "" {
 		*tenantSlug = "uniuyo-ce"
+	}
+	if *resetPassword {
+		resetSeedPassword(ctx, *tenantSlug, *role)
+		return
 	}
 	switch *role {
 	case "admin":

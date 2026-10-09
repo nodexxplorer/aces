@@ -50,6 +50,14 @@ DB_SOURCE='postgresql://aces_app:…@localhost:5432/aces_zone?sslmode=disable' \
   ADMIN_EMAIL=admin@example.edu make seed-admin ARGS="-tenant unilag-ce"
 ```
 
+If an admin loses the password, give that account a new one. The command below works the same way: it prints the new password once, unlocks the account and signs it out of every session. Access tokens already issued last until they expire (`JWT_ACCESS_MINUTES`, 60 by default).
+
+```bash
+DB_SOURCE='postgresql://aces_app:…@localhost:5432/aces_zone?sslmode=disable' \
+  ADMIN_EMAIL=admin@example.edu make seed-admin ARGS="-tenant unilag-ce -reset-password"
+# A lecturer's password: add -role lecturer and set LECTURER_EMAIL instead.
+```
+
 `cmd/tenant` also supports `list`, `logos`, `activate` and `deactivate`. `update` changes only the flags you pass:
 
 ```bash
