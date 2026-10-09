@@ -55,6 +55,8 @@ export interface TenantInfo {
   logoUrl?: string;
   /** The department's accent colour (#rrggbb), computed from its logo. Absent when the logo gives none. */
   accentColor?: string;
+  /** Short name in web addresses: /co for students, /co/admin for staff. Absent until it is set. */
+  urlCode?: string;
   /** The department's contact address, when it has one. Only the signed-in user's own department carries it. */
   contactEmail?: string;
   /** Where the approval screen sends the student: the approval address, or the contact address when there is none. */

@@ -3,6 +3,8 @@ import Card, { CardHeader, CardTitle, CardDescription } from '../../components/u
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { useTheme } from '../../hooks/useTheme';
+import { DepartmentAddresses } from '../../components/branding/DepartmentAddresses';
+import { useCurrentDepartment } from '../../components/branding/department';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuthStore } from '../../stores/authStore';
 import { getMediaUrl } from '../../api/client';
@@ -24,13 +26,15 @@ import {
   Shield,
   Globe,
   BarChart3,
+  Building2,
   Loader2,
 } from 'lucide-react';
 
-type SettingsTab = 'profile' | 'cgpa' | 'ai';
+type SettingsTab = 'profile' | 'department' | 'cgpa' | 'ai';
 
 const tabs: { key: SettingsTab; label: string; icon: typeof User }[] = [
   { key: 'profile', label: 'Profile', icon: User },
+  { key: 'department', label: 'Department', icon: Building2 },
   { key: 'cgpa', label: 'CGPA', icon: BarChart3 },
   { key: 'ai', label: 'AI Settings', icon: Brain },
 ];
@@ -39,6 +43,7 @@ const SettingsPage = () => {
   const { theme, toggleTheme } = useTheme();
   const { success, error: notifyError } = useNotification();
   const { user, updateUser: updateAuthUser } = useAuthStore();
+  const department = useCurrentDepartment();
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
 
   const [editing, setEditing] = useState(false);
@@ -80,7 +85,7 @@ const SettingsPage = () => {
       <div>
         <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Settings</h1>
         <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-          Manage your profile, CGPA configuration, and AI preferences.
+          Manage your profile, sign-in addresses, CGPA configuration, and AI preferences.
         </p>
       </div>
 
@@ -225,6 +230,12 @@ const SettingsPage = () => {
       )}
 
       {/* CGPA Settings Tab */}
+      {activeTab === 'department' && (
+        <div className="space-y-6">
+          <DepartmentAddresses department={department} />
+        </div>
+      )}
+
       {activeTab === 'cgpa' && <CGPATab />}
 
       {/* AI Settings Tab */}
