@@ -51,7 +51,10 @@ type Tenant struct {
 	// LogoType is the MIME type of the logo ("image/png", ...), or empty when
 	// the department has no logo. The bytes are read by Manager.Logo.
 	LogoType string
-	IsActive bool
+	// AccentColor is the department's accent as #rrggbb, computed from its
+	// logo (see accent.go). Empty means the platform colour.
+	AccentColor string
+	IsActive    bool
 }
 
 type ctxKey struct{}

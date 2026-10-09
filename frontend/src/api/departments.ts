@@ -11,6 +11,8 @@ export interface Department {
   description?: string;
   /** API path of the department's logo. Absent when it has none. */
   logoUrl?: string;
+  /** The department's accent colour (#rrggbb), computed from its logo. Absent when the logo gives none. */
+  accentColor?: string;
   /** True for the department used when none is named (mobile, and the first choice on web). */
   default?: boolean;
 }

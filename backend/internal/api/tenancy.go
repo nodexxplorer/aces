@@ -25,6 +25,9 @@ type tenantResponse struct {
 	MatricCode  string `json:"matricCode,omitempty"`
 	Description string `json:"description,omitempty"`
 	LogoURL     string `json:"logoUrl,omitempty"`
+	// AccentColor is the department's accent as #rrggbb, when its logo gives
+	// one. Clients use it in place of the platform colour.
+	AccentColor string `json:"accentColor,omitempty"`
 	// ContactEmail is the department's contact address, when it has one. It is
 	// for the signed-in user (the approval page links to it), so it appears
 	// here and not in the public list.
@@ -43,6 +46,7 @@ func toTenantResponse(t tenant.Tenant) *tenantResponse {
 		MatricCode:           t.MatricCode,
 		Description:          t.Description,
 		LogoURL:              logoURL(t),
+		AccentColor:          t.AccentColor,
 		ContactEmail:         t.ContactEmail,
 		ApprovalContactEmail: approvalContactEmail(t),
 	}
@@ -80,6 +84,8 @@ type tenantListItem struct {
 	// Description and LogoURL are the department's branding.
 	Description string `json:"description,omitempty"`
 	LogoURL     string `json:"logoUrl,omitempty"`
+	// AccentColor is the department's accent, when its logo gives one.
+	AccentColor string `json:"accentColor,omitempty"`
 	// Default marks the department used when a request names none (mobile
 	// clients, and sign-in forms before a choice is made).
 	Default bool `json:"default,omitempty"`
@@ -105,6 +111,7 @@ func (server *Server) listTenants(ctx *gin.Context) {
 			MatricCode:  t.MatricCode,
 			Description: t.Description,
 			LogoURL:     logoURL(t),
+			AccentColor: t.AccentColor,
 			Default:     t.Slug == server.tenants.DefaultSlug(),
 		})
 	}

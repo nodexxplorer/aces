@@ -5,6 +5,7 @@ import ThemeInitializer from './components/ThemeInitializer';
 import ErrorBoundary from './components/feedback/ErrorBoundary';
 import { ToastContainer } from './components/feedback/Toast';
 import ModoolsSessionHydrator from './auth/ModoolsSessionHydrator';
+import DepartmentAccent from './theme/DepartmentAccent';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,6 +23,7 @@ function App() {
       <ThemeInitializer>
         <QueryClientProvider client={queryClient}>
           <ModoolsSessionHydrator />
+          <DepartmentAccent />
           <RouterProvider router={router} />
           {/* Rendered once at the app root — any route lacking AppShell/
               PublicLayout (onboarding, login/celebration, etc.) previously

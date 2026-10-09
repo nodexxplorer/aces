@@ -103,6 +103,7 @@ func applyOneLogo(ctx context.Context, pool *pgxpool.Pool, path, code string, dr
 	if err != nil {
 		return err
 	}
+	accent := logoAccent(logoType, logo)
 
 	var slug, name string
 	var active bool
@@ -112,9 +113,9 @@ func applyOneLogo(ctx context.Context, pool *pgxpool.Pool, path, code string, dr
 		).Scan(&slug, &name, &active)
 	} else {
 		err = pool.QueryRow(ctx, `
-			UPDATE tenants SET logo = $2, logo_type = $3, updated_at = NOW()
+			UPDATE tenants SET logo = $2, logo_type = $3, accent_color = NULLIF($4::text, ''), updated_at = NOW()
 			WHERE matric_code = $1
-			RETURNING slug, name, is_active`, code, logo, logoType,
+			RETURNING slug, name, is_active`, code, logo, logoType, accent,
 		).Scan(&slug, &name, &active)
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -132,6 +133,18 @@ func applyOneLogo(ctx context.Context, pool *pgxpool.Pool, path, code string, dr
 	if !active {
 		note = " (the department is inactive, so the logo is not shown until it is activated)"
 	}
-	fmt.Printf("%s %s (%s) from %s%s\n", verb, slug, name, base, note)
+	fmt.Printf("%s %s (%s) from %s, accent %s%s\n", verb, slug, name, base, orNone(accent), note)
 	return nil
+}
+
+// logoAccent returns the accent a logo gives its department, to store with the
+// logo. A logo that gives none is still stored: the department then uses the
+// platform colour, and the reason is printed.
+func logoAccent(contentType string, data []byte) string {
+	accent, err := tenant.AccentFromLogo(contentType, data)
+	if err != nil {
+		fmt.Printf("note: %v; the department will use the platform colour\n", err)
+		return ""
+	}
+	return accent
 }

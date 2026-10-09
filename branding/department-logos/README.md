@@ -31,6 +31,9 @@ DB_SOURCE='postgresql://<owner>@<host>/<db>?sslmode=require' go run ./cmd/tenant
 DB_SOURCE='postgresql://<owner>@<host>/<db>?sslmode=require' go run ./cmd/tenant logos -dir ../branding/department-logos
 ```
 
+Each logo's accent colour is computed as it is applied, and a WebP logo gets no
+accent. The rule is in `docs/multi-tenancy.md`, under Accent colour.
+
 A department is found by its matric code, so it must have one
 (`go run ./cmd/tenant update -slug <slug> -matric-code EG/EE`). A department
 whose file is missing keeps its current logo. A department with no logo shows

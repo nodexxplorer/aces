@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { listDepartments, type Department } from '../api/departments';
 import { getStoredDepartment, storeDepartment } from '../config/department';
+import { applyDepartmentAccent } from '../theme/accent';
 
 // Resolves which department a sign-in or sign-up form should use.
 //
@@ -28,6 +29,13 @@ export function useDepartments() {
     storeDepartment(slug);
     setChosen(slug);
   }, []);
+
+  // The form takes the colour of the department being chosen. A department with
+  // no accent gets the platform colour.
+  const accentColor = departments.find((d) => d.slug === selected)?.accentColor;
+  useEffect(() => {
+    applyDepartmentAccent(accentColor);
+  }, [accentColor]);
 
   return {
     departments,

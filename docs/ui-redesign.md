@@ -40,6 +40,7 @@ Each step is checked with screenshots at 1280 and 390 px before the next one sta
 ## Decisions (approved)
 
 - The template in the design preview (kept outside the repo) is the basis for the web app's sign-in, sign-up, approval and shell screens. Mobile follows later.
-- The accent comes from each department's logo. The proposal is to compute it when the logo is uploaded (`cmd/tenant logos`) and store it with the department, so the web app, the mobile app and the server agree. Not built yet.
+- The accent comes from each department's logo. It is computed when the logo is set (`cmd/tenant update -logo` and `cmd/tenant logos`) and stored with the department as `accent_color`, so the API gives every client the same value. The web app uses it as its primary colour (see the Accent colour rule in `docs/multi-tenancy.md`). The Computer Engineering logo gives `#1b65a7`, with white text at 6.1:1. The preview's sample accent, `#1a5ca2`, differs slightly from it, and the computed value is the one that ships.
+- Status: the tokens and the accent are built for the web app. The template's layouts for the sign-in, sign-up, approval and shell screens are not applied yet. The mobile app does not use the accent yet.
 - Admin Pack appears only in the platform line on the entry screens and in the footer. The department's name, logo and description carry the rest of each screen.
 - Order: tokens and accent first, then sign-in, approval and sign-up, then the shell (top bar, sidebar, footer).

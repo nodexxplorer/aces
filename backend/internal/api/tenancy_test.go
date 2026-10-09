@@ -62,3 +62,31 @@ func TestLecturerDepartmentDefaultsToTenant(t *testing.T) {
 		t.Fatalf("a sent department should be kept, trimmed, got %q", got)
 	}
 }
+
+// The accent is a colour, not account data, so the public list carries it. The
+// signed-in tenant object carries it too. Both leave it out when the logo gave
+// none, so clients fall back to the platform colour.
+func TestTenantAccentIsCarriedWhenSet(t *testing.T) {
+	withAccent, err := json.Marshal(toTenantResponse(tenant.Tenant{Slug: "dept-ee", Name: "Department of Electrical Engineering", AccentColor: "#1b65a7"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(withAccent), `"accentColor":"#1b65a7"`) {
+		t.Fatalf("accent missing from tenant response: %s", withAccent)
+	}
+	withoutAccent, err := json.Marshal(toTenantResponse(tenant.Tenant{Slug: "dept-ee", Name: "Department of Electrical Engineering"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(withoutAccent), "accentColor") {
+		t.Fatalf("an empty accent must be omitted from tenant response: %s", withoutAccent)
+	}
+
+	listed, err := json.Marshal(tenantListItem{Slug: "dept-ee", Name: "Department of Electrical Engineering", AccentColor: "#1b65a7"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(listed), `"accentColor":"#1b65a7"`) {
+		t.Fatalf("accent missing from the public list: %s", listed)
+	}
+}

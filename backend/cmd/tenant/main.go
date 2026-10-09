@@ -89,21 +89,21 @@ func usage() {
 }
 
 func list(ctx context.Context, pool *pgxpool.Pool) {
-	rows, err := pool.Query(ctx, `SELECT slug, name, COALESCE(institution, ''), COALESCE(faculty, ''), COALESCE(matric_code, ''), is_active FROM tenants ORDER BY slug`)
+	rows, err := pool.Query(ctx, `SELECT slug, name, COALESCE(institution, ''), COALESCE(faculty, ''), COALESCE(matric_code, ''), COALESCE(accent_color, ''), is_active FROM tenants ORDER BY slug`)
 	if err != nil {
 		log.Fatalf("list departments: %v", err)
 	}
 	defer rows.Close()
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "SLUG\tNAME\tINSTITUTION\tFACULTY\tMATRIC CODE\tACTIVE")
+	fmt.Fprintln(w, "SLUG\tNAME\tINSTITUTION\tFACULTY\tMATRIC CODE\tACCENT\tACTIVE")
 	for rows.Next() {
-		var slug, name, institution, faculty, matricCode string
+		var slug, name, institution, faculty, matricCode, accent string
 		var active bool
-		if err := rows.Scan(&slug, &name, &institution, &faculty, &matricCode, &active); err != nil {
+		if err := rows.Scan(&slug, &name, &institution, &faculty, &matricCode, &accent, &active); err != nil {
 			log.Fatalf("read department: %v", err)
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%t\n", slug, name, institution, faculty, matricCode, active)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%t\n", slug, name, institution, faculty, matricCode, orNone(accent), active)
 	}
 	if err := rows.Err(); err != nil {
 		log.Fatalf("list departments: %v", err)
@@ -162,7 +162,7 @@ func update(ctx context.Context, pool *pgxpool.Pool, args []string) {
 	description := fs.String("description", "", "short description shown on the sign-in page and dashboard footer (\"\" clears it)")
 	contactEmail := fs.String("contact-email", "", "contact email printed on the department's dues receipts (\"\" clears it)")
 	approvalEmail := fs.String("approval-email", "", "address the approval page sends students to; without one it uses the contact email (\"\" clears it)")
-	logoPath := fs.String("logo", "", "logo file: PNG, JPEG or WebP, at most 256 KiB")
+	logoPath := fs.String("logo", "", "logo file: PNG, JPEG or WebP, at most 256 KiB; the accent colour is read from PNG and JPEG logos")
 	removeLogo := fs.Bool("remove-logo", false, "remove the department's logo")
 	_ = fs.Parse(args)
 
@@ -207,8 +207,15 @@ func update(ctx context.Context, pool *pgxpool.Pool, args []string) {
 			log.Fatal(err)
 		}
 	}
+	// The accent follows the logo: it is set with a new logo, and cleared when
+	// the logo is removed. An empty accent means none.
+	setAccent := given["logo"] || *removeLogo
+	var accent string
+	if given["logo"] {
+		accent = logoAccent(logoType, logo)
+	}
 
-	var newName, newInstitution, newFaculty, newCode, newDescription string
+	var newName, newInstitution, newFaculty, newCode, newDescription, newAccent string
 	var hasLogo bool
 	err := pool.QueryRow(ctx, `
 		UPDATE tenants SET
@@ -221,10 +228,11 @@ func update(ctx context.Context, pool *pgxpool.Pool, args []string) {
 			logo_type   = CASE WHEN $12::bool THEN $15::text WHEN $14::bool THEN NULL ELSE logo_type END,
 			contact_email = CASE WHEN $16::bool THEN NULLIF($17::text, '') ELSE contact_email END,
 			approval_email = CASE WHEN $18::bool THEN NULLIF($19::text, '') ELSE approval_email END,
+			accent_color = CASE WHEN $20::bool THEN NULLIF($21::text, '') ELSE accent_color END,
 			updated_at  = NOW()
 		WHERE slug = $1
 		RETURNING name, COALESCE(institution, ''), COALESCE(faculty, ''), COALESCE(matric_code, ''),
-		          COALESCE(description, ''), logo_type IS NOT NULL`,
+		          COALESCE(description, ''), logo_type IS NOT NULL, COALESCE(accent_color, '')`,
 		*slug,
 		given["name"], strings.TrimSpace(*name),
 		given["institution"], strings.TrimSpace(*institution),
@@ -235,7 +243,8 @@ func update(ctx context.Context, pool *pgxpool.Pool, args []string) {
 		*removeLogo, logoType,
 		given["contact-email"], strings.TrimSpace(*contactEmail),
 		given["approval-email"], strings.TrimSpace(*approvalEmail),
-	).Scan(&newName, &newInstitution, &newFaculty, &newCode, &newDescription, &hasLogo)
+		setAccent, accent,
+	).Scan(&newName, &newInstitution, &newFaculty, &newCode, &newDescription, &hasLogo, &newAccent)
 	if errors.Is(err, pgx.ErrNoRows) {
 		log.Fatalf("no department with slug %q", *slug)
 	}
@@ -250,6 +259,7 @@ func update(ctx context.Context, pool *pgxpool.Pool, args []string) {
 	fmt.Printf("  matric code:  %s\n", orNone(newCode))
 	fmt.Printf("  description:  %s\n", orNone(newDescription))
 	fmt.Printf("  logo:         %s\n", map[bool]string{true: "set", false: "none"}[hasLogo])
+	fmt.Printf("  accent:       %s\n", orNone(newAccent))
 	if newCode == "" {
 		fmt.Println("warning: no matric code, so students cannot sign up or complete onboarding in this department")
 	}

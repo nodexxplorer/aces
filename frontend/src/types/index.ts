@@ -53,6 +53,8 @@ export interface TenantInfo {
   description?: string;
   /** API path of the logo, e.g. /api/v1/tenants/uniuyo-ce/logo. Absent when there is none. */
   logoUrl?: string;
+  /** The department's accent colour (#rrggbb), computed from its logo. Absent when the logo gives none. */
+  accentColor?: string;
   /** The department's contact address, when it has one. Only the signed-in user's own department carries it. */
   contactEmail?: string;
   /** Where the approval screen sends the student: the approval address, or the contact address when there is none. */
