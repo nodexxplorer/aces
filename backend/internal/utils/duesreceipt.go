@@ -180,20 +180,12 @@ type Org struct {
 //go:embed assets/uniuyo_logo.png
 var uniuyoLogoPNG []byte
 
+// acesLogoPNG is the ACES association logo. No receipt uses it now: every
+// department's receipt carries its own name and logo (see OrgFor). The
+// visual samples use it as the Computer Engineering logo.
+//
 //go:embed assets/aces-logo.png
 var acesLogoPNG []byte
-
-var DefaultOrg = Org{
-	Name1:   "ASSOCIATION OF COMPUTER",
-	Name2:   "ENGINEERING STUDENTS (ACES)",
-	Chapter: "UNIVERSITY OF UYO CHAPTER AKWA IBOM STATE",
-	Email:   "Email: acesuniuyo112@gmail.com",
-	Motto:   "Motto: Intelligence that rules the world",
-	// Left: the University of Uyo crest; right: the ACES logo. Swap or
-	// reorder by changing these two fields.
-	LogoLeft:  uniuyoLogoPNG,
-	LogoRight: acesLogoPNG,
-}
 
 // ReceiptData holds optional pre-filled values. Empty = blank line.
 type ReceiptData struct {

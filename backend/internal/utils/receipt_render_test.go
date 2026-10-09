@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -22,6 +21,7 @@ func TestRenderReceiptSamples(t *testing.T) {
 		AmountKobo:   "00",
 		RegNo:        "20/EE/1234",
 	}
+	org := OrgFor("Department of Computer Engineering", "University of Uyo", "acesuniuyo112@gmail.com", acesLogoPNG)
 
 	for _, kind := range []ReceiptKind{DepartmentDues, ClassDues} {
 		name := "department"
@@ -29,21 +29,14 @@ func TestRenderReceiptSamples(t *testing.T) {
 			name = "class"
 		}
 
-		dc, n, err := IssueReceipt(DefaultOrg, kind, d)
-		if err != nil {
-			t.Fatalf("IssueReceipt(%s): %v", name, err)
-		}
-		if n == 0 {
-			t.Fatalf("receipt number should be >= 1")
-		}
-
+		dc := RenderReceipt(org, kind, 1, d)
 		pngPath := filepath.Join(outDir, name+".png")
 		if err := dc.SavePNG(pngPath); err != nil {
 			t.Fatalf("SavePNG: %v", err)
 		}
-		t.Logf("rendered %s receipt no. %04d -> %s", name, n, pngPath)
+		t.Logf("rendered %s receipt -> %s", name, pngPath)
 
-		pdf, err := RenderReceiptPDF(DefaultOrg, kind, n, d)
+		pdf, err := RenderReceiptPDF(org, kind, 1, d)
 		if err != nil {
 			t.Fatalf("RenderReceiptPDF(%s): %v", name, err)
 		}
@@ -70,18 +63,10 @@ func TestEmbeddedFontsPresent(t *testing.T) {
 }
 
 func TestEmbeddedLogosPresent(t *testing.T) {
-	if len(DefaultOrg.LogoLeft) == 0 {
-		t.Error("LogoLeft (uniuyo) is empty — placeholder would be rendered")
+	if len(uniuyoLogoPNG) == 0 {
+		t.Error("the University of Uyo crest is empty — placeholder would be rendered")
 	}
-	if len(DefaultOrg.LogoRight) == 0 {
-		t.Error("LogoRight (ACES) is empty — placeholder would be rendered")
+	if len(acesLogoPNG) == 0 {
+		t.Error("the ACES logo sample is empty — placeholder would be rendered")
 	}
-}
-
-// TestMain redirects the receipt-number counter into a temp dir BEFORE any
-// test in the package runs, so issuing receipts never leaves a
-// receipt_counter.json artifact in the source tree.
-func TestMain(m *testing.M) {
-	receiptCounter.Path = filepath.Join(os.TempDir(), "aces_test_receipt_counter.json")
-	os.Exit(m.Run())
 }

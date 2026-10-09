@@ -9,6 +9,7 @@ import (
 	_ "image/png"
 	"log"
 	"math"
+	"strings"
 	"sync"
 
 	"github.com/fogleman/gg"
@@ -76,22 +77,43 @@ func whitenToTransparent(src image.Image) image.Image {
 
 // StampConfig holds all the text that gets drawn onto the stamp.
 type StampConfig struct {
-	CompanyName string // curved text along the top, e.g. "DEPARTMENT OF ..."
+	CompanyName string // curved text along the top: "DEPARTMENT OF <NAME>"
 	DateLabel   string // e.g. "Date:"
 	SignLabel   string // e.g. "Sign:"
 	AddressLine string // curved text along the bottom
 }
 
-// DefaultConfig reproduces the department stamp's text exactly. The
-// University of Uyo logo is always drawn in the middle; there is no longer
-// a "Contact here" line.
-func DefaultConfig() StampConfig {
+// StampConfigFor returns the stamp text for one department. The top line is
+// "DEPARTMENT OF <NAME>", using the department's own name, so the stamp of
+// every department names that department. A "Department of" prefix in the
+// stored name is not repeated. A blank name is refused: a stamp is never made
+// without naming its department. The University of Uyo logo is always drawn
+// in the middle, and the bottom line stays the faculty's.
+func StampConfigFor(departmentName string) (StampConfig, error) {
+	short := departmentShortName(departmentName)
+	if short == "" {
+		return StampConfig{}, fmt.Errorf("department name is empty")
+	}
 	return StampConfig{
-		CompanyName: "DEPARTMENT OF COMPUTER ENGINEERING",
+		CompanyName: "DEPARTMENT OF " + strings.ToUpper(short),
 		DateLabel:   "Date:",
 		SignLabel:   "Sign:",
 		AddressLine: "FACULTY OF ENGINEERING UNIUYO",
+	}, nil
+}
+
+// departmentShortName returns the name without a leading "Department of", in
+// any case, with the spaces collapsed. "Department of Food Engineering" and
+// "Food Engineering" both give "Food Engineering".
+func departmentShortName(name string) string {
+	const prefix = "department of"
+	n := strings.Join(strings.Fields(name), " ")
+	if len(n) >= len(prefix) && strings.EqualFold(n[:len(prefix)], prefix) {
+		if rest := n[len(prefix):]; rest == "" || rest[0] == ' ' {
+			return strings.TrimSpace(rest)
+		}
 	}
+	return n
 }
 
 // GenerateStamp renders the stamp at the given pixel size and returns the

@@ -12,7 +12,11 @@ import (
 // is transparent-backed, contains blue ink, and that the University of Uyo
 // logo actually made it onto the canvas.
 func TestDeptStampRendersBlueWithLogo(t *testing.T) {
-	pngBytes, err := DeptStampPNG(500, 320, DefaultConfig())
+	cfg, err := StampConfigFor("Department of Computer Engineering")
+	if err != nil {
+		t.Fatalf("StampConfigFor: %v", err)
+	}
+	pngBytes, err := DeptStampPNG(500, 320, cfg)
 	if err != nil {
 		t.Fatalf("DeptStampPNG: %v", err)
 	}

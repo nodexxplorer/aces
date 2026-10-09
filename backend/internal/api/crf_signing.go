@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	db "github.com/aces/backend/internal/db/sql"
+	"github.com/aces/backend/internal/tenant"
 	"github.com/aces/backend/internal/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -543,6 +544,22 @@ const (
 	deptStampHeightPt = 84.0
 )
 
+// departmentStampConfig returns the stamp text for the department bound to
+// ctx, so the stamp's top line names that department. It refuses when no
+// department is bound or the department has no name: a stamp is never made
+// that does not name its department.
+func departmentStampConfig(ctx context.Context) (utils.StampConfig, error) {
+	dept, ok := tenant.From(ctx)
+	if !ok {
+		return utils.StampConfig{}, fmt.Errorf("could not render department stamp: no department is bound")
+	}
+	cfg, err := utils.StampConfigFor(dept.Name)
+	if err != nil {
+		return utils.StampConfig{}, fmt.Errorf("the department has no name set, so its stamp cannot be made")
+	}
+	return cfg, nil
+}
+
 // stampCRFPDFWithPlacements applies each configured signature image at the
 // placements the student chose. placementsJSON is the raw
 // db.CRFPlacements JSON (already validated/owned by the caller where it
@@ -593,10 +610,15 @@ func (server *Server) stampCRFPDFWithPlacements(ctx context.Context, queries *db
 
 	// Department stamp: rendered once in memory (blue, with the University
 	// of Uyo logo in the middle) and layered on top of every placed
-	// signature. pdfcpu draws a page's watermarks in the order they were
-	// added, so appending these after the signature stamps puts the
-	// department stamp above the signature ink.
-	stampPNG, err := utils.DeptStampPNG(deptStampPxW, deptStampPxH, utils.DefaultConfig())
+	// signature. Its top line names the department the form belongs to.
+	// pdfcpu draws a page's watermarks in the order they were added, so
+	// appending these after the signature stamps puts the department stamp
+	// above the signature ink.
+	stampCfg, err := departmentStampConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	stampPNG, err := utils.DeptStampPNG(deptStampPxW, deptStampPxH, stampCfg)
 	if err != nil {
 		return nil, fmt.Errorf("could not render department stamp")
 	}
