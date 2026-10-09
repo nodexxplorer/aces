@@ -56,14 +56,16 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
         >
           <Menu className="w-5 h-5" />
         </button>
-        <div className="hidden xl:flex items-center gap-2 min-w-0">
+        {/* The department is always named here, from 360 px up, and truncates
+            rather than wrapping. Its description appears only where there is room. */}
+        <div className="flex items-center gap-2 min-w-0">
           <DepartmentLogo department={department} className="w-7 h-7" />
           <div className="min-w-0" title={department?.description || undefined}>
-            <span className="block text-sm font-semibold leading-tight text-surface-800 dark:text-surface-100 truncate max-w-[16rem]">
+            <span className="block text-sm font-semibold leading-tight text-surface-800 dark:text-surface-100 truncate max-w-[9rem] sm:max-w-[14rem] xl:max-w-[16rem]">
               {department?.name ?? APP_NAME}
             </span>
             {department?.description && (
-              <span className="block text-[11px] leading-tight text-surface-500 dark:text-surface-400 truncate max-w-[16rem]">
+              <span className="hidden xl:block text-[11px] leading-tight text-surface-500 dark:text-surface-400 truncate max-w-[16rem]">
                 {department.description}
               </span>
             )}

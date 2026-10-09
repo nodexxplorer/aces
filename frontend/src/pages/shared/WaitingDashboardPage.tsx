@@ -91,88 +91,95 @@ const WaitingDashboardPage = () => {
     });
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-surface-50 via-white to-surface-100 dark:from-surface-950 dark:via-surface-900 dark:to-surface-950 px-4 py-12">
-      <div className="w-full max-w-lg mx-auto">
-        <div className="bg-white dark:bg-surface-900 rounded-2xl shadow-xl border border-surface-200/60 dark:border-surface-800/60 overflow-hidden">
-          <div className="h-1.5 bg-gradient-to-r from-amber-400 to-amber-500" />
-
-          <div className="p-8 md:p-10 text-center">
-            <div className="mx-auto w-16 h-16 rounded-2xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-500 flex items-center justify-center mb-5">
-              <DepartmentLogo department={department} className="w-10 h-10" />
+    <div className="min-h-screen bg-surface-50 dark:bg-surface-950 px-4 py-10 sm:py-14">
+      <div className="mx-auto w-full max-w-lg">
+        <div className="overflow-hidden rounded-2xl border border-surface-200 bg-white shadow-sm dark:border-surface-800 dark:bg-surface-900">
+          {/* The department comes first; the page is about its approval, not the platform. */}
+          {department && (
+            <div className="flex items-center gap-3 border-b border-surface-200 px-6 py-4 dark:border-surface-800 sm:px-8">
+              <DepartmentLogo department={department} className="h-10 w-10 shrink-0" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-surface-900 dark:text-surface-100">
+                  {department.name}
+                </p>
+                {department.institution && (
+                  <p className="truncate text-xs text-surface-500 dark:text-surface-400">{department.institution}</p>
+                )}
+              </div>
             </div>
+          )}
 
-            <h2 className="text-xl font-bold text-surface-900 dark:text-white flex items-center justify-center gap-2 mb-2">
-              <Clock className="w-5 h-5 text-amber-500" />
+          <div className="px-6 py-8 sm:px-8">
+            <h2 className="flex items-center gap-2 text-xl font-bold text-surface-900 dark:text-white">
+              <Clock className="h-5 w-5 shrink-0 text-surface-400" aria-hidden="true" />
               Waiting for Approval
             </h2>
 
-            <p className="text-sm text-surface-500 dark:text-surface-400 max-w-sm mx-auto leading-relaxed">
+            <p className="mt-2 text-sm leading-relaxed text-surface-500 dark:text-surface-400">
               Your account is being reviewed by {departmentName}.
             </p>
 
-            <div className="my-6 border-t border-surface-200/60 dark:border-surface-700/60" />
-
-            <div className="text-left space-y-3 bg-surface-50 dark:bg-surface-800/50 rounded-xl p-4 mb-6">
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wide">
-                  Name
-                </span>
-                <span className="text-sm font-semibold text-surface-800 dark:text-surface-200">{displayName}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wide">
-                  Matric Number
-                </span>
-                <span className="text-sm font-semibold text-surface-800 dark:text-surface-200">{displayMatric}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wide">
-                  Level
-                </span>
-                <span className="text-sm font-semibold text-surface-800 dark:text-surface-200">{displayLevel}</span>
-              </div>
+            <div className="mt-5">
+              {approvalStatus === 'rejected' ? (
+                <div>
+                  <span className="inline-flex items-center whitespace-nowrap rounded-full border border-danger-500/20 bg-danger-500/10 px-3 py-1 text-xs font-semibold text-danger-600 dark:text-danger-400">
+                    Rejected
+                  </span>
+                  {rejectionReason && (
+                    <div className="mt-3 rounded-xl border border-danger-500/10 bg-danger-500/5 p-3 text-left">
+                      <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-danger-600 dark:text-danger-400">
+                        Reason:
+                      </span>
+                      <p className="text-sm text-surface-700 dark:text-surface-300">&quot;{rejectionReason}&quot;</p>
+                    </div>
+                  )}
+                </div>
+              ) : approvalStatus === 'approved' ? (
+                <div>
+                  <span className="inline-flex items-center whitespace-nowrap rounded-full border border-success-500/20 bg-success-500/10 px-3 py-1 text-xs font-semibold text-success-600 dark:text-success-400">
+                    Approved
+                  </span>
+                  <p className="mt-2 text-xs text-surface-400 dark:text-surface-500">Redirecting to dashboard...</p>
+                </div>
+              ) : (
+                <div>
+                  <span className="inline-flex items-center whitespace-nowrap rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                    Under Review
+                  </span>
+                  {submittedAt && (
+                    <p className="mt-2 text-xs text-surface-400 dark:text-surface-500">
+                      Submitted {formatDate(submittedAt)}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
-            {approvalStatus === 'rejected' ? (
-              <div className="mb-6">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-danger-500/10 text-danger-500 border border-danger-500/20 mb-3">
-                  Rejected
-                </span>
-                {rejectionReason && (
-                  <div className="p-3 bg-danger-500/5 border border-danger-500/10 rounded-xl text-left mt-2">
-                    <span className="block text-xs font-semibold text-danger-500 uppercase tracking-wider mb-1">
-                      Reason:
-                    </span>
-                    <p className="text-sm text-surface-700 dark:text-surface-300">&quot;{rejectionReason}&quot;</p>
-                  </div>
-                )}
-              </div>
-            ) : approvalStatus === 'approved' ? (
-              <div className="mb-6">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-success-500/10 text-success-500 border border-success-500/20">
-                  Approved
-                </span>
-                <p className="text-xs text-surface-400 dark:text-surface-500 mt-2">Redirecting to dashboard...</p>
-              </div>
-            ) : (
-              <div className="mb-6 space-y-3">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                  Under Review
-                </span>
-                {submittedAt && (
-                  <p className="text-xs text-surface-400 dark:text-surface-500">Submitted {formatDate(submittedAt)}</p>
-                )}
-              </div>
-            )}
+            <dl className="mt-6 divide-y divide-surface-200 rounded-xl border border-surface-200 dark:divide-surface-800 dark:border-surface-800">
+              {[
+                ['Name', displayName],
+                ['Matric Number', displayMatric],
+                ['Level', displayLevel],
+              ].map(([label, value]) => (
+                <div key={label} className="flex items-center justify-between gap-4 px-4 py-3">
+                  <dt className="text-xs font-medium uppercase tracking-wide text-surface-400 dark:text-surface-500">
+                    {label}
+                  </dt>
+                  <dd className="min-w-0 truncate text-sm font-semibold text-surface-800 dark:text-surface-200">
+                    {value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
 
-            <div className="flex flex-col gap-3">
+            <div className="mt-6 flex flex-col gap-3">
               {approvalStatus === 'pending' && (
                 <button
                   onClick={handleCheckStatus}
                   disabled={loading}
-                  className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary-500 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                   {loading ? 'Checking...' : 'Check Status'}
                 </button>
               )}
@@ -184,25 +191,25 @@ const WaitingDashboardPage = () => {
                     `Registration appeal - ${departmentName}`,
                     `Hello,\n\nI am writing regarding my rejected registration on ${departmentName}.\n\nMy name: ${displayName}\nMatric Number: ${displayMatric}\n\nPlease let me know if there are any issues I can address.\n\nThank you.`,
                   )}
-                  className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-danger-500 hover:bg-danger-600 text-white text-sm font-medium transition-colors"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary-500 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-600"
                 >
-                  <Mail className="w-4 h-4" />
+                  <Mail className="h-4 w-4" />
                   Appeal by email
-                  <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+                  <ExternalLink className="h-3.5 w-3.5 opacity-60" />
                 </a>
               )}
 
               {contact ? (
                 <a
                   href={contactLink(contact, `Registration inquiry - ${departmentName}`)}
-                  className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-surface-200 dark:border-surface-700 text-sm font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800/80 transition-colors"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-surface-200 px-5 py-2.5 text-sm font-medium text-surface-600 transition-colors hover:bg-surface-50 dark:border-surface-700 dark:text-surface-300 dark:hover:bg-surface-800/80"
                 >
-                  <Mail className="w-4 h-4" />
+                  <Mail className="h-4 w-4" />
                   Contact the department
-                  <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+                  <ExternalLink className="h-3.5 w-3.5 opacity-60" />
                 </a>
               ) : (
-                <p className="text-xs text-surface-400 dark:text-surface-500">
+                <p className="text-center text-xs text-surface-400 dark:text-surface-500">
                   Contact your department office for help.
                 </p>
               )}
@@ -210,8 +217,8 @@ const WaitingDashboardPage = () => {
           </div>
 
           {department && (
-            <div className="px-8 py-4 bg-surface-50 dark:bg-surface-800/40 border-t border-surface-200/60 dark:border-surface-700/60">
-              <p className="text-[11px] text-surface-400 dark:text-surface-500 text-center">
+            <div className="border-t border-surface-200 bg-surface-50 px-6 py-3 dark:border-surface-800 dark:bg-surface-800/40 sm:px-8">
+              <p className="text-center text-[11px] text-surface-400 dark:text-surface-500">
                 {[department.name, department.institution].filter(Boolean).join(' · ')}
               </p>
             </div>

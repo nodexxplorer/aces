@@ -1,6 +1,36 @@
 # UI/UX redesign: starting brief
 
-**Status:** started. This brief records what the audit found and proposes an order. It makes no visual change yet. The decisions at the top come first, because the design work depends on them.
+**Status:** the layouts are being rebuilt from the fresh brief below (October 2026). The approved template from the earlier review was lost in a sandbox reset, so the rebuild follows this brief, not that template. The audit and decisions further down still apply.
+
+## Fresh brief (rebuild)
+
+Scope of this pass: the web app's entry screens (sign-in, sign-up, approval) and the shell (navbar, sidebar, footer). Mobile follows once the web pass is reviewed.
+
+**Layout rules**
+
+1. **Entry screens.** Two columns from 768 px. The left column is the department: its logo (large), name, institution and description. "Admin Pack" is the small platform line under it, never the heading when a department is chosen. The right column is one card with the form. Below 768 px the department brand sits inside the card and the left column is hidden.
+2. **Approval screen.** One card, no decorative bar. Top: the department's brand row (logo, name, institution). Then the title "Waiting for approval", one sentence on who is reviewing, the student's details, and the actions. The page never scrolls past its actions on a 390 px screen without the actions being reachable.
+3. **Navbar.** Always shows the department logo and name, from 360 px up. The description appears only from 1280 px, and truncates. The search box is hidden below 640 px. No "Admin Pack" in the navbar.
+4. **Sidebar.** Groups start open, so nothing is hidden by default. A group can be closed by hand. Items keep their icons and labels.
+5. **Footer.** In the page flow, never fixed or sticky, so it cannot cover a button. It shows the department's name and institution, with "Powered by Admin Pack" as the platform line.
+6. **Cookie notice.** A strip in the page flow above the footer (already in place).
+
+**Colour**
+
+- One accent per department, taken from its logo, used for primary actions, links and the active navigation item.
+- Status colour is used only for a status pill (waiting, approved, rejected). A status colour never tints a whole card, a logo tile or a heading.
+- Everything else is neutral surface and text.
+
+**Words**
+
+- The same words on web and mobile for the same state: "Waiting for approval", "Under review", "Approved", "Rejected".
+
+**Checks before a screen is accepted**
+
+- Screenshot at 1280 and 390 px, signed out and signed in.
+- No text or button under an overlay or a sticky footer.
+- Status colour appears only in the status pill.
+- Tests for the words and links the screen must show.
 
 ## Decisions needed
 
