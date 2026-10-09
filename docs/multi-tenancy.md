@@ -85,7 +85,7 @@ Migration `000005` sets `EG/CO` on `uniuyo-ce`, so its students are checked exac
 | Endpoint | Used by |
 |---|---|
 | `POST /api/v1/auth/onboarding` | The web app's onboarding page, after a Modools sign-in. The department is the one the student signed in to. A matric number that belongs to another department is refused with `400` and a `department` object (see [Modools onboarding](#modools-onboarding)). |
-| `POST /api/v1/auth/signup/student` | Email sign-up. The web app's sign-up page uses Modools only, so this is the mobile app's path. Mobile sends no department, so it is checked against the default department. |
+| `POST /api/v1/auth/signup/student` | Email sign-up, kept for existing clients. Neither app uses it now: both sign-up pages use Modools. Mobile sends no department, so it is checked against the default department. |
 
 ## Modools onboarding
 
@@ -239,9 +239,11 @@ Migration 000010 gives each existing department the suffix of its matric code, w
 
 ## Mobile app
 
-The mobile app is department-aware for sign-in, sign-up and onboarding. Sign-in and sign-up list the active departments from `GET /api/v1/tenants` and remember the choice on the device. The department's slug goes with the login and the student sign-up, so the session belongs to that department.
+The mobile app is department-aware for sign-in, sign-up and onboarding. Sign-in and sign-up list the active departments from `GET /api/v1/tenants` and remember the choice on the device. Students sign in and sign up through Modools in the browser, as the website does. The app starts the sign-in with the chosen department (`client=mobile` and `tenant`), so the account belongs to that department.
 
-Sign-up sends the matric number, and the server checks it against the department. A matric number from another department is refused, and the message names the department it belongs to. Onboarding sends `matric_number`, which the server checks the same way.
+Sign-up no longer asks for a matric number: Modools creates the account, and the student enters the matric number at onboarding. The server checks it against the department. A matric number from another department is refused, and the message names the department it belongs to. Onboarding sends `matric_number`, which the server checks the same way.
+
+**Sign-in return.** The browser goes back to the app at `aceszone://modools-complete`. On success the session is in the fragment, as base64url JSON of `{user, tokens}`. On failure an `error` code is in the query: `staff_email`, `account_deactivated`, `unknown_department` or `auth_failed`. The website comes back to its own `/login` the same way: the session is in the fragment, and the page reads it once and clears it.
 
 The sign-in screen shows the chosen department's name under the app's name. The department's logo is not shown in the app yet, and the app's own icon is unchanged.
 
@@ -258,6 +260,7 @@ These are not fixed by this change.
 3. **Modools sign-in uses one OAuth client** (the `MODOOLS_*` settings). The department the person picks decides where the account is created. If departments use different Modools sites, each needs its own client.
 4. **Modools onboarding does not move the student.** A student whose matric number belongs to another department is sent to sign in there (see [Modools onboarding](#modools-onboarding)). The first account stays incomplete and is not removed. A seamless redirect needs deferred account creation or a move of the account between departments, both larger changes. Reading the department from the sign-in itself also needs the name of the claim that carries the registration number, which Modools must supply. Staff without a registration number would also need a rule.
 5. **Web links do not open the mobile app.** `aceszone://co` opens it, but a link on the web domain, such as `https://<web domain>/co`, opens the website. Opening the app from those links needs the web domain to serve Apple's `apple-app-site-association` and Google's `assetlinks.json`, and the app's bundle ID, package name and signing fingerprint for them. None of those are in this repository, so this is a follow-up.
+6. **Mobile tokens travel in the return address.** The session reaches the app in the fragment of `aceszone://modools-complete`. On Android another app could register the same scheme and receive it. Exchanging a one-time code on the server for the session would close that. It is not built yet.
 
 
 ## Testing
