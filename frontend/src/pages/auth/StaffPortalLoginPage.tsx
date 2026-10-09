@@ -13,6 +13,7 @@ import { Mail, Lock, LogIn, X, ShieldOff, ShieldCheck } from 'lucide-react';
 import { login as apiLogin } from '../../api/auth';
 import { getErrorMessage } from '../../utils/errors';
 import { useDepartments } from '../../hooks/useDepartments';
+import { departmentSignInPath } from '../../config/department';
 import DepartmentSelect from '../../components/auth/DepartmentSelect';
 import { DepartmentBrand } from '../../components/branding/DepartmentBrand';
 
@@ -23,12 +24,21 @@ const staffLoginSchema = z.object({
 
 type StaffLoginFormValues = z.infer<typeof staffLoginSchema>;
 
-const StaffPortalLoginPage = () => {
+const StaffPortalLoginPage = ({ urlCode }: { urlCode?: string } = {}) => {
   const { login } = useAuth();
   const { error } = useNotification();
   const navigate = useNavigate();
   const [authError, setAuthError] = useState<string | null>(null);
-  const { departments, selected, select } = useDepartments();
+  const { departments, selected, select } = useDepartments(urlCode);
+
+  // On a department's own address, the address follows the choice, so the page
+  // and the URL always name the same department.
+  const pickDepartment = (slug: string) => {
+    select(slug);
+    if (!urlCode) return;
+    const department = departments.find((d) => d.slug === slug);
+    navigate(departmentSignInPath(department, true), { replace: true });
+  };
 
   const {
     register,
@@ -101,7 +111,7 @@ const StaffPortalLoginPage = () => {
               )}
             </AnimatePresence>
 
-            <DepartmentSelect departments={departments} value={selected} onChange={select} />
+            <DepartmentSelect departments={departments} value={selected} onChange={pickDepartment} />
 
             <div className="mt-4">
               <DepartmentBrand department={departments.find((d) => d.slug === selected)} />

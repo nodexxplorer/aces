@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Button from '../../components/ui/Button';
 import AuthVideoShell from '../../components/layout/AuthVideoShell';
@@ -7,6 +7,7 @@ import { AdminPackMark } from '../../components/branding/AdminPackMark';
 import { GraduationCap, ShieldOff, LogIn } from 'lucide-react';
 import { modoolsLoginUrl, getModoolsStatus } from '../../api/modools';
 import { useDepartments } from '../../hooks/useDepartments';
+import { departmentSignInPath } from '../../config/department';
 import DepartmentSelect from '../../components/auth/DepartmentSelect';
 import { DepartmentBrand } from '../../components/branding/DepartmentBrand';
 import { Link } from 'react-router-dom';
@@ -14,11 +15,21 @@ import { Link } from 'react-router-dom';
 // Student sign-in: Modools OAuth only (see the /portalsign route for the
 // staff email/password portal). The backend starts the handshake with PKCE +
 // state cookies and hands the session back through /auth/modools/complete.
-const LoginPage = () => {
+const LoginPage = ({ urlCode }: { urlCode?: string } = {}) => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [authError, setAuthError] = useState<string | null>(null);
   const [modoolsConfigured, setModoolsConfigured] = useState<boolean | null>(null);
-  const { departments, selected, select } = useDepartments();
+  const { departments, selected, select } = useDepartments(urlCode);
+
+  // On a department's own address, the address follows the choice, so the page
+  // and the URL always name the same department.
+  const pickDepartment = (slug: string) => {
+    select(slug);
+    if (!urlCode) return;
+    const department = departments.find((d) => d.slug === slug);
+    navigate(departmentSignInPath(department, false), { replace: true });
+  };
 
   useEffect(() => {
     // Backend flags OAuth failures back to this page (?error=auth_failed,
@@ -60,7 +71,7 @@ const LoginPage = () => {
               </div>
             )}
 
-            <DepartmentSelect departments={departments} value={selected} onChange={select} />
+            <DepartmentSelect departments={departments} value={selected} onChange={pickDepartment} />
             <div className="mt-4">
               <DepartmentBrand department={departments.find((d) => d.slug === selected)} />
             </div>

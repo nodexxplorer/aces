@@ -183,7 +183,7 @@ Pass the owner's DSN on the command line for owner-level steps. Keep only the ru
 - **List departments.** `go run ./cmd/tenant list`. It shows each department's matric code.
 - **Add a department.** Create it with `cmd/tenant create -matric-code EG/XX` (owner connection), then seed its first admin with `cmd/seed_admin -tenant <slug>` (runtime connection). Seed a lecturer the same way with `-role lecturer`, setting `LECTURER_EMAIL` and `LECTURER_STAFF_ID`. Its password is generated and printed once, as for admins. Both accounts are approved and belong to that department only. It appears in `GET /api/v1/tenants` straight away.
 - **Set or change a matric code.** `go run ./cmd/tenant update -slug <slug> -matric-code EG/EE` (owner connection). The code is the faculty and department pair, such as `EG/EE`, not `EE`. `-matric-code ""` clears it, and the department then refuses matric-based sign-up and onboarding. The change takes effect within about a minute.
-- **Change a department's name, details or branding.** `go run ./cmd/tenant update -slug <slug> [-name ...] [-institution ...] [-faculty ...] [-description ...] [-contact-email ...] [-approval-email ...] [-logo file.png] [-remove-logo]`. Only the flags you pass are changed. `-institution ""`, `-faculty ""` and `-description ""` clear those fields. See [Branding](#branding) for the logo rules.
+- **Change a department's name, details or branding.** `go run ./cmd/tenant update -slug <slug> [-name ...] [-institution ...] [-faculty ...] [-description ...] [-contact-email ...] [-approval-email ...] [-url-code ...] [-logo file.png] [-remove-logo]`. Only the flags you pass are changed. `-institution ""`, `-faculty ""` and `-description ""` clear those fields. See [Branding](#branding) for the logo rules.
 - **Deactivate a department.** `go run ./cmd/tenant deactivate -slug <slug>`. Sign-in is refused at once, and existing access tokens stop working within about a minute, which is the registry cache lifetime. Use `activate` to reverse it. There is no delete command. Deactivate instead, because the department's rows still reference it.
 - **Connection budget.** Each department's pool opens connections when the department is first used, and holds up to `DB_MAX_CONNS_PER_TENANT` (default 4). Budget roughly `departments in use × DB_MAX_CONNS_PER_TENANT + 4` connections, and size PostgreSQL `max_connections` to match.
 - **Connection poolers.** Use session pooling or direct connections. A transaction-pooling PgBouncer could hand a request a connection that is not bound to its department.
@@ -202,6 +202,19 @@ Pass the owner's DSN on the command line for owner-level steps. Keep only the ru
 
 The sign-in and sign-up pages list the active departments from `GET /api/v1/tenants` and show a picker when there are two or more. The choice is remembered in the browser under `aces_department`. Modools sign-in passes the chosen department through the provider round trip.
 
+## Web addresses
+
+Each department has a short code, its **web address code**, which names it in the web app. `/co` is the student sign-in page for Computer Engineering, and `/co/admin` is its admin sign-in page. Both open with that department already chosen. `/login` and the staff portal still work without a code, and they remember the last choice.
+
+- **Set it with** `go run ./cmd/tenant update -slug <slug> -url-code co` (`-url-code ""` clears it), or `create -url-code`. Without the flag, `create` takes the matric code's suffix, so `EG/CO` gives `co`. A department that has no code yet takes one from the suffix when you set its matric code.
+- **Rules.** The code is 2 to 12 lowercase letters or digits, and each department has its own. The web app uses some words for its own pages, such as `admin`, `dashboard` and `login`, and those cannot be codes: the app's own page would answer first. `TestReservedURLCodesCoverTheWebRouter` checks the list against `frontend/src/router.tsx`, so a new page whose name could be a code fails the backend tests until it is reserved in `internal/tenant/urlcode.go`.
+- **Unknown addresses** show the not-found page. A department without a code has no addresses.
+- **Picking another department** on an address page moves the address to that department's address.
+- **Changing a code** breaks the old addresses. Tell the department's admins before you change one.
+- The code is on `GET /api/v1/tenants` and in the `tenant` object as `urlCode`. No page in the app shows a department's addresses yet.
+
+Migration 000010 gives each existing department the suffix of its matric code, when that suffix is unique. A department whose suffix is shared stays without a code until you set one.
+
 ## API changes
 
 - Login, signup and password-reset requests accept a new optional `tenant` field (a department slug).
@@ -209,6 +222,7 @@ The sign-in and sign-up pages list the active departments from `GET /api/v1/tena
 - `GET /api/v1/tenants` is new and public. Each department may carry `matricCode` (for example `EG/EE`), `description` and `logoUrl`, which are absent until the department sets them.
 - `GET /api/v1/tenants/:slug/logo` is new and public. It serves the department's logo image.
 - `GET /api/v1/tenants` entries and the `tenant` object carry `accentColor` (`#rrggbb`) when the department's logo gives one. It is absent otherwise, and clients then use the platform colour.
+- `GET /api/v1/tenants` entries and the `tenant` object carry `urlCode`, the department's web address code (see [Web addresses](#web-addresses)), when it has one.
 - The `user` object in every auth response, and `GET /api/v1/auth/me`, carry a `tenant` object with the user's department.
 - Login and auth responses' `tenant` object may carry `matricCode`.
 - Onboarding and email sign-up now check the matric number against the department (see [Matric numbers](#matric-numbers)). Their error messages changed: `wrong reg no` is replaced by the messages in that section, and a department without a code returns `422`.

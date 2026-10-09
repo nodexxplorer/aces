@@ -89,21 +89,21 @@ func usage() {
 }
 
 func list(ctx context.Context, pool *pgxpool.Pool) {
-	rows, err := pool.Query(ctx, `SELECT slug, name, COALESCE(institution, ''), COALESCE(faculty, ''), COALESCE(matric_code, ''), COALESCE(accent_color, ''), is_active FROM tenants ORDER BY slug`)
+	rows, err := pool.Query(ctx, `SELECT slug, name, COALESCE(institution, ''), COALESCE(faculty, ''), COALESCE(matric_code, ''), COALESCE(url_code, ''), COALESCE(accent_color, ''), is_active FROM tenants ORDER BY slug`)
 	if err != nil {
 		log.Fatalf("list departments: %v", err)
 	}
 	defer rows.Close()
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "SLUG\tNAME\tINSTITUTION\tFACULTY\tMATRIC CODE\tACCENT\tACTIVE")
+	fmt.Fprintln(w, "SLUG\tNAME\tINSTITUTION\tFACULTY\tMATRIC CODE\tURL CODE\tACCENT\tACTIVE")
 	for rows.Next() {
-		var slug, name, institution, faculty, matricCode, accent string
+		var slug, name, institution, faculty, matricCode, urlCode, accent string
 		var active bool
-		if err := rows.Scan(&slug, &name, &institution, &faculty, &matricCode, &accent, &active); err != nil {
+		if err := rows.Scan(&slug, &name, &institution, &faculty, &matricCode, &urlCode, &accent, &active); err != nil {
 			log.Fatalf("read department: %v", err)
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%t\n", slug, name, institution, faculty, matricCode, orNone(accent), active)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%t\n", slug, name, institution, faculty, matricCode, orNone(urlCode), orNone(accent), active)
 	}
 	if err := rows.Err(); err != nil {
 		log.Fatalf("list departments: %v", err)
@@ -118,7 +118,14 @@ func create(ctx context.Context, pool *pgxpool.Pool, args []string) {
 	matricCode := fs.String("matric-code", "", "matric code, e.g. EG/EE for 20/EG/EE/1234")
 	institution := fs.String("institution", "", "institution name")
 	faculty := fs.String("faculty", "", "faculty name")
+	urlCodeFlag := fs.String("url-code", "", "web address code, e.g. co for /co and /co/admin (default: the matric code's suffix, so EG/CO gives co)")
 	_ = fs.Parse(args)
+	urlCodeGiven := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "url-code" {
+			urlCodeGiven = true
+		}
+	})
 
 	*slug = normalizeSlug(*slug)
 	if !slugPattern.MatchString(*slug) || len(*slug) > 64 {
@@ -131,17 +138,31 @@ func create(ctx context.Context, pool *pgxpool.Pool, args []string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	urlCode := tenant.DefaultURLCode(code)
+	if urlCodeGiven {
+		urlCode = strings.ToLower(strings.TrimSpace(*urlCodeFlag))
+		if urlCode != "" {
+			if err := tenant.ValidURLCode(urlCode); err != nil {
+				log.Fatalf("-url-code: %v", err)
+			}
+		}
+	}
 
 	var id string
 	err = pool.QueryRow(ctx, `
-		INSERT INTO tenants (slug, name, institution, faculty, matric_code)
-		VALUES ($1, $2, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''))
-		RETURNING id::text`, *slug, strings.TrimSpace(*name), strings.TrimSpace(*institution), strings.TrimSpace(*faculty), code,
+		INSERT INTO tenants (slug, name, institution, faculty, matric_code, url_code)
+		VALUES ($1, $2, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''))
+		RETURNING id::text`, *slug, strings.TrimSpace(*name), strings.TrimSpace(*institution), strings.TrimSpace(*faculty), code, urlCode,
 	).Scan(&id)
 	if err != nil {
 		log.Fatalf("create department %q: %v", *slug, describeWriteError(err, code))
 	}
 	fmt.Printf("created department %q (id %s)\n", *slug, id)
+	fmt.Printf("  web address:  %s\n", webAddress(urlCode))
+	if urlCode == "" {
+		fmt.Printf("warning: %q has no web address code, so its /<code> sign-in pages do not exist until you run:\n", *slug)
+		fmt.Printf("  tenant update -slug %s -url-code CODE\n", *slug)
+	}
 	if code == "" {
 		fmt.Printf("warning: %q has no matric code, so students cannot sign up or complete onboarding until you run:\n", *slug)
 		fmt.Printf("  tenant update -slug %s -matric-code EG/XX\n", *slug)
@@ -162,6 +183,7 @@ func update(ctx context.Context, pool *pgxpool.Pool, args []string) {
 	description := fs.String("description", "", "short description shown on the sign-in page and dashboard footer (\"\" clears it)")
 	contactEmail := fs.String("contact-email", "", "contact email printed on the department's dues receipts (\"\" clears it)")
 	approvalEmail := fs.String("approval-email", "", "address the approval page sends students to; without one it uses the contact email (\"\" clears it)")
+	urlCodeFlag := fs.String("url-code", "", "web address code, e.g. co for /co and /co/admin (\"\" clears it)")
 	logoPath := fs.String("logo", "", "logo file: PNG, JPEG or WebP, at most 256 KiB; the accent colour is read from PNG and JPEG logos")
 	removeLogo := fs.Bool("remove-logo", false, "remove the department's logo")
 	_ = fs.Parse(args)
@@ -174,7 +196,16 @@ func update(ctx context.Context, pool *pgxpool.Pool, args []string) {
 		log.Fatal("-slug is required")
 	}
 	if len(given) == 1 {
-		log.Fatal("nothing to update: pass at least one of -name, -matric-code, -institution, -faculty, -description, -contact-email, -approval-email, -logo, -remove-logo")
+		log.Fatal("nothing to update: pass at least one of -name, -matric-code, -institution, -faculty, -description, -contact-email, -approval-email, -url-code, -logo, -remove-logo")
+	}
+	var urlCode string
+	if given["url-code"] {
+		urlCode = strings.ToLower(strings.TrimSpace(*urlCodeFlag))
+		if urlCode != "" {
+			if err := tenant.ValidURLCode(urlCode); err != nil {
+				log.Fatalf("-url-code: %v", err)
+			}
+		}
 	}
 	if given["contact-email"] && strings.TrimSpace(*contactEmail) != "" && !validContactEmail(strings.TrimSpace(*contactEmail)) {
 		log.Fatalf("-contact-email %q is not an email address", *contactEmail)
@@ -191,6 +222,11 @@ func update(ctx context.Context, pool *pgxpool.Pool, args []string) {
 		if code, err = normalizeMatricCode(*matricCode); err != nil {
 			log.Fatal(err)
 		}
+	}
+	// A department with no web address code takes one from a new matric code.
+	defaultURLCode := ""
+	if given["matric-code"] {
+		defaultURLCode = tenant.DefaultURLCode(code)
 	}
 	desc := strings.TrimSpace(*description)
 	if utf8.RuneCountInString(desc) > maxDescriptionLength {
@@ -215,7 +251,7 @@ func update(ctx context.Context, pool *pgxpool.Pool, args []string) {
 		accent = logoAccent(logoType, logo)
 	}
 
-	var newName, newInstitution, newFaculty, newCode, newDescription, newAccent string
+	var newName, newInstitution, newFaculty, newCode, newDescription, newAccent, newURLCode string
 	var hasLogo bool
 	err := pool.QueryRow(ctx, `
 		UPDATE tenants SET
@@ -229,10 +265,11 @@ func update(ctx context.Context, pool *pgxpool.Pool, args []string) {
 			contact_email = CASE WHEN $16::bool THEN NULLIF($17::text, '') ELSE contact_email END,
 			approval_email = CASE WHEN $18::bool THEN NULLIF($19::text, '') ELSE approval_email END,
 			accent_color = CASE WHEN $20::bool THEN NULLIF($21::text, '') ELSE accent_color END,
+			url_code = CASE WHEN $22::bool THEN NULLIF($23::text, '') WHEN $24::bool AND url_code IS NULL THEN NULLIF($25::text, '') ELSE url_code END,
 			updated_at  = NOW()
 		WHERE slug = $1
 		RETURNING name, COALESCE(institution, ''), COALESCE(faculty, ''), COALESCE(matric_code, ''),
-		          COALESCE(description, ''), logo_type IS NOT NULL, COALESCE(accent_color, '')`,
+		          COALESCE(description, ''), logo_type IS NOT NULL, COALESCE(accent_color, ''), COALESCE(url_code, '')`,
 		*slug,
 		given["name"], strings.TrimSpace(*name),
 		given["institution"], strings.TrimSpace(*institution),
@@ -244,7 +281,8 @@ func update(ctx context.Context, pool *pgxpool.Pool, args []string) {
 		given["contact-email"], strings.TrimSpace(*contactEmail),
 		given["approval-email"], strings.TrimSpace(*approvalEmail),
 		setAccent, accent,
-	).Scan(&newName, &newInstitution, &newFaculty, &newCode, &newDescription, &hasLogo, &newAccent)
+		given["url-code"], urlCode, defaultURLCode != "", defaultURLCode,
+	).Scan(&newName, &newInstitution, &newFaculty, &newCode, &newDescription, &hasLogo, &newAccent, &newURLCode)
 	if errors.Is(err, pgx.ErrNoRows) {
 		log.Fatalf("no department with slug %q", *slug)
 	}
@@ -260,6 +298,7 @@ func update(ctx context.Context, pool *pgxpool.Pool, args []string) {
 	fmt.Printf("  description:  %s\n", orNone(newDescription))
 	fmt.Printf("  logo:         %s\n", map[bool]string{true: "set", false: "none"}[hasLogo])
 	fmt.Printf("  accent:       %s\n", orNone(newAccent))
+	fmt.Printf("  web address:  %s\n", webAddress(newURLCode))
 	if newCode == "" {
 		fmt.Println("warning: no matric code, so students cannot sign up or complete onboarding in this department")
 	}
@@ -335,9 +374,15 @@ func describeWriteError(err error, code string) error {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
 		switch pgErr.Code {
-		case "23505": // unique_violation: the matric code index
+		case "23505": // unique_violation: the web address code, or the matric code index
+			if pgErr.ConstraintName == "tenants_url_code_key" {
+				return errors.New("that web address code is already used by another department")
+			}
 			return fmt.Errorf("matric code %s is already used by another department", code)
 		case "23514": // check_violation: name the rule that failed
+			if pgErr.ConstraintName == "tenants_url_code_format" {
+				return errors.New("a web address code is 2 to 12 lowercase letters or digits")
+			}
 			if pgErr.ConstraintName == "tenants_matric_code_format" {
 				return fmt.Errorf("matric code %q does not have the form EG/EE", code)
 			}
@@ -359,6 +404,14 @@ func orNone(s string) string {
 		return "(none)"
 	}
 	return s
+}
+
+// webAddress describes a department's web addresses for the command output.
+func webAddress(code string) string {
+	if code == "" {
+		return "(none)"
+	}
+	return "/" + code + " (admin: /" + code + "/admin)"
 }
 
 // loadDotEnv reads KEY=VALUE pairs from path without overriding variables that

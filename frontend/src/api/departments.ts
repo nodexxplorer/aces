@@ -13,6 +13,8 @@ export interface Department {
   logoUrl?: string;
   /** The department's accent colour (#rrggbb), computed from its logo. Absent when the logo gives none. */
   accentColor?: string;
+  /** Short name in web addresses: /co is the student sign-in and /co/admin the admin sign-in. Absent until it is set. */
+  urlCode?: string;
   /** True for the department used when none is named (mobile, and the first choice on web). */
   default?: boolean;
 }

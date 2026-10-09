@@ -54,7 +54,11 @@ type Tenant struct {
 	// AccentColor is the department's accent as #rrggbb, computed from its
 	// logo (see accent.go). Empty means the platform colour.
 	AccentColor string
-	IsActive    bool
+	// URLCode is the department's short name in web addresses: /co is its
+	// sign-in page and /co/admin its admin sign-in page. Empty means it has none
+	// yet (see urlcode.go).
+	URLCode  string
+	IsActive bool
 }
 
 type ctxKey struct{}

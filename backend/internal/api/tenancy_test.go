@@ -90,3 +90,31 @@ func TestTenantAccentIsCarriedWhenSet(t *testing.T) {
 		t.Fatalf("accent missing from the public list: %s", listed)
 	}
 }
+
+// The web address code is public, like the department's name: the sign-in
+// address /co is shared by everyone who uses the department.
+func TestTenantURLCodeIsCarriedWhenSet(t *testing.T) {
+	withCode, err := json.Marshal(toTenantResponse(tenant.Tenant{Slug: "dept-ee", Name: "Department of Electrical Engineering", URLCode: "ee"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(withCode), `"urlCode":"ee"`) {
+		t.Fatalf("URL code missing from tenant response: %s", withCode)
+	}
+
+	listed, err := json.Marshal(tenantListItem{Slug: "dept-ee", Name: "Department of Electrical Engineering", URLCode: "ee"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(listed), `"urlCode":"ee"`) {
+		t.Fatalf("URL code missing from the public list: %s", listed)
+	}
+
+	without, err := json.Marshal(tenantListItem{Slug: "dept-ee", Name: "Department of Electrical Engineering"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(without), "urlCode") {
+		t.Fatalf("an empty URL code must be omitted from the public list: %s", without)
+	}
+}

@@ -6,6 +6,7 @@ import type { UserRole } from './types';
 /* ── Lazy-loaded pages ───────────────────────── */
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
 const StaffPortalLoginPage = lazy(() => import('./pages/auth/StaffPortalLoginPage'));
+const DepartmentEntry = lazy(() => import('./pages/auth/DepartmentEntry'));
 const LoginCelebrationPage = lazy(() => import('./pages/auth/LoginCelebrationPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/auth/PasswordResetOTPPage'));
 const StudentSignupPage = lazy(() => import('./pages/auth/StudentSignupPage'));
@@ -222,6 +223,25 @@ export const router = createBrowserRouter([
       { path: '/reset-password-otp', element: <PasswordResetOTPPage /> },
       { path: '/signup/student', element: <StudentSignupPage /> },
       { path: 'lecturer/signup', element: <LecturerSignupPage /> },
+      // A department's own sign-in addresses: /co for students, /co/admin for
+      // staff. Static routes always win over these, so a code cannot shadow a
+      // page (internal/tenant/urlcode.go reserves every page's first segment).
+      {
+        path: '/:code',
+        element: (
+          <SuspenseWrapper>
+            <DepartmentEntry admin={false} />
+          </SuspenseWrapper>
+        ),
+      },
+      {
+        path: '/:code/admin',
+        element: (
+          <SuspenseWrapper>
+            <DepartmentEntry admin />
+          </SuspenseWrapper>
+        ),
+      },
     ],
   },
   {

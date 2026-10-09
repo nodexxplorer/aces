@@ -19,3 +19,25 @@ export function storeDepartment(slug: string): void {
     // choice then lasts only for the current page.
   }
 }
+
+/** The staff portal's sign-in path. VITE_STAFF_PORTAL_PATH can move it, as in the router. */
+export const STAFF_LOGIN_PATH = `${import.meta.env.VITE_STAFF_PORTAL_PATH || '/portalsign'}/login`;
+
+/** The department whose web address code is code (case-insensitive), if any. */
+export function departmentByUrlCode<T extends { urlCode?: string }>(
+  departments: readonly T[],
+  code?: string,
+): T | undefined {
+  if (!code) return undefined;
+  const wanted = code.toLowerCase();
+  return departments.find((d) => d.urlCode === wanted);
+}
+
+/**
+ * A department's own sign-in address: /co for students, /co/admin for admins.
+ * A department without a code gets the generic sign-in page instead.
+ */
+export function departmentSignInPath(department: { urlCode?: string } | undefined, admin: boolean): string {
+  if (department?.urlCode) return admin ? `/${department.urlCode}/admin` : `/${department.urlCode}`;
+  return admin ? STAFF_LOGIN_PATH : '/login';
+}
