@@ -1,59 +1,6 @@
 import apiClient, { unwrap } from './client';
 import type { AuthTokens, AuthUser } from '../store/authStore';
 
-interface LoginResponse {
-  user: {
-    id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-    fullName: string;
-    avatar?: string;
-    role: string;
-    activeRole: string;
-    roles: string[];
-    matricNumber?: string;
-    level?: number;
-    onboardingCompleted: boolean;
-    phone?: string;
-    homeAddress?: string;
-    dateOfBirth?: string;
-    emergencyContactName?: string;
-    emergencyContactPhone?: string;
-    isApproved?: boolean;
-    isActive?: boolean;
-  };
-  tokens: AuthTokens;
-}
-
-/** tenant is the department slug. Omitted means the default department. */
-export const login = async (email: string, password: string, tenant?: string) => {
-  const { data } = await apiClient.post<{ data: LoginResponse }>('/auth/login', { email, password, tenant });
-  const { user, tokens } = data.data;
-  const authUser: AuthUser = { ...user };
-  return { user: authUser, tokens };
-};
-
-export interface StudentSignupPayload {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-  phone?: string;
-  matricNumber: string;
-  level: number;
-  /** The department slug. The matric number must belong to this department. */
-  tenant: string;
-  department?: string;
-}
-
-export const signupStudent = async (payload: StudentSignupPayload) => {
-  const { data } = await apiClient.post<{ data: LoginResponse }>('/auth/signup/student', payload);
-  const { user, tokens } = data.data;
-  const authUser: AuthUser = { ...user };
-  return { user: authUser, tokens };
-};
-
 export const getMe = async () => {
   const res = await apiClient.get('/auth/me');
   return unwrap<AuthUser>(res);
