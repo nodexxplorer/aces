@@ -43,6 +43,7 @@ const AppShell = () => {
             )}
           </main>
           <div className="print:hidden">
+            <CookieConsent />
             <Footer />
           </div>
         </div>
@@ -50,7 +51,6 @@ const AppShell = () => {
       <div className="print:hidden">
         <ChatbotWidget />
         <OfflineBanner />
-        <CookieConsent />
       </div>
     </div>
   );

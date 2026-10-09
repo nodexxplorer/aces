@@ -17,7 +17,7 @@ interface AuthVideoShellProps {
 // Extracted from the original login page so all auth screens stay visually
 // identical without copy-pasting the video/animation markup four times.
 const AuthVideoShell = ({ children, cardMaxWidth = 'max-w-md', tagline = APP_DESCRIPTION }: AuthVideoShellProps) => (
-  <div className="relative min-h-screen w-full overflow-hidden bg-surface-950 select-none">
+  <div className="relative flex min-h-screen w-full flex-col overflow-hidden bg-surface-950 select-none">
     <video autoPlay loop muted playsInline className="absolute inset-0 h-full w-full object-cover" src="/login.mp4" />
     {/* Dims the raw footage so both the left wordmark and the glass card
         keep good contrast regardless of what's playing behind them. */}
@@ -25,7 +25,7 @@ const AuthVideoShell = ({ children, cardMaxWidth = 'max-w-md', tagline = APP_DES
     <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-accent-500/20 blur-[120px] pointer-events-none" />
     <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-primary-500/20 blur-[120px] pointer-events-none" />
 
-    <div className="relative z-10 min-h-screen flex flex-col md:flex-row items-center justify-center md:justify-between gap-10 px-4 py-10 md:px-16 lg:px-24">
+    <div className="relative z-10 flex flex-1 flex-col md:flex-row items-center justify-center md:justify-between gap-10 px-4 py-10 md:px-16 lg:px-24">
       {/* Desktop-only left panel — hidden on mobile web per design. */}
       <div className="hidden md:flex flex-1 flex-col items-center justify-center text-center">
         <div className="relative mb-6 w-36 h-36 lg:w-48 lg:h-48">
@@ -70,7 +70,7 @@ const AuthVideoShell = ({ children, cardMaxWidth = 'max-w-md', tagline = APP_DES
       <div className={`w-full ${cardMaxWidth}`}>{children}</div>
     </div>
 
-    <CookieConsent />
+    <CookieConsent dark />
   </div>
 );
 
