@@ -52,6 +52,7 @@ type Config struct {
 	PaystackSecretKey  string
 	PaystackPublicKey  string
 	StorageLocalPath   string
+	UploadLinkTTL      time.Duration // how long a signed /uploads link stays valid
 	RedisAddress       string
 	RedisPassword      string
 	SMTPHost           string
@@ -119,6 +120,7 @@ func Load() *Config {
 		PaystackSecretKey:  getEnv("PAYSTACK_SECRET_KEY", ""),
 		PaystackPublicKey:  getEnv("PAYSTACK_PUBLIC_KEY", ""),
 		StorageLocalPath:   getEnv("STORAGE_LOCAL_PATH", "./uploads"),
+		UploadLinkTTL:      getDuration("UPLOAD_LINK_MINUTES", 24*60),
 		RedisAddress:       getEnv("REDIS_ADDRESS", "localhost:6379"),
 		RedisPassword:      getEnv("REDIS_PASSWORD", ""),
 		SMTPHost:           getEnv("SMTP_HOST", "localhost"),

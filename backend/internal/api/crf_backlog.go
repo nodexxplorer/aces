@@ -242,5 +242,6 @@ func (server *Server) submitCRFBacklogForm(ctx *gin.Context) {
 		return
 	}
 
+	server.signSubmissionLinks(&submission)
 	ctx.JSON(http.StatusCreated, submission)
 }

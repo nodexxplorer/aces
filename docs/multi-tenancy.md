@@ -250,7 +250,7 @@ These are not fixed by this change.
 3. **Modools sign-in uses one OAuth client** (the `MODOOLS_*` settings). The department the person picks decides where the account is created. If departments use different Modools sites, each needs its own client.
 4. **Modools onboarding does not move the student.** A student whose matric number belongs to another department is sent to sign in there (see [Modools onboarding](#modools-onboarding)). The first account stays incomplete and is not removed. A seamless redirect needs deferred account creation or a move of the account between departments, both larger changes. Reading the department from the sign-in itself also needs the name of the claim that carries the registration number, which Modools must supply. Staff without a registration number would also need a rule.
 
-5. **Uploads are public.** `/uploads` serves every department's stored files (avatars, course materials, signed course registration forms) to anyone with the link, without signing in, and the files are not separated by department. The fix is to serve them through tenant-checked routes with short-lived links. It is not done yet.
+5. **Uploads are public (step 1 of 3 done).** `/uploads` still serves every department's stored files (avatars, course materials, signed course registration forms) to anyone with the link, without signing in, and the files are not separated by department. Every response now carries a signed link to each file, so the route can start checking signatures without breaking any page. The route itself still accepts unsigned requests, and the fix is not complete until it does not.
 
 ## Testing
 
@@ -264,9 +264,9 @@ These are not fixed by this change.
 
 - **Modools sign-ups stay approved on creation.** A Modools sign-up creates an approved student account in the department picked at sign-in, or the default one. Modools sends no role or staff data, so the app cannot tell a staff member from a student. The staff check (`staff_email`) applies only to accounts that already exist. Revisit this only if Modools starts sending role data.
 - **Approval address for Computer Engineering.** Approval requests go to `hod@computer.engineering.uniuyo.edu.ng`, as set by migration 000008. Change it with `cmd/tenant update -approval-email`. Receipts keep the contact address.
-- **Public uploads (known gap 5) will use signed links, in three steps.**
-  1. Every response that carries a file or avatar URL signs it. The `/uploads` route still accepts unsigned requests, so nothing breaks in this step.
-  2. `/uploads` checks the signature and the expiry, and answers 404 otherwise. Download redirects sign their target. The link lifetime is still to be chosen (six hours is the proposal).
+- **Public uploads (known gap 5) use signed links, in three steps.**
+  1. **Done.** Every response that carries a file or avatar URL signs it. A link is `/uploads/<path>?exp=<unix seconds>&sig=<HMAC>`. The key is derived from `JWT_SECRET`, and the lifetime is `UPLOAD_LINK_MINUTES`, which defaults to 24 hours (the earlier proposal was six). A middleware signs every `/uploads/` string in a JSON response, so avatars and other user-row values are covered wherever they are serialized. Stored paths in course materials, documents, CRF forms, reports and the download redirects are signed where they are built. The group-chat push signs the sender's avatar. The `/uploads` route still accepts unsigned requests, so nothing breaks in this step.
+  2. `/uploads` checks the signature and the expiry, and answers 404 otherwise, so a probe cannot tell an unsigned link from a missing file.
   3. The public static mount is removed.
 
-  Step 1 touches about 25 response paths. Avatar URLs are serialized straight from database models in about ten endpoints, and file URLs also come from course materials, assignments, profile documents and two download redirects. Step 2 waits until step 1 is verified on every path.
+  Step 2 waits until step 1 is deployed everywhere. Unsigned links saved before step 1 keep working until step 2 and then stop. A signed link stops after its lifetime, so a page left open longer than that shows missing images until it reloads.

@@ -29,6 +29,18 @@ var signatureImageExts = map[string]bool{".png": true, ".jpg": true, ".jpeg": tr
 
 // uploadCRFSignatureAsset POST /crf-signatures/:kind — hod/admin/delegated_admin.
 // multipart/form-data: file (PNG/JPEG, background auto-removed).
+// signAssetLinks and signSubmissionLinks replace stored file paths with signed
+// links for one response. They are called on rows that are only about to be
+// serialised, so the database keeps the storage-relative form.
+func (server *Server) signAssetLinks(asset *db.CRFSignatureAsset) {
+	asset.FilePath = server.uploads.SignStored(asset.FilePath)
+}
+
+func (server *Server) signSubmissionLinks(sub *db.CRFSigningSubmission) {
+	sub.OriginalFilePath = server.uploads.SignStored(sub.OriginalFilePath)
+	sub.SignedFilePath = server.uploads.SignStored(sub.SignedFilePath)
+}
+
 func (server *Server) uploadCRFSignatureAsset(ctx *gin.Context) {
 	kind := ctx.Param("kind")
 	if !crfSignatureKinds[kind] {
@@ -83,6 +95,7 @@ func (server *Server) uploadCRFSignatureAsset(ctx *gin.Context) {
 		return
 	}
 
+	server.signAssetLinks(&asset)
 	ctx.JSON(http.StatusOK, asset)
 }
 
@@ -124,6 +137,9 @@ func (server *Server) listCRFSignatureAssets(ctx *gin.Context) {
 		return
 	}
 
+	for i := range assets {
+		server.signAssetLinks(&assets[i])
+	}
 	ctx.JSON(http.StatusOK, assets)
 }
 
@@ -183,6 +199,7 @@ func (server *Server) uploadCRF(ctx *gin.Context) {
 		return
 	}
 
+	server.signSubmissionLinks(&submission)
 	ctx.JSON(http.StatusCreated, submission)
 }
 
@@ -258,6 +275,7 @@ func (server *Server) saveCRFPlacements(ctx *gin.Context) {
 		return
 	}
 
+	server.signSubmissionLinks(&updated)
 	ctx.JSON(http.StatusOK, updated)
 }
 
@@ -278,6 +296,9 @@ func (server *Server) listMyCRFDrafts(ctx *gin.Context) {
 		return
 	}
 
+	for i := range drafts {
+		server.signSubmissionLinks(&drafts[i])
+	}
 	ctx.JSON(http.StatusOK, drafts)
 }
 
@@ -412,6 +433,7 @@ func (server *Server) approveCRF(ctx *gin.Context) {
 		return
 	}
 
+	server.signSubmissionLinks(&final)
 	ctx.JSON(http.StatusOK, final)
 }
 
@@ -437,6 +459,7 @@ func (server *Server) getMyCRFSubmission(ctx *gin.Context) {
 		return
 	}
 
+	server.signSubmissionLinks(&submission)
 	ctx.JSON(http.StatusOK, submission)
 }
 
@@ -507,7 +530,7 @@ func (server *Server) downloadCRFSubmission(ctx *gin.Context) {
 		return
 	}
 
-	ctx.Redirect(http.StatusFound, fmt.Sprintf("/uploads/%s", submission.SignedFilePath))
+	ctx.Redirect(http.StatusFound, server.uploads.SignStored(submission.SignedFilePath))
 }
 
 // Department stamp overlay sizing. The stamp is rendered as a 500x320 PNG

@@ -451,6 +451,7 @@ func (server *Server) uploadStudentDocument(ctx *gin.Context) {
 		return
 	}
 
+	doc.FileUrl = server.uploads.SignStored(doc.FileUrl)
 	ctx.JSON(http.StatusCreated, doc)
 }
 
@@ -470,6 +471,9 @@ func (server *Server) listStudentDocuments(ctx *gin.Context) {
 		return
 	}
 
+	for i := range docs {
+		docs[i].FileUrl = server.uploads.SignStored(docs[i].FileUrl)
+	}
 	ctx.JSON(http.StatusOK, gin.H{"data": docs})
 }
 
@@ -493,6 +497,9 @@ func (server *Server) listPendingDocuments(ctx *gin.Context) {
 	}
 
 	total, _ := q.CountStudentDocumentsByStatus(ctx, db.DocumentStatusPending)
+	for i := range docs {
+		docs[i].FileUrl = server.uploads.SignStored(docs[i].FileUrl)
+	}
 	ctx.JSON(http.StatusOK, gin.H{"data": docs, "total": total})
 }
 
@@ -514,6 +521,7 @@ func (server *Server) verifyDocument(ctx *gin.Context) {
 		return
 	}
 
+	doc.FileUrl = server.uploads.SignStored(doc.FileUrl)
 	ctx.JSON(http.StatusOK, doc)
 }
 
@@ -544,6 +552,7 @@ func (server *Server) rejectDocument(ctx *gin.Context) {
 		return
 	}
 
+	doc.FileUrl = server.uploads.SignStored(doc.FileUrl)
 	ctx.JSON(http.StatusOK, doc)
 }
 
@@ -608,6 +617,9 @@ func (server *Server) getStudentFullProfile(ctx *gin.Context) {
 		result["audit_logs"] = logs
 
 		docs, _ := q.ListStudentDocumentsByStudent(ctx, student.ID)
+		for i := range docs {
+			docs[i].FileUrl = server.uploads.SignStored(docs[i].FileUrl)
+		}
 		result["documents"] = docs
 	}
 

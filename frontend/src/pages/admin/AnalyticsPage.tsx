@@ -5,7 +5,7 @@ import EmptyState from '../../components/ui/EmptyState';
 import { useNotification } from '../../hooks/useNotification';
 import { getAnalyticsOverview, getRecentActivity, type AnalyticsOverview } from '../../api/analytics';
 import { generateReport, listReports, type GeneratedReport, type ReportType } from '../../api/reports';
-import apiClient from '../../api/client';
+import { getMediaUrl } from '../../api/client';
 import {
   TrendingUp,
   Users,
@@ -39,10 +39,6 @@ const reportTypeLabels: Record<ReportType, string> = {
   revenue_forecast: 'Revenue Forecast',
   at_risk_students: 'At-Risk Students',
 };
-
-// /uploads is a static file mount on the bare server, not under /api/v1 —
-// strip the prefix apiClient's baseURL carries.
-const uploadsBase = (apiClient.defaults.baseURL || '').replace(/\/api\/v1\/?$/, '');
 
 type RecentActivityItem = {
   id?: string | number;
@@ -227,7 +223,7 @@ const AnalyticsPage = () => {
                   </div>
                   {r.status === 'completed' && r.file_url && (
                     <a
-                      href={`${uploadsBase}/uploads/${r.file_url}`}
+                      href={getMediaUrl(r.file_url) ?? undefined}
                       target="_blank"
                       rel="noreferrer"
                       className="shrink-0"

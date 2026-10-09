@@ -291,7 +291,7 @@ func (server *Server) sendGroupMessage(ctx *gin.Context) {
 	}
 	if sender, serr := server.store.GetUser(ctx, userID); serr == nil {
 		payload.FullName = sender.FullName
-		payload.AvatarUrl = sender.AvatarUrl
+		payload.AvatarUrl = server.uploads.SignRefPtr(sender.AvatarUrl)
 	}
 
 	if server.wsHub != nil {

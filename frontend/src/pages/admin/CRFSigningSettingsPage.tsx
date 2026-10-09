@@ -10,6 +10,7 @@ import {
   deleteCRFSignatureAsset,
   getCRFBacklogPrice,
   updateCRFBacklogPrice,
+  getCRFSignatureImageUrl,
   type CRFSignatureAsset,
   type CRFSignatureKind,
 } from '../../api/crf-signing';
@@ -162,7 +163,7 @@ export default function CRFSigningSettingsPage() {
                 <div className="flex items-center gap-3 p-3 rounded-lg border border-success-200 dark:border-success-800 bg-success-50 dark:bg-success-900/10">
                   <CheckCircle2 className="w-5 h-5 text-success-600 shrink-0" />
                   <img
-                    src={`/uploads/${existing.file_path}`}
+                    src={getCRFSignatureImageUrl(existing.file_path) ?? undefined}
                     alt={KIND_LABELS[kind]}
                     className="h-10 object-contain"
                   />

@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/aces/backend/internal/service"
 	"github.com/aces/backend/internal/storage"
 	"github.com/aces/backend/internal/tenant"
+	"github.com/aces/backend/internal/uploads"
 	"github.com/aces/backend/internal/ws"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -95,6 +97,7 @@ type Server struct {
 	ai                *service.AIService
 	wsHub             *ws.Hub
 	storage           *storage.LocalStorage
+	uploads           *uploads.Signer
 	redisCache        *cache.RedisCache
 	emailSender       email.EmailSender
 }
@@ -148,6 +151,13 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	ls, _ := storage.NewLocalStorage(cfg.StorageLocalPath)
 	server.storage = ls
 
+	// Links to stored files are signed with a key derived from JWT_SECRET.
+	signer, err := uploads.NewSigner(cfg.JWTSecret, cfg.UploadLinkTTL)
+	if err != nil {
+		log.Fatalf("upload links: %v", err)
+	}
+	server.uploads = signer
+
 	
 	hub.PersistChat = func(tenantID, from, to uuid.UUID, content string) (json.RawMessage, error) {
 		ctx, cancel, err := server.socketContext(tenantID)
@@ -186,6 +196,7 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	router.Use(gin.Recovery())
 	router.Use(middleware.RequestID())
 	router.Use(middleware.ResponseNormalizer())
+	router.Use(middleware.SignUploadLinks(signer))
 	router.Use(middleware.RequestLogger())
 	router.Use(corsMiddleware(cfg.AllowedOrigins))
 	if rc != nil && server.redisCache != nil {

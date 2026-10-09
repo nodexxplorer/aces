@@ -156,7 +156,7 @@ func (server *Server) generateReport(ctx *gin.Context) {
 		"id":          report.ID,
 		"title":       title,
 		"report_type": req.ReportType,
-		"file_url":    relPath,
+		"file_url":    server.uploads.SignStored(relPath),
 		"row_count":   rowCount,
 		"status":      "completed",
 	})
@@ -171,6 +171,9 @@ func (server *Server) listReports(ctx *gin.Context) {
 	}
 	if reports == nil {
 		reports = []db.Report{}
+	}
+	for i := range reports {
+		reports[i].FileUrl = server.uploads.SignStoredPtr(reports[i].FileUrl)
 	}
 	ctx.JSON(http.StatusOK, gin.H{"data": reports})
 }

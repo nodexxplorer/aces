@@ -7,13 +7,14 @@ export type CRFSignatureKind = 'hod' | 'exam_officer';
 export interface CRFSignatureAsset {
   id: string;
   kind: CRFSignatureKind;
+  // A signed link to the image (see getCRFSignatureImageUrl), not a storage path.
   file_path: string;
   uploaded_by: string;
   uploaded_at: string;
 }
 
-export const getCRFSignatureImageUrl = (filePath: string) =>
-  getMediaUrl(`/uploads/${filePath.replace(/^\/+/, '')}`);
+// The API returns file_path as a signed /uploads link, so it only needs the API host.
+export const getCRFSignatureImageUrl = (filePath: string) => getMediaUrl(filePath);
 
 export interface CRFPlacement {
   page: number;

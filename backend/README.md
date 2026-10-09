@@ -15,7 +15,8 @@ Copy `.env.example` to `.env` and adjust the values. The variables that matter m
 | Variable | Description | Default |
 |---|---|---|
 | `DB_SOURCE` | Connection string for the server and `seed_admin`. Must be the restricted runtime role: never a superuser or a table owner, because the server refuses to start as either. | none (required) |
-| `JWT_SECRET` | Token signing secret, at least 32 characters | none (required) |
+| `JWT_SECRET` | Token signing secret, at least 32 characters. It also keys the links to stored files, so changing it invalidates every outstanding link. | none (required) |
+| `UPLOAD_LINK_MINUTES` | How long a link to a stored file (avatar, document, course material) stays valid | `1440` (24 hours) |
 | `SERVER_ADDRESS` | Listen address | `0.0.0.0:8080` |
 | `DEFAULT_TENANT_SLUG` | Department used when a request names none. Mobile clients rely on it. | `uniuyo-ce` |
 | `API_PUBLIC_URL` | Where the API is reachable from outside, for logo links in emails. | `FRONTEND_PUBLIC_URL` |

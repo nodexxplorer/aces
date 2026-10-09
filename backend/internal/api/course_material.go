@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 
 	db "github.com/aces/backend/internal/db/sql"
@@ -9,6 +8,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+// signMaterialLinks replaces each stored file path with a signed link. The rows
+// are only used for this response, so the database keeps the storage path.
+func (server *Server) signMaterialLinks(materials []db.CourseMaterialWithCourse) {
+	for i := range materials {
+		materials[i].FileUrl = server.uploads.SignStored(materials[i].FileUrl)
+	}
+}
 
 func (server *Server) getMaterialsQueries() *db.Queries {
 	q, _ := server.store.(*db.Queries)
@@ -101,6 +108,7 @@ func (server *Server) uploadCourseMaterial(ctx *gin.Context) {
 		return
 	}
 
+	material.FileUrl = server.uploads.SignStored(material.FileUrl)
 	ctx.JSON(http.StatusCreated, gin.H{"data": material})
 }
 
@@ -123,6 +131,7 @@ func (server *Server) listCourseMaterialsByCourse(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
+	server.signMaterialLinks(materials)
 
 	ctx.JSON(http.StatusOK, gin.H{"data": materials})
 }
@@ -146,6 +155,7 @@ func (server *Server) listMyCourseMaterials(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
+	server.signMaterialLinks(materials)
 
 	ctx.JSON(http.StatusOK, gin.H{"data": materials})
 }
@@ -172,7 +182,7 @@ func (server *Server) downloadCourseMaterial(ctx *gin.Context) {
 	}
 
 	_ = q.IncrementCourseMaterialDownloadCount(ctx, id)
-	ctx.Redirect(http.StatusFound, fmt.Sprintf("/uploads/%s", material.FileUrl))
+	ctx.Redirect(http.StatusFound, server.uploads.SignStored(material.FileUrl))
 }
 
 // deleteCourseMaterial DELETE /course-materials/:id
