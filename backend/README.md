@@ -43,9 +43,10 @@ DB_SOURCE='postgresql://aces_user:…@localhost:5432/aces_zone?sslmode=disable' 
   go run ./cmd/tenant create -slug unilag-ce -name "Department of Computer Engineering" \
   -matric-code EG/CO -institution "University of Lagos" -faculty "Faculty of Engineering"
 
-# 4. Create that department's first admin, as the runtime role
+# 4. Create that department's first admin, as the runtime role. seed_admin
+#    prints a generated password for it once; each department gets its own.
 DB_SOURCE='postgresql://aces_app:…@localhost:5432/aces_zone?sslmode=disable' \
-  ADMIN_EMAIL=admin@example.edu ADMIN_PASSWORD='…' make seed-admin ARGS="-tenant unilag-ce"
+  ADMIN_EMAIL=admin@example.edu make seed-admin ARGS="-tenant unilag-ce"
 ```
 
 `cmd/tenant` also supports `list`, `logos`, `activate` and `deactivate`. `update` changes only the flags you pass:

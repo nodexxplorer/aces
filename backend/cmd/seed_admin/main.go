@@ -44,7 +44,9 @@ func init() {
 // Usage: seed_admin [-tenant <slug>]
 //
 // Creates the first admin account for a department. Accounts are per
-// department, so the same email can be an admin in several.
+// department, so the same email can be an admin in several. The password is
+// generated for each new account and printed once; ADMIN_PASSWORD is refused
+// so that no department can share a password by accident.
 func main() {
 	ctx := context.Background()
 
@@ -73,13 +75,7 @@ func main() {
 		log.Fatal("ADMIN_EMAIL environment variable is required.")
 	}
 
-	adminPassword := os.Getenv("ADMIN_PASSWORD")
-	if adminPassword == "" {
-		log.Fatal("ADMIN_PASSWORD environment variable is required.")
-	}
-	if len(adminPassword) < 8 {
-		log.Fatal("ADMIN_PASSWORD must be at least 8 characters.")
-	}
+	refuseSeedPasswordEnv("ADMIN_PASSWORD")
 
 	log.Printf("Connecting to database for seeding...")
 	tenants, err := tenant.NewManager(ctx, dbSource, tenant.Options{DefaultSlug: *tenantSlug})
@@ -116,6 +112,10 @@ func main() {
 		return
 	}
 
+	adminPassword, err := generateSeedPassword()
+	if err != nil {
+		log.Fatal(err)
+	}
 	hashedPassword, err := util.HashPassword(adminPassword)
 	if err != nil {
 		log.Fatalf("cannot hash password: %v", err)
@@ -133,6 +133,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("cannot create admin user: %v", err)
 	}
+	// Print the password before anything else can fail: this is the only copy.
+	reportSeedPassword(adminEmail, t.Slug, adminPassword)
 
 	_, err = tenants.DB().Exec(ctx, "UPDATE users SET is_approved = true, is_active = true WHERE id = $1", user.ID)
 	if err != nil {

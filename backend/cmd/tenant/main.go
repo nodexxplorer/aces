@@ -146,7 +146,7 @@ func create(ctx context.Context, pool *pgxpool.Pool, args []string) {
 		fmt.Printf("warning: %q has no matric code, so students cannot sign up or complete onboarding until you run:\n", *slug)
 		fmt.Printf("  tenant update -slug %s -matric-code EG/XX\n", *slug)
 	}
-	fmt.Printf("create its first admin with: DB_SOURCE=... ADMIN_EMAIL=... ADMIN_PASSWORD=... go run ./cmd/seed_admin -tenant %s\n", *slug)
+	fmt.Printf("create its first admin with: DB_SOURCE=... ADMIN_EMAIL=... go run ./cmd/seed_admin -tenant %s (it prints the generated password once)\n", *slug)
 }
 
 // update changes only the fields whose flags were given. An empty value passed

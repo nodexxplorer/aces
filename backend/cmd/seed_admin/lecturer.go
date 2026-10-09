@@ -15,21 +15,23 @@ import (
 // seedLecturer creates a lecturer in one department. It goes through the same
 // sign-up path as the website, so the lecturer is filed under the department's
 // name, and then approves the account as an admin would. It reads
-// LECTURER_EMAIL, LECTURER_PASSWORD and LECTURER_STAFF_ID (all required), and
-// the optional LECTURER_FIRST_NAME and LECTURER_LAST_NAME.
+// LECTURER_EMAIL and LECTURER_STAFF_ID (both required), and the optional
+// LECTURER_FIRST_NAME and LECTURER_LAST_NAME. It generates the lecturer's
+// password and prints it once, as for admins.
 func seedLecturer(ctx context.Context, slug string) {
 	dbSource := os.Getenv("DB_SOURCE")
 	if dbSource == "" {
 		log.Fatal("DB_SOURCE environment variable is required. See .env.example for reference.")
 	}
 	email := os.Getenv("LECTURER_EMAIL")
-	password := os.Getenv("LECTURER_PASSWORD")
 	staffID := os.Getenv("LECTURER_STAFF_ID")
 	if email == "" || staffID == "" {
 		log.Fatal("LECTURER_EMAIL and LECTURER_STAFF_ID are required with -role lecturer.")
 	}
-	if len(password) < 8 {
-		log.Fatal("LECTURER_PASSWORD must be at least 8 characters.")
+	refuseSeedPasswordEnv("LECTURER_PASSWORD")
+	password, err := generateSeedPassword()
+	if err != nil {
+		log.Fatal(err)
 	}
 	firstName := os.Getenv("LECTURER_FIRST_NAME")
 	if firstName == "" {
@@ -73,6 +75,8 @@ func seedLecturer(ctx context.Context, slug string) {
 	if err != nil {
 		log.Fatalf("cannot create lecturer: %v", err)
 	}
+	// Print the password before anything else can fail: this is the only copy.
+	reportSeedPassword(email, t.Slug, password)
 
 	if _, err := tenants.DB().Exec(ctx, "UPDATE users SET is_approved = true, is_active = true WHERE id = $1", result.User.ID); err != nil {
 		log.Fatalf("cannot approve lecturer: %v", err)

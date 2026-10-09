@@ -157,7 +157,7 @@ Run these steps in order, substituting your own connection strings.
 1. **Migrate as the owner.** `DB_SOURCE=<owner DSN> make migrate-up`
 2. **Create the runtime role.** `DB_SOURCE=<owner DSN> APP_DB_USER=aces_app APP_DB_PASSWORD=<secret> make runtime-role`
 3. **Create departments as the owner.** `DB_SOURCE=<owner DSN> go run ./cmd/tenant create -slug unilag-ce -name "Department of Computer Engineering" -matric-code EG/CO -institution "University of Lagos" -faculty "Faculty of Engineering"`. A department created without `-matric-code` cannot onboard or sign up students until you set one (see [Matric numbers](#matric-numbers)).
-4. **Create each department's first admin as the runtime role.** `DB_SOURCE=<runtime DSN> ADMIN_EMAIL=<email> ADMIN_PASSWORD=<password> go run ./cmd/seed_admin -tenant unilag-ce`
+4. **Create each department's first admin as the runtime role.** `DB_SOURCE=<runtime DSN> ADMIN_EMAIL=<email> go run ./cmd/seed_admin -tenant unilag-ce`. seed_admin generates the password and prints it once, so store it then. Each department gets a different password, and setting `ADMIN_PASSWORD` is an error.
 5. **Run the server as the runtime role.** Set `DB_SOURCE` to the runtime DSN and set `DEFAULT_TENANT_SLUG`.
 
 Pass the owner's DSN on the command line for owner-level steps. Keep only the runtime DSN in `.env`.
@@ -179,7 +179,7 @@ Pass the owner's DSN on the command line for owner-level steps. Keep only the ru
 ## Day-to-day operations
 
 - **List departments.** `go run ./cmd/tenant list`. It shows each department's matric code.
-- **Add a department.** Create it with `cmd/tenant create -matric-code EG/XX` (owner connection), then seed its first admin with `cmd/seed_admin -tenant <slug>` (runtime connection). Seed a lecturer the same way with `-role lecturer`, setting `LECTURER_EMAIL`, `LECTURER_PASSWORD` and `LECTURER_STAFF_ID`. Both accounts are approved and belong to that department only. It appears in `GET /api/v1/tenants` straight away.
+- **Add a department.** Create it with `cmd/tenant create -matric-code EG/XX` (owner connection), then seed its first admin with `cmd/seed_admin -tenant <slug>` (runtime connection). Seed a lecturer the same way with `-role lecturer`, setting `LECTURER_EMAIL` and `LECTURER_STAFF_ID`. Its password is generated and printed once, as for admins. Both accounts are approved and belong to that department only. It appears in `GET /api/v1/tenants` straight away.
 - **Set or change a matric code.** `go run ./cmd/tenant update -slug <slug> -matric-code EG/EE` (owner connection). The code is the faculty and department pair, such as `EG/EE`, not `EE`. `-matric-code ""` clears it, and the department then refuses matric-based sign-up and onboarding. The change takes effect within about a minute.
 - **Change a department's name, details or branding.** `go run ./cmd/tenant update -slug <slug> [-name ...] [-institution ...] [-faculty ...] [-description ...] [-contact-email ...] [-approval-email ...] [-logo file.png] [-remove-logo]`. Only the flags you pass are changed. `-institution ""`, `-faculty ""` and `-description ""` clear those fields. See [Branding](#branding) for the logo rules.
 - **Deactivate a department.** `go run ./cmd/tenant deactivate -slug <slug>`. Sign-in is refused at once, and existing access tokens stop working within about a minute, which is the registry cache lifetime. Use `activate` to reverse it. There is no delete command. Deactivate instead, because the department's rows still reference it.
