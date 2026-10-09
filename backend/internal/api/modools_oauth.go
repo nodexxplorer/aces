@@ -19,20 +19,21 @@ import (
 	"github.com/aces/backend/internal/util"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5"
 	"golang.org/x/oauth2"
 )
 
 const (
-	modoolsStateCookie   = "aces_modools_state"
-	modoolsVerifierCkie  = "aces_modools_verifier"
-	modoolsTenantCookie  = "aces_modools_tenant"
-	modoolsClientCookie  = "aces_modools_client"
-	modoolsCallbackError = "auth_failed"
+	modoolsStateCookie     = "aces_modools_state"
+	modoolsVerifierCkie    = "aces_modools_verifier"
+	modoolsTenantCookie    = "aces_modools_tenant"
+	modoolsClientCookie    = "aces_modools_client"
+	modoolsChallengeCookie = "aces_modools_challenge"
+	modoolsCallbackError   = "auth_failed"
 
 	// mobileModoolsReturn is where a mobile sign-in ends. It uses the app's URL
 	// scheme (app.json "scheme"), so the app can take it back. The app asks for
 	// this with client=mobile and never names a URL, so there is no open redirect.
+	// The return carries a one-time code, never a session (see modools_exchange.go).
 	mobileModoolsReturn = "aceszone://modools-complete"
 )
 
@@ -141,6 +142,13 @@ func (server *Server) modoolsBack(ctx *gin.Context, mobile bool, query string) {
 
 func (server *Server) modoolsLogin(ctx *gin.Context) {
 	mobile := modoolsStartsOnMobile(ctx)
+	challenge := ctx.Query("code_challenge")
+	// The app sends the challenge of its PKCE pair. The one-time code that ends
+	// the sign-in is bound to it, so a mobile sign-in without one is refused.
+	if mobile && !validPKCEChallenge(challenge) {
+		server.modoolsBack(ctx, true, "error="+modoolsCallbackError)
+		return
+	}
 	_, cfg, err := modoolsInit(ctx.Request.Context())
 	if err != nil {
 		ctx.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
@@ -169,6 +177,9 @@ func (server *Server) modoolsLogin(ctx *gin.Context) {
 		client = "mobile"
 	}
 	server.setShortCookie(ctx, modoolsClientCookie, client, 600)
+	if mobile {
+		server.setShortCookie(ctx, modoolsChallengeCookie, challenge, 600)
+	}
 
 	authURL := cfg.AuthCodeURL(
 		state,
@@ -210,13 +221,23 @@ func (server *Server) modoolsCallback(ctx *gin.Context) {
 		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
 		return
 	}
+	challenge, _ := ctx.Cookie(modoolsChallengeCookie)
 	// Cookies are single-use — clear them immediately.
 	tenantSlug, _ := ctx.Cookie(modoolsTenantCookie)
 	server.setShortCookie(ctx, modoolsStateCookie, "", -1)
 	server.setShortCookie(ctx, modoolsVerifierCkie, "", -1)
 	server.setShortCookie(ctx, modoolsTenantCookie, "", -1)
+	server.setShortCookie(ctx, modoolsChallengeCookie, "", -1)
 	// The client cookie is not cleared. It only says where errors go, and the
 	// next sign-in sets it again, so a replayed callback still ends in the app.
+
+	// A mobile sign-in needs the challenge the app started it with. Without one no
+	// one-time code can be made, so the sign-in is refused before any provider or
+	// database work.
+	if modoolsIsMobile(ctx) && !validPKCEChallenge(challenge) {
+		server.modoolsBack(ctx, true, "error="+modoolsCallbackError)
+		return
+	}
 
 	// Bind the department before any database work. A flow started before this
 	// deploy has no tenant cookie and belongs to the default department.
@@ -283,7 +304,7 @@ func (server *Server) modoolsCallback(ctx *gin.Context) {
 			server.modoolsBack(ctx, modoolsIsMobile(ctx), "error=account_deactivated")
 			return
 		}
-		server.modoolsFinish(ctx, mu, oauthToken)
+		server.modoolsFinish(ctx, mu, oauthToken, challenge)
 		return
 	}
 	if existing, err := queries.GetUserByEmail(ctx, email); err == nil {
@@ -306,7 +327,7 @@ func (server *Server) modoolsCallback(ctx *gin.Context) {
 			server.modoolsBack(ctx, modoolsIsMobile(ctx), "error=account_deactivated")
 			return
 		}
-		server.modoolsFinish(ctx, existing, oauthToken)
+		server.modoolsFinish(ctx, existing, oauthToken, challenge)
 		return
 	}
 	firstName, lastName := splitFullName(name)
@@ -371,7 +392,7 @@ func (server *Server) modoolsCallback(ctx *gin.Context) {
 		nil,
 	)
 
-	server.modoolsFinish(ctx, created, oauthToken)
+	server.modoolsFinish(ctx, created, oauthToken, challenge)
 }
 func hasStaffRole(roleNames []string) bool {
 	for _, r := range roleNames {
@@ -383,45 +404,44 @@ func hasStaffRole(roleNames []string) bool {
 	}
 	return false
 }
-func (server *Server) modoolsFinish(ctx *gin.Context, user db.User, oauthToken *oauth2.Token) {
+
+// modoolsFinish completes a Modools sign-in for user. The provider's refresh
+// token is kept either way. A mobile sign-in ends with a one-time code for the
+// app (modoolsHandOff). A web sign-in ends with the session in the fragment of
+// the website's own sign-in page, as before.
+func (server *Server) modoolsFinish(ctx *gin.Context, user db.User, oauthToken *oauth2.Token, challenge string) {
 	if oauthToken != nil && oauthToken.RefreshToken != "" {
 		if q, ok := server.store.(*db.Queries); ok {
 			_ = q.UpdateModoolsRefreshToken(ctx, user.ID, strPtr(oauthToken.RefreshToken))
 		}
 	}
-	onboardingCompleted := true
-	if q, ok := server.store.(*db.Queries); ok {
-		if s, err := q.GetStudentByUserId(ctx, user.ID); err == nil {
-			onboardingCompleted = s.OnboardingCompleted
-		} else if errors.Is(err, pgx.ErrNoRows) {
-			// No student row (shouldn't happen on this path) — force the wall.
-			onboardingCompleted = false
-		}
+	if modoolsIsMobile(ctx) {
+		server.modoolsHandOff(ctx, user, challenge)
+		return
 	}
+	server.modoolsWebSession(ctx, user)
+}
 
+// modoolsWebSession sends the website the session, in the fragment of its own
+// sign-in page. The fragment is never sent to a server, and the page clears it.
+func (server *Server) modoolsWebSession(ctx *gin.Context, user db.User) {
 	roleNames, _ := server.roles.ListUserRolesByName(ctx, user.ID)
 	if len(roleNames) == 0 {
 		roleNames = []string{string(user.Role)}
 	}
 
-	resp, err := server.generateAuthResponse(ctx, user, onboardingCompleted, roleNames)
+	resp, err := server.generateAuthResponse(ctx, user, server.modoolsOnboardingCompleted(ctx.Request.Context(), user.ID), roleNames)
 	if err != nil {
 		log.Printf("[modools] session issue failed: %v", err)
-		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
+		server.modoolsBack(ctx, false, "error="+modoolsCallbackError)
 		return
 	}
 	resp.Tokens.CsrfToken = server.setTokenCookies(ctx, &resp.Tokens)
 	payload, err := json.Marshal(gin.H{"user": resp.User, "tokens": resp.Tokens})
 	if err != nil {
-		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
+		server.modoolsBack(ctx, false, "error="+modoolsCallbackError)
 		return
 	}
-	if modoolsIsMobile(ctx) {
-		ctx.Redirect(http.StatusFound, mobileModoolsReturn+"#auth="+base64.RawURLEncoding.EncodeToString(payload))
-		return
-	}
-	// The session goes back in the fragment of the web app's own address, so the
-	// app can read it and clear it. The fragment is never sent to a server.
 	ctx.Redirect(http.StatusFound,
 		server.frontendBase()+"/login#auth="+base64.RawURLEncoding.EncodeToString(payload))
 }

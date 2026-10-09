@@ -50,4 +50,4 @@ Primary colours follow the department. When a department has an accent (its `acc
 
 `aceszone://co` and `aceszone://co/admin` open sign-in with the department whose web address code is `co` chosen (`app/[code]/`). Web-domain links do not open the app yet; see the mobile section of `docs/multi-tenancy.md`.
 
-Sign-in and sign-up use Modools in the browser, as the website does (`src/hooks/useModoolsSignIn.ts`). The button is unavailable when the server has no Modools settings. Staff and admins do not sign in through the app; they use the website.
+Sign-in and sign-up use Modools in the browser, as the website does (`src/hooks/useModoolsSignIn.ts`). The app keeps a PKCE verifier for the sign-in (`src/utils/pkce.ts`) and trades the one-time code the browser returns for its session. The button is unavailable when the server has no Modools settings. Staff and admins do not sign in through the app; they use the website.

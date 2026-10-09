@@ -241,6 +241,7 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	v1.GET("/auth/modools/login", server.modoolsLogin)
 	v1.GET("/auth/modools/callback", server.modoolsCallback)
 	v1.GET("/auth/modools/status", server.modoolsStatus)
+	v1.POST("/auth/modools/exchange", authRL, server.modoolsExchange)
 
 	authPublic := v1.Group("/auth")
 	{

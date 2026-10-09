@@ -40,13 +40,14 @@ func GenerateCSRFToken() (string, error) {
 // user's own protected state, so CSRF protection doesn't apply to them in
 // the first place.
 var csrfExemptPaths = map[string]bool{
-	"/api/v1/auth/login":           true,
-	"/api/v1/auth/signup/student":  true,
-	"/api/v1/auth/signup/lecturer": true,
-	"/api/v1/auth/refresh":         true,
-	"/api/v1/auth/request-otp":     true,
-	"/api/v1/auth/verify-otp":      true,
-	"/api/v1/auth/reset-with-otp":  true,
+	"/api/v1/auth/login":            true,
+	"/api/v1/auth/modools/exchange": true,
+	"/api/v1/auth/signup/student":   true,
+	"/api/v1/auth/signup/lecturer":  true,
+	"/api/v1/auth/refresh":          true,
+	"/api/v1/auth/request-otp":      true,
+	"/api/v1/auth/verify-otp":       true,
+	"/api/v1/auth/reset-with-otp":   true,
 }
 
 // CSRFProtect implements double-submit-cookie CSRF defense: any cookie-

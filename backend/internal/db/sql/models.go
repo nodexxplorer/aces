@@ -3249,6 +3249,16 @@ type MessageReaction struct {
 	TenantID     uuid.UUID          `json:"tenant_id"`
 }
 
+type ModoolsExchangeCode struct {
+	CodeHash      []byte             `json:"code_hash"`
+	TenantID      uuid.UUID          `json:"tenant_id"`
+	UserID        uuid.UUID          `json:"user_id"`
+	CodeChallenge string             `json:"code_challenge"`
+	ExpiresAt     pgtype.Timestamptz `json:"expires_at"`
+	UsedAt        pgtype.Timestamptz `json:"used_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
 type Notification struct {
 	ID          uuid.UUID          `json:"id"`
 	UserID      uuid.UUID          `json:"user_id"`

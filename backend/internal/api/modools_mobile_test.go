@@ -94,3 +94,76 @@ func TestMobileModoolsReturnUsesTheAppScheme(t *testing.T) {
 		t.Fatalf("mobileModoolsReturn %q does not use the app scheme %q", mobileModoolsReturn, app.Expo.Scheme)
 	}
 }
+
+// The app's PKCE pair. RFC 7636 appendix B gives this verifier and its challenge.
+func TestPKCEChallengeMatchesRFC7636(t *testing.T) {
+	const verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+	const challenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+	if got := pkceS256(verifier); got != challenge {
+		t.Fatalf("pkceS256 = %q, want %q", got, challenge)
+	}
+	if !validPKCEVerifier(verifier) || !validPKCEChallenge(challenge) {
+		t.Fatal("the RFC 7636 example fails the shape checks")
+	}
+}
+
+func TestPKCEAndCodeShapes(t *testing.T) {
+	cases := []struct {
+		name string
+		want bool
+		got  bool
+	}{
+		{"challenge: 43 base64url characters", true, validPKCEChallenge("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM")},
+		{"challenge: 42 characters", false, validPKCEChallenge(strings.Repeat("A", 42))},
+		{"challenge: 44 characters", false, validPKCEChallenge(strings.Repeat("A", 44))},
+		{"challenge: standard base64 '+'", false, validPKCEChallenge(strings.Repeat("A", 42) + "+")},
+		{"verifier: 43 characters", true, validPKCEVerifier(strings.Repeat("a", 43))},
+		{"verifier: 128 characters", true, validPKCEVerifier(strings.Repeat("a", 128))},
+		{"verifier: 42 characters", false, validPKCEVerifier(strings.Repeat("a", 42))},
+		{"verifier: 129 characters", false, validPKCEVerifier(strings.Repeat("a", 129))},
+		{"verifier: a space", false, validPKCEVerifier(strings.Repeat("a", 42) + " ")},
+		{"verifier: unreserved punctuation", true, validPKCEVerifier(strings.Repeat("a", 40) + "-._~")},
+		{"code: 32 random bytes", true, validCodeShape(randomToken(32))},
+		{"code: 31 random bytes", false, validCodeShape(randomToken(31))},
+	}
+	for _, c := range cases {
+		if c.got != c.want {
+			t.Errorf("%s: got %v, want %v", c.name, c.got, c.want)
+		}
+	}
+}
+
+// A mobile sign-in that does not carry the app's challenge is refused when it
+// starts, before the provider is contacted, and sets no cookies.
+func TestModoolsMobileLoginNeedsAChallenge(t *testing.T) {
+	server := &Server{config: &config.Config{FrontendPublicURL: "https://site.example/"}}
+	queries := []string{
+		"?client=mobile",
+		"?client=mobile&code_challenge=abc",
+		"?client=mobile&code_challenge=" + strings.Repeat("A", 42) + "%2B",
+	}
+	for _, query := range queries {
+		ctx, rec := modoolsTestContext(t, "/api/v1/auth/modools/login"+query, "")
+		server.modoolsLogin(ctx)
+		if rec.Code != http.StatusFound || rec.Header().Get("Location") != "aceszone://modools-complete?error=auth_failed" {
+			t.Fatalf("%s: status %d, location %q", query, rec.Code, rec.Header().Get("Location"))
+		}
+		if n := len(rec.Result().Cookies()); n != 0 {
+			t.Fatalf("%s: a refused sign-in set %d cookies", query, n)
+		}
+	}
+}
+
+// A mobile sign-in whose challenge cookie is missing is refused at the callback
+// too. The refusal comes before the department lookup and the provider, so the
+// test needs neither the database nor Modools.
+func TestModoolsMobileCallbackNeedsTheChallengeCookie(t *testing.T) {
+	server := &Server{config: &config.Config{FrontendPublicURL: "https://site.example/"}}
+	ctx, rec := modoolsTestContext(t,
+		"/api/v1/auth/modools/callback?code=provider-code&state=s1",
+		"aces_modools_state=s1; aces_modools_verifier=v1; aces_modools_client=mobile")
+	server.modoolsCallback(ctx)
+	if rec.Code != http.StatusFound || rec.Header().Get("Location") != "aceszone://modools-complete?error=auth_failed" {
+		t.Fatalf("status %d, location %q", rec.Code, rec.Header().Get("Location"))
+	}
+}
