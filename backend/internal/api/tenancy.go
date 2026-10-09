@@ -29,19 +29,32 @@ type tenantResponse struct {
 	// for the signed-in user (the approval page links to it), so it appears
 	// here and not in the public list.
 	ContactEmail string `json:"contactEmail,omitempty"`
+	// ApprovalContactEmail is where the approval page sends the student: the
+	// department's approval address, or its contact address when it has none.
+	ApprovalContactEmail string `json:"approvalContactEmail,omitempty"`
 }
 
 func toTenantResponse(t tenant.Tenant) *tenantResponse {
 	return &tenantResponse{
-		Slug:         t.Slug,
-		Name:         t.Name,
-		Institution:  t.Institution,
-		Faculty:      t.Faculty,
-		MatricCode:   t.MatricCode,
-		Description:  t.Description,
-		LogoURL:      logoURL(t),
-		ContactEmail: t.ContactEmail,
+		Slug:                 t.Slug,
+		Name:                 t.Name,
+		Institution:          t.Institution,
+		Faculty:              t.Faculty,
+		MatricCode:           t.MatricCode,
+		Description:          t.Description,
+		LogoURL:              logoURL(t),
+		ContactEmail:         t.ContactEmail,
+		ApprovalContactEmail: approvalContactEmail(t),
 	}
+}
+
+// approvalContactEmail is the address the approval page links to: the approval
+// address when the department set one, otherwise its contact address.
+func approvalContactEmail(t tenant.Tenant) string {
+	if t.ApprovalEmail != "" {
+		return t.ApprovalEmail
+	}
+	return t.ContactEmail
 }
 
 // logoURL is the API path of a department's logo, or empty when it has none.

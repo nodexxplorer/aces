@@ -65,11 +65,11 @@ export default function WaitingScreen() {
   const department = user?.tenant;
   const departmentName = department?.name ?? 'your department';
   const contactDepartment = (subject: string, body?: string) => {
-    if (!department?.contactEmail) return;
+    if (!department?.approvalContactEmail) return;
     const query = [`subject=${encodeURIComponent(subject)}`, body ? `body=${encodeURIComponent(body)}` : null]
       .filter(Boolean)
       .join('&');
-    Linking.openURL(`mailto:${department.contactEmail}?${query}`).catch(() => {});
+    Linking.openURL(`mailto:${department.approvalContactEmail}?${query}`).catch(() => {});
   };
 
   const displayName = user?.fullName || [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Student';
@@ -122,7 +122,7 @@ export default function WaitingScreen() {
         {status === 'pending' && (
           <Button label="Check Status" onPress={handleCheckStatus} loading={checking} fullWidth size="lg" />
         )}
-        {Boolean(department?.contactEmail) && status === 'rejected' && (
+        {Boolean(department?.approvalContactEmail) && status === 'rejected' && (
           <Button
             label="Appeal by email"
             variant="danger"
@@ -137,7 +137,7 @@ export default function WaitingScreen() {
             size="lg"
           />
         )}
-        {department?.contactEmail ? (
+        {department?.approvalContactEmail ? (
           <Button
             label="Contact the department"
             variant="outline"

@@ -45,6 +45,9 @@ type Tenant struct {
 	Description string
 	// ContactEmail is printed on the department's dues receipts. Empty means none.
 	ContactEmail string
+	// ApprovalEmail is where the approval page sends students. Empty means the
+	// page uses ContactEmail instead.
+	ApprovalEmail string
 	// LogoType is the MIME type of the logo ("image/png", ...), or empty when
 	// the department has no logo. The bytes are read by Manager.Logo.
 	LogoType string

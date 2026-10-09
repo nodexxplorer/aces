@@ -15,8 +15,10 @@ export interface AuthTenant {
   name: string;
   institution?: string;
   logoUrl?: string;
-  /** The department's contact address, when it has one. The approval screen links to it. */
+  /** The department's contact address, when it has one. The dues receipts print it. */
   contactEmail?: string;
+  /** Where the approval screen sends the student: the approval address, or the contact address when there is none. */
+  approvalContactEmail?: string;
 }
 
 export interface AuthUser {

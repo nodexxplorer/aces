@@ -308,7 +308,7 @@ func roleHook(role string) func(context.Context, *pgx.Conn) error {
 	}
 }
 
-const tenantSelect = `SELECT id, slug, name, COALESCE(institution, ''), COALESCE(faculty, ''), COALESCE(matric_code, ''), COALESCE(description, ''), COALESCE(logo_type, ''), COALESCE(contact_email, ''), is_active FROM tenants`
+const tenantSelect = `SELECT id, slug, name, COALESCE(institution, ''), COALESCE(faculty, ''), COALESCE(matric_code, ''), COALESCE(description, ''), COALESCE(logo_type, ''), COALESCE(contact_email, ''), COALESCE(approval_email, ''), is_active FROM tenants`
 
 type rowScanner interface {
 	Scan(dest ...any) error
@@ -316,7 +316,7 @@ type rowScanner interface {
 
 func scanTenant(row rowScanner) (Tenant, error) {
 	var t Tenant
-	err := row.Scan(&t.ID, &t.Slug, &t.Name, &t.Institution, &t.Faculty, &t.MatricCode, &t.Description, &t.LogoType, &t.ContactEmail, &t.IsActive)
+	err := row.Scan(&t.ID, &t.Slug, &t.Name, &t.Institution, &t.Faculty, &t.MatricCode, &t.Description, &t.LogoType, &t.ContactEmail, &t.ApprovalEmail, &t.IsActive)
 	return t, err
 }
 

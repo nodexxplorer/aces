@@ -39,7 +39,8 @@ const electrical: TenantInfo = {
   slug: 'dept-ee',
   name: 'Department of Electrical Engineering',
   institution: 'University of Uyo',
-  contactEmail: 'ee-office@example.edu',
+  contactEmail: 'receipts@example.edu',
+  approvalContactEmail: 'ee-office@example.edu',
 };
 
 const mailtoLinks = () =>
@@ -57,7 +58,7 @@ describe('WaitingDashboardPage', () => {
     expect(document.body.textContent).not.toContain('ACES');
   });
 
-  it('links to the department contact address with a prefilled subject', () => {
+  it('links to the approval address, not the receipts contact, with a prefilled subject', () => {
     render(<WaitingDashboardPage />);
     const links = mailtoLinks();
     expect(links).toHaveLength(1);
@@ -72,7 +73,7 @@ describe('WaitingDashboardPage', () => {
   });
 
   it('offers no mailto link, and says so, when the department has no contact address', () => {
-    shared.department = { ...electrical, contactEmail: undefined };
+    shared.department = { ...electrical, approvalContactEmail: undefined };
     render(<WaitingDashboardPage />);
     expect(mailtoLinks()).toHaveLength(0);
     expect(screen.getByText('Contact your department office for help.')).toBeTruthy();

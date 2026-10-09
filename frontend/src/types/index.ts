@@ -55,6 +55,8 @@ export interface TenantInfo {
   logoUrl?: string;
   /** The department's contact address, when it has one. Only the signed-in user's own department carries it. */
   contactEmail?: string;
+  /** Where the approval screen sends the student: the approval address, or the contact address when there is none. */
+  approvalContactEmail?: string;
 }
 
 export interface User extends BaseEntity {

@@ -68,6 +68,7 @@ DB_SOURCE='postgresql://aces_user:…@localhost:5432/aces_zone?sslmode=disable' 
 # The email printed on a department's dues receipts. "" clears it.
 DB_SOURCE='postgresql://aces_user:…@localhost:5432/aces_zone?sslmode=disable' \
   go run ./cmd/tenant update -slug unilag-ce -contact-email receipts@example.edu
+  go run ./cmd/tenant update -slug unilag-ce -approval-email hod@example.edu
 ```
 
 The migrations create the default department `uniuyo-ce`, which holds all data from before multi-tenancy. Migration `000005` gives it the matric code `EG/CO`. See [docs/multi-tenancy.md](../docs/multi-tenancy.md#matric-numbers) for how matric numbers are checked.

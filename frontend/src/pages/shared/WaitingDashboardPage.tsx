@@ -16,7 +16,7 @@ const WaitingDashboardPage = () => {
   const { error: notifyError, success: notifySuccess } = useNotification();
   const department = useCurrentDepartment();
   const departmentName = department?.name ?? 'your department';
-  const contact = department?.contactEmail;
+  const contact = department?.approvalContactEmail;
   const [loading, setLoading] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState<string>(
     user?.isApproved === false && user?.isActive !== false
