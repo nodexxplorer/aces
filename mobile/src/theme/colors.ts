@@ -1,6 +1,8 @@
 // Mirrors the web app's Tailwind palette (frontend/tailwind.config.*) so the
 // mobile app reads as the same product, not a reskin.
 
+import { isAccentColor, primaryRamp, PRIMARY_STEPS, rgba, toHex, type PrimaryStep } from './accent';
+
 export const palette = {
   primary: {
     50: '#e6f0ff',
@@ -117,3 +119,32 @@ export const darkTheme: Theme = {
   overlay: 'rgba(0, 0, 0, 0.6)',
   statusBar: 'light',
 };
+
+/** The primary colour ramp as #rrggbb, steps 50 to 950. */
+export type Brand = Record<PrimaryStep, string>;
+
+export interface ResolvedTheme {
+  theme: Theme;
+  brand: Brand;
+}
+
+/**
+ * The theme and primary ramp for a department accent. Without an accent, or with
+ * one that is not #rrggbb, these are the platform colours. With one, the primary
+ * colours come from the accent: step 500 in light mode and 400 in dark mode, as
+ * the platform uses. Only the primary colours change; the rest of the theme stays.
+ */
+export function themeFor(isDark: boolean, accent?: string | null): ResolvedTheme {
+  const base = isDark ? darkTheme : lightTheme;
+  if (!isAccentColor(accent)) return { theme: base, brand: palette.primary };
+  const ramp = primaryRamp(accent);
+  const brand = Object.fromEntries(PRIMARY_STEPS.map((step) => [step, toHex(ramp[step])])) as Brand;
+  return {
+    theme: {
+      ...base,
+      primary: isDark ? brand[400] : brand[500],
+      primaryMuted: isDark ? rgba(ramp[500], 0.16) : brand[50],
+    },
+    brand,
+  };
+}

@@ -10,14 +10,14 @@ import {
 } from 'react-native';
 import Text from '../../src/components/ui/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../src/theme/ThemeProvider';
+import { AccentScope, useTheme } from '../../src/theme/ThemeProvider';
 import { fontFamily, fontSize, radius, spacing } from '../../src/theme/typography';
 import Button from '../../src/components/ui/Button';
 import { signupStudent } from '../../src/api/auth';
 import DepartmentPicker from '../../src/components/DepartmentPicker';
-import { useDepartmentChoice } from '../../src/hooks/useDepartmentChoice';
+import { useDepartmentChoice, type DepartmentChoice } from '../../src/hooks/useDepartmentChoice';
 import { storeDepartment } from '../../src/store/departmentStore';
 import { useAuthStore } from '../../src/store/authStore';
 import { getErrorMessage } from '../../src/utils/errors';
@@ -70,6 +70,18 @@ function Field({
 }
 
 export default function SignupScreen() {
+  // Sign-up opened from sign-in starts with the department chosen there (its short name).
+  const params = useLocalSearchParams<{ code?: string }>();
+  const dept = useDepartmentChoice(typeof params.code === 'string' ? params.code : undefined);
+  const accent = dept.departments.find((d) => d.slug === dept.slug)?.accentColor;
+  return (
+    <AccentScope accent={accent}>
+      <SignupForm dept={dept} />
+    </AccentScope>
+  );
+}
+
+function SignupForm({ dept }: { dept: DepartmentChoice }) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -86,7 +98,6 @@ export default function SignupScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const dept = useDepartmentChoice();
 
   const handleSignup = async () => {
     if (!dept.slug) {

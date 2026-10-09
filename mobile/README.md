@@ -43,3 +43,9 @@ Find your current IP with `hostname -I` (Linux) and update `.env` if it's change
 ## Design system
 
 `src/theme/colors.ts` mirrors the web app's Tailwind palette exactly (same hex values) so the two apps read as one product. Semantic tokens (`theme.primary`, `theme.card`, etc.) auto-switch between `lightTheme`/`darkTheme` based on the OS appearance setting — screens should never import `palette` directly.
+
+Primary colours follow the department. When a department has an accent (its `accentColor`, computed from its logo), `themeFor` in `src/theme/colors.ts` builds the primary ramp from it, and `useTheme().brand` gives the ramp for gradients. Sign-in and sign-up use the department chosen on them, and the signed-in app uses the user's department. `src/theme/accent.ts` must stay in step with `frontend/src/theme/accent.ts`.
+
+## Department links
+
+`aceszone://co` and `aceszone://co/admin` open sign-in with the department whose web address code is `co` chosen (`app/[code]/`). Web-domain links do not open the app yet; see the mobile section of `docs/multi-tenancy.md`.

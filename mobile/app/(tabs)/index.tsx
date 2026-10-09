@@ -31,7 +31,7 @@ function initials(firstName?: string, lastName?: string) {
 }
 
 export default function DashboardScreen() {
-  const { theme, isDark } = useTheme();
+  const { theme, isDark, brand } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
@@ -73,7 +73,7 @@ export default function DashboardScreen() {
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
       <LinearGradient
-        colors={[palette.primary[500], palette.primary[700]]}
+        colors={[brand[500], brand[700]]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: insets.top + spacing['2xl'] }]}

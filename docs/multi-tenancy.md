@@ -211,7 +211,7 @@ Each department has a short code, its **web address code**, which names it in th
 - **Unknown addresses** show the not-found page. A department without a code has no addresses.
 - **Picking another department** on an address page moves the address to that department's address.
 - **Changing a code** breaks the old addresses. Tell the department's admins before you change one.
-- The code is on `GET /api/v1/tenants` and in the `tenant` object as `urlCode`. No page in the app shows a department's addresses yet.
+- The code is on `GET /api/v1/tenants` and in the `tenant` object as `urlCode`. No page in the web app shows a department's addresses yet. The mobile app opens sign-in from the same short names (see [Mobile app](#mobile-app)).
 
 Migration 000010 gives each existing department the suffix of its matric code, when that suffix is unique. A department whose suffix is shared stays without a code until you set one.
 
@@ -239,7 +239,11 @@ The mobile app is department-aware for sign-in, sign-up and onboarding. Sign-in 
 
 Sign-up sends the matric number, and the server checks it against the department. A matric number from another department is refused, and the message names the department it belongs to. Onboarding sends `matric_number`, which the server checks the same way.
 
-The app does not show a department's name or logo outside the picker yet. Its own branding is unchanged.
+The sign-in screen shows the chosen department's name under the app's name. The department's logo is not shown in the app yet, and the app's own icon is unchanged.
+
+**Accent.** The app uses the department's accent as its primary colour, as the web app does. Sign-in and sign-up use the colour of the department chosen on them. After sign-in the app uses the signed-in department's colour, which is kept with the stored session, so the colour is right when the app opens again. A department with no accent keeps the platform blue. The ramp is built the same way on both platforms, and `frontend/src/theme/accent.ts` and `mobile/src/theme/accent.ts` must change together. The app's icon and its notification colour are set in the build and do not change.
+
+**Department links.** `aceszone://co` and `aceszone://co/admin` open sign-in with the department whose short name is `co` chosen, as `/co` does on the web. Both lead to the same screen, because the app signs in every role. A signed-in user who opens one goes to the app's home screen. A short name that no department uses is ignored, and sign-in starts at the usual department. Sign-up from that screen starts with the same department.
 
 ## Known gaps
 
@@ -249,6 +253,7 @@ These are not fixed by this change.
 2. **Uploaded files are shared and bearer-linked.** Stored files are served only with a link that the API signed and that has not expired (see the decision on signed links), but the link is a bearer token: whoever holds an unexpired link can read the file, whichever department owns it. Files are not stored per department. Give each department its own storage, or serve files through tenant-checked routes, before departments with sensitive files share this server.
 3. **Modools sign-in uses one OAuth client** (the `MODOOLS_*` settings). The department the person picks decides where the account is created. If departments use different Modools sites, each needs its own client.
 4. **Modools onboarding does not move the student.** A student whose matric number belongs to another department is sent to sign in there (see [Modools onboarding](#modools-onboarding)). The first account stays incomplete and is not removed. A seamless redirect needs deferred account creation or a move of the account between departments, both larger changes. Reading the department from the sign-in itself also needs the name of the claim that carries the registration number, which Modools must supply. Staff without a registration number would also need a rule.
+5. **Web links do not open the mobile app.** `aceszone://co` opens it, but a link on the web domain, such as `https://<web domain>/co`, opens the website. Opening the app from those links needs the web domain to serve Apple's `apple-app-site-association` and Google's `assetlinks.json`, and the app's bundle ID, package name and signing fingerprint for them. None of those are in this repository, so this is a follow-up.
 
 
 ## Testing
@@ -258,6 +263,7 @@ These are not fixed by this change.
 - **Branding checks.** A run of the API showed: a logo served with its image type, the cache and sandbox headers, and the exact uploaded bytes; `404` for a department without a logo, an unknown department, a removed logo, and an inactive department; a sign-up response and `GET /auth/me` both carrying the department's `tenant`; `cmd/tenant` refusing SVG, GIF and oversize files.
 - **Matric checks.** A run of the API against a freshly migrated database, with departments created by `cmd/tenant`, covered: mobile sign-up refused for another department's matric and accepted for the default department's; sign-up in a chosen department accepted for its own code and refused for another's, with the other department named; a department without a code refused with `422` at sign-up and onboarding; onboarding refused for another department's matric with `department` naming it, and then accepted in that department with the same matric number; a lowercase matric accepted; and an unset code refusing onboarding once the one-minute cache expired.
 - **Upload checks.** Unit tests cover signing, expiry, tampering, a different key, non-canonical paths and the response middleware. A run of the API against a migrated database covered: an avatar in login and `/auth/me` carrying a link 24 hours ahead; the signed link returning the file's exact bytes with `nosniff`; a HEAD request; unsigned, forged, tampered and traversal requests answered `404` with the same body as a missing file; and a link refused after its lifetime (one minute in the run) while a fresh link from `/auth/me` was served.
+- **Mobile checks.** `tsc --noEmit` in `mobile/` (the app has no test runner). The mobile ramp matched the web's for 3,009 accents, 33,099 steps in all. The theme for a department with an accent, one without, and an unknown accent was checked, and so were the department lookup by short name and the order of the choice. A web build of the app, run in a browser against the API, showed: `/co` and `/co/admin` opening sign-in with Computer Engineering chosen and its accent; `/ee` with Electrical Engineering and the platform blue; an unknown code falling back to the default; `/login` unchanged; sign-up from `/co` starting with the same department; a second code while sign-in was open switching the choice; a code opened while signed in going to the app; and a student signing in, onboarding showing the accent, and the accent surviving a reload.
 - **Scratch-environment checks.** A run against a freshly migrated database covered: the same email signing in to two departments with different passwords; a password from one department rejected by the other; unknown and forged departments rejected; refresh keeping the department; the same student signing up in two departments; and a deactivated department refusing sign-in and then existing tokens.
 
 ## Decisions recorded

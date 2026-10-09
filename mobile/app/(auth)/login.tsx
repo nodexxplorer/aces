@@ -11,23 +11,36 @@ import {
 } from 'react-native';
 import Text from '../../src/components/ui/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../src/theme/ThemeProvider';
+import { AccentScope, useTheme } from '../../src/theme/ThemeProvider';
 import { fontFamily, fontSize, radius, spacing } from '../../src/theme/typography';
 import { palette } from '../../src/theme/colors';
 import Button from '../../src/components/ui/Button';
 import { login as loginRequest } from '../../src/api/auth';
 import DepartmentPicker from '../../src/components/DepartmentPicker';
-import { useDepartmentChoice } from '../../src/hooks/useDepartmentChoice';
+import { useDepartmentChoice, type DepartmentChoice } from '../../src/hooks/useDepartmentChoice';
 import { storeDepartment } from '../../src/store/departmentStore';
 import { useAuthStore } from '../../src/store/authStore';
 import { getErrorMessage } from '../../src/utils/errors';
 
 export default function LoginScreen() {
-  const { theme } = useTheme();
+  // /co (and aceszone://co) arrive here with the department's short name, which
+  // chooses that department. The screen then takes the department's colours.
+  const params = useLocalSearchParams<{ code?: string }>();
+  const dept = useDepartmentChoice(typeof params.code === 'string' ? params.code : undefined);
+  const accent = dept.departments.find((d) => d.slug === dept.slug)?.accentColor;
+  return (
+    <AccentScope accent={accent}>
+      <LoginForm dept={dept} />
+    </AccentScope>
+  );
+}
+
+function LoginForm({ dept }: { dept: DepartmentChoice }) {
+  const { theme, brand } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
@@ -37,7 +50,9 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const dept = useDepartmentChoice();
+  const selectedCode = dept.departments.find((d) => d.slug === dept.slug)?.urlCode;
+  // Sign-up opened from here starts with the department chosen here.
+  const signupHref = selectedCode ? { pathname: '/(auth)/signup', params: { code: selectedCode } } : '/(auth)/signup';
   const departmentName =
     departmentShortName(dept.departments.find((d) => d.slug === dept.slug)?.name) ?? 'Your department';
 
@@ -66,7 +81,7 @@ export default function LoginScreen() {
     >
       <View style={[styles.flex, { backgroundColor: theme.background }]}>
         <LinearGradient
-          colors={[palette.primary[500], palette.primary[700]]}
+          colors={[brand[500], brand[700]]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[styles.hero, { paddingTop: insets.top + spacing.xl }]}
@@ -146,7 +161,7 @@ export default function LoginScreen() {
 
             <Button label="Sign In" onPress={handleLogin} loading={loading} fullWidth size="lg" />
 
-            <Pressable onPress={() => router.push('/(auth)/signup')} style={styles.signupLinkRow}>
+            <Pressable onPress={() => router.push(signupHref)} style={styles.signupLinkRow}>
               <Text style={[styles.signupLinkText, { color: theme.textMuted }]}>
                 Don't have an account?{' '}
                 <Text style={{ color: theme.primary, fontFamily: fontFamily.semibold }}>Sign Up</Text>

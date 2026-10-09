@@ -11,6 +11,10 @@ export interface Department {
   description?: string;
   /** API path of the department's logo. Absent when it has none. */
   logoUrl?: string;
+  /** The department's accent as #rrggbb, when its logo gives one. */
+  accentColor?: string;
+  /** The department's short name in web addresses: /co is its sign-in page. Absent until it is set. */
+  urlCode?: string;
   /** True for the department used when none is named. */
   default?: boolean;
 }
@@ -21,6 +25,19 @@ export const listDepartments = async (): Promise<Department[]> => {
   return data;
 };
 
-/** The department to start from: the one chosen last time, else the default, else the first. */
-export const pickInitialDepartment = (departments: Department[], stored: string | null): Department | undefined =>
-  departments.find((d) => d.slug === stored) ?? departments.find((d) => d.default) ?? departments[0];
+/** The department whose short name is code (as in /co or aceszone://co), ignoring case. */
+export const findDepartmentByCode = (departments: Department[], code?: string | null): Department | undefined => {
+  const wanted = code?.trim().toLowerCase();
+  return wanted ? departments.find((d) => d.urlCode?.toLowerCase() === wanted) : undefined;
+};
+
+/** The department to start from: the one a link names, else the one chosen last time, else the default, else the first. */
+export const pickInitialDepartment = (
+  departments: Department[],
+  stored: string | null,
+  code?: string | null,
+): Department | undefined =>
+  findDepartmentByCode(departments, code) ??
+  departments.find((d) => d.slug === stored) ??
+  departments.find((d) => d.default) ??
+  departments[0];
