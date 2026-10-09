@@ -242,3 +242,14 @@ These are not fixed by this change.
 - **Branding checks.** A run of the API showed: a logo served with its image type, the cache and sandbox headers, and the exact uploaded bytes; `404` for a department without a logo, an unknown department, a removed logo, and an inactive department; a sign-up response and `GET /auth/me` both carrying the department's `tenant`; `cmd/tenant` refusing SVG, GIF and oversize files.
 - **Matric checks.** A run of the API against a freshly migrated database, with departments created by `cmd/tenant`, covered: mobile sign-up refused for another department's matric and accepted for the default department's; sign-up in a chosen department accepted for its own code and refused for another's, with the other department named; a department without a code refused with `422` at sign-up and onboarding; onboarding refused for another department's matric with `department` naming it, and then accepted in that department with the same matric number; a lowercase matric accepted; and an unset code refusing onboarding once the one-minute cache expired.
 - **Scratch-environment checks.** A run against a freshly migrated database covered: the same email signing in to two departments with different passwords; a password from one department rejected by the other; unknown and forged departments rejected; refresh keeping the department; the same student signing up in two departments; and a deactivated department refusing sign-in and then existing tokens.
+
+## Decisions recorded
+
+- **Modools sign-ups stay approved on creation.** A Modools sign-up creates an approved student account in the department picked at sign-in, or the default one. Modools sends no role or staff data, so the app cannot tell a staff member from a student. The staff check (`staff_email`) applies only to accounts that already exist. Revisit this only if Modools starts sending role data.
+- **Approval address for Computer Engineering.** Approval requests go to `hod@computer.engineering.uniuyo.edu.ng`, as set by migration 000008. Change it with `cmd/tenant update -approval-email`. Receipts keep the contact address.
+- **Public uploads (known gap 5) will use signed links, in three steps.**
+  1. Every response that carries a file or avatar URL signs it. The `/uploads` route still accepts unsigned requests, so nothing breaks in this step.
+  2. `/uploads` checks the signature and the expiry, and answers 404 otherwise. Download redirects sign their target. The link lifetime is still to be chosen (six hours is the proposal).
+  3. The public static mount is removed.
+
+  Step 1 touches about 25 response paths. Avatar URLs are serialized straight from database models in about ten endpoints, and file URLs also come from course materials, assignments, profile documents and two download redirects. Step 2 waits until step 1 is verified on every path.

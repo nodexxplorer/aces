@@ -36,3 +36,10 @@ Observed in the scratch build against the live API, on the approval page, the dr
 5. **Admin and lecturer screens.**
 
 Each step is checked with screenshots at 1280 and 390 px before the next one starts.
+
+## Decisions (approved)
+
+- The template in the design preview (kept outside the repo) is the basis for the web app's sign-in, sign-up, approval and shell screens. Mobile follows later.
+- The accent comes from each department's logo. The proposal is to compute it when the logo is uploaded (`cmd/tenant logos`) and store it with the department, so the web app, the mobile app and the server agree. Not built yet.
+- Admin Pack appears only in the platform line on the entry screens and in the footer. The department's name, logo and description carry the rest of each screen.
+- Order: tokens and accent first, then sign-in, approval and sign-up, then the shell (top bar, sidebar, footer).
