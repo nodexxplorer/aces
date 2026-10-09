@@ -1,7 +1,6 @@
 package api
 
 import (
-	"errors"
 	"net/http"
 	"net/netip"
 	"time"
@@ -83,54 +82,6 @@ func (server *Server) revokeAllSessions(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"data": "all sessions revoked"})
-}
-
-func (server *Server) checkAccountLockout(ctx *gin.Context, userID uuid.UUID) error {
-	q, ok := server.store.(*db.Queries)
-	if !ok {
-		return nil
-	}
-
-	lockout, err := q.GetLockoutStatusByUser(ctx, userID)
-	if err != nil {
-		return nil
-	}
-
-	if lockout.IsLocked && lockout.UnlockAt.Valid && lockout.UnlockAt.Time.After(time.Now()) {
-		return errors.New("account is locked")
-	}
-
-	return nil
-}
-
-func (server *Server) recordFailedLoginAttempt(ctx *gin.Context, userID uuid.UUID, clientIP string) {
-	q, ok := server.store.(*db.Queries)
-	if !ok {
-		return
-	}
-
-	_ = q.RecordFailedLogin(ctx, db.RecordFailedLoginParams{
-		UserID:  userID,
-		Column2: clientIP,
-	})
-
-	lockout, err := q.GetLockoutStatusByUser(ctx, userID)
-	if err != nil {
-		return
-	}
-
-	if lockout.FailedAttempts >= 5 {
-		_ = q.LockAccount(ctx, userID)
-	}
-}
-
-func (server *Server) resetFailedAttempts(ctx *gin.Context, userID uuid.UUID) {
-	q, ok := server.store.(*db.Queries)
-	if !ok {
-		return
-	}
-
-	_ = q.ResetLockout(ctx, userID)
 }
 
 func (server *Server) createUserSession(ctx *gin.Context, userID uuid.UUID, token string, deviceInfo string, ipAddress string, userAgent string, expiresAt time.Time) {

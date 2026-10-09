@@ -404,38 +404,8 @@ func (server *Server) login(ctx *gin.Context) {
 
 	identifier := strings.TrimSpace(req.Email)
 
-	// Pre-login: resolve user ID to check lockout status.
-	var preloadedUser *db.User
-	if q, ok := server.store.(*db.Queries); ok {
-		normalized := strings.ToLower(identifier)
-		if u, err := q.GetUserByEmail(ctx, normalized); err == nil {
-			preloadedUser = &u
-		} else if s, err := q.GetStudentByMatric(ctx, strPtr(strings.ToUpper(identifier))); err == nil {
-			if u2, err := q.GetUser(ctx, s.UserID); err == nil {
-				preloadedUser = &u2
-			}
-		} else if st, err := q.GetStaffByStaffID(ctx, strings.ToUpper(identifier)); err == nil {
-			if u2, err := q.GetUser(ctx, st.UserID); err == nil {
-				preloadedUser = &u2
-			}
-		}
-	}
-
-	// Check lockout before attempting authentication.
-	if preloadedUser != nil {
-		if lockErr := server.checkAccountLockout(ctx, preloadedUser.ID); lockErr != nil {
-			ctx.JSON(http.StatusTooManyRequests, gin.H{"error": "account is temporarily locked due to too many failed attempts"})
-			return
-		}
-	}
-
 	user, onboardingCompleted, err := server.auth.Login(ctx, identifier, req.Password)
 	if err != nil {
-		// Record failed attempt for the resolved user.
-		if preloadedUser != nil {
-			clientIP := ctx.ClientIP()
-			server.recordFailedLoginAttempt(ctx, preloadedUser.ID, clientIP)
-		}
 		status := http.StatusUnauthorized
 		message := "invalid email or password"
 		if err.Error() == "account is deactivated" {
@@ -445,9 +415,6 @@ func (server *Server) login(ctx *gin.Context) {
 		ctx.JSON(status, gin.H{"error": message})
 		return
 	}
-
-	// Successful login: reset any accumulated failed attempts.
-	server.resetFailedAttempts(ctx, user.ID)
 
 	roleNames, _ := server.roles.ListUserRolesByName(ctx, user.ID)
 	if len(roleNames) == 0 {

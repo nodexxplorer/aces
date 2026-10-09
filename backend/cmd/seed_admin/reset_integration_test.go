@@ -186,15 +186,8 @@ func TestSeedPasswordResetChangesOnlyTheNamedDepartmentsAccount(t *testing.T) {
 	aAdmin := resetUser(t, mgr, a, email, db.UserRoleAdmin, oldA)
 	resetUser(t, mgr, b, email, db.UserRoleAdmin, pinB)
 
-	// Lock the department A admin out and give it a live session, so the reset
-	// has something to clear.
+	// Give the department A admin a live session, so the reset has something to clear.
 	q := db.New(mgr.DB())
-	if err := q.CreateLockoutIfNeeded(resetIn(a), aAdmin.ID); err != nil {
-		t.Fatal(err)
-	}
-	if err := q.LockAccount(resetIn(a), aAdmin.ID); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := q.CreateActiveSession(resetIn(a), db.CreateActiveSessionParams{
 		UserID:       aAdmin.ID,
 		SessionToken: "refresh-token-a",
@@ -220,13 +213,6 @@ func TestSeedPasswordResetChangesOnlyTheNamedDepartmentsAccount(t *testing.T) {
 	}
 	if util.CheckPassword(oldA, got.PasswordHash) == nil {
 		t.Fatal("the old password still works after the reset")
-	}
-	lock, err := q.GetLockoutStatusByUser(resetIn(a), aAdmin.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if lock.IsLocked || lock.FailedAttempts != 0 {
-		t.Fatalf("account still locked after the reset: locked=%v attempts=%d", lock.IsLocked, lock.FailedAttempts)
 	}
 	if sessions, err := q.ListUserSessions(resetIn(a), aAdmin.ID); err != nil || len(sessions) != 0 {
 		t.Fatalf("sessions survive the reset: %d (err %v)", len(sessions), err)

@@ -49,14 +49,14 @@ func init() {
 // so that no department can share a password by accident.
 //
 // With -reset-password it gives the existing account a new generated password
-// instead, and unlocks it and signs it out everywhere. It is the recovery path
+// instead, and signs it out of every session. It is the recovery path
 // for a lost password.
 func main() {
 	ctx := context.Background()
 
 	tenantSlug := flag.String("tenant", os.Getenv("DEFAULT_TENANT_SLUG"), "department slug to seed (default: DEFAULT_TENANT_SLUG, else uniuyo-ce)")
 	role := flag.String("role", "admin", "account to seed: admin (default) or lecturer")
-	resetPassword := flag.Bool("reset-password", false, "give the existing account (ADMIN_EMAIL, or LECTURER_EMAIL with -role lecturer) a new password, unlock it and sign it out everywhere")
+	resetPassword := flag.Bool("reset-password", false, "give the existing account (ADMIN_EMAIL, or LECTURER_EMAIL with -role lecturer) a new password and sign it out of every session")
 	flag.Parse()
 	if *tenantSlug == "" {
 		*tenantSlug = "uniuyo-ce"
