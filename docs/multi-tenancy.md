@@ -118,7 +118,7 @@ Each department has its own name, description and logo. The sign-in and sign-up 
 - **Where the user's department comes from.** The `user` object in every auth response, and `GET /api/v1/auth/me`, carry the user's `tenant` (slug, name, institution, faculty, matric code, description, `logoUrl` and, when the department has them, `contactEmail` (the dues receipts print it) and `approvalContactEmail` (the approval address, or the contact address when there is none)). The dashboard and the approval page read it from there. The public list in `GET /api/v1/tenants` leaves the contact address out.
 - **Department output.** Emails, the password-reset email, dues receipts, result slips, attendance sheets, calendar feeds, the assistant's replies and the welcome, sign-in and approval messages name the department. Each email is sent from the department's name, and each recipient gets the brand of their own department. Emails and dues receipts show the logo; a department without one gets its name only. Emails link the logo from `API_PUBLIC_URL`, which defaults to `FRONTEND_PUBLIC_URL`.
 - **Admin Pack.** The platform's name appears only where no department applies: the mobile app's refusals, the help center, and mail sent with no department bound. The CRF department stamp is the one stamp that names a department: its top line reads `DEPARTMENT OF <NAME>` with the department's own name (the stamp is refused when the department has no name), and its bottom line stays `FACULTY OF ENGINEERING UNIUYO`, because every department is in faculty EG. The `aces.zone` UID domain and the `ACES-` payment references are left as they are. The references and UIDs are identifiers, not display text.
-- **Logo folder.** `branding/department-logos/` holds one file per department, named after its matric code: `EG-EE.png` is the logo for `EG/EE`. `EG-CO.png` is the ACES logo. The other files are placeholders, which the apply step skips until they are replaced. See the README in that folder.
+- **Logo folder.** `branding/department-logos/` holds one file per department, named after its matric code: `EG-EE.png` is the logo for `EG/EE`. `EG-CO.png` is the ACES logo. The other files are placeholders, which the apply step skips until they are replaced. See the README in that folder. The folder is only the drop point: applying it stores each image in the database (`tenants.logo`), and the app serves it from there at `GET /api/v1/tenants/:slug/logo`. A department must exist before its logo can be applied, because the logo is matched to it by matric code. Create the departments with [`tenant ensure`](#adding-several-departments-at-once) first.
 
 ## Database roles
 
@@ -159,7 +159,7 @@ Run these steps in order, substituting your own connection strings.
 
 1. **Migrate as the owner.** `DB_SOURCE=<owner DSN> make migrate-up`
 2. **Create the runtime role.** `DB_SOURCE=<owner DSN> APP_DB_USER=aces_app APP_DB_PASSWORD=<secret> make runtime-role`
-3. **Create departments as the owner.** `DB_SOURCE=<owner DSN> go run ./cmd/tenant create -slug unilag-ce -name "Department of Computer Engineering" -matric-code EG/CO -institution "University of Lagos" -faculty "Faculty of Engineering"`. A department created without `-matric-code` cannot onboard or sign up students until you set one (see [Matric numbers](#matric-numbers)).
+3. **Create departments as the owner.** `DB_SOURCE=<owner DSN> go run ./cmd/tenant create -slug unilag-ce -name "Department of Computer Engineering" -matric-code EG/CO -institution "University of Lagos" -faculty "Faculty of Engineering"`. A department created without `-matric-code` cannot onboard or sign up students until you set one (see [Matric numbers](#matric-numbers)). To open a whole faculty at once, use [`tenant ensure`](#adding-several-departments-at-once) with `deploy/departments.json`.
 4. **Create each department's first admin as the runtime role.** `DB_SOURCE=<runtime DSN> ADMIN_EMAIL=<email> go run ./cmd/seed_admin -tenant unilag-ce`. seed_admin generates the password and prints it once, so store it then. Each department gets a different password, and setting `ADMIN_PASSWORD` is an error.
 
    **Lost password.** Run the same command with `-reset-password` (and the same `ADMIN_EMAIL`). It only changes the account in that department, prints a new password once, and signs it out of every session. The refresh token stops working at once; an access token already issued lasts until it expires (`JWT_ACCESS_MINUTES`, 60 by default). It refuses an account that is not an admin (or, with `-role lecturer`, not a lecturer).
@@ -181,10 +181,60 @@ Pass the owner's DSN on the command line for owner-level steps. Keep only the ru
 
 `000005_matric_codes.down.sql` removes the matric codes. Without them the server refuses matric-based sign-up and onboarding, so roll back only with the previous release running.
 
+## Adding several departments at once
+
+Departments are created with `cmd/tenant`, never from the app. The registry is a shared table with no row-level security, and the server's database role has `SELECT` on it and nothing else, so a department cannot be created through the API without handing the server the keys to every department. The command runs on its own, with the owner's connection string.
+
+`deploy/departments.json` ships with the eight departments of the Faculty of Engineering, each with its matric code. Edit the file for your own departments, then:
+
+```sh
+cd backend
+DB_SOURCE=<owner DSN> go run ./cmd/tenant ensure -file deploy/departments.json -dry-run
+DB_SOURCE=<owner DSN> go run ./cmd/tenant ensure -file deploy/departments.json
+```
+
+Each line of the file is one department:
+
+```json
+[
+  {
+    "slug": "dept-me",
+    "name": "Department of Mechanical Engineering",
+    "matric_code": "EG/ME",
+    "url_code": "me",
+    "institution": "University of Uyo",
+    "faculty": "Faculty of Engineering"
+  }
+]
+```
+
+| Field | Required | Notes |
+|---|---|---|
+| `slug` | yes | Lowercase letters, digits and single hyphens. It is the department's identifier, and it cannot be changed afterwards. |
+| `name` | yes | Shown everywhere the department is named. |
+| `matric_code` | no | The faculty and department pair, `EG/ME`. Without it students cannot sign up or finish onboarding. Two departments cannot share one. |
+| `url_code` | no | The department's web address: `me` gives `/me` and `/me/admin`. Defaults to the matric code's suffix. |
+| `institution` | no | Shown on the sign-in page, receipts and PDFs. |
+| `faculty` | no | Shown with the institution. |
+
+What it does:
+
+- A department whose slug is already there is **left exactly as it is**, and the run says `keep`. Running it twice changes nothing the second time, so it is safe against a database that already holds some of the departments.
+- A department that is missing is created, with the next step printed after it: `seed_admin -tenant <slug>`.
+- A matric code that another department already uses is refused, naming that department. A matric number maps to one department, so the code cannot be shared.
+- The whole file is checked before anything is written, so a typo stops the run instead of leaving half the departments behind. `-dry-run` shows what would happen without writing.
+
+Afterwards, for each new department:
+
+1. Seed its first admin: `DB_SOURCE=<runtime DSN> ADMIN_EMAIL=<email> go run ./cmd/seed_admin -tenant <slug>`. It prints the generated password once.
+2. Drop its logo into `branding/department-logos/` as `EG-ME.png` and apply the folder: `DB_SOURCE=<owner DSN> go run ./cmd/tenant logos -dir ../branding/department-logos` (see [Branding](#branding)).
+
+A department with no admin and no logo still works: it appears on the sign-in page and in `GET /api/v1/tenants` straight away, with the neutral badge instead of a logo.
+
 ## Day-to-day operations
 
 - **List departments.** `go run ./cmd/tenant list`. It shows each department's matric code.
-- **Add a department.** Create it with `cmd/tenant create -matric-code EG/XX` (owner connection), then seed its first admin with `cmd/seed_admin -tenant <slug>` (runtime connection). Seed a lecturer the same way with `-role lecturer`, setting `LECTURER_EMAIL` and `LECTURER_STAFF_ID`. Its password is generated and printed once, as for admins. Both accounts are approved and belong to that department only. It appears in `GET /api/v1/tenants` straight away.
+- **Add a department.** Create it with `cmd/tenant create -matric-code EG/XX` (owner connection), then seed its first admin with `cmd/seed_admin -tenant <slug>` (runtime connection). Seed a lecturer the same way with `-role lecturer`, setting `LECTURER_EMAIL` and `LECTURER_STAFF_ID`. Its password is generated and printed once, as for admins. Both accounts are approved and belong to that department only. It appears in `GET /api/v1/tenants` straight away. See [Adding several departments at once](#adding-several-departments-at-once) for the bulk form.
 - **Reset a lost admin password.** `cmd/seed_admin -tenant <slug> -reset-password` (runtime connection), as in step 4. See the lost-password note there.
 - **Sign-in addresses.** Each admin sees the department's addresses on the Settings page, under the Department tab: `/<code>` for students and `/<code>/admin` for staff, built on the address the admin is using. The code is set with `cmd/tenant update -url-code`.
 - **Set or change a matric code.** `go run ./cmd/tenant update -slug <slug> -matric-code EG/EE` (owner connection). The code is the faculty and department pair, such as `EG/EE`, not `EE`. `-matric-code ""` clears it, and the department then refuses matric-based sign-up and onboarding. The change takes effect within about a minute.

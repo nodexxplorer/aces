@@ -1,0 +1,66 @@
+[
+  {
+    "slug": "uniuyo-ce",
+    "name": "Department of Computer Engineering",
+    "matric_code": "EG/CO",
+    "url_code": "co",
+    "institution": "University of Uyo",
+    "faculty": "Faculty of Engineering"
+  },
+  {
+    "slug": "dept-ee",
+    "name": "Department of Electrical Engineering",
+    "matric_code": "EG/EE",
+    "url_code": "ee",
+    "institution": "University of Uyo",
+    "faculty": "Faculty of Engineering"
+  },
+  {
+    "slug": "dept-ce",
+    "name": "Department of Chemical Engineering",
+    "matric_code": "EG/CE",
+    "url_code": "ce",
+    "institution": "University of Uyo",
+    "faculty": "Faculty of Engineering"
+  },
+  {
+    "slug": "dept-pe",
+    "name": "Department of Petroleum Engineering",
+    "matric_code": "EG/PE",
+    "url_code": "pe",
+    "institution": "University of Uyo",
+    "faculty": "Faculty of Engineering"
+  },
+  {
+    "slug": "dept-ae",
+    "name": "Department of Agricultural Engineering",
+    "matric_code": "EG/AE",
+    "url_code": "ae",
+    "institution": "University of Uyo",
+    "faculty": "Faculty of Engineering"
+  },
+  {
+    "slug": "dept-fe",
+    "name": "Department of Food Engineering",
+    "matric_code": "EG/FE",
+    "url_code": "fe",
+    "institution": "University of Uyo",
+    "faculty": "Faculty of Engineering"
+  },
+  {
+    "slug": "dept-cv",
+    "name": "Department of Civil Engineering",
+    "matric_code": "EG/CV",
+    "url_code": "cv",
+    "institution": "University of Uyo",
+    "faculty": "Faculty of Engineering"
+  },
+  {
+    "slug": "dept-me",
+    "name": "Department of Mechanical Engineering",
+    "matric_code": "EG/ME",
+    "url_code": "me",
+    "institution": "University of Uyo",
+    "faculty": "Faculty of Engineering"
+  }
+]

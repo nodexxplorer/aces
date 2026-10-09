@@ -20,6 +20,13 @@ file that is still a placeholder, so one you have not replaced is never publishe
 
 Images must be PNG, JPEG or WebP, at most 256 KiB.
 
+The folder is only the drop point. Applying it stores each logo in the database,
+and the web and mobile apps load it from there, so it survives a redeploy and
+each department's pages show its own logo. A department must exist before its
+logo can be applied, because the file is matched to it by matric code: create
+the departments first with
+`go run ./cmd/tenant ensure -file deploy/departments.json` from `backend/`.
+
 ## Apply the logos
 
 Use the owner database connection, as for the other `cmd/tenant` commands. Check

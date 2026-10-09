@@ -58,6 +58,20 @@ DB_SOURCE='postgresql://aces_app:…@localhost:5432/aces_zone?sslmode=disable' \
 # A lecturer's password: add -role lecturer and set LECTURER_EMAIL instead.
 ```
 
+To open a whole faculty at once, list the departments in `deploy/departments.json` (the file ships with the eight departments of the Faculty of Engineering) and run `ensure`. It creates the departments that are missing and leaves the ones that are already there alone, so it is safe to run again:
+
+```bash
+# See what it would do first
+DB_SOURCE='postgresql://aces_user:…@localhost:5432/aces_zone?sslmode=disable' \
+  go run ./cmd/tenant ensure -file deploy/departments.json -dry-run
+
+# Then create them
+DB_SOURCE='postgresql://aces_user:…@localhost:5432/aces_zone?sslmode=disable' \
+  go run ./cmd/tenant ensure -file deploy/departments.json
+```
+
+Each new department then needs an admin (step 4 above, once per department) and, when you have it, a logo (`cmd/tenant logos -dir ../branding/department-logos`). The full field list is in `docs/multi-tenancy.md`, under [Adding several departments at once](../../docs/multi-tenancy.md#adding-several-departments-at-once).
+
 `cmd/tenant` also supports `list`, `logos`, `activate` and `deactivate`. `update` changes only the flags you pass:
 
 ```bash

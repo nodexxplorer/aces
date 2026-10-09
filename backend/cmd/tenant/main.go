@@ -3,9 +3,15 @@
 //	tenant list
 //	tenant create -slug uniport-ee -name "Department of Electrical Engineering" \
 //	              -matric-code EG/EE [-institution "University of Port Harcourt"] [-faculty "Faculty of Engineering"]
+//	tenant ensure [-file deploy/departments.json] [-dry-run]
 //	tenant update -slug uniport-ee [-name ...] [-institution ...] [-faculty ...] [-matric-code EG/EE]
 //	tenant activate -slug uniport-ee
 //	tenant deactivate -slug uniport-ee
+//
+// ensure is the bulk form of create: it takes a JSON file of departments and
+// creates the ones that are missing, leaving the rest alone. Running it twice
+// changes nothing the second time. deploy/departments.json ships with the eight
+// departments of the Faculty of Engineering; edit it for your own faculty.
 //
 // -matric-code is the department part of its students' matric numbers: EG/EE
 // for 20/EG/EE/1234. A department without one refuses matric-based sign-up and
@@ -64,6 +70,8 @@ func main() {
 		list(ctx, pool)
 	case "create":
 		create(ctx, pool, args)
+	case "ensure":
+		ensure(ctx, pool, args)
 	case "update":
 		update(ctx, pool, args)
 	case "logos":
@@ -78,8 +86,9 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: tenant <list | create | update | logos | activate | deactivate> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: tenant <list | create | ensure | update | logos | activate | deactivate> [flags]")
 	fmt.Fprintln(os.Stderr, "  create      -slug <slug> -name <name> [-matric-code <EG/EE>] [-institution <text>] [-faculty <text>]")
+	fmt.Fprintln(os.Stderr, "  ensure      [-file deploy/departments.json] [-dry-run]   create every department of a file that is missing")
 	fmt.Fprintln(os.Stderr, "  update      -slug <slug> [-name <name>] [-matric-code <EG/EE>] [-institution <text>] [-faculty <text>]")
 	fmt.Fprintln(os.Stderr, "              [-description <text>] [-logo <file.png|jpg|webp>] [-remove-logo]")
 	fmt.Fprintln(os.Stderr, "  logos       -dir <folder> [-dry-run]   set logos from files named by matric code, e.g. EG-CE.png")
@@ -148,14 +157,16 @@ func create(ctx context.Context, pool *pgxpool.Pool, args []string) {
 		}
 	}
 
-	var id string
-	err = pool.QueryRow(ctx, `
-		INSERT INTO tenants (slug, name, institution, faculty, matric_code, url_code)
-		VALUES ($1, $2, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''))
-		RETURNING id::text`, *slug, strings.TrimSpace(*name), strings.TrimSpace(*institution), strings.TrimSpace(*faculty), code, urlCode,
-	).Scan(&id)
+	id, err := insertDepartment(ctx, pool, departmentSpec{
+		Slug:        *slug,
+		Name:        strings.TrimSpace(*name),
+		Institution: strings.TrimSpace(*institution),
+		Faculty:     strings.TrimSpace(*faculty),
+		MatricCode:  code,
+		URLCode:     urlCode,
+	})
 	if err != nil {
-		log.Fatalf("create department %q: %v", *slug, describeWriteError(err, code))
+		log.Fatalf("create department %q: %v", *slug, err)
 	}
 	fmt.Printf("created department %q (id %s)\n", *slug, id)
 	fmt.Printf("  web address:  %s\n", webAddress(urlCode))
