@@ -3,7 +3,6 @@ import { useState } from 'react';
 import {
   View,
   TextInput,
-  Image,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
@@ -19,6 +18,7 @@ import { AccentScope, useTheme } from '../../src/theme/ThemeProvider';
 import { fontFamily, fontSize, radius, spacing } from '../../src/theme/typography';
 import { palette } from '../../src/theme/colors';
 import Button from '../../src/components/ui/Button';
+import AdminPackMark from '../../src/components/AdminPackMark';
 import { login as loginRequest } from '../../src/api/auth';
 import DepartmentPicker from '../../src/components/DepartmentPicker';
 import { useDepartmentChoice, type DepartmentChoice } from '../../src/hooks/useDepartmentChoice';
@@ -87,9 +87,7 @@ function LoginForm({ dept }: { dept: DepartmentChoice }) {
           style={[styles.hero, { paddingTop: insets.top + spacing.xl }]}
         >
           <Animated.View entering={FadeInUp.duration(600).springify()} style={styles.heroContent}>
-            <View style={styles.logoWrap}>
-              <Image source={require('../../assets/aces-logo.png')} style={styles.logo} resizeMode="contain" />
-            </View>
+            <AdminPackMark size={88} />
             <Text style={styles.heroTitle}>Admin Pack</Text>
             <Text style={styles.heroSubtitle}>{departmentName}</Text>
           </Animated.View>
@@ -184,19 +182,6 @@ const styles = StyleSheet.create({
   heroContent: {
     alignItems: 'center',
     gap: spacing.sm,
-  },
-  logoWrap: {
-    width: 88,
-    height: 88,
-    borderRadius: radius['2xl'],
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.sm,
-  },
-  logo: {
-    width: 60,
-    height: 60,
   },
   heroTitle: {
     fontFamily: fontFamily.bold,
