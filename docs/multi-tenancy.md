@@ -122,20 +122,30 @@ Each department has its own name, description and logo. The sign-in and sign-up 
 
 ## Sign-in look
 
-The sign-in and sign-up pages can be drawn three ways. The choice is made on the page itself, by anyone, with a **Look** picker above the form (on the web and in the app). Settings has no look card.
+The sign-in and sign-up pages can be drawn three ways. Anyone chooses the look on the page itself, with a **Look** picker above the form (on the web and in the app). Settings has no look card.
 
-- **classic** (default): the video background on the web, the platform mark on the brand gradient in the app. No image.
-- **split**: the chosen image fills the left half on the web (a band on top on phones), with the form beside it.
-- **centered**: the chosen image is the full-screen backdrop, with the form in a card.
+- **classic** (default): the video background on the web, the brand panel in the app. No wallpaper.
+- **split**: the wallpaper fills the left half on the web (a band on top on phones), with the form beside it.
+- **centered**: the wallpaper is the full-screen backdrop, with the form in a card.
 
-Split and centered need an image. Until one is added, the page draws classic and the picker says so. Switching the template keeps the image; removing the image keeps the template.
+There are no preset wallpapers. Split and centered need one. Until one is chosen, the page draws classic and the picker says so. Each wallpaper can be made **darker or lighter** (Light, Medium, Dark) so the form stays readable.
 
-**Device only.** The template and the image are kept on the person's own device, per department, and nothing is sent to the server. There is no table, no endpoint and no moderation step. Only the person who chose the look sees it.
+**Where a wallpaper comes from.** The picker offers three ways to get one, and every wallpaper kept is listed under **Saved**:
 
-- **Web.** `localStorage` under `aces.signInLook.<slug>` (or `aces.signInLook.default` with no department), holding `{ template, imageDataUrl? }`. Frontend: `src/config/signInLook.ts`, `src/hooks/useSignInLook.ts`, `src/components/auth/SignInLookPicker.tsx`. An image is read from the file picker (PNG, JPEG or WebP, 10 MB or less) and scaled so its longest side is at most 1600 px, saved as JPEG at quality 0.85.
-- **App.** AsyncStorage under the same key pattern, holding `{ template, imageUri? }`. The picture is copied to the app's document folder (`sign-in-look/`), and the stored address is its file path. Mobile: `src/config/signInLook.ts`, `src/hooks/useSignInLook.ts`, `src/utils/signInLookImage.ts`, `src/components/auth/SignInLookPicker.tsx`. The same size and type rules apply, and the picture is scaled with `expo-image-manipulator`. A picture that is no longer on the phone falls back to classic.
+- **Upload**: a PNG, JPEG or WebP from the device, 10 MB or less.
+- **Create**: a short description (300 characters at most) is sent to the server, which asks Gemini's image model for a wallpaper (`GEMINI_IMAGE_MODEL`, default `gemini-2.5-flash-image`) with the server's `GEMINI_API_KEY`. The picture comes straight back to the device. The server keeps nothing.
+- **Saved**: the device keeps up to six wallpapers, newest first; the oldest is dropped past that. Any of them can be reused by any department on the device.
 
-Because the choice is per device, a person who signs in on a second device sees the default there. The look is cosmetic: it does not change any account or department data.
+Every picture is scaled so its longest side is at most 1600 px and saved as JPEG at quality 0.85, whichever way it came.
+
+**Device only.** The template, the wallpaper choice, the dim level and the wallpapers themselves are kept on the person's own device. Nothing about them is stored on the server, and there is no table, no moderation step and no admin upload. Only the person who chose the look sees it. The one server call is the request to create a wallpaper.
+
+**The create endpoint.** `POST /api/v1/wallpapers/generate` with `{ "prompt": "..." }` returns `{ "mimeType", "data" }` (base64). It is public, because the sign-in page comes before login, so it is limited per IP to **5 requests an hour** (Redis when configured, otherwise in memory). Each call spends the server's Gemini key, so keep that limit in place. It answers 503 when no key is set, and 502 with a general message when Gemini fails; the key and upstream details are never returned to the browser. Only PNG, JPEG and WebP results of 8 MB or less are passed on.
+
+- **Web.** `localStorage`. Per department, `aces.signInLook.<slug>` (or `aces.signInLook.default`) holds `{ template, wallpaperId?, dim }`. The device's wallpapers are in `aces.signInWallpapers` as `{ id, dataUrl, source, savedAt }`. Frontend: `src/config/signInLook.ts`, `src/hooks/useSignInLook.ts`, `src/components/auth/SignInLookPicker.tsx`, `src/api/wallpapers.ts`.
+- **App.** AsyncStorage under the same keys. The pictures are files in the app's document folder (`sign-in-look/`), and the library holds their addresses. A created picture is written to a temporary file, then scaled and kept the same way as an uploaded one. Mobile: `src/config/signInLook.ts`, `src/hooks/useSignInLook.ts`, `src/utils/signInLookImage.ts`, `src/components/auth/SignInLookPicker.tsx`, `src/api/wallpapers.ts`. Uploads need `expo-image-picker` and `expo-image-manipulator`, which means a new native build.
+
+A wallpaper that is removed from the device is no longer used by any department on it; a department that used it goes back to classic. A look is cosmetic: it does not change any account or department data. A second device starts with the default look.
 
 ## Database roles
 

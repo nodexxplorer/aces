@@ -1,25 +1,34 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  addWallpaper,
   DEFAULT_SIGN_IN_LOOK,
   readSignInLook,
+  readWallpapers,
+  removeWallpaper,
+  resolveWallpaper,
   writeSignInLook,
+  type DimLevel,
   type LoginTemplate,
+  type SavedWallpaper,
   type SignInLook,
 } from '../config/signInLook';
-import { removeSignInImage } from '../utils/signInLookImage';
 
 /**
- * The sign-in look for a department on this phone. Each change is kept straight
- * away. The setters resolve to false when the phone cannot save the change, and
+ * The sign-in look on this phone: the department's template, wallpaper and dim
+ * level, plus the phone's saved wallpapers. Every change is kept straight away.
+ * Setters resolve to false (or null) when the phone cannot save the change, and
  * the look on screen then stays as it was.
  */
 export function useSignInLook(slug: string) {
   const [state, setState] = useState<{ slug: string; look: SignInLook } | null>(null);
+  const [library, setLibrary] = useState<SavedWallpaper[]>([]);
 
   useEffect(() => {
     let cancelled = false;
-    readSignInLook(slug).then((look) => {
-      if (!cancelled) setState({ slug, look });
+    Promise.all([readSignInLook(slug), readWallpapers()]).then(([look, list]) => {
+      if (cancelled) return;
+      setState({ slug, look });
+      setLibrary(list);
     });
     return () => {
       cancelled = true;
@@ -38,32 +47,57 @@ export function useSignInLook(slug: string) {
     [slug],
   );
 
-  const setTemplate = useCallback(
-    (template: LoginTemplate) => save({ ...look, template }),
-    [look, save],
-  );
+  const refreshLibrary = useCallback(async () => {
+    setLibrary(await readWallpapers());
+  }, []);
 
-  /** Keeps a picture that was just copied to the phone. A picture that cannot be saved is removed again. */
-  const setImage = useCallback(
-    async (imageUri: string): Promise<boolean> => {
-      const previous = look.imageUri;
-      const saved = await save({ ...look, imageUri });
-      if (saved) {
-        if (previous && previous !== imageUri) removeSignInImage(previous);
-      } else {
-        removeSignInImage(imageUri);
+  const setTemplate = useCallback((template: LoginTemplate) => save({ ...look, template }), [look, save]);
+
+  const setDim = useCallback((dim: DimLevel) => save({ ...look, dim }), [look, save]);
+
+  /**
+   * Keeps a wallpaper on this phone and uses it for this department. Resolves to
+   * the saved wallpaper, or null when either save fails (and nothing changes).
+   */
+  const saveWallpaper = useCallback(
+    async (uri: string, source: SavedWallpaper['source']): Promise<SavedWallpaper | null> => {
+      const wallpaper = await addWallpaper(uri, source);
+      if (!wallpaper) return null;
+      if (!(await save({ ...look, wallpaperId: wallpaper.id }))) {
+        await removeWallpaper(wallpaper.id);
+        return null;
       }
-      return saved;
+      await refreshLibrary();
+      return wallpaper;
     },
-    [look, save],
+    [look, save, refreshLibrary],
   );
 
-  const removeImage = useCallback(async (): Promise<boolean> => {
-    const previous = look.imageUri;
-    const saved = await save({ template: look.template });
-    if (saved && previous) removeSignInImage(previous);
-    return saved;
-  }, [look, save]);
+  const selectWallpaper = useCallback((id: string) => save({ ...look, wallpaperId: id }), [look, save]);
 
-  return { look, setTemplate, setImage, removeImage };
+  /** Removes a saved wallpaper from this phone. A department that used it goes back to classic. */
+  const deleteWallpaper = useCallback(
+    async (id: string): Promise<boolean> => {
+      if (!(await removeWallpaper(id))) return false;
+      await refreshLibrary();
+      if (look.wallpaperId === id) await save({ ...look, wallpaperId: undefined });
+      return true;
+    },
+    [look, save, refreshLibrary],
+  );
+
+  const wallpaper = resolveWallpaper(look, library);
+
+  return {
+    look,
+    library,
+    wallpaper,
+    setTemplate,
+    setDim,
+    saveWallpaper,
+    selectWallpaper,
+    deleteWallpaper,
+  };
 }
+
+export type SignInLookControls = ReturnType<typeof useSignInLook>;

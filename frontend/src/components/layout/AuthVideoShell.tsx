@@ -5,7 +5,7 @@ import CookieConsent from '../feedback/CookieConsent';
 import { AdminPackMark } from '../branding/AdminPackMark';
 import { DepartmentLogo } from '../branding/DepartmentBrand';
 import type { TenantInfo } from '../../types';
-import { resolveLoginTemplate } from '../../config/signInLook';
+import { dimOpacity, resolveLoginTemplate } from '../../config/signInLook';
 import { useSignInLook } from '../../hooks/useSignInLook';
 import { SignInLookPicker } from '../auth/SignInLookPicker';
 
@@ -93,6 +93,8 @@ interface TemplateProps {
   cardMaxWidth: string;
   picker: ReactNode;
   imageSrc: string;
+  /** Overlay strength over the wallpaper, 0 to 1. */
+  dim: number;
   department?: TenantInfo;
 }
 
@@ -100,11 +102,12 @@ interface TemplateProps {
  * Split template: the image fills the left half (a band on top when the screen
  * is narrow), and the form sits on the right.
  */
-const SplitShell = ({ children, cardMaxWidth, picker, imageSrc, department }: TemplateProps) => (
+const SplitShell = ({ children, cardMaxWidth, picker, imageSrc, dim, department }: TemplateProps) => (
   <div className="relative flex min-h-screen w-full flex-col overflow-hidden bg-surface-950 select-none">
     <div className="flex flex-1 flex-col md:flex-row">
       <div className="relative h-56 w-full shrink-0 md:h-auto md:min-h-screen md:w-1/2">
         <img src={imageSrc} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-black" style={{ opacity: dim }} />
         <div className="absolute inset-0 bg-gradient-to-t from-surface-950/85 via-surface-950/20 to-transparent" />
         {department && (
           <div className="absolute bottom-0 left-0 p-8 lg:p-12">
@@ -127,10 +130,10 @@ const SplitShell = ({ children, cardMaxWidth, picker, imageSrc, department }: Te
  * Centered template: the image is the full-bleed backdrop, and the form sits in
  * a card in the middle, with the department's logo above it.
  */
-const CenteredShell = ({ children, cardMaxWidth, picker, imageSrc, department }: TemplateProps) => (
+const CenteredShell = ({ children, cardMaxWidth, picker, imageSrc, dim, department }: TemplateProps) => (
   <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-surface-950 select-none px-4 py-10">
     <img src={imageSrc} alt="" className="absolute inset-0 h-full w-full object-cover" />
-    <div className="absolute inset-0 bg-black/55" />
+    <div className="absolute inset-0 bg-black" style={{ opacity: dim }} />
     <div className="relative z-10 flex w-full flex-col items-center">
       {department && (
         <>
@@ -150,32 +153,44 @@ const CenteredShell = ({ children, cardMaxWidth, picker, imageSrc, department }:
 );
 
 // Shared full-bleed shell for every public auth page (login, signup, password
-// reset). The template is chosen on the page itself (the picker above the form),
-// and kept on this device: classic (the video background, with the animated logo
-// on a desktop-only left panel), split, or centered. Split and centered show the
-// image the person added; without one they fall back to classic.
+// reset). The look is chosen on the page itself (the picker above the form) and
+// kept on this device: classic (the video background, with the animated logo on
+// a desktop-only left panel), split, or centered. Split and centered show the
+// wallpaper the person uploaded or created; without one they fall back to classic.
 const AuthVideoShell = ({
   children,
   cardMaxWidth = 'max-w-md',
   tagline = APP_DESCRIPTION,
   department,
 }: AuthVideoShellProps) => {
-  const { look, setTemplate, setImage, removeImage } = useSignInLook(department?.slug);
-  const template = resolveLoginTemplate(look.template, Boolean(look.imageDataUrl));
-  const picker = (
-    <SignInLookPicker look={look} onTemplate={setTemplate} onImage={setImage} onRemoveImage={removeImage} />
-  );
+  const controls = useSignInLook(department?.slug);
+  const { look, wallpaper } = controls;
+  const imageSrc = wallpaper?.dataUrl;
+  const template = resolveLoginTemplate(look.template, Boolean(imageSrc));
+  const picker = <SignInLookPicker controls={controls} />;
 
-  if (template === 'split' && look.imageDataUrl) {
+  if (template === 'split' && imageSrc) {
     return (
-      <SplitShell cardMaxWidth={cardMaxWidth} picker={picker} imageSrc={look.imageDataUrl} department={department}>
+      <SplitShell
+        cardMaxWidth={cardMaxWidth}
+        picker={picker}
+        imageSrc={imageSrc}
+        dim={dimOpacity(look.dim)}
+        department={department}
+      >
         {children}
       </SplitShell>
     );
   }
-  if (template === 'centered' && look.imageDataUrl) {
+  if (template === 'centered' && imageSrc) {
     return (
-      <CenteredShell cardMaxWidth={cardMaxWidth} picker={picker} imageSrc={look.imageDataUrl} department={department}>
+      <CenteredShell
+        cardMaxWidth={cardMaxWidth}
+        picker={picker}
+        imageSrc={imageSrc}
+        dim={dimOpacity(look.dim)}
+        department={department}
+      >
         {children}
       </CenteredShell>
     );

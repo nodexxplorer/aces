@@ -68,6 +68,7 @@ type Config struct {
 	Environment        string
 	GeminiApiKey       string
 	GeminiModel        string
+	GeminiImageModel   string
 	AIFallbackEnabled  bool
 	FrontendPublicURL  string
 	// APIPublicURL is where the API is reachable from outside, for links in
@@ -136,6 +137,7 @@ func Load() *Config {
 		Environment:        getEnv("ENVIRONMENT", "development"),
 		GeminiApiKey:       getEnv("GEMINI_API_KEY", ""),
 		GeminiModel:        getEnv("GEMINI_MODEL", "gemini-2.5-flash"),
+		GeminiImageModel:   getEnv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image"),
 		AIFallbackEnabled:  getBool("AI_FALLBACK_ENABLED", true),
 		FrontendPublicURL:  getFirstEnv("FRONTEND_PUBLIC_URL", "http://localhost:5173"),
 		APIPublicURL:       getFirstEnv("API_PUBLIC_URL", getFirstEnv("FRONTEND_PUBLIC_URL", "http://localhost:5173")),

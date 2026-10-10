@@ -19,6 +19,8 @@ interface Props {
   template?: LoginTemplate;
   /** The picture to draw for split and centered. Without one they draw as classic. */
   imageUri?: string;
+  /** How dark the picture is made, from 0 (none) to 1 (opaque). */
+  dim?: number;
   /** The look picker, shown above the title. */
   picker?: ReactNode;
 }
@@ -37,6 +39,7 @@ export default function ModoolsAuthLayout({
   children,
   template = 'classic',
   imageUri,
+  dim = 0.55,
   picker,
 }: Props) {
   const { theme, brand } = useTheme();
@@ -45,7 +48,7 @@ export default function ModoolsAuthLayout({
   if (template === 'centered' && imageUri) {
     return (
       <ImageBackground source={{ uri: imageUri }} style={styles.flex} resizeMode="cover">
-        <View style={styles.photoScrim} />
+        <View style={[styles.photoScrim, { backgroundColor: `rgba(0,0,0,${dim})` }]} />
         <ScrollView
           contentContainerStyle={[
             styles.centeredContent,
@@ -78,6 +81,7 @@ export default function ModoolsAuthLayout({
           style={[styles.hero, styles.photoHero, { paddingTop: insets.top + spacing.xl }]}
           resizeMode="cover"
         >
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(0,0,0,${dim})` }]} />
           <LinearGradient
             colors={['rgba(0,0,0,0.05)', 'rgba(0,0,0,0.7)']}
             start={{ x: 0, y: 0 }}
@@ -186,7 +190,6 @@ const styles = StyleSheet.create({
   },
   photoScrim: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.55)',
   },
   centeredContent: {
     flexGrow: 1,

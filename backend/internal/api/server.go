@@ -95,6 +95,7 @@ type Server struct {
 	campusConnect     *service.CampusConnectService
 	alumni            *service.AlumniService
 	ai                *service.AIService
+	wallpapers        *service.WallpaperService
 	wsHub             *ws.Hub
 	storage           *storage.LocalStorage
 	uploads           *uploads.Signer
@@ -143,6 +144,7 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		campusConnect:     service.NewCampusConnectService(store),
 		alumni:            service.NewAlumniService(store),
 		ai:                service.NewAIService(store, cfg),
+		wallpapers:        service.NewWallpaperService(cfg.GeminiApiKey, cfg.GeminiImageModel),
 		wsHub:             hub,
 		emailSender:       emailSender,
 	}
@@ -212,13 +214,15 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	server.registerUploadRoutes(router)
 
 	// Per-route rate limiters: prefer Redis, fall back to in-memory
-	var rl, authRL gin.HandlerFunc
+	var rl, authRL, wallpaperRL gin.HandlerFunc
 	if server.redisCache != nil {
 		rl = middleware.RedisRateLimit(server.redisCache, 10, time.Minute)
 		authRL = middleware.RedisRateLimit(server.redisCache, 60, time.Minute)
+		wallpaperRL = middleware.RedisRateLimit(server.redisCache, 5, time.Hour)
 	} else {
 		rl = middleware.RateLimit(10, time.Minute)
 		authRL = middleware.RateLimit(60, time.Minute)
+		wallpaperRL = middleware.RateLimit(5, time.Hour)
 	}
 
 	router.GET("/health", server.healthCheck)
@@ -237,6 +241,11 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	// Public list of departments for the sign-in and sign-up pages.
 	v1.GET("/tenants", authRL, server.listTenants)
 	v1.GET("/tenants/:slug/logo", authRL, server.tenantLogo)
+
+	// Creates a sign-in wallpaper from a short description. Public, because the
+	// sign-in page comes before login; each caller is limited, since every call
+	// spends the server's Gemini key.
+	v1.POST("/wallpapers/generate", wallpaperRL, server.generateWallpaper)
 
 	v1.GET("/auth/modools/login", server.modoolsLogin)
 	v1.GET("/auth/modools/callback", server.modoolsCallback)
