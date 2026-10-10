@@ -237,6 +237,9 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	// Public list of departments for the sign-in and sign-up pages.
 	v1.GET("/tenants", authRL, server.listTenants)
 	v1.GET("/tenants/:slug/logo", authRL, server.tenantLogo)
+	// The sign-in look (template and hero image) is public for the same reason.
+	v1.GET("/tenants/:slug/login-look", authRL, server.tenantLoginLook)
+	v1.GET("/tenants/:slug/login-image", authRL, server.tenantLoginImage)
 
 	v1.GET("/auth/modools/login", server.modoolsLogin)
 	v1.GET("/auth/modools/callback", server.modoolsCallback)
@@ -765,6 +768,18 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	// page) and by students (to render the images on the placement
 	// canvas), so it is registered once for any authenticated user.
 	api.GET("/crf-signatures", server.listCRFSignatureAssets)
+
+	// ── Sign-in look: the admin picks the template for the sign-in and sign-up
+	// pages and uploads the hero image they use. Any signed-in user may read
+	// the department's own look (the Settings page does); only admins change it.
+	api.GET("/department/login-look", server.myLoginLook)
+	departmentLook := api.Group("/department")
+	departmentLook.Use(middleware.RequireRoles("admin"))
+	{
+		departmentLook.PUT("/login-look", server.updateLoginTemplate)
+		departmentLook.PUT("/login-image", server.uploadLoginImage)
+		departmentLook.DELETE("/login-image", server.removeLoginImage)
+	}
 
 	crfSigning := api.Group("/crf-signing")
 	{
