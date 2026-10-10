@@ -106,7 +106,7 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
         <div ref={dropdownRef} className="relative">
           <button
             onClick={() => setProfileOpen(!profileOpen)}
-            className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-xs font-semibold hover:opacity-90 transition-opacity"
+            className="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center text-white text-xs font-semibold hover:opacity-90 transition-opacity"
           >
             {user?.avatar ? (
               <img

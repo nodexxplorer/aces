@@ -524,7 +524,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
         {user && (
           <div className="px-4 py-4 border-b border-surface-100 dark:border-surface-800">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-sm font-semibold shrink-0">
+              <div className="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-white text-sm font-semibold shrink-0">
                 {user.avatar ? (
                   <img
                     src={getMediaUrl(user.avatar) ?? undefined}
