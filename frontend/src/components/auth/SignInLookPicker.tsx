@@ -22,10 +22,16 @@ function serverMessage(err: unknown): string {
   return typeof data?.error === 'string' ? data.error : 'Try again in a moment.';
 }
 
+const PILL =
+  'rounded-md px-2 py-1 text-[11px] font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white';
+const pill = (selected: boolean) =>
+  `${PILL} ${selected ? 'bg-white text-surface-900' : 'bg-white/10 text-white hover:bg-white/20'}`;
+
 /**
  * The look controls on the sign-in and sign-up pages. Anyone can use them. The
  * choices stay on this device: the template, the wallpaper (uploaded from the
- * device or created from a description) and how dim it is.
+ * device or created from a description) and how dim it is. Kept compact: the
+ * wallpaper row holds the actions and the saved thumbnails together.
  */
 export function SignInLookPicker({ controls }: { controls: SignInLookControls }) {
   const { look, library, wallpaper, setTemplate, setDim, saveWallpaper, selectWallpaper, deleteWallpaper } = controls;
@@ -103,23 +109,18 @@ export function SignInLookPicker({ controls }: { controls: SignInLookControls })
     if (!deleteWallpaper(id)) notifyError('Could not remove the wallpaper', 'Please try again.');
   };
 
-  const pillClass = (selected: boolean) =>
-    `rounded-lg px-2 py-2 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white ${
-      selected ? 'bg-white text-surface-900' : 'bg-white/10 text-white hover:bg-white/20'
-    }`;
-
   return (
     <div
       role="group"
       aria-label="Sign-in look"
-      className="mb-4 rounded-xl border border-white/15 bg-black/30 p-3 text-white backdrop-blur"
+      className="mb-3 rounded-xl border border-white/15 bg-black/30 p-2.5 text-white backdrop-blur"
     >
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-white/75">Look</span>
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-white/75">Look</span>
         <span className="text-[11px] text-white/55">Saved on this device</span>
       </div>
 
-      <div role="radiogroup" aria-label="Sign-in template" className="grid grid-cols-3 gap-2">
+      <div role="radiogroup" aria-label="Sign-in template" className="grid grid-cols-3 gap-1.5">
         {LOGIN_TEMPLATES.map((option) => (
           <button
             key={option.id}
@@ -128,7 +129,7 @@ export function SignInLookPicker({ controls }: { controls: SignInLookControls })
             aria-checked={look.template === option.id}
             title={option.description}
             onClick={() => pickTemplate(option.id)}
-            className={pillClass(look.template === option.id)}
+            className={`${pill(look.template === option.id)} py-1.5 text-xs`}
           >
             {option.label}
           </button>
@@ -136,12 +137,12 @@ export function SignInLookPicker({ controls }: { controls: SignInLookControls })
       </div>
 
       {needsWallpaper && (
-        <div className="mt-3 space-y-2">
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="text-white/75">Wallpaper</span>
+        <div className="mt-2 space-y-1.5 border-t border-white/10 pt-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-0.5 text-[11px] text-white/75">Wallpaper</span>
             <label
               htmlFor={uploadId}
-              className={`cursor-pointer rounded-md bg-white/10 px-2.5 py-1.5 font-medium text-white hover:bg-white/20 focus-within:ring-2 focus-within:ring-white ${
+              className={`cursor-pointer ${pill(false)} focus-within:ring-2 focus-within:ring-white ${
                 busy ? 'pointer-events-none opacity-60' : ''
               }`}
             >
@@ -164,14 +165,42 @@ export function SignInLookPicker({ controls }: { controls: SignInLookControls })
               aria-expanded={creating}
               onClick={() => setCreating((v) => !v)}
               disabled={busy !== null}
-              className="rounded-md bg-white/10 px-2.5 py-1.5 font-medium text-white hover:bg-white/20 disabled:opacity-60"
+              className={`${pill(creating)} disabled:opacity-60`}
             >
               Create
             </button>
+
+            {library.length > 0 && (
+              <div role="group" aria-label="Saved wallpapers" className="flex items-center gap-1 pl-1">
+                {library.map((w, index) => {
+                  const selected = look.wallpaperId === w.id;
+                  return (
+                    <button
+                      key={w.id}
+                      type="button"
+                      aria-pressed={selected}
+                      aria-label={`Use saved wallpaper ${index + 1}${w.source === 'created' ? ' (created)' : ''}`}
+                      title={w.source === 'created' ? 'Created' : 'Uploaded'}
+                      onClick={() => {
+                        if (!selectWallpaper(w.id)) notifyError('Could not save the look', 'Please try again.');
+                      }}
+                      className={`h-6 w-9 overflow-hidden rounded border ${
+                        selected ? 'border-white ring-1 ring-white' : 'border-transparent opacity-75 hover:opacity-100'
+                      }`}
+                    >
+                      <img src={w.dataUrl} alt="" className="h-full w-full object-cover" />
+                    </button>
+                  );
+                })}
+                <span className="pl-0.5 text-[10px] text-white/50">
+                  {library.length}/{MAX_SAVED_WALLPAPERS}
+                </span>
+              </div>
+            )}
           </div>
 
           {creating && (
-            <form onSubmit={onCreate} className="flex flex-col gap-2 sm:flex-row">
+            <form onSubmit={onCreate} className="flex gap-1.5">
               <label htmlFor={promptId} className="sr-only">
                 Describe the wallpaper
               </label>
@@ -183,73 +212,44 @@ export function SignInLookPicker({ controls }: { controls: SignInLookControls })
                 disabled={busy !== null}
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder="e.g. a lecture hall at sunset"
-                className="min-w-0 flex-1 rounded-md bg-white/10 px-2.5 py-1.5 text-xs text-white placeholder:text-white/45 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                className="min-w-0 flex-1 rounded-md bg-white/10 px-2 py-1 text-[11px] text-white placeholder:text-white/45 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
               />
               <button
                 type="submit"
                 disabled={busy !== null || prompt.trim() === ''}
-                className="rounded-md bg-white px-2.5 py-1.5 text-xs font-semibold text-surface-900 disabled:opacity-60"
+                className="rounded-md bg-white px-2 py-1 text-[11px] font-semibold text-surface-900 disabled:opacity-60"
               >
                 {busy === 'create' ? 'Creating…' : 'Create wallpaper'}
               </button>
             </form>
           )}
 
-          {library.length > 0 && (
-            <div>
-              <p className="mb-1 text-[11px] text-white/55">
-                Saved ({library.length} of {MAX_SAVED_WALLPAPERS})
-              </p>
-              <div role="group" aria-label="Saved wallpapers" className="flex flex-wrap gap-2">
-                {library.map((w, index) => {
-                  const selected = look.wallpaperId === w.id;
-                  return (
-                    <button
-                      key={w.id}
-                      type="button"
-                      aria-pressed={selected}
-                      aria-label={`Use saved wallpaper ${index + 1}${w.source === 'created' ? ' (created)' : ''}`}
-                      onClick={() => {
-                        if (!selectWallpaper(w.id)) notifyError('Could not save the look', 'Please try again.');
-                      }}
-                      className={`h-12 w-16 overflow-hidden rounded-md border-2 ${
-                        selected ? 'border-white' : 'border-transparent opacity-80 hover:opacity-100'
-                      }`}
-                    >
-                      <img src={w.dataUrl} alt="" className="h-full w-full object-cover" />
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           {wallpaper ? (
-            <>
-              <div role="radiogroup" aria-label="Wallpaper dimming" className="grid grid-cols-3 gap-2">
-                {DIM_LEVELS.map((level) => (
-                  <button
-                    key={level.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={look.dim === level.id}
-                    onClick={() => pickDim(level.id)}
-                    className={pillClass(look.dim === level.id)}
-                  >
-                    {level.label}
-                  </button>
-                ))}
-              </div>
+            <div role="radiogroup" aria-label="Wallpaper dimming" className="flex items-center gap-1.5">
+              {DIM_LEVELS.map((level) => (
+                <button
+                  key={level.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={look.dim === level.id}
+                  onClick={() => pickDim(level.id)}
+                  className={`flex-1 ${pill(look.dim === level.id)}`}
+                >
+                  {level.label}
+                </button>
+              ))}
               <button
                 type="button"
+                aria-label="Remove this wallpaper from the device"
+                title="Remove this wallpaper from the device"
                 onClick={() => onDelete(wallpaper.id)}
-                className="text-xs font-medium text-white/80 underline-offset-2 hover:text-white hover:underline"
+                className="px-1.5 text-[11px] font-medium text-white/75 hover:text-white hover:underline"
               >
-                Remove this wallpaper from the device
+                Remove
               </button>
-            </>
+            </div>
           ) : (
-            <span className="block text-xs text-white/65">
+            <span className="block text-[11px] text-white/65">
               This look uses a wallpaper. Upload or create one to see it.
             </span>
           )}
