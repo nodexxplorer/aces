@@ -137,6 +137,56 @@ type modoolsClaims struct {
 	Picture string `json:"picture"`
 }
 
+func modoolsLoadClaims(ctx context.Context, provider *oidc.Provider, oauthToken *oauth2.Token, rawIDToken, clientID string) (modoolsClaims, error) {
+	claims := modoolsClaims{}
+
+	if rawIDToken != "" {
+		idTokenVerifier := provider.Verifier(&oidc.Config{ClientID: clientID})
+		idToken, err := idTokenVerifier.Verify(ctx, rawIDToken)
+		if err != nil {
+			log.Printf("[modools] id_token verification failed: %v", err)
+		} else if err := idToken.Claims(&claims); err != nil {
+			return claims, fmt.Errorf("claim parse failed: %w", err)
+		}
+	}
+
+	if oauthToken != nil && (claims.Subject == "" || claims.Email == "" || claims.Name == "" || claims.Picture == "") {
+		userinfo, err := provider.UserInfo(ctx, oauth2.StaticTokenSource(oauthToken))
+		if err != nil {
+			if rawIDToken == "" {
+				return claims, fmt.Errorf("userinfo lookup failed: %w", err)
+			}
+			log.Printf("[modools] userinfo fallback failed: %v", err)
+		} else {
+			var userClaims modoolsClaims
+			if err := userinfo.Claims(&userClaims); err != nil {
+				if rawIDToken == "" {
+					return claims, fmt.Errorf("userinfo claim parse failed: %w", err)
+				}
+				log.Printf("[modools] userinfo claim parse failed: %v", err)
+			} else {
+				if claims.Subject == "" {
+					claims.Subject = userClaims.Subject
+				}
+				if claims.Email == "" {
+					claims.Email = userClaims.Email
+				}
+				if claims.Name == "" {
+					claims.Name = userClaims.Name
+				}
+				if claims.Picture == "" {
+					claims.Picture = userClaims.Picture
+				}
+			}
+		}
+	}
+
+	if claims.Subject == "" || claims.Email == "" {
+		return claims, errors.New("id_token/userinfo missing sub/email")
+	}
+	return claims, nil
+}
+
 func (server *Server) modoolsCallback(ctx *gin.Context) {
 
 	if errParam := ctx.Query("error"); errParam != "" {
@@ -179,27 +229,13 @@ func (server *Server) modoolsCallback(ctx *gin.Context) {
 		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
 		return
 	}
-	rawIDToken, ok := oauthToken.Extra("id_token").(string)
-	if !ok || rawIDToken == "" {
-		log.Printf("[modools] no id_token in token response")
-		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
-		return
+	rawIDToken, _ := oauthToken.Extra("id_token").(string)
+	if rawIDToken == "" {
+		log.Printf("[modools] no id_token in token response; trying userinfo fallback")
 	}
-	idTokenVerifier := provider.Verifier(&oidc.Config{ClientID: cfg.ClientID})
-	idToken, err := idTokenVerifier.Verify(ctx.Request.Context(), rawIDToken)
+	claims, err := modoolsLoadClaims(ctx.Request.Context(), provider, oauthToken, rawIDToken, cfg.ClientID)
 	if err != nil {
-		log.Printf("[modools] id_token verification failed: %v", err)
-		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
-		return
-	}
-	var claims modoolsClaims
-	if err := idToken.Claims(&claims); err != nil {
-		log.Printf("[modools] claim parse failed: %v", err)
-		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
-		return
-	}
-	if claims.Subject == "" || claims.Email == "" {
-		log.Printf("[modools] id_token missing sub/email")
+		log.Printf("[modools] identity claims unavailable: %v", err)
 		ctx.Redirect(http.StatusFound, server.frontendBase()+"/login?error="+modoolsCallbackError)
 		return
 	}
@@ -370,24 +406,38 @@ func splitFullName(name string) (first, last string) {
 }
 
 func (server *Server) modoolsComplete(ctx *gin.Context) {
-	page := `<!doctype html><html><body><script>
+	base := server.frontendBase()
+	if base == "" {
+		base = "http://localhost:5173"
+	}
+	page := fmt.Sprintf(`<!doctype html><html><body><script>
 (function(){
   try {
-    var h = location.hash.substring(1), p = new URLSearchParams(h);
-    var auth = p.get('auth');
+    var h = location.hash.substring(1);
+    var auth = null;
+    if (h) {
+      var match = /^auth=(.*)$/.exec(h);
+      if (match) {
+        auth = decodeURIComponent(match[1]);
+      }
+    }
     if (auth) {
       localStorage.setItem('aces_auth_payload', auth);
       var b64 = auth.replace(/-/g,'+').replace(/_/g,'/');
+      var pad = b64.length %% 4;
+      if (pad) {
+        b64 += '='.repeat(4 - pad);
+      }
       var bytes = Uint8Array.from(atob(b64), function(c){ return c.charCodeAt(0); });
       var payload = JSON.parse(new TextDecoder().decode(bytes));
       var onb = payload && payload.user && payload.user.onboardingCompleted;
-      location.replace(onb === false ? '/onboarding' : '/login/celebration');
+      location.replace(%q + (onb === false ? '/onboarding' : '/login/celebration'));
       return;
     }
   } catch (e) {}
-  location.replace('/login?error=auth_failed');
+  location.replace(%q + '/login?error=auth_failed');
 })();
-</script></body></html>`
+</script></body></html>`, base, base)
 	ctx.Data(http.StatusOK, "text/html; charset=utf-8", []byte(page))
 }
 

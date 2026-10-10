@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -45,18 +46,37 @@ type CreateModoolsUserParams struct {
 	AvatarURL    *string
 }
 
+func normalizeModoolsName(firstName, lastName string) string {
+	firstName = strings.TrimSpace(firstName)
+	lastName = strings.TrimSpace(lastName)
+	switch {
+	case firstName != "" && lastName != "":
+		return firstName + " " + lastName
+	case firstName != "":
+		return firstName
+	case lastName != "":
+		return lastName
+	default:
+		return "Student"
+	}
+}
+
 // CreateModoolsUser provisions a users row for an OAuth-first student:
 // unverified email (the IdP already proved it), no password login
 // (placeholder hash — the account is only reachable via Modools), and the
 // Modools subject + refresh token stamped for logout revocation.
-// The full_name column is derived from first/last, matching manual signup.
+// The full_name column is DB-generated from first/last names, matching manual signup.
 func (q *Queries) CreateModoolsUser(ctx context.Context, arg CreateModoolsUserParams) (uuid.UUID, error) {
-	fullName := arg.FirstName + " " + arg.LastName
+	firstName := strings.TrimSpace(arg.FirstName)
+	lastName := strings.TrimSpace(arg.LastName)
+	if firstName == "" && lastName == "" {
+		firstName = "Student"
+	}
 	row := q.db.QueryRow(ctx, `
-		INSERT INTO users (email, password_hash, role, full_name, first_name, last_name, avatar_url, is_active, is_approved, email_verified, modools_sub, modools_refresh_token)
-		VALUES ($1, $2, 'student', $3, $4, $5, $6, true, true, false, $7, $8)
+		INSERT INTO users (email, password_hash, role, first_name, last_name, avatar_url, is_active, is_approved, email_verified, modools_sub, modools_refresh_token)
+		VALUES ($1, $2, 'student', $3, $4, $5, true, true, false, $6, $7)
 		RETURNING id
-	`, arg.Email, arg.PasswordHash, fullName, arg.FirstName, arg.LastName, arg.AvatarURL, arg.ModoolsSub, arg.RefreshToken)
+	`, arg.Email, arg.PasswordHash, firstName, lastName, arg.AvatarURL, arg.ModoolsSub, arg.RefreshToken)
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
