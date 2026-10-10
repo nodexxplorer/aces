@@ -5,6 +5,8 @@ import CookieConsent from '../feedback/CookieConsent';
 import { AdminPackMark } from '../branding/AdminPackMark';
 import { DepartmentLogo } from '../branding/DepartmentBrand';
 import type { TenantInfo } from '../../types';
+import { loginImageSrc, resolveLoginTemplate } from '../../api/loginLook';
+import { useDepartmentLoginLook } from '../../hooks/useLoginLook';
 
 interface AuthVideoShellProps {
   children: ReactNode;
@@ -77,44 +79,135 @@ const DepartmentPanel = ({ department }: { department: TenantInfo }) => (
   </>
 );
 
+/** The department's name and institution, in light text, for the photo templates. */
+const PhotoCaption = ({ department }: { department: TenantInfo }) => (
+  <div className="text-white">
+    <p className="text-2xl lg:text-3xl font-bold tracking-tight">{department.name}</p>
+    {department.institution && <p className="mt-1 text-sm text-white/70">{department.institution}</p>}
+  </div>
+);
+
+/**
+ * Split template: the department's image fills the left half (a band on top
+ * when the screen is narrow), and the form sits on the right.
+ */
+const SplitShell = ({
+  children,
+  cardMaxWidth,
+  imageSrc,
+  department,
+}: Required<Pick<AuthVideoShellProps, 'children' | 'cardMaxWidth'>> & {
+  imageSrc: string;
+  department?: TenantInfo;
+}) => (
+  <div className="relative flex min-h-screen w-full flex-col overflow-hidden bg-surface-950 select-none md:flex-row">
+    <div className="relative h-56 w-full shrink-0 md:h-auto md:min-h-screen md:w-1/2">
+      <img src={imageSrc} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      <div className="absolute inset-0 bg-gradient-to-t from-surface-950/85 via-surface-950/20 to-transparent" />
+      {department && (
+        <div className="absolute bottom-0 left-0 p-8 lg:p-12">
+          <PhotoCaption department={department} />
+        </div>
+      )}
+    </div>
+    <div className="relative z-10 flex flex-1 items-center justify-center px-4 py-10 md:px-12 lg:px-20">
+      <div className={`w-full ${cardMaxWidth}`}>{children}</div>
+    </div>
+    <CookieConsent dark />
+  </div>
+);
+
+/**
+ * Centered template: the department's image is the full-bleed backdrop, and the
+ * form sits in a card in the middle, with the department's logo above it.
+ */
+const CenteredShell = ({
+  children,
+  cardMaxWidth,
+  imageSrc,
+  department,
+}: Required<Pick<AuthVideoShellProps, 'children' | 'cardMaxWidth'>> & {
+  imageSrc: string;
+  department?: TenantInfo;
+}) => (
+  <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-surface-950 select-none px-4 py-10">
+    <img src={imageSrc} alt="" className="absolute inset-0 h-full w-full object-cover" />
+    <div className="absolute inset-0 bg-black/55" />
+    <div className="relative z-10 flex w-full flex-col items-center">
+      {department && (
+        <>
+          <DepartmentLogo department={department} className="mb-4 h-20 w-20 rounded-2xl bg-white/90 p-2 shadow-2xl" />
+          <p className="mb-6 text-center text-sm font-medium uppercase tracking-[0.2em] text-white/80">
+            {department.name}
+          </p>
+        </>
+      )}
+      <div className={`w-full ${cardMaxWidth}`}>{children}</div>
+    </div>
+    <CookieConsent dark />
+  </div>
+);
+
 // Shared full-bleed shell for every public auth page (login, signup, password
-// reset) — video background, dimmed for contrast, with the animated logo on
-// a desktop-only left panel and the page's own glass card on the right.
-// Extracted from the original login page so all auth screens stay visually
-// identical without copy-pasting the video/animation markup four times.
+// reset). The department picks one of three templates in Settings: classic (the
+// video background, with the animated logo on a desktop-only left panel), split,
+// or centered. Split and centered show the department's uploaded image; without
+// one they fall back to classic. The page's own glass card sits on the right
+// (classic) or in the middle (centered).
 const AuthVideoShell = ({
   children,
   cardMaxWidth = 'max-w-md',
   tagline = APP_DESCRIPTION,
   department,
-}: AuthVideoShellProps) => (
-  <div className="relative flex min-h-screen w-full flex-col overflow-hidden bg-surface-950 select-none">
-    <video autoPlay loop muted playsInline className="absolute inset-0 h-full w-full object-cover" src="/login.mp4" />
-    {/* Dims the raw footage so both the left wordmark and the glass card
-        keep good contrast regardless of what's playing behind them. */}
-    <div className="absolute inset-0 bg-black/50" />
-    <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-accent-500/20 blur-[120px] pointer-events-none" />
-    <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-primary-500/20 blur-[120px] pointer-events-none" />
+}: AuthVideoShellProps) => {
+  const { data: look } = useDepartmentLoginLook(department?.slug);
+  const imageSrc = loginImageSrc(look);
+  const template = resolveLoginTemplate(look?.template, Boolean(imageSrc));
 
-    <div className="relative z-10 flex flex-1 flex-col md:flex-row items-center justify-center md:justify-between gap-10 px-4 py-10 md:px-16 lg:px-24">
-      {/* Desktop-only left panel — hidden on mobile web per design. */}
-      <div className="hidden md:flex flex-1 flex-col items-center justify-center text-center">
-        {department ? <DepartmentPanel department={department} /> : <PlatformMark tagline={tagline} />}
+  if (template === 'split' && imageSrc) {
+    return (
+      <SplitShell cardMaxWidth={cardMaxWidth} imageSrc={imageSrc} department={department}>
+        {children}
+      </SplitShell>
+    );
+  }
+  if (template === 'centered' && imageSrc) {
+    return (
+      <CenteredShell cardMaxWidth={cardMaxWidth} imageSrc={imageSrc} department={department}>
+        {children}
+      </CenteredShell>
+    );
+  }
+
+  return (
+    <div className="relative flex min-h-screen w-full flex-col overflow-hidden bg-surface-950 select-none">
+      <video autoPlay loop muted playsInline className="absolute inset-0 h-full w-full object-cover" src="/login.mp4" />
+      {/* Dims the raw footage so both the left wordmark and the glass card
+          keep good contrast regardless of what's playing behind them. */}
+      <div className="absolute inset-0 bg-black/50" />
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-accent-500/20 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-primary-500/20 blur-[120px] pointer-events-none" />
+
+      <div className="relative z-10 flex flex-1 flex-col md:flex-row items-center justify-center md:justify-between gap-10 px-4 py-10 md:px-16 lg:px-24">
+        {/* Desktop-only left panel — hidden on mobile web per design. */}
+        <div className="hidden md:flex flex-1 flex-col items-center justify-center text-center">
+          {department ? <DepartmentPanel department={department} /> : <PlatformMark tagline={tagline} />}
+        </div>
+
+        {/* Card column — hand-rolled glass panel (not the shared Card's
+            `glass` prop, whose base opaque bg-white/dark:bg-surface-800
+            classes win the cascade over its own glass override and end up
+            looking like a plain solid card) so it's genuinely
+            translucent/frosted against the video behind it. Text colors
+            inside each page's card are hardcoded light rather than
+            theme-conditional since this shell always sits on a dark video
+            regardless of the app's light/dark preference. */}
+        <div className={`w-full ${cardMaxWidth}`}>{children}</div>
       </div>
 
-      {/* Card column — hand-rolled glass panel (not the shared Card's
-          `glass` prop, whose base opaque bg-white/dark:bg-surface-800
-          classes win the cascade over its own glass override and end up
-          looking like a plain solid card) so it's genuinely
-          translucent/frosted against the video behind it. Text colors
-          inside each page's card are hardcoded light rather than
-          theme-conditional since this shell always sits on a dark video
-          regardless of the app's light/dark preference. */}
-      <div className={`w-full ${cardMaxWidth}`}>{children}</div>
+      <CookieConsent dark />
     </div>
-
-    <CookieConsent dark />
-  </div>
-);
+  );
+};
 
 export default AuthVideoShell;
