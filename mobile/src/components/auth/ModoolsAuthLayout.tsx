@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ImageBackground, ScrollView, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,32 +8,96 @@ import AdminPackMark from '../AdminPackMark';
 import { useTheme } from '../../theme/ThemeProvider';
 import { palette } from '../../theme/colors';
 import { fontFamily, fontSize, radius, spacing } from '../../theme/typography';
+import type { LoginTemplate } from '../../api/loginLook';
 
 interface Props {
   departmentName: string;
   title: string;
   subtitle: string;
   children: ReactNode;
+  /** The department's sign-in template. Classic when omitted. */
+  template?: LoginTemplate;
+  /** The department's hero image. Split and centered need it; without it they draw as classic. */
+  imageUri?: string;
 }
 
-/** The sign-in and sign-up screens' frame: the platform mark, the chosen department, and a sheet with the form. */
-export default function ModoolsAuthLayout({ departmentName, title, subtitle, children }: Props) {
+/**
+ * The sign-in and sign-up screens' frame. Three templates, chosen per department
+ * in the web Settings:
+ * - classic: the platform mark on a brand gradient, with the form on a sheet below;
+ * - split: the department's image as a band across the top, with the form sheet below;
+ * - centered: the department's image as the full-screen backdrop, with the form in a card.
+ */
+export default function ModoolsAuthLayout({
+  departmentName,
+  title,
+  subtitle,
+  children,
+  template = 'classic',
+  imageUri,
+}: Props) {
   const { theme, brand } = useTheme();
   const insets = useSafeAreaInsets();
+
+  if (template === 'centered' && imageUri) {
+    return (
+      <ImageBackground source={{ uri: imageUri }} style={styles.flex} resizeMode="cover">
+        <View style={styles.photoScrim} />
+        <ScrollView
+          contentContainerStyle={[
+            styles.centeredContent,
+            { paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.xl },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View
+            entering={FadeInUp.duration(500).springify()}
+            style={[styles.centeredCard, { backgroundColor: theme.background }]}
+          >
+            <Text style={[styles.departmentLine, { color: theme.primary }]}>{departmentName}</Text>
+            <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
+            <Text style={[styles.subtitle, { color: theme.textMuted }]}>{subtitle}</Text>
+            <View style={styles.body}>{children}</View>
+          </Animated.View>
+        </ScrollView>
+      </ImageBackground>
+    );
+  }
+
+  const split = template === 'split' && Boolean(imageUri);
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
-      <LinearGradient
-        colors={[brand[500], brand[700]]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.hero, { paddingTop: insets.top + spacing.xl }]}
-      >
-        <Animated.View entering={FadeInUp.duration(600).springify()} style={styles.heroContent}>
-          <AdminPackMark size={88} />
-          <Text style={styles.heroTitle}>Admin Pack</Text>
-          <Text style={styles.heroSubtitle}>{departmentName}</Text>
-        </Animated.View>
-      </LinearGradient>
+      {split && imageUri ? (
+        <ImageBackground
+          source={{ uri: imageUri }}
+          style={[styles.hero, styles.photoHero, { paddingTop: insets.top + spacing.xl }]}
+          resizeMode="cover"
+        >
+          <LinearGradient
+            colors={['rgba(0,0,0,0.05)', 'rgba(0,0,0,0.7)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <Animated.View entering={FadeInUp.duration(600).springify()} style={styles.photoCaption}>
+            <Text style={styles.heroTitle}>{departmentName}</Text>
+          </Animated.View>
+        </ImageBackground>
+      ) : (
+        <LinearGradient
+          colors={[brand[500], brand[700]]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.hero, { paddingTop: insets.top + spacing.xl }]}
+        >
+          <Animated.View entering={FadeInUp.duration(600).springify()} style={styles.heroContent}>
+            <AdminPackMark size={88} />
+            <Text style={styles.heroTitle}>Admin Pack</Text>
+            <Text style={styles.heroSubtitle}>{departmentName}</Text>
+          </Animated.View>
+        </LinearGradient>
+      )}
 
       <Animated.View
         entering={FadeInDown.duration(500).delay(150).springify()}
@@ -101,5 +165,39 @@ const styles = StyleSheet.create({
   body: {
     marginTop: spacing['2xl'],
     gap: spacing.lg,
+  },
+  photoHero: {
+    height: '42%',
+    justifyContent: 'flex-end',
+    alignItems: 'flex-start',
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing['2xl'],
+  },
+  photoCaption: {
+    gap: spacing.xs,
+  },
+  photoScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  centeredContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  centeredCard: {
+    width: '100%',
+    maxWidth: 440,
+    alignSelf: 'center',
+    borderRadius: radius['2xl'],
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing['2xl'],
+    paddingBottom: spacing.xl,
+  },
+  departmentLine: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
 });

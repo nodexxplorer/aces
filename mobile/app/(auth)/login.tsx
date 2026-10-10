@@ -5,6 +5,7 @@ import Button from '../../src/components/ui/Button';
 import DepartmentPicker from '../../src/components/DepartmentPicker';
 import ModoolsAuthLayout from '../../src/components/auth/ModoolsAuthLayout';
 import { useDepartmentChoice, type DepartmentChoice } from '../../src/hooks/useDepartmentChoice';
+import { useDepartmentLook } from '../../src/hooks/useDepartmentLook';
 import { useModoolsSignIn } from '../../src/hooks/useModoolsSignIn';
 import { AccentScope, useTheme } from '../../src/theme/ThemeProvider';
 import { fontFamily, fontSize, radius, spacing } from '../../src/theme/typography';
@@ -28,6 +29,7 @@ function LoginForm({ dept }: { dept: DepartmentChoice }) {
   const router = useRouter();
   const { configured, busy, error, signIn } = useModoolsSignIn();
   const chosen = dept.departments.find((d) => d.slug === dept.slug);
+  const look = useDepartmentLook(dept.slug);
   // Sign-up opened from here starts with the department chosen here.
   const signupHref = chosen?.urlCode
     ? { pathname: '/(auth)/signup', params: { code: chosen.urlCode } }
@@ -37,6 +39,8 @@ function LoginForm({ dept }: { dept: DepartmentChoice }) {
   return (
     <ModoolsAuthLayout
       departmentName={departmentShortName(chosen?.name) ?? 'Your department'}
+      template={look.template}
+      imageUri={look.imageUri}
       title="Welcome back"
       subtitle="Students sign in with their Modools account."
     >
