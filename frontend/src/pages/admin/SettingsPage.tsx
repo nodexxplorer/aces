@@ -4,7 +4,6 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { useTheme } from '../../hooks/useTheme';
 import { DepartmentAddresses } from '../../components/branding/DepartmentAddresses';
-import { LoginLookSettings } from '../../components/branding/LoginLookSettings';
 import { useCurrentDepartment } from '../../components/branding/department';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuthStore } from '../../stores/authStore';
@@ -234,7 +233,6 @@ const SettingsPage = () => {
       {activeTab === 'department' && (
         <div className="space-y-6">
           <DepartmentAddresses department={department} />
-          <LoginLookSettings canEdit={(user?.activeRole || user?.role) === 'admin'} />
         </div>
       )}
 

@@ -8,7 +8,7 @@ import AdminPackMark from '../AdminPackMark';
 import { useTheme } from '../../theme/ThemeProvider';
 import { palette } from '../../theme/colors';
 import { fontFamily, fontSize, radius, spacing } from '../../theme/typography';
-import type { LoginTemplate } from '../../api/loginLook';
+import type { LoginTemplate } from '../../config/signInLook';
 
 interface Props {
   departmentName: string;
@@ -17,16 +17,18 @@ interface Props {
   children: ReactNode;
   /** The department's sign-in template. Classic when omitted. */
   template?: LoginTemplate;
-  /** The department's hero image. Split and centered need it; without it they draw as classic. */
+  /** The picture to draw for split and centered. Without one they draw as classic. */
   imageUri?: string;
+  /** The look picker, shown above the title. */
+  picker?: ReactNode;
 }
 
 /**
- * The sign-in and sign-up screens' frame. Three templates, chosen per department
- * in the web Settings:
+ * The sign-in and sign-up screens' frame. Three templates, chosen on the screen
+ * itself and kept on this phone:
  * - classic: the platform mark on a brand gradient, with the form on a sheet below;
- * - split: the department's image as a band across the top, with the form sheet below;
- * - centered: the department's image as the full-screen backdrop, with the form in a card.
+ * - split: the chosen picture as a band across the top, with the form sheet below;
+ * - centered: the chosen picture as the full-screen backdrop, with the form in a card.
  */
 export default function ModoolsAuthLayout({
   departmentName,
@@ -35,6 +37,7 @@ export default function ModoolsAuthLayout({
   children,
   template = 'classic',
   imageUri,
+  picker,
 }: Props) {
   const { theme, brand } = useTheme();
   const insets = useSafeAreaInsets();
@@ -55,6 +58,7 @@ export default function ModoolsAuthLayout({
             entering={FadeInUp.duration(500).springify()}
             style={[styles.centeredCard, { backgroundColor: theme.background }]}
           >
+            {picker ? <View style={styles.picker}>{picker}</View> : null}
             <Text style={[styles.departmentLine, { color: theme.primary }]}>{departmentName}</Text>
             <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
             <Text style={[styles.subtitle, { color: theme.textMuted }]}>{subtitle}</Text>
@@ -110,6 +114,7 @@ export default function ModoolsAuthLayout({
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          {picker ? <View style={styles.picker}>{picker}</View> : null}
           <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
           <Text style={[styles.subtitle, { color: theme.textMuted }]}>{subtitle}</Text>
           <View style={styles.body}>{children}</View>
@@ -165,6 +170,9 @@ const styles = StyleSheet.create({
   body: {
     marginTop: spacing['2xl'],
     gap: spacing.lg,
+  },
+  picker: {
+    marginBottom: spacing.xl,
   },
   photoHero: {
     height: '42%',

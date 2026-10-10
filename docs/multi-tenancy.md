@@ -122,15 +122,20 @@ Each department has its own name, description and logo. The sign-in and sign-up 
 
 ## Sign-in look
 
-Each department picks how its sign-in and sign-up pages look, in Settings → Department → Sign-in and sign-up look (admins only; others see it read-only). Three templates, on the web and in the app:
+The sign-in and sign-up pages can be drawn three ways. The choice is made on the page itself, by anyone, with a **Look** picker above the form (on the web and in the app). Settings has no look card.
 
 - **classic** (default): the video background on the web, the platform mark on the brand gradient in the app. No image.
-- **split**: the uploaded image fills the left half on the web (a band on top on phones), with the form beside it.
-- **centered**: the uploaded image is the full-screen backdrop, with the form in a card.
+- **split**: the chosen image fills the left half on the web (a band on top on phones), with the form beside it.
+- **centered**: the chosen image is the full-screen backdrop, with the form in a card.
 
-Split and centered show the image an admin uploads (PNG, JPEG or WebP, 4 MB or less; the type is read from the bytes, so an SVG is refused). Without an image they draw classic. Switching the template keeps the image; removing the image keeps the template.
+Split and centered need an image. Until one is added, the page draws classic and the picker says so. Switching the template keeps the image; removing the image keeps the template.
 
-The look is stored per department in `department_login_looks` (migration 000013, row-level security), not on the registry, so the admin's upload needs no `cmd/tenant` access. The API: `GET /tenants/:slug/login-look` and `GET /tenants/:slug/login-image` are public; `GET /department/login-look` is for any signed-in user; `PUT /department/login-look`, `PUT /department/login-image` and `DELETE /department/login-image` are admin-only. After a migration that adds a table, re-run `deploy/postgres/runtime-role.sql` so the runtime role can use it.
+**Device only.** The template and the image are kept on the person's own device, per department, and nothing is sent to the server. There is no table, no endpoint and no moderation step. Only the person who chose the look sees it.
+
+- **Web.** `localStorage` under `aces.signInLook.<slug>` (or `aces.signInLook.default` with no department), holding `{ template, imageDataUrl? }`. Frontend: `src/config/signInLook.ts`, `src/hooks/useSignInLook.ts`, `src/components/auth/SignInLookPicker.tsx`. An image is read from the file picker (PNG, JPEG or WebP, 10 MB or less) and scaled so its longest side is at most 1600 px, saved as JPEG at quality 0.85.
+- **App.** AsyncStorage under the same key pattern, holding `{ template, imageUri? }`. The picture is copied to the app's document folder (`sign-in-look/`), and the stored address is its file path. Mobile: `src/config/signInLook.ts`, `src/hooks/useSignInLook.ts`, `src/utils/signInLookImage.ts`, `src/components/auth/SignInLookPicker.tsx`. The same size and type rules apply, and the picture is scaled with `expo-image-manipulator`. A picture that is no longer on the phone falls back to classic.
+
+Because the choice is per device, a person who signs in on a second device sees the default there. The look is cosmetic: it does not change any account or department data.
 
 ## Database roles
 

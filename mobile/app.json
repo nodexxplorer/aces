@@ -47,6 +47,12 @@
         }
       ],
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to choose a picture for your sign-in screen. It is kept on this device only."
+        }
+      ],
+      [
         "expo-notifications",
         {
           "icon": "./assets/android-icon-foreground.png",

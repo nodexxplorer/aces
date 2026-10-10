@@ -4,11 +4,13 @@ import Text from '../../src/components/ui/Text';
 import Button from '../../src/components/ui/Button';
 import DepartmentPicker from '../../src/components/DepartmentPicker';
 import ModoolsAuthLayout from '../../src/components/auth/ModoolsAuthLayout';
+import SignInLookPicker from '../../src/components/auth/SignInLookPicker';
 import { useDepartmentChoice, type DepartmentChoice } from '../../src/hooks/useDepartmentChoice';
-import { useDepartmentLook } from '../../src/hooks/useDepartmentLook';
+import { useSignInLook } from '../../src/hooks/useSignInLook';
 import { useModoolsSignIn } from '../../src/hooks/useModoolsSignIn';
 import { AccentScope, useTheme } from '../../src/theme/ThemeProvider';
 import { fontFamily, fontSize, radius, spacing } from '../../src/theme/typography';
+import { resolveLoginTemplate } from '../../src/config/signInLook';
 import { departmentShortName } from '../../src/utils/department';
 
 // Students sign up with Modools, as on the website. The account is created the
@@ -29,7 +31,8 @@ function SignupForm({ dept }: { dept: DepartmentChoice }) {
   const router = useRouter();
   const { configured, busy, error, signIn } = useModoolsSignIn();
   const chosen = dept.departments.find((d) => d.slug === dept.slug);
-  const look = useDepartmentLook(dept.slug);
+  const lookControls = useSignInLook(dept.slug);
+  const template = resolveLoginTemplate(lookControls.look.template, Boolean(lookControls.look.imageUri));
   const loginHref = chosen?.urlCode
     ? { pathname: '/(auth)/login', params: { code: chosen.urlCode } }
     : '/(auth)/login';
@@ -38,8 +41,17 @@ function SignupForm({ dept }: { dept: DepartmentChoice }) {
   return (
     <ModoolsAuthLayout
       departmentName={departmentShortName(chosen?.name) ?? 'Your department'}
-      template={look.template}
-      imageUri={look.imageUri}
+      template={template}
+      imageUri={lookControls.look.imageUri}
+      picker={
+        <SignInLookPicker
+          slug={dept.slug}
+          look={lookControls.look}
+          onTemplate={lookControls.setTemplate}
+          onImage={lookControls.setImage}
+          onRemoveImage={lookControls.removeImage}
+        />
+      }
       title="Create your account"
       subtitle="Sign up with your Modools account. You set up your profile after."
     >
