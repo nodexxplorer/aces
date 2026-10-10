@@ -197,6 +197,56 @@ type modoolsClaims struct {
 	Picture string `json:"picture"`
 }
 
+func modoolsLoadClaims(ctx context.Context, provider *oidc.Provider, oauthToken *oauth2.Token, rawIDToken, clientID string) (modoolsClaims, error) {
+	claims := modoolsClaims{}
+
+	if rawIDToken != "" {
+		idTokenVerifier := provider.Verifier(&oidc.Config{ClientID: clientID})
+		idToken, err := idTokenVerifier.Verify(ctx, rawIDToken)
+		if err != nil {
+			log.Printf("[modools] id_token verification failed: %v", err)
+		} else if err := idToken.Claims(&claims); err != nil {
+			return claims, fmt.Errorf("claim parse failed: %w", err)
+		}
+	}
+
+	if oauthToken != nil && (claims.Subject == "" || claims.Email == "" || claims.Name == "" || claims.Picture == "") {
+		userinfo, err := provider.UserInfo(ctx, oauth2.StaticTokenSource(oauthToken))
+		if err != nil {
+			if rawIDToken == "" {
+				return claims, fmt.Errorf("userinfo lookup failed: %w", err)
+			}
+			log.Printf("[modools] userinfo fallback failed: %v", err)
+		} else {
+			var userClaims modoolsClaims
+			if err := userinfo.Claims(&userClaims); err != nil {
+				if rawIDToken == "" {
+					return claims, fmt.Errorf("userinfo claim parse failed: %w", err)
+				}
+				log.Printf("[modools] userinfo claim parse failed: %v", err)
+			} else {
+				if claims.Subject == "" {
+					claims.Subject = userClaims.Subject
+				}
+				if claims.Email == "" {
+					claims.Email = userClaims.Email
+				}
+				if claims.Name == "" {
+					claims.Name = userClaims.Name
+				}
+				if claims.Picture == "" {
+					claims.Picture = userClaims.Picture
+				}
+			}
+		}
+	}
+
+	if claims.Subject == "" || claims.Email == "" {
+		return claims, errors.New("id_token/userinfo missing sub/email")
+	}
+	return claims, nil
+}
+
 func (server *Server) modoolsCallback(ctx *gin.Context) {
 
 	if errParam := ctx.Query("error"); errParam != "" {
@@ -262,27 +312,13 @@ func (server *Server) modoolsCallback(ctx *gin.Context) {
 		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
 		return
 	}
-	rawIDToken, ok := oauthToken.Extra("id_token").(string)
-	if !ok || rawIDToken == "" {
-		log.Printf("[modools] no id_token in token response")
-		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
-		return
+	rawIDToken, _ := oauthToken.Extra("id_token").(string)
+	if rawIDToken == "" {
+		log.Printf("[modools] no id_token in token response; trying userinfo fallback")
 	}
-	idTokenVerifier := provider.Verifier(&oidc.Config{ClientID: cfg.ClientID})
-	idToken, err := idTokenVerifier.Verify(ctx.Request.Context(), rawIDToken)
+	claims, err := modoolsLoadClaims(ctx.Request.Context(), provider, oauthToken, rawIDToken, cfg.ClientID)
 	if err != nil {
-		log.Printf("[modools] id_token verification failed: %v", err)
-		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
-		return
-	}
-	var claims modoolsClaims
-	if err := idToken.Claims(&claims); err != nil {
-		log.Printf("[modools] claim parse failed: %v", err)
-		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
-		return
-	}
-	if claims.Subject == "" || claims.Email == "" {
-		log.Printf("[modools] id_token missing sub/email")
+		log.Printf("[modools] identity claims unavailable: %v", err)
 		server.modoolsBack(ctx, modoolsIsMobile(ctx), "error="+modoolsCallbackError)
 		return
 	}
