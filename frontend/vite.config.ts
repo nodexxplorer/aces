@@ -4,7 +4,8 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   server: {
-    allowedHosts: ['props-swipe-chaffing.ngrok-free.dev'],
+    // '.e2b.app' is the sandbox preview domain (any subdomain), so the live preview loads.
+    allowedHosts: ['props-swipe-chaffing.ngrok-free.dev', '.e2b.app'],
   },
   plugins: [
     react(),

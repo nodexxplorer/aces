@@ -100,18 +100,20 @@ const SplitShell = ({
   imageSrc: string;
   department?: TenantInfo;
 }) => (
-  <div className="relative flex min-h-screen w-full flex-col overflow-hidden bg-surface-950 select-none md:flex-row">
-    <div className="relative h-56 w-full shrink-0 md:h-auto md:min-h-screen md:w-1/2">
-      <img src={imageSrc} alt="" className="absolute inset-0 h-full w-full object-cover" />
-      <div className="absolute inset-0 bg-gradient-to-t from-surface-950/85 via-surface-950/20 to-transparent" />
-      {department && (
-        <div className="absolute bottom-0 left-0 p-8 lg:p-12">
-          <PhotoCaption department={department} />
-        </div>
-      )}
-    </div>
-    <div className="relative z-10 flex flex-1 items-center justify-center px-4 py-10 md:px-12 lg:px-20">
-      <div className={`w-full ${cardMaxWidth}`}>{children}</div>
+  <div className="relative flex min-h-screen w-full flex-col overflow-hidden bg-surface-950 select-none">
+    <div className="flex flex-1 flex-col md:flex-row">
+      <div className="relative h-56 w-full shrink-0 md:h-auto md:min-h-screen md:w-1/2">
+        <img src={imageSrc} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-surface-950/85 via-surface-950/20 to-transparent" />
+        {department && (
+          <div className="absolute bottom-0 left-0 p-8 lg:p-12">
+            <PhotoCaption department={department} />
+          </div>
+        )}
+      </div>
+      <div className="relative z-10 flex flex-1 items-center justify-center px-4 py-10 md:px-12 lg:px-20">
+        <div className={`w-full ${cardMaxWidth}`}>{children}</div>
+      </div>
     </div>
     <CookieConsent dark />
   </div>
