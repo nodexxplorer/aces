@@ -404,8 +404,22 @@ func (server *Server) login(ctx *gin.Context) {
 
 	identifier := strings.TrimSpace(req.Email)
 
+	// A staff account is locked after repeated wrong passwords (see lockout.go).
+	// The check runs before the password is tried, so a locked account is refused
+	// even with the right password.
+	staff := server.staffAccountFor(ctx, identifier)
+	if staff != nil {
+		if _, locked := server.staffLockedUntil(ctx, staff.ID); locked {
+			ctx.JSON(http.StatusTooManyRequests, gin.H{"error": "account is temporarily locked after too many failed attempts. Try again in 30 minutes."})
+			return
+		}
+	}
+
 	user, onboardingCompleted, err := server.auth.Login(ctx, identifier, req.Password)
 	if err != nil {
+		if staff != nil && err.Error() != "account is deactivated" {
+			server.recordFailedStaffLogin(ctx, staff.ID, ctx.ClientIP())
+		}
 		status := http.StatusUnauthorized
 		message := "invalid email or password"
 		if err.Error() == "account is deactivated" {
@@ -414,6 +428,9 @@ func (server *Server) login(ctx *gin.Context) {
 		}
 		ctx.JSON(status, gin.H{"error": message})
 		return
+	}
+	if staff != nil {
+		server.clearStaffLockout(ctx, staff.ID)
 	}
 
 	roleNames, _ := server.roles.ListUserRolesByName(ctx, user.ID)

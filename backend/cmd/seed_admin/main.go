@@ -56,7 +56,7 @@ func main() {
 
 	tenantSlug := flag.String("tenant", os.Getenv("DEFAULT_TENANT_SLUG"), "department slug to seed (default: DEFAULT_TENANT_SLUG, else uniuyo-ce)")
 	role := flag.String("role", "admin", "account to seed: admin (default) or lecturer")
-	resetPassword := flag.Bool("reset-password", false, "give the existing account (ADMIN_EMAIL, or LECTURER_EMAIL with -role lecturer) a new password and sign it out of every session")
+	resetPassword := flag.Bool("reset-password", false, "give the existing account (ADMIN_EMAIL, or LECTURER_EMAIL with -role lecturer) a new password, sign it out of every session and unlock it")
 	flag.Parse()
 	if *tenantSlug == "" {
 		*tenantSlug = "uniuyo-ce"

@@ -35,7 +35,7 @@ func seededAccountFor(role string) (seededAccount, error) {
 var errNoSeededAccount = errors.New("no such account in this department")
 
 // applySeedPasswordReset gives the account with this email a new password hash
-// and signs it out of every session. Both changes run in one transaction, so
+// signs it out of every session, and unlocks it. The changes run in one transaction, so
 // either both happen or neither does. An account with another role is refused,
 // so a reset cannot change a student's password by mistake.
 func applySeedPasswordReset(ctx context.Context, dbh *tenant.DB, email string, role db.UserRole, passwordHash string) error {
@@ -62,12 +62,16 @@ func applySeedPasswordReset(ctx context.Context, dbh *tenant.DB, email string, r
 	if err := q.DeleteUserSessions(ctx, user.ID); err != nil {
 		return fmt.Errorf("cannot sign the account out: %w", err)
 	}
+	// A staff lockout ends with the reset: the new password is the way back in.
+	if err := q.ResetLockout(ctx, user.ID); err != nil {
+		return fmt.Errorf("cannot unlock the account: %w", err)
+	}
 	return tx.Commit(ctx)
 }
 
 // resetSeedPassword gives the seeded account in department slug a new password.
 // The password is generated and printed once, as a first password is. The
-// account is also signed out of every session. It works on the account named
+// account is also signed out of every session and unlocked. It works on the account named
 // by ADMIN_EMAIL, or by LECTURER_EMAIL with -role lecturer.
 func resetSeedPassword(ctx context.Context, slug, role string) {
 	acct, err := seededAccountFor(role)

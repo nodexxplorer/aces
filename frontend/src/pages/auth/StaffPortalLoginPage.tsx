@@ -62,7 +62,9 @@ const StaffPortalLoginPage = ({ urlCode }: { urlCode?: string } = {}) => {
     } catch (err) {
       const msg = getErrorMessage(err, 'Please verify your credentials and try again.');
       setAuthError(msg);
-      error('Wrong Credentials', msg);
+      // 429 is the server's lockout after repeated wrong passwords; say so, not "wrong".
+      const locked = (err as { response?: { status?: number } } | undefined)?.response?.status === 429;
+      error(locked ? 'Account locked' : 'Wrong Credentials', msg);
     }
   };
 

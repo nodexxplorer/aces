@@ -162,7 +162,7 @@ Run these steps in order, substituting your own connection strings.
 3. **Create departments as the owner.** `DB_SOURCE=<owner DSN> go run ./cmd/tenant create -slug unilag-ce -name "Department of Computer Engineering" -matric-code EG/CO -institution "University of Lagos" -faculty "Faculty of Engineering"`. A department created without `-matric-code` cannot onboard or sign up students until you set one (see [Matric numbers](#matric-numbers)). To open a whole faculty at once, use [`tenant ensure`](#adding-several-departments-at-once) with `deploy/departments.json`.
 4. **Create each department's first admin as the runtime role.** `DB_SOURCE=<runtime DSN> ADMIN_EMAIL=<email> go run ./cmd/seed_admin -tenant unilag-ce`. seed_admin generates the password and prints it once, so store it then. Each department gets a different password, and setting `ADMIN_PASSWORD` is an error.
 
-   **Lost password.** Run the same command with `-reset-password` (and the same `ADMIN_EMAIL`). It only changes the account in that department, prints a new password once, and signs it out of every session. The refresh token stops working at once; an access token already issued lasts until it expires (`JWT_ACCESS_MINUTES`, 60 by default). It refuses an account that is not an admin (or, with `-role lecturer`, not a lecturer).
+   **Lost password.** Run the same command with `-reset-password` (and the same `ADMIN_EMAIL`). It only changes the account in that department, prints a new password once, signs it out of every session, and unlocks the account if it is locked. The refresh token stops working at once; an access token already issued lasts until it expires (`JWT_ACCESS_MINUTES`, 60 by default). It refuses an account that is not an admin (or, with `-role lecturer`, not a lecturer).
 5. **Run the server as the runtime role.** Set `DB_SOURCE` to the runtime DSN and set `DEFAULT_TENANT_SLUG`.
 
 Pass the owner's DSN on the command line for owner-level steps. Keep only the runtime DSN in `.env`.
@@ -230,6 +230,12 @@ Afterwards, for each new department:
 2. Drop its logo into `branding/department-logos/` as `EG-ME.png` and apply the folder: `DB_SOURCE=<owner DSN> go run ./cmd/tenant logos -dir ../branding/department-logos` (see [Branding](#branding)).
 
 A department with no admin and no logo still works: it appears on the sign-in page and in `GET /api/v1/tenants` straight away, with the neutral badge instead of a logo.
+
+## Staff lockout
+
+Students sign in with Modools, so the lockout covers the accounts that sign in with a password: lecturers, admins and bursars. After 5 wrong passwords the account is locked for 30 minutes. A correct password before the lock refuses nothing and clears the count. A locked account is refused even with the right password, and the message says when to try again. The lost-password reset (above) unlocks the account at once. The login rate limit (60 requests a minute per IP) still applies on top.
+
+The lock is per department, because accounts are per department. Migration `000012` makes one lockout row per user, so the count cannot split across duplicate rows.
 
 ## Day-to-day operations
 
