@@ -120,6 +120,18 @@ Each department has its own name, description and logo. The sign-in and sign-up 
 - **Admin Pack.** The platform's name appears only where no department applies: the mobile app's refusals, the help center, and mail sent with no department bound. The CRF department stamp is the one stamp that names a department: its top line reads `DEPARTMENT OF <NAME>` with the department's own name (the stamp is refused when the department has no name), and its bottom line stays `FACULTY OF ENGINEERING UNIUYO`, because every department is in faculty EG. The `aces.zone` UID domain and the `ACES-` payment references are left as they are. The references and UIDs are identifiers, not display text.
 - **Logo folder.** `branding/department-logos/` holds one file per department, named after its matric code: `EG-EE.png` is the logo for `EG/EE`. `EG-CO.png` is the ACES logo. The other files are placeholders, which the apply step skips until they are replaced. See the README in that folder. The folder is only the drop point: applying it stores each image in the database (`tenants.logo`), and the app serves it from there at `GET /api/v1/tenants/:slug/logo`. A department must exist before its logo can be applied, because the logo is matched to it by matric code. Create the departments with [`tenant ensure`](#adding-several-departments-at-once) first.
 
+## Sign-in look
+
+Each department picks how its sign-in and sign-up pages look, in Settings → Department → Sign-in and sign-up look (admins only; others see it read-only). Three templates, on the web and in the app:
+
+- **classic** (default): the video background on the web, the platform mark on the brand gradient in the app. No image.
+- **split**: the uploaded image fills the left half on the web (a band on top on phones), with the form beside it.
+- **centered**: the uploaded image is the full-screen backdrop, with the form in a card.
+
+Split and centered show the image an admin uploads (PNG, JPEG or WebP, 4 MB or less; the type is read from the bytes, so an SVG is refused). Without an image they draw classic. Switching the template keeps the image; removing the image keeps the template.
+
+The look is stored per department in `department_login_looks` (migration 000013, row-level security), not on the registry, so the admin's upload needs no `cmd/tenant` access. The API: `GET /tenants/:slug/login-look` and `GET /tenants/:slug/login-image` are public; `GET /department/login-look` is for any signed-in user; `PUT /department/login-look`, `PUT /department/login-image` and `DELETE /department/login-image` are admin-only. After a migration that adds a table, re-run `deploy/postgres/runtime-role.sql` so the runtime role can use it.
+
 ## Database roles
 
 The database has two roles, and they must stay separate.
