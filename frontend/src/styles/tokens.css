@@ -1,0 +1,32 @@
+/* Design tokens: font, neutral surface ramp and the primary (accent) colour ramp.
+   The primary ramp is stored as RGB triplets because the primary-* Tailwind colours
+   read these variables (see tailwind.config.js). A department's accent replaces them
+   at runtime (src/theme/accent.ts). The values here are the platform blue. */
+:root {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  --color-surface-50: #f8fafc;
+  --color-surface-100: #f1f5f9;
+  --color-surface-200: #e2e8f0;
+  --color-surface-300: #cbd5e1;
+  --color-surface-400: #94a3b8;
+  --color-surface-500: #64748b;
+  --color-surface-600: #475569;
+  --color-surface-700: #334155;
+  --color-surface-800: #1e293b;
+  --color-surface-900: #0f172a;
+  --color-surface-950: #020617;
+
+  --primary-50: 230 240 255;
+  --primary-100: 179 209 255;
+  --primary-200: 128 179 255;
+  --primary-300: 77 148 255;
+  --primary-400: 26 117 255;
+  --primary-500: 0 102 204;
+  --primary-600: 0 82 163;
+  --primary-700: 0 61 122;
+  --primary-800: 0 41 82;
+  --primary-900: 0 51 102;
+  --primary-950: 0 26 51;
+  --color-primary-500: rgb(var(--primary-500));
+}

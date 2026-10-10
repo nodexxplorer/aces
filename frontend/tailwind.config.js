@@ -1,13 +1,13 @@
 /** @type {import('tailwindcss').Config} */
+// Theme for the Tailwind classes. Colours that a department can change (primary) read
+// CSS variables from src/styles/tokens.css; the rest are fixed palettes.
 export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   darkMode: 'class',
   theme: {
     extend: {
       colors: {
+        // Department accent: RGB triplets set at runtime (src/theme/accent.ts).
         primary: {
           50: 'rgb(var(--primary-50) / <alpha-value>)',
           100: 'rgb(var(--primary-100) / <alpha-value>)',
@@ -21,6 +21,8 @@ export default {
           900: 'rgb(var(--primary-900) / <alpha-value>)',
           950: 'rgb(var(--primary-950) / <alpha-value>)',
         },
+
+        // Fixed palettes.
         accent: {
           50: '#e6f7ff',
           100: '#b3e5ff',
@@ -64,9 +66,11 @@ export default {
           700: '#be123c',
         },
       },
+
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
+
       boxShadow: {
         glass: '0 8px 32px rgba(0, 0, 0, 0.08)',
         card: '0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04)',
@@ -74,6 +78,8 @@ export default {
         dropdown: '0 10px 40px rgba(0, 0, 0, 0.12)',
         modal: '0 25px 60px rgba(0, 0, 0, 0.2)',
       },
+
+      // Animations and the keyframes they use, kept together.
       animation: {
         'fade-in': 'fade-in 0.3s ease-out',
         'slide-up': 'slide-up 0.3s ease-out',
@@ -83,20 +89,20 @@ export default {
       },
       keyframes: {
         'fade-in': {
-          'from': { opacity: '0' },
-          'to': { opacity: '1' },
+          from: { opacity: '0' },
+          to: { opacity: '1' },
         },
         'slide-up': {
-          'from': { opacity: '0', transform: 'translateY(12px)' },
-          'to': { opacity: '1', transform: 'translateY(0)' },
+          from: { opacity: '0', transform: 'translateY(12px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
         },
         'slide-down': {
-          'from': { opacity: '0', transform: 'translateY(-12px)' },
-          'to': { opacity: '1', transform: 'translateY(0)' },
+          from: { opacity: '0', transform: 'translateY(-12px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
         },
         'scale-in': {
-          'from': { opacity: '0', transform: 'scale(0.95)' },
-          'to': { opacity: '1', transform: 'scale(1)' },
+          from: { opacity: '0', transform: 'scale(0.95)' },
+          to: { opacity: '1', transform: 'scale(1)' },
         },
         shimmer: {
           '0%': { backgroundPosition: '-200% 0' },
@@ -105,5 +111,18 @@ export default {
       },
     },
   },
-  plugins: [],
-}
+  plugins: [
+    // Layout helper Tailwind does not provide. As a plugin it is emitted only when used,
+    // like the built-in utilities.
+    function ({ addUtilities }) {
+      addUtilities({
+        '.max-w-app': {
+          maxWidth: '1440px',
+          marginLeft: 'auto',
+          marginRight: 'auto',
+          width: '100%',
+        },
+      });
+    },
+  ],
+};

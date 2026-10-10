@@ -1,0 +1,18 @@
+/* Scrollbars: thin, rounded, and quiet in both themes. */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-300);
+  border-radius: 999px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: var(--color-surface-600);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-surface-400);
+}
