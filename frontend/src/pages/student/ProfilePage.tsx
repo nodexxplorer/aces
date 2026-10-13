@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import ChangePasswordCard from '../../components/profile/ChangePasswordCard';
 import { useAuth } from '../../hooks/useAuth';
 import { getMediaUrl } from '../../api/client';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
@@ -438,6 +439,8 @@ const ProfilePage = () => {
           </Card>
         </div>
       </div>
+
+      <ChangePasswordCard />
     </div>
   );
 };
