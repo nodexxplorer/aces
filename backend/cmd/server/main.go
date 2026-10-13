@@ -25,6 +25,7 @@ func main() {
 	tenants, err := tenant.NewManager(ctx, cfg.DBSource, tenant.Options{
 		DefaultSlug:       cfg.DefaultTenantSlug,
 		MaxConnsPerTenant: cfg.DBMaxConnsPerTenant,
+		MaxConnsSystem:    cfg.DBMaxConnsSystem,
 	})
 	if err != nil {
 		log.Fatalf("cannot connect to db: %v", err)

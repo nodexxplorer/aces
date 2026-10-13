@@ -80,6 +80,9 @@ type Config struct {
 	DefaultTenantSlug string
 	// DBMaxConnsPerTenant caps the connections each department may hold.
 	DBMaxConnsPerTenant int32
+	// DBMaxConnsSystem caps the pool used when no department is bound
+	// (tenant lookups, background jobs). Default 4.
+	DBMaxConnsSystem int32
 	// DBAllowRLSBypass lets the server run as a role that bypasses row-level
 	// security (a superuser, BYPASSRLS, or a table owner). Local development
 	// only: with it set, departments are not isolated from one another.
@@ -144,6 +147,7 @@ func Load() *Config {
 
 		DefaultTenantSlug:   getEnv("DEFAULT_TENANT_SLUG", "uniuyo-ce"),
 		DBMaxConnsPerTenant: int32(getInt("DB_MAX_CONNS_PER_TENANT", 4)),
+		DBMaxConnsSystem:    int32(getInt("DB_MAX_CONNS_SYSTEM", 4)),
 		DBAllowRLSBypass:    getBool("DB_ALLOW_RLS_BYPASS", false),
 	}
 }
