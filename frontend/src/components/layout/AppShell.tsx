@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import { isAdminArea } from '../../config/departmentAdminPaths';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 import Footer from './Footer';
@@ -12,7 +13,7 @@ const AppShell = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const { pathname } = useLocation();
-  const isAdmin = pathname.startsWith('/admin');
+  const isAdmin = isAdminArea(pathname);
 
   return (
     <div className="h-dvh bg-surface-50 dark:bg-surface-950 flex flex-col overflow-hidden print:h-auto print:block print:overflow-visible">

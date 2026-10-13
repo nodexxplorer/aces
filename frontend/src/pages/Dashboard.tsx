@@ -1,4 +1,6 @@
 import { useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
+import { departmentAdminHome } from '../config/departmentAdminPaths';
 import { useRBAC } from '../hooks/useRBAC';
 import { useAuth } from '../hooks/useAuth';
 import StudentDashboardView from './student/StudentDashboard';
@@ -18,6 +20,12 @@ const Dashboard = () => {
   }, []);
 
   const isPendingApproval = user?.approvalStatus === 'pending';
+
+  // Staff work in their department's admin area, so their home is /co/admin (or /ee/admin, ...).
+  const isStaffAdmin = activeRole === 'hod' || activeRole === 'delegated_admin' || activeRole === 'admin';
+  if (isStaffAdmin && user?.tenant?.urlCode) {
+    return <Navigate to={departmentAdminHome(user.tenant.urlCode)} replace />;
+  }
   const isRejected = user?.approvalStatus === 'rejected';
 
   return (
