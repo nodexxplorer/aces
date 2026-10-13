@@ -1,6 +1,7 @@
 import { lazy, Suspense, type ReactNode } from 'react';
-import { createBrowserRouter, Navigate, Outlet, useLocation } from 'react-router-dom';
+import { createBrowserRouter, Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
+import { departmentAdminHome, departmentAdminPath } from './config/departmentAdminPaths';
 import type { UserRole } from './types';
 
 /* ── Lazy-loaded pages ───────────────────────── */
@@ -210,6 +211,86 @@ const RoleRoute = ({ roles }: { roles: UserRole[] }) => {
   return <Outlet />;
 };
 
+// The staff pages. They are served twice: under /admin (for a department
+// with no short name, and as the address people are sent from) and under the
+// department's own short name (/co/admin, /ee/admin, ...).
+const adminPages: { path: string; element: ReactNode }[] = [
+  { path: '/admin', element: <AdminDashboard /> },
+  { path: '/admin/results', element: <ResultApprovalPage /> },
+  { path: '/admin/results/manage', element: <ResultsManagementPage /> },
+  { path: '/admin/users', element: <UserManagementPage /> },
+  { path: '/admin/user-roles', element: <UserRolesPage /> },
+  { path: '/admin/delegate', element: <DelegateAdminPage /> },
+  { path: '/admin/analytics', element: <AnalyticsPage /> },
+  { path: '/admin/sessions', element: <SessionManagementPage /> },
+  { path: '/admin/course-hub', element: <CourseHubPage /> },
+  { path: '/admin/announcements', element: <AnnouncementsPage /> },
+  { path: '/admin/academics', element: <AcademicsHubPage /> },
+  { path: '/admin/system', element: <SystemAdminPage /> },
+  { path: '/admin/alumni', element: <AlumniManagementPage /> },
+  { path: '/admin/cgpa-settings', element: <CGPASettingsPage /> },
+  { path: '/admin/settings', element: <SettingsPage /> },
+  { path: '/admin/ai-settings', element: <AISettingsPage /> },
+  { path: '/admin/at-risk', element: <AtRiskDashboard /> },
+  { path: '/admin/revenue-forecast', element: <RevenueForecastPage /> },
+  { path: '/admin/expenses', element: <ExpensesPage /> },
+  { path: '/admin/students/:id', element: <StudentDetailPage /> },
+  { path: '/admin/users/:id', element: <UserDetailPage /> },
+  { path: '/admin/users/:id/edit', element: <EditStudentPage /> },
+  { path: '/admin/courses/:id', element: <CourseDetailPage /> },
+  { path: '/admin/job-moderation', element: <AdminJobModerationPage /> },
+  { path: '/admin/lecturers', element: <LecturerManagementPage /> },
+  { path: '/admin/crf-signing', element: <CRFSigningSettingsPage /> },
+];
+
+/** Sends a plain /admin address to the signed-in person's own department address (/co/admin). */
+const CanonicalAdminAddress = () => {
+  const urlCode = useAuthStore((s) => s.user?.tenant?.urlCode);
+  const { pathname, search } = useLocation();
+  const target = departmentAdminPath(urlCode, pathname);
+  if (target !== pathname) return <Navigate to={`${target}${search}`} replace />;
+  return <Outlet />;
+};
+
+/**
+ * Guards /:code/admin and everything under it. A signed-out visitor sees the
+ * department's staff sign-in page on the admin home, and goes to /login on any
+ * other admin page. A signed-in person is sent to their own department's
+ * address, so another department's admin address never opens.
+ */
+const DepartmentAdminGate = () => {
+  const { code = '' } = useParams();
+  const { pathname, search } = useLocation();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const hasHydrated = useAuthStore((s) => s._hasHydrated);
+  const urlCode = useAuthStore((s) => s.user?.tenant?.urlCode);
+
+  if (!hasHydrated) return <PageLoader />;
+
+  const base = `/${code}/admin`;
+  const rest = pathname.slice(base.length);
+  if (!isAuthenticated) {
+    if (pathname.replace(/\/+$/, '') === base) {
+      return (
+        <SuspenseWrapper>
+          <DepartmentEntry admin />
+        </SuspenseWrapper>
+      );
+    }
+    return <Navigate to="/login" replace />;
+  }
+  if (urlCode !== code) {
+    return <Navigate to={`${departmentAdminHome(urlCode)}${rest}${search}`} replace />;
+  }
+  return <Outlet />;
+};
+
+// A page under /:code/admin: the same route, with the department code in front.
+const toDepartmentRoute = (page: { path: string; element: ReactNode }) =>
+  page.path === '/admin'
+    ? { index: true, element: page.element }
+    : { path: page.path.slice('/admin/'.length), element: page.element };
+
 /* ── Router ──────────────────────────────────── */
 export const router = createBrowserRouter([
   {
@@ -234,13 +315,26 @@ export const router = createBrowserRouter([
           </SuspenseWrapper>
         ),
       },
+    ],
+  },
+  // A department's own admin area: /co/admin, /ee/admin, and so on.
+  {
+    path: '/:code/admin',
+    element: <DepartmentAdminGate />,
+    children: [
       {
-        path: '/:code/admin',
-        element: (
-          <SuspenseWrapper>
-            <DepartmentEntry admin />
-          </SuspenseWrapper>
-        ),
+        element: <ProtectedRoute />,
+        children: [
+          {
+            element: <AppShell />,
+            children: [
+              {
+                element: <RoleRoute roles={['hod', 'delegated_admin', 'admin']} />,
+                children: adminPages.map(toDepartmentRoute),
+              },
+            ],
+          },
+        ],
       },
     ],
   },
@@ -363,34 +457,12 @@ export const router = createBrowserRouter([
 
           // Admin routes
           {
-            element: <RoleRoute roles={['hod', 'delegated_admin', 'admin']} />,
+            element: <CanonicalAdminAddress />,
             children: [
-              { path: '/admin', element: <AdminDashboard /> },
-              { path: '/admin/results', element: <ResultApprovalPage /> },
-              { path: '/admin/results/manage', element: <ResultsManagementPage /> },
-              { path: '/admin/users', element: <UserManagementPage /> },
-              { path: '/admin/user-roles', element: <UserRolesPage /> },
-              { path: '/admin/delegate', element: <DelegateAdminPage /> },
-              { path: '/admin/analytics', element: <AnalyticsPage /> },
-              { path: '/admin/sessions', element: <SessionManagementPage /> },
-              { path: '/admin/course-hub', element: <CourseHubPage /> },
-              { path: '/admin/announcements', element: <AnnouncementsPage /> },
-              { path: '/admin/academics', element: <AcademicsHubPage /> },
-              { path: '/admin/system', element: <SystemAdminPage /> },
-              { path: '/admin/alumni', element: <AlumniManagementPage /> },
-              { path: '/admin/cgpa-settings', element: <CGPASettingsPage /> },
-              { path: '/admin/settings', element: <SettingsPage /> },
-              { path: '/admin/ai-settings', element: <AISettingsPage /> },
-              { path: '/admin/at-risk', element: <AtRiskDashboard /> },
-              { path: '/admin/revenue-forecast', element: <RevenueForecastPage /> },
-              { path: '/admin/expenses', element: <ExpensesPage /> },
-              { path: '/admin/students/:id', element: <StudentDetailPage /> },
-              { path: '/admin/users/:id', element: <UserDetailPage /> },
-              { path: '/admin/users/:id/edit', element: <EditStudentPage /> },
-              { path: '/admin/courses/:id', element: <CourseDetailPage /> },
-              { path: '/admin/job-moderation', element: <AdminJobModerationPage /> },
-              { path: '/admin/lecturers', element: <LecturerManagementPage /> },
-              { path: '/admin/crf-signing', element: <CRFSigningSettingsPage /> },
+              {
+                element: <RoleRoute roles={['hod', 'delegated_admin', 'admin']} />,
+                children: adminPages,
+              },
             ],
           },
 

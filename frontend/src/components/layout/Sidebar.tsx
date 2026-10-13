@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
+import { useAuthStore } from '../../stores/authStore';
+import { departmentAdminPath } from '../../config/departmentAdminPaths';
 import { useRBAC } from '../../hooks/useRBAC';
 import { useAuth } from '../../hooks/useAuth';
 import { DepartmentLogo } from '../../components/branding/DepartmentBrand';
@@ -390,6 +392,8 @@ const mobileSections: NavSection[] = [
 ];
 
 const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: SidebarProps) => {
+  // Admin links carry the department's short name: /co/admin, /ee/admin, ...
+  const urlCode = useAuthStore((s) => s.user?.tenant?.urlCode);
   const { activeRole } = useRBAC();
   const { user, logout } = useAuth();
   const department = useCurrentDepartment();
@@ -434,7 +438,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
     return (
       <NavLink
         key={item.path}
-        to={item.path}
+        to={departmentAdminPath(urlCode, item.path)}
         className={({ isActive }) =>
           cn(
             'flex items-center justify-center mx-1.5 p-2.5 rounded-xl transition-all duration-150',
@@ -622,7 +626,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
                           return (
                             <NavLink
                               key={item.path}
-                              to={item.path}
+                              to={departmentAdminPath(urlCode, item.path)}
                               onClick={onMobileClose}
                               className={({ isActive }) =>
                                 cn(
