@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Settings } from 'lucide-react';
 import { APP_DESCRIPTION, APP_NAME } from '../../utils/constants';
 import { motion } from 'framer-motion';
@@ -7,7 +7,7 @@ import { AdminPackMark } from '../branding/AdminPackMark';
 import { DepartmentLogo } from '../branding/DepartmentBrand';
 import type { TenantInfo } from '../../types';
 import { dimOpacity, resolveLoginTemplate } from '../../config/signInLook';
-import { useSignInLook } from '../../hooks/useSignInLook';
+import { useSignInLook, type SignInLookControls } from '../../hooks/useSignInLook';
 import { SignInLookPicker } from '../auth/SignInLookPicker';
 
 interface AuthVideoShellProps {
@@ -92,7 +92,6 @@ const PhotoCaption = ({ department }: { department: TenantInfo }) => (
 interface TemplateProps {
   children: ReactNode;
   cardMaxWidth: string;
-  picker: ReactNode;
   imageSrc: string;
   /** Overlay strength over the wallpaper, 0 to 1. */
   dim: number;
@@ -103,7 +102,7 @@ interface TemplateProps {
  * Split template: the image fills the left half (a band on top when the screen
  * is narrow), and the form sits on the right.
  */
-const SplitShell = ({ children, cardMaxWidth, picker, imageSrc, dim, department }: TemplateProps) => (
+const SplitShell = ({ children, cardMaxWidth, imageSrc, dim, department }: TemplateProps) => (
   <div className="relative flex min-h-screen w-full flex-col overflow-hidden bg-surface-950 select-none">
     <div className="flex flex-1 flex-col md:flex-row">
       <div className="relative h-56 w-full shrink-0 md:h-auto md:min-h-screen md:w-1/2">
@@ -118,7 +117,6 @@ const SplitShell = ({ children, cardMaxWidth, picker, imageSrc, dim, department 
       </div>
       <div className="relative z-10 flex flex-1 items-center justify-center px-4 py-10 md:px-12 lg:px-20">
         <div className={`w-full ${cardMaxWidth}`}>
-          {picker}
           {children}
         </div>
       </div>
@@ -131,7 +129,7 @@ const SplitShell = ({ children, cardMaxWidth, picker, imageSrc, dim, department 
  * Centered template: the image is the full-bleed backdrop, and the form sits in
  * a card in the middle, with the department's logo above it.
  */
-const CenteredShell = ({ children, cardMaxWidth, picker, imageSrc, dim, department }: TemplateProps) => (
+const CenteredShell = ({ children, cardMaxWidth, imageSrc, dim, department }: TemplateProps) => (
   <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-surface-950 select-none px-4 py-10">
     <img src={imageSrc} alt="" className="absolute inset-0 h-full w-full object-cover" />
     <div className="absolute inset-0 bg-black" style={{ opacity: dim }} />
@@ -145,7 +143,6 @@ const CenteredShell = ({ children, cardMaxWidth, picker, imageSrc, dim, departme
         </>
       )}
       <div className={`w-full ${cardMaxWidth}`}>
-        {picker}
         {children}
       </div>
     </div>
@@ -183,24 +180,16 @@ const AuthVideoShellBody = ({
   cardMaxWidth = 'max-w-md',
   tagline = APP_DESCRIPTION,
   department,
-  lookOpen,
-}: AuthVideoShellProps & { lookOpen: boolean }) => {
-  const controls = useSignInLook(department?.slug);
+  controls,
+}: AuthVideoShellProps & { controls: SignInLookControls }) => {
   const { look, wallpaper } = controls;
   const imageSrc = wallpaper?.dataUrl;
   const template = resolveLoginTemplate(look.template, Boolean(imageSrc));
-  // The look panel is hidden until the settings button opens it.
-  const picker = lookOpen ? (
-    <div id="sign-in-look-panel">
-      <SignInLookPicker controls={controls} />
-    </div>
-  ) : null;
 
   if (template === 'split' && imageSrc) {
     return (
       <SplitShell
         cardMaxWidth={cardMaxWidth}
-        picker={picker}
         imageSrc={imageSrc}
         dim={dimOpacity(look.dim)}
         department={department}
@@ -213,7 +202,6 @@ const AuthVideoShellBody = ({
     return (
       <CenteredShell
         cardMaxWidth={cardMaxWidth}
-        picker={picker}
         imageSrc={imageSrc}
         dim={dimOpacity(look.dim)}
         department={department}
@@ -243,7 +231,6 @@ const AuthVideoShellBody = ({
             translucent against the video. Text inside is hardcoded light, since
             this shell always sits on a dark background. */}
         <div className={`w-full ${cardMaxWidth}`}>
-          {picker}
           {children}
         </div>
       </div>
@@ -253,11 +240,42 @@ const AuthVideoShellBody = ({
   );
 };
 
+/**
+ * The look picker, as a popup over the page. It does not take up space in the
+ * layout, so the sign-in form never scrolls because of it. A click outside it,
+ * the settings button again, or Escape closes it.
+ */
+const LookPopup = ({ controls, onClose }: { controls: SignInLookControls; onClose: () => void }) => (
+  <>
+    <div className="fixed inset-0 z-20" aria-hidden="true" onClick={onClose} />
+    <div
+      id="sign-in-look-panel"
+      role="dialog"
+      aria-label="Sign-in look"
+      className="fixed bottom-16 right-4 z-30 max-h-[70vh] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto"
+    >
+      <SignInLookPicker controls={controls} />
+    </div>
+  </>
+);
+
 const AuthVideoShell = (props: AuthVideoShellProps) => {
+  const controls = useSignInLook(props.department?.slug);
   const [lookOpen, setLookOpen] = useState(false);
+
+  useEffect(() => {
+    if (!lookOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLookOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lookOpen]);
+
   return (
     <>
-      <AuthVideoShellBody {...props} lookOpen={lookOpen} />
+      <AuthVideoShellBody {...props} controls={controls} />
+      {lookOpen && <LookPopup controls={controls} onClose={() => setLookOpen(false)} />}
       <LookSettingsToggle open={lookOpen} onToggle={() => setLookOpen((open) => !open)} />
     </>
   );
