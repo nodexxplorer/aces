@@ -417,6 +417,13 @@ func (server *Server) login(ctx *gin.Context) {
 
 	user, onboardingCompleted, err := server.auth.Login(ctx, identifier, req.Password)
 	if err != nil {
+		if errors.Is(err, service.ErrSignInUnavailable) {
+			// The database did not answer. This is not a wrong password, so
+			// it is not counted against the staff account either.
+			log.Printf("[auth] sign-in unavailable: %v", err)
+			ctx.JSON(http.StatusServiceUnavailable, gin.H{"error": "sign-in is temporarily unavailable. Please try again in a moment."})
+			return
+		}
 		if staff != nil && err.Error() != "account is deactivated" {
 			server.recordFailedStaffLogin(ctx, staff.ID, ctx.ClientIP())
 		}

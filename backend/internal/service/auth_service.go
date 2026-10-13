@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -24,8 +25,10 @@ func NewAuthService(store db.Querier) *AuthService {
 // Sign-up conflicts. The API answers them with 409 and shows the message as
 // it is, so the wording is for the person signing up.
 var (
-	ErrEmailTaken  = errors.New("an account with this email is already registered in this department")
-	ErrMatricTaken = errors.New("this matric number is already registered in this department. If it is yours, sign in instead")
+	// ErrSignInUnavailable means the database could not answer during sign-in.
+	ErrSignInUnavailable = errors.New("sign-in is temporarily unavailable")
+	ErrEmailTaken        = errors.New("an account with this email is already registered in this department")
+	ErrMatricTaken       = errors.New("this matric number is already registered in this department. If it is yours, sign in instead")
 )
 
 // isUniqueViolation reports whether err is a PostgreSQL unique-constraint
@@ -192,21 +195,31 @@ func (s *AuthService) Login(ctx context.Context, identifier, password string) (*
 	user, err := s.store.GetUserByEmail(ctx, strings.ToLower(identifier))
 
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			matric := strings.ToUpper(identifier)
-			student, errMatric := s.store.GetStudentByMatric(ctx, &matric)
-			if errMatric == nil {
-				user, err = s.store.GetUser(ctx, student.UserID)
-			} else {
-				staff, errStaff := s.store.GetStaffByStaffID(ctx, strings.ToUpper(identifier))
-				if errStaff == nil {
-					user, err = s.store.GetUser(ctx, staff.UserID)
-				} else {
-					return nil, false, errors.New("invalid email, matric number, staff ID or password")
-				}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			// A database failure is not a wrong password: say so, so the
+			// caller can ask the user to retry instead.
+			return nil, false, fmt.Errorf("%w: %v", ErrSignInUnavailable, err)
+		}
+		matric := strings.ToUpper(identifier)
+		student, errMatric := s.store.GetStudentByMatric(ctx, &matric)
+		switch {
+		case errMatric == nil:
+			user, err = s.store.GetUser(ctx, student.UserID)
+		case !errors.Is(errMatric, pgx.ErrNoRows):
+			return nil, false, fmt.Errorf("%w: %v", ErrSignInUnavailable, errMatric)
+		default:
+			staff, errStaff := s.store.GetStaffByStaffID(ctx, strings.ToUpper(identifier))
+			switch {
+			case errStaff == nil:
+				user, err = s.store.GetUser(ctx, staff.UserID)
+			case !errors.Is(errStaff, pgx.ErrNoRows):
+				return nil, false, fmt.Errorf("%w: %v", ErrSignInUnavailable, errStaff)
+			default:
+				return nil, false, errors.New("invalid email, matric number, staff ID or password")
 			}
-		} else {
-			return nil, false, err
+		}
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return nil, false, fmt.Errorf("%w: %v", ErrSignInUnavailable, err)
 		}
 	}
 
