@@ -16,7 +16,7 @@ vi.mock('../../../api/modools', async (importOriginal) => {
 
 const departments = [
   { slug: 'uniuyo-ce', name: 'Department of Computer Engineering', institution: 'University of Uyo', default: true },
-  { slug: 'unilag-ce', name: 'Department of Computer Engineering', institution: 'University of Lagos' },
+  { slug: 'uniuyo-ce', name: 'Department of Computer Engineering', institution: 'University of Lagos' },
 ];
 
 function renderLogin(initialEntry = '/login') {

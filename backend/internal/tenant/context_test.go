@@ -73,7 +73,7 @@ func TestClaimID(t *testing.T) {
 }
 
 func TestNormalizeSlug(t *testing.T) {
-	if got := normalizeSlug("  Uniport-EE "); got != "uniport-ee" {
+	if got := normalizeSlug("  uniuyo-EE "); got != "uniuyo-ee" {
 		t.Fatalf("normalizeSlug = %q", got)
 	}
 }

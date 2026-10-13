@@ -1,12 +1,12 @@
 // Command tenant manages departments (tenants).
 //
 //	tenant list
-//	tenant create -slug uniport-ee -name "Department of Electrical Engineering" \
+//	tenant create -slug uniuyo-ee -name "Department of Electrical Engineering" \
 //	              -matric-code EG/EE [-institution "University of Port Harcourt"] [-faculty "Faculty of Engineering"]
 //	tenant ensure [-file deploy/departments.json] [-dry-run]
-//	tenant update -slug uniport-ee [-name ...] [-institution ...] [-faculty ...] [-matric-code EG/EE]
-//	tenant activate -slug uniport-ee
-//	tenant deactivate -slug uniport-ee
+//	tenant update -slug uniuyo-ee [-name ...] [-institution ...] [-faculty ...] [-matric-code EG/EE]
+//	tenant activate -slug uniuyo-ee
+//	tenant deactivate -slug uniuyo-ee
 //
 // ensure is the bulk form of create: it takes a JSON file of departments and
 // creates the ones that are missing, leaving the rest alone. Running it twice
@@ -122,7 +122,7 @@ func list(ctx context.Context, pool *pgxpool.Pool) {
 
 func create(ctx context.Context, pool *pgxpool.Pool, args []string) {
 	fs := flag.NewFlagSet("create", flag.ExitOnError)
-	slug := fs.String("slug", "", "department slug, e.g. uniport-ee (lowercase letters, digits, hyphens)")
+	slug := fs.String("slug", "", "department slug, e.g. uniuyo-ee (lowercase letters, digits, hyphens)")
 	name := fs.String("name", "", "department name")
 	matricCode := fs.String("matric-code", "", "matric code, e.g. EG/EE for 20/EG/EE/1234")
 	institution := fs.String("institution", "", "institution name")

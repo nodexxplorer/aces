@@ -41,20 +41,20 @@ DB_SOURCE='postgresql://aces_user:…@localhost:5432/aces_zone?sslmode=disable' 
 #    matric numbers (EG/CO for 20/EG/CO/1234). Without it the department cannot
 #    sign up or onboard students until you run `tenant update`.
 DB_SOURCE='postgresql://aces_user:…@localhost:5432/aces_zone?sslmode=disable' \
-  go run ./cmd/tenant create -slug unilag-ce -name "Department of Computer Engineering" \
+  go run ./cmd/tenant create -slug uniuyo-ce -name "Department of Computer Engineering" \
   -matric-code EG/CO -institution "University of Lagos" -faculty "Faculty of Engineering"
 
 # 4. Create that department's first admin, as the runtime role. seed_admin
 #    prints a generated password for it once; each department gets its own.
 DB_SOURCE='postgresql://aces_app:…@localhost:5432/aces_zone?sslmode=disable' \
-  ADMIN_EMAIL=admin@example.edu make seed-admin ARGS="-tenant unilag-ce"
+  ADMIN_EMAIL=admin@example.edu make seed-admin ARGS="-tenant uniuyo-ce"
 ```
 
 If an admin loses the password, give that account a new one. The command below works the same way: it prints the new password once and signs it out of every session. Access tokens already issued last until they expire (`JWT_ACCESS_MINUTES`, 60 by default).
 
 ```bash
 DB_SOURCE='postgresql://aces_app:…@localhost:5432/aces_zone?sslmode=disable' \
-  ADMIN_EMAIL=admin@example.edu make seed-admin ARGS="-tenant unilag-ce -reset-password"
+  ADMIN_EMAIL=admin@example.edu make seed-admin ARGS="-tenant uniuyo-ce -reset-password"
 # A lecturer's password: add -role lecturer and set LECTURER_EMAIL instead.
 ```
 
@@ -77,12 +77,12 @@ Each new department then needs an admin (step 4 above, once per department) and,
 ```bash
 # Set or change a department's matric code (EG/EE for 20/EG/EE/1234). "" clears it.
 DB_SOURCE='postgresql://aces_user:…@localhost:5432/aces_zone?sslmode=disable' \
-  go run ./cmd/tenant update -slug unilag-ce -matric-code EG/CO
+  go run ./cmd/tenant update -slug uniuyo-ce -matric-code EG/CO
 
 # Set the branding shown on the sign-in page and dashboard: a description and a logo
 # (PNG, JPEG or WebP, at most 256 KiB). -remove-logo removes the logo.
 DB_SOURCE='postgresql://aces_user:…@localhost:5432/aces_zone?sslmode=disable' \
-  go run ./cmd/tenant update -slug unilag-ce -description "Computer engineering students" -logo ./logo.png
+  go run ./cmd/tenant update -slug uniuyo-ce -description "Computer engineering students" -logo ./logo.png
 
 # Set every department's logo from the folder. Each file is named after its matric code:
 # EG-EE.png is the logo for EG/EE. -dry-run lists what would change. Placeholder files are skipped.
@@ -91,8 +91,8 @@ DB_SOURCE='postgresql://aces_user:…@localhost:5432/aces_zone?sslmode=disable' 
 
 # The email printed on a department's dues receipts. "" clears it.
 DB_SOURCE='postgresql://aces_user:…@localhost:5432/aces_zone?sslmode=disable' \
-  go run ./cmd/tenant update -slug unilag-ce -contact-email receipts@example.edu
-  go run ./cmd/tenant update -slug unilag-ce -approval-email hod@example.edu
+  go run ./cmd/tenant update -slug uniuyo-ce -contact-email receipts@example.edu
+  go run ./cmd/tenant update -slug uniuyo-ce -approval-email hod@example.edu
 ```
 
 The migrations create the default department `uniuyo-ce`, which holds all data from before multi-tenancy. Migration `000005` gives it the matric code `EG/CO`. See [docs/multi-tenancy.md](../docs/multi-tenancy.md#matric-numbers) for how matric numbers are checked.

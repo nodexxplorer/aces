@@ -16,7 +16,7 @@ One ACES deployment can serve several departments. Each department is a **tenant
 
 ## Concepts
 
-- **Registry.** The `tenants` table holds each department's `slug` (its identifier in requests, for example `unilag-ce`), `name`, `institution`, `faculty`, `matric_code` (see [Matric numbers](#matric-numbers)), `description` and `logo` (see [Branding](#branding)), and `is_active`. The API can read it but cannot change it.
+- **Registry.** The `tenants` table holds each department's `slug` (its identifier in requests, for example `uniuyo-ce`), `name`, `institution`, `faculty`, `matric_code` (see [Matric numbers](#matric-numbers)), `description` and `logo` (see [Branding](#branding)), and `is_active`. The API can read it but cannot change it.
 - **Legacy department.** Everything that existed before multi-tenancy belongs to `uniuyo-ce` (ID `00000000-0000-4000-8000-000000000001`). Access tokens issued before the change carry no department claim, and the server treats them as belonging to this department.
 - **Default department.** `DEFAULT_TENANT_SLUG` (default `uniuyo-ce`). Requests that name no department use it. Mobile clients depend on it, so it must stay active.
 - **Active and inactive.** A deactivated department cannot sign in, and its existing tokens stop working.
@@ -186,8 +186,8 @@ Run these steps in order, substituting your own connection strings.
 
 1. **Migrate as the owner.** `DB_SOURCE=<owner DSN> make migrate-up`
 2. **Create the runtime role.** `DB_SOURCE=<owner DSN> APP_DB_USER=aces_app APP_DB_PASSWORD=<secret> make runtime-role`
-3. **Create departments as the owner.** `DB_SOURCE=<owner DSN> go run ./cmd/tenant create -slug unilag-ce -name "Department of Computer Engineering" -matric-code EG/CO -institution "University of Lagos" -faculty "Faculty of Engineering"`. A department created without `-matric-code` cannot onboard or sign up students until you set one (see [Matric numbers](#matric-numbers)). To open a whole faculty at once, use [`tenant ensure`](#adding-several-departments-at-once) with `deploy/departments.json`.
-4. **Create each department's first admin as the runtime role.** `DB_SOURCE=<runtime DSN> ADMIN_EMAIL=<email> go run ./cmd/seed_admin -tenant unilag-ce`. seed_admin generates the password and prints it once, so store it then. Each department gets a different password, and setting `ADMIN_PASSWORD` is an error.
+3. **Create departments as the owner.** `DB_SOURCE=<owner DSN> go run ./cmd/tenant create -slug uniuyo-ce -name "Department of Computer Engineering" -matric-code EG/CO -institution "University of Lagos" -faculty "Faculty of Engineering"`. A department created without `-matric-code` cannot onboard or sign up students until you set one (see [Matric numbers](#matric-numbers)). To open a whole faculty at once, use [`tenant ensure`](#adding-several-departments-at-once) with `deploy/departments.json`.
+4. **Create each department's first admin as the runtime role.** `DB_SOURCE=<runtime DSN> ADMIN_EMAIL=<email> go run ./cmd/seed_admin -tenant uniuyo-ce`. seed_admin generates the password and prints it once, so store it then. Each department gets a different password, and setting `ADMIN_PASSWORD` is an error.
 
    **Lost password.** Run the same command with `-reset-password` (and the same `ADMIN_EMAIL`). It only changes the account in that department, prints a new password once, signs it out of every session, and unlocks the account if it is locked. The refresh token stops working at once; an access token already issued lasts until it expires (`JWT_ACCESS_MINUTES`, 60 by default). It refuses an account that is not an admin (or, with `-role lecturer`, not a lecturer).
 5. **Run the server as the runtime role.** Set `DB_SOURCE` to the runtime DSN and set `DEFAULT_TENANT_SLUG`.
