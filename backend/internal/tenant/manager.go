@@ -81,6 +81,8 @@ func NewManager(ctx context.Context, dsn string, opts Options) (*Manager, error)
 		return nil, fmt.Errorf("tenant: parse database url: %w", err)
 	}
 	cfg.MaxConns = opts.MaxConnsSystem
+	cfg.MaxConnIdleTime = 30 * time.Second
+	cfg.MaxConnLifetime = 5 * time.Minute
 	cfg.AfterConnect = roleHook(opts.RuntimeRole)
 
 	system, err := pgxpool.NewWithConfig(ctx, cfg)
@@ -277,6 +279,8 @@ func (m *Manager) poolFor(id uuid.UUID) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("tenant: parse database url: %w", err)
 	}
 	cfg.MaxConns = m.opts.MaxConnsPerTenant
+	cfg.MaxConnIdleTime = 30 * time.Second
+	cfg.MaxConnLifetime = 5 * time.Minute
 	role := roleHook(m.opts.RuntimeRole)
 	cfg.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
 		// Bind once, when the physical connection opens. The value is never
