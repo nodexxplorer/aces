@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { Settings } from 'lucide-react';
 import { APP_DESCRIPTION, APP_NAME } from '../../utils/constants';
 import { motion } from 'framer-motion';
 import CookieConsent from '../feedback/CookieConsent';
@@ -152,22 +153,48 @@ const CenteredShell = ({ children, cardMaxWidth, picker, imageSrc, dim, departme
   </div>
 );
 
+/**
+ * Fixed gear button at the bottom right. It shows or hides the sign-in look
+ * panel, so the page is clean by default and the panel does not make the
+ * sign-in form scroll. It sits outside the shell, so no transformed ancestor
+ * can move it.
+ */
+const LookSettingsToggle = ({ open, onToggle }: { open: boolean; onToggle: () => void }) => (
+  <button
+    type="button"
+    onClick={onToggle}
+    aria-expanded={open}
+    aria-controls="sign-in-look-panel"
+    aria-label={open ? 'Hide sign-in look settings' : 'Show sign-in look settings'}
+    title="Sign-in look"
+    className="fixed bottom-4 right-4 z-30 flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-lg backdrop-blur transition-colors hover:bg-black/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+  >
+    <Settings size={18} aria-hidden="true" />
+  </button>
+);
+
 // Shared full-bleed shell for every public auth page (login, signup, password
 // reset). The look is chosen on the page itself (the picker above the form) and
 // kept on this device: classic (the video background, with the animated logo on
 // a desktop-only left panel), split, or centered. Split and centered show the
 // wallpaper the person uploaded or created; without one they fall back to classic.
-const AuthVideoShell = ({
+const AuthVideoShellBody = ({
   children,
   cardMaxWidth = 'max-w-md',
   tagline = APP_DESCRIPTION,
   department,
-}: AuthVideoShellProps) => {
+  lookOpen,
+}: AuthVideoShellProps & { lookOpen: boolean }) => {
   const controls = useSignInLook(department?.slug);
   const { look, wallpaper } = controls;
   const imageSrc = wallpaper?.dataUrl;
   const template = resolveLoginTemplate(look.template, Boolean(imageSrc));
-  const picker = <SignInLookPicker controls={controls} />;
+  // The look panel is hidden until the settings button opens it.
+  const picker = lookOpen ? (
+    <div id="sign-in-look-panel">
+      <SignInLookPicker controls={controls} />
+    </div>
+  ) : null;
 
   if (template === 'split' && imageSrc) {
     return (
@@ -223,6 +250,16 @@ const AuthVideoShell = ({
 
       <CookieConsent dark />
     </div>
+  );
+};
+
+const AuthVideoShell = (props: AuthVideoShellProps) => {
+  const [lookOpen, setLookOpen] = useState(false);
+  return (
+    <>
+      <AuthVideoShellBody {...props} lookOpen={lookOpen} />
+      <LookSettingsToggle open={lookOpen} onToggle={() => setLookOpen((open) => !open)} />
+    </>
   );
 };
 
