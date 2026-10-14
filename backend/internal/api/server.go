@@ -186,11 +186,19 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		return json.Marshal(msg)
 	}
 
+	// Redis shares the rate-limit counts between server instances. It is used
+	// only if it answers now; otherwise each instance limits on its own.
 	var rc *cache.RedisCache
 	if cfg.RedisAddress != "" {
 		rc = cache.NewRedisCache(cfg.RedisAddress, cfg.RedisPassword)
-		if err := rc.Ping(context.Background()); err == nil {
+		pingCtx, cancelPing := context.WithTimeout(context.Background(), 2*time.Second)
+		err := rc.Ping(pingCtx)
+		cancelPing()
+		if err == nil {
 			server.redisCache = rc
+			log.Printf("[startup] rate limits shared through Redis at %s", cfg.RedisAddress)
+		} else {
+			log.Printf("[startup] Redis at %s is not reachable (%v): rate limits are kept per server instance", cfg.RedisAddress, err)
 		}
 	}
 
@@ -202,7 +210,7 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	router.Use(middleware.RequestLogger())
 	router.Use(corsMiddleware(cfg.AllowedOrigins))
 	if rc != nil && server.redisCache != nil {
-		router.Use(middleware.RedisRateLimit(server.redisCache, 100, time.Minute))
+		router.Use(middleware.RedisRateLimit(server.redisCache, "global", 100, time.Minute))
 	} else {
 		router.Use(middleware.RateLimit(100, time.Minute))
 	}
@@ -216,9 +224,9 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	// Per-route rate limiters: prefer Redis, fall back to in-memory
 	var rl, authRL, wallpaperRL gin.HandlerFunc
 	if server.redisCache != nil {
-		rl = middleware.RedisRateLimit(server.redisCache, 10, time.Minute)
-		authRL = middleware.RedisRateLimit(server.redisCache, 60, time.Minute)
-		wallpaperRL = middleware.RedisRateLimit(server.redisCache, 5, time.Hour)
+		rl = middleware.RedisRateLimit(server.redisCache, "route", 10, time.Minute)
+		authRL = middleware.RedisRateLimit(server.redisCache, "auth", 60, time.Minute)
+		wallpaperRL = middleware.RedisRateLimit(server.redisCache, "wallpaper", 5, time.Hour)
 	} else {
 		rl = middleware.RateLimit(10, time.Minute)
 		authRL = middleware.RateLimit(60, time.Minute)
