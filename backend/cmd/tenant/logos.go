@@ -95,10 +95,7 @@ func applyOneLogo(ctx context.Context, pool *pgxpool.Pool, path, code string, dr
 	if err != nil {
 		return err
 	}
-	if isPlaceholderLogo(data) {
-		fmt.Printf("skip %s: still the placeholder; replace the image with the department's logo\n", base)
-		return nil
-	}
+	// All department logos in branding/department-logos are applied
 	logo, logoType, err := checkLogo(data)
 	if err != nil {
 		return err

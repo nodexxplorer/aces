@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { listDepartments, type Department } from '../api/departments';
-import { departmentByUrlCode, getStoredDepartment, storeDepartment } from '../config/department';
+import {
+  DEFAULT_DEPARTMENTS,
+  departmentByUrlCode,
+  formatDepartmentDisplayName,
+  getStoredDepartment,
+  storeDepartment,
+} from '../config/department';
 import { applyDepartmentAccent } from '../theme/accent';
 
 // Resolves which department a sign-in or sign-up form should use.
@@ -16,9 +22,18 @@ export function useDepartments(urlCode?: string) {
     queryKey: ['departments'],
     queryFn: listDepartments,
     staleTime: 5 * 60 * 1000,
+    placeholderData: DEFAULT_DEPARTMENTS,
   });
 
-  const departments: Department[] = useMemo(() => query.data ?? [], [query.data]);
+  const rawDepartments: Department[] = useMemo(() => query.data ?? DEFAULT_DEPARTMENTS, [query.data]);
+
+  // Format all names so 'Department of' is always 'Dept of'
+  const departments: Department[] = useMemo(() => {
+    return rawDepartments.map((d) => ({
+      ...d,
+      name: formatDepartmentDisplayName(d.name),
+    }));
+  }, [rawDepartments]);
   const [chosen, setChosen] = useState<string>(getStoredDepartment);
 
   const fromAddress = departmentByUrlCode(departments, urlCode)?.slug;

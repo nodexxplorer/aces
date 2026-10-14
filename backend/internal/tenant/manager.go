@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -182,17 +184,24 @@ func (m *Manager) Active(ctx context.Context) ([]Tenant, error) {
 // MIME type. It reports ErrNotFound when the department is missing, inactive,
 // or has no logo, so a deactivated department's logo stops being served too.
 func (m *Manager) Logo(ctx context.Context, slug string) (contentType string, data []byte, err error) {
+	var matricCode string
 	err = m.system.QueryRow(ctx,
-		`SELECT logo_type, logo FROM tenants WHERE slug = $1 AND is_active AND logo IS NOT NULL`,
+		`SELECT COALESCE(logo_type, ''), logo, COALESCE(matric_code, '') FROM tenants WHERE slug = $1 AND is_active`,
 		normalizeSlug(slug),
-	).Scan(&contentType, &data)
+	).Scan(&contentType, &data, &matricCode)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", nil, ErrNotFound
 	}
 	if err != nil {
 		return "", nil, err
 	}
-	return contentType, data, nil
+	if len(data) > 0 {
+		return contentType, data, nil
+	}
+	if fileData, found := readDiskLogo(matricCode); found {
+		return "image/png", fileData, nil
+	}
+	return "", nil, ErrNotFound
 }
 
 // Bind returns ctx bound to the active tenant with the given ID.
@@ -321,7 +330,30 @@ type rowScanner interface {
 func scanTenant(row rowScanner) (Tenant, error) {
 	var t Tenant
 	err := row.Scan(&t.ID, &t.Slug, &t.Name, &t.Institution, &t.Faculty, &t.MatricCode, &t.Description, &t.LogoType, &t.ContactEmail, &t.ApprovalEmail, &t.AccentColor, &t.URLCode, &t.IsActive)
+	if err == nil && t.LogoType == "" && t.MatricCode != "" {
+		if _, ok := readDiskLogo(t.MatricCode); ok {
+			t.LogoType = "image/png"
+		}
+	}
 	return t, err
+}
+
+func readDiskLogo(matricCode string) ([]byte, bool) {
+	if matricCode == "" {
+		return nil, false
+	}
+	dashCode := strings.ReplaceAll(strings.ToUpper(matricCode), "/", "-")
+	candidates := []string{
+		filepath.Join("branding", "department-logos", dashCode+".png"),
+		filepath.Join("..", "branding", "department-logos", dashCode+".png"),
+		filepath.Join("/home/nodexxplorer/Desktop/Aces here/branding/department-logos", dashCode+".png"),
+	}
+	for _, p := range candidates {
+		if data, err := os.ReadFile(p); err == nil && len(data) > 0 {
+			return data, true
+		}
+	}
+	return nil, false
 }
 
 func normalizeSlug(s string) string {

@@ -43,7 +43,7 @@ describe('student sign-in page', () => {
     await waitFor(() => expect(select.querySelectorAll('option')).toHaveLength(2));
     expect(select).toHaveValue('uniuyo-ce');
     expect(
-      screen.getByRole('option', { name: 'Department of Computer Engineering, University of Lagos' }),
+      screen.getByRole('option', { name: 'Dept of Computer Engineering, University of Lagos' }),
     ).toBeInTheDocument();
   });
 

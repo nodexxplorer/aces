@@ -1,14 +1,14 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Settings } from 'lucide-react';
-import { APP_DESCRIPTION, APP_NAME } from '../../utils/constants';
+import { APP_NAME } from '../../utils/constants';
 import { motion } from 'framer-motion';
 import CookieConsent from '../feedback/CookieConsent';
-import { AdminPackMark } from '../branding/AdminPackMark';
 import { DepartmentLogo } from '../branding/DepartmentBrand';
 import type { TenantInfo } from '../../types';
 import { dimOpacity, resolveLoginTemplate } from '../../config/signInLook';
 import { useSignInLook, type SignInLookControls } from '../../hooks/useSignInLook';
 import { SignInLookPicker } from '../auth/SignInLookPicker';
+import { DEFAULT_DEPARTMENTS, formatDepartmentDisplayName } from '../../config/department';
 
 interface AuthVideoShellProps {
   children: ReactNode;
@@ -22,45 +22,7 @@ interface AuthVideoShellProps {
   department?: TenantInfo;
 }
 
-/** The platform mark with its name and tagline. Used when no department is chosen. */
-const PlatformMark = ({ tagline }: { tagline: string }) => (
-  <>
-    <div className="relative mb-6 w-36 h-36 lg:w-48 lg:h-48">
-      {/* Slowly-orbiting glow behind the logo — two blurred blobs spun
-          around the container rather than a conic-gradient, so it
-          renders with plain Tailwind color tokens instead of needing
-          arbitrary theme() CSS support. */}
-      <motion.div
-        className="absolute inset-0"
-        animate={{ rotate: 360 }}
-        transition={{ duration: 10, repeat: Infinity, ease: 'linear' }}
-      >
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-primary-400/50 blur-2xl" />
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-accent-400/50 blur-2xl" />
-      </motion.div>
-      <motion.div
-        className="relative w-36 h-36 lg:w-48 lg:h-48 drop-shadow-2xl"
-        initial={{ opacity: 0, scale: 0.5, rotate: -25 }}
-        animate={{ opacity: 1, scale: 1, rotate: 0, y: [0, -10, 0] }}
-        transition={{
-          opacity: { duration: 0.7 },
-          scale: { duration: 0.7, type: 'spring', bounce: 0.45 },
-          rotate: { duration: 0.7, type: 'spring', bounce: 0.45 },
-          y: { duration: 3.5, repeat: Infinity, ease: 'easeInOut', delay: 0.7 },
-        }}
-      >
-        <AdminPackMark className="h-full w-full" />
-      </motion.div>
-    </div>
-    <h1 className="text-3xl lg:text-4xl font-bold text-white tracking-tight">{APP_NAME}</h1>
-    <p className="mt-3 max-w-xs text-sm text-white/70">{tagline}</p>
-  </>
-);
-
-/**
- * The department's own brand on the left panel. "Admin Pack" is only the small
- * platform line underneath, as the approved entry-screen layout requires.
- */
+// Department brand shown on the left panel
 const DepartmentPanel = ({ department }: { department: TenantInfo }) => (
   <>
     <motion.div
@@ -74,8 +36,12 @@ const DepartmentPanel = ({ department }: { department: TenantInfo }) => (
         className="w-36 h-36 lg:w-44 lg:h-44 rounded-3xl shadow-2xl bg-white/90 p-3"
       />
     </motion.div>
-    <h1 className="max-w-sm text-3xl lg:text-4xl font-bold text-white tracking-tight">{department.name}</h1>
-    {department.institution && <p className="mt-2 text-sm text-white/60">{department.institution}</p>}
+    <h1 className="max-w-sm text-3xl lg:text-4xl font-bold text-white tracking-tight">
+      {formatDepartmentDisplayName(department.name)}
+    </h1>
+    {department.institution && department.institution !== 'University of Uyo' && (
+      <p className="mt-2 text-sm text-white/60">{department.institution}</p>
+    )}
     {department.description && <p className="mt-3 max-w-sm text-sm text-white/75">{department.description}</p>}
     <p className="mt-8 text-[11px] uppercase tracking-[0.2em] text-white/45">{APP_NAME}</p>
   </>
@@ -116,9 +82,7 @@ const SplitShell = ({ children, cardMaxWidth, imageSrc, dim, department }: Templ
         )}
       </div>
       <div className="relative z-10 flex flex-1 items-center justify-center px-4 py-10 md:px-12 lg:px-20">
-        <div className={`w-full ${cardMaxWidth}`}>
-          {children}
-        </div>
+        <div className={`w-full ${cardMaxWidth}`}>{children}</div>
       </div>
     </div>
     <CookieConsent dark />
@@ -130,21 +94,19 @@ const SplitShell = ({ children, cardMaxWidth, imageSrc, dim, department }: Templ
  * a card in the middle, with the department's logo above it.
  */
 const CenteredShell = ({ children, cardMaxWidth, imageSrc, dim, department }: TemplateProps) => (
-  <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-surface-950 select-none px-4 py-10">
+  <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-surface-950 select-none px-4 py-4">
     <img src={imageSrc} alt="" className="absolute inset-0 h-full w-full object-cover" />
     <div className="absolute inset-0 bg-black" style={{ opacity: dim }} />
     <div className="relative z-10 flex w-full flex-col items-center">
       {department && (
         <>
-          <DepartmentLogo department={department} className="mb-4 h-20 w-20 rounded-2xl bg-white/90 p-2 shadow-2xl" />
-          <p className="mb-6 text-center text-sm font-medium uppercase tracking-[0.2em] text-white/80">
+          <DepartmentLogo department={department} className="mb-3 h-20 w-20 rounded-2xl bg-white/90 p-2 shadow-2xl" />
+          <p className="mb-4 text-center text-sm font-medium uppercase tracking-[0.2em] text-white/80">
             {department.name}
           </p>
         </>
       )}
-      <div className={`w-full ${cardMaxWidth}`}>
-        {children}
-      </div>
+      <div className={`w-full ${cardMaxWidth}`}>{children}</div>
     </div>
     <CookieConsent dark />
   </div>
@@ -178,7 +140,6 @@ const LookSettingsToggle = ({ open, onToggle }: { open: boolean; onToggle: () =>
 const AuthVideoShellBody = ({
   children,
   cardMaxWidth = 'max-w-md',
-  tagline = APP_DESCRIPTION,
   department,
   controls,
 }: AuthVideoShellProps & { controls: SignInLookControls }) => {
@@ -188,24 +149,14 @@ const AuthVideoShellBody = ({
 
   if (template === 'split' && imageSrc) {
     return (
-      <SplitShell
-        cardMaxWidth={cardMaxWidth}
-        imageSrc={imageSrc}
-        dim={dimOpacity(look.dim)}
-        department={department}
-      >
+      <SplitShell cardMaxWidth={cardMaxWidth} imageSrc={imageSrc} dim={dimOpacity(look.dim)} department={department}>
         {children}
       </SplitShell>
     );
   }
   if (template === 'centered' && imageSrc) {
     return (
-      <CenteredShell
-        cardMaxWidth={cardMaxWidth}
-        imageSrc={imageSrc}
-        dim={dimOpacity(look.dim)}
-        department={department}
-      >
+      <CenteredShell cardMaxWidth={cardMaxWidth} imageSrc={imageSrc} dim={dimOpacity(look.dim)} department={department}>
         {children}
       </CenteredShell>
     );
@@ -221,18 +172,16 @@ const AuthVideoShellBody = ({
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-primary-500/20 blur-[120px] pointer-events-none" />
 
       <div className="relative z-10 flex flex-1 flex-col md:flex-row items-center justify-center md:justify-between gap-10 px-4 py-10 md:px-16 lg:px-24">
-        {/* Desktop-only left panel — hidden on mobile web per design. */}
+        {/* Desktop-only left panel — always shows department branding without flashing the generic placeholder. */}
         <div className="hidden md:flex flex-1 flex-col items-center justify-center text-center">
-          {department ? <DepartmentPanel department={department} /> : <PlatformMark tagline={tagline} />}
+          <DepartmentPanel department={department ?? (DEFAULT_DEPARTMENTS[0] as unknown as TenantInfo)} />
         </div>
 
         {/* Card column. The glass panel is hand-rolled (not the shared Card's
             `glass` prop, whose opaque base classes win the cascade) so it stays
             translucent against the video. Text inside is hardcoded light, since
             this shell always sits on a dark background. */}
-        <div className={`w-full ${cardMaxWidth}`}>
-          {children}
-        </div>
+        <div className={`w-full ${cardMaxWidth}`}>{children}</div>
       </div>
 
       <CookieConsent dark />

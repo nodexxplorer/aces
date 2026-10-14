@@ -26,7 +26,7 @@ const lecturerSignupSchema = z
     //   message: 'Invalid staff ID format',
     // }),
     password: z.string().min(8, 'Password must be at least 8 characters'),
-    confirmPassword: z.string(),
+    confirmPassword: z.string('Must match password'),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwords must match',
@@ -81,16 +81,25 @@ const LecturerSignupPage = () => {
   return (
     <AuthVideoShell cardMaxWidth="max-w-lg" department={departments.find((d) => d.slug === selected)}>
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-        <div className="rounded-2xl border border-white/25 bg-white/10 backdrop-blur-2xl shadow-2xl p-8">
-          <div className="flex flex-col items-center gap-1 text-center mb-7">
-            <AdminPackMark className="w-14 h-14 rounded-2xl mb-2 shadow-lg md:hidden" />
-            <h2 className="text-3xl font-bold tracking-tight text-white">Lecturer Registration</h2>
+        <div className="rounded-2xl border border-white/25 bg-white/10 backdrop-blur-2xl shadow-2xl px-8 py-3 pt-4">
+          <div className="flex flex-col items-center gap-1 text-center mb-3">
+            <AdminPackMark className="w-14 h-14 rounded-2xl mb-1 shadow-lg md:hidden" />
+            <h2 className="text-2xl font-bold tracking-tight text-white">Lecturer Registration</h2>
             <p className="text-sm text-white/70">Register your staff account for department portal access</p>
           </div>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <DepartmentSelect departments={departments} value={selected} onChange={select} />
-            <div className="mt-4 md:hidden">
-              <DepartmentBrand department={departments.find((d) => d.slug === selected)} />
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-1">
+            <div className="grid grid-cols-2 gap-4">
+              <DepartmentSelect departments={departments} value={selected} onChange={select} />
+              <div className="mt-4 md:hidden">
+                <DepartmentBrand department={departments.find((d) => d.slug === selected)} />
+              </div>
+              <Input
+                label="Staff ID"
+                placeholder="e.g. ENG/12345"
+                leftIcon={<Briefcase className="w-3 h-3" />}
+                error={errors.staffId?.message}
+                {...register('staffId')}
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <Input
@@ -114,13 +123,6 @@ const LecturerSignupPage = () => {
               leftIcon={<Mail className="w-4 h-4" />}
               error={errors.email?.message}
               {...register('email')}
-            />
-            <Input
-              label="Staff ID"
-              placeholder="e.g. ENG/12345"
-              leftIcon={<Briefcase className="w-4 h-4" />}
-              error={errors.staffId?.message}
-              {...register('staffId')}
             />
             <div className="grid grid-cols-2 gap-4">
               <Input

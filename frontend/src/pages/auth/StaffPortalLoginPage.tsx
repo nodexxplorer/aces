@@ -72,15 +72,17 @@ const StaffPortalLoginPage = ({ urlCode }: { urlCode?: string } = {}) => {
     <AuthVideoShell department={departments.find((d) => d.slug === selected)}>
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
         <div className="rounded-2xl border border-white/25 bg-white/10 backdrop-blur-2xl shadow-2xl p-8 max-w-md mx-auto">
-          <div className="flex flex-col items-center gap-1 text-center mb-7">
+          <div className="flex flex items-center gap-1 text-center mb-4">
             <div className="p-3 rounded-2xl bg-white/10 border border-white/20 mb-2">
               <ShieldCheck className="w-8 h-8 text-white" />
             </div>
-            <h2 className="text-2xl font-bold tracking-tight text-white">Staff Portal</h2>
-            <p className="text-sm text-white/70">Admin Pack staff access, email and password only</p>
+            <div className="">
+              <h2 className="text-2xl font-bold tracking-tight text-white">Staff Portal</h2>
+              <p className="text-sm text-white/70">Admin Pack staff access, email and password only</p>
+            </div>
           </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
             <AnimatePresence>
               {authError && (
                 <motion.div

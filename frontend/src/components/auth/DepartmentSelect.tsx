@@ -32,11 +32,15 @@ export default function DepartmentSelect({ departments, value, onChange, disable
           'disabled:opacity-60',
         )}
       >
-        {departments.map((d) => (
-          <option key={d.slug} value={d.slug}>
-            {d.institution ? `${d.name}, ${d.institution}` : d.name}
-          </option>
-        ))}
+        {departments.map((d) => {
+          // If institution is University of Uyo, omit it so we get clean "Dept of ..." names
+          const label = d.institution && d.institution !== 'University of Uyo' ? `${d.name}, ${d.institution}` : d.name;
+          return (
+            <option key={d.slug} value={d.slug}>
+              {label}
+            </option>
+          );
+        })}
       </select>
     </div>
   );

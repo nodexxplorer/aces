@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { lazy, Suspense, type ReactNode } from 'react';
 import { createBrowserRouter, Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
@@ -303,7 +304,10 @@ export const router = createBrowserRouter([
       { path: '/forgot-password', element: <ForgotPasswordPage /> },
       { path: '/reset-password-otp', element: <PasswordResetOTPPage /> },
       { path: '/signup/student', element: <StudentSignupPage /> },
-      { path: 'lecturer/signup', element: <LecturerSignupPage /> },
+      {
+        path: (import.meta.env.VITE_STAFF_PORTAL_PATH || '/portalsign') + '/lecturer/signup',
+        element: <LecturerSignupPage />,
+      },
       // A department's own sign-in addresses: /co for students, /co/admin for
       // staff. Static routes always win over these, so a code cannot shadow a
       // page (internal/tenant/urlcode.go reserves every page's first segment).
