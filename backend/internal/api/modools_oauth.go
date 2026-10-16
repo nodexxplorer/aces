@@ -28,6 +28,7 @@ const (
 	modoolsTenantCookie    = "aces_modools_tenant"
 	modoolsClientCookie    = "aces_modools_client"
 	modoolsChallengeCookie = "aces_modools_challenge"
+	modoolsRedirectCookie  = "aces_modools_redirect"
 	modoolsCallbackError   = "auth_failed"
 
 	// mobileModoolsReturn is where a mobile sign-in ends. It uses the app's URL
@@ -116,6 +117,26 @@ func (server *Server) frontendBase() string {
 	return base
 }
 
+// modoolsRedirectURL computes the OAuth callback URL. In production, it uses
+// the explicit MODOOLS_REDIRECT_URL setting. In local development, if the incoming
+// request came from an IP or localhost host, it builds the callback from that
+// request host so both web (localhost) and mobile (LAN IP) work seamlessly.
+func (server *Server) modoolsRedirectURL(ctx *gin.Context) string {
+	_, _, _, configuredURL, _ := modoolsEnv()
+	if server.config.IsProduction() {
+		return configuredURL
+	}
+	host := ctx.Request.Host
+	if host == "" {
+		return configuredURL
+	}
+	proto := "http"
+	if ctx.Request.TLS != nil || ctx.GetHeader("X-Forwarded-Proto") == "https" {
+		proto = "https"
+	}
+	return fmt.Sprintf("%s://%s/api/v1/auth/modools/callback", proto, host)
+}
+
 // modoolsStartsOnMobile reports whether a sign-in is starting in the mobile app.
 // Only the exact value "mobile" counts.
 func modoolsStartsOnMobile(ctx *gin.Context) bool {
@@ -168,10 +189,15 @@ func (server *Server) modoolsLogin(ctx *gin.Context) {
 	state := randomToken(16)
 	verifier := randomToken(48)
 
+	redirectURI := server.modoolsRedirectURL(ctx)
+	authCfg := *cfg
+	authCfg.RedirectURL = redirectURI
+
 	// 10 minutes is plenty for the user to come back from Modools.
 	server.setShortCookie(ctx, modoolsStateCookie, state, 600)
 	server.setShortCookie(ctx, modoolsVerifierCkie, verifier, 600)
 	server.setShortCookie(ctx, modoolsTenantCookie, t.Slug, 600)
+	server.setShortCookie(ctx, modoolsRedirectCookie, redirectURI, 600)
 	client := "web"
 	if mobile {
 		client = "mobile"
@@ -181,7 +207,7 @@ func (server *Server) modoolsLogin(ctx *gin.Context) {
 		server.setShortCookie(ctx, modoolsChallengeCookie, challenge, 600)
 	}
 
-	authURL := cfg.AuthCodeURL(
+	authURL := authCfg.AuthCodeURL(
 		state,
 		oauth2.SetAuthURLParam("code_challenge", pkceS256(verifier)),
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
@@ -272,12 +298,14 @@ func (server *Server) modoolsCallback(ctx *gin.Context) {
 		return
 	}
 	challenge, _ := ctx.Cookie(modoolsChallengeCookie)
+	redirectURI, _ := ctx.Cookie(modoolsRedirectCookie)
 	// Cookies are single-use — clear them immediately.
 	tenantSlug, _ := ctx.Cookie(modoolsTenantCookie)
 	server.setShortCookie(ctx, modoolsStateCookie, "", -1)
 	server.setShortCookie(ctx, modoolsVerifierCkie, "", -1)
 	server.setShortCookie(ctx, modoolsTenantCookie, "", -1)
 	server.setShortCookie(ctx, modoolsChallengeCookie, "", -1)
+	server.setShortCookie(ctx, modoolsRedirectCookie, "", -1)
 	// The client cookie is not cleared. It only says where errors go, and the
 	// next sign-in sets it again, so a replayed callback still ends in the app.
 
@@ -305,7 +333,12 @@ func (server *Server) modoolsCallback(ctx *gin.Context) {
 		return
 	}
 
-	oauthToken, err := cfg.Exchange(ctx.Request.Context(), code,
+	exchangeCfg := *cfg
+	if redirectURI != "" {
+		exchangeCfg.RedirectURL = redirectURI
+	}
+
+	oauthToken, err := exchangeCfg.Exchange(ctx.Request.Context(), code,
 		oauth2.SetAuthURLParam("code_verifier", verifier))
 	if err != nil {
 		log.Printf("[modools] token exchange failed: %v", err)

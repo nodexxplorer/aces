@@ -58,7 +58,10 @@
           "icon": "./assets/android-icon-foreground.png",
           "color": "#0066CC"
         }
-      ]
+      ],
+      "expo-web-browser",
+      "expo-sharing",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true
