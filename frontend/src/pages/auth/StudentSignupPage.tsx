@@ -49,7 +49,7 @@ const StudentSignupPage = () => {
         </>
       }
     >
-      <h1 className="text-3xl font-bold tracking-tight text-[#0E1B33] dark:text-[#E7EEF9]">Join Admin Park</h1>
+      <h1 className="text-2xl font-semibold tracking-tight text-[#0E1B33] dark:text-[#E7EEF9]">Join Admin Park</h1>
       <p className="mt-2 text-sm text-[#4A5D7A] dark:text-[#A3B3CC]">
         Sign up with Modools. Your account is created automatically.
       </p>

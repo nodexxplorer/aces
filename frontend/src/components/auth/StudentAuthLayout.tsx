@@ -40,9 +40,9 @@ function usePrefersReducedMotion(): boolean {
 }
 
 /**
- * The rotating slides on the left. They move on by themselves every few seconds,
- * stop while the pointer is over them or a control inside has focus, and never
- * move when the person has asked for reduced motion (the dots still work).
+ * The rotating slides, centred under the logo on the left. They move on by themselves
+ * every few seconds, stop while the pointer is over them or a control inside has focus,
+ * and never move when the person has asked for reduced motion (the dots still work).
  */
 export function StudentSlides() {
   const [index, setIndex] = useState(0);
@@ -61,26 +61,25 @@ export function StudentSlides() {
 
   return (
     <div
-      className="flex h-full flex-col justify-between gap-8"
+      className="flex w-full flex-col items-center"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
     >
-      <AdminParkLogoPlaceholder className="h-12 w-12 lg:h-14 lg:w-14" />
-
       {/* Keyed on the slide, so each slide fades in as it mounts; the old one is removed at once. */}
       <motion.div
         key={index}
+        className="min-h-[9rem]"
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
       >
-        <h2 className="max-w-md text-2xl font-bold tracking-tight text-white lg:text-4xl">{slide.title}</h2>
-        <p className="mt-3 max-w-md text-sm text-white/70 lg:text-base">{slide.text}</p>
+        <h2 className="mx-auto max-w-sm text-2xl font-semibold tracking-tight text-white lg:text-3xl">{slide.title}</h2>
+        <p className="mx-auto mt-3 max-w-xs text-sm leading-relaxed text-white/60">{slide.text}</p>
       </motion.div>
 
-      <div className="flex items-center gap-2" role="group" aria-label="Choose a slide">
+      <div className="mt-8 flex items-center gap-2" role="group" aria-label="Choose a slide">
         {STUDENT_SLIDES.map((item, i) => (
           <button
             key={item.title}
@@ -88,8 +87,8 @@ export function StudentSlides() {
             aria-label={`Show slide ${i + 1}`}
             aria-current={i === index}
             onClick={() => setIndex(i)}
-            className={`h-2 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
-              i === index ? 'w-6 bg-white' : 'w-2 bg-white/40 hover:bg-white/70'
+            className={`h-1.5 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
+              i === index ? 'w-6 bg-white' : 'w-1.5 bg-white/35 hover:bg-white/70'
             }`}
           />
         ))}
@@ -110,9 +109,11 @@ interface StudentAuthLayoutProps {
 }
 
 /**
- * Split layout for the student sign-in and sign-up pages. The slides sit on the
- * left (stacked above the card on a phone). The right holds the department
- * picker, the link and the card. The selected department's logo sits top-left.
+ * Split layout for the student sign-in and sign-up pages, in a rounded card on a
+ * neutral page. The left panel is dark and holds the Admin Park logo, the rotating
+ * slides and their dots, all centred. The right panel holds the selected department's
+ * logo top-left, the department picker and the link top-right, and a centred column
+ * with the heading and the button. On a phone the panels stack.
  */
 export default function StudentAuthLayout({
   departments,
@@ -125,38 +126,43 @@ export default function StudentAuthLayout({
   const current = picked ? departments.find((d) => d.slug === selected) : undefined;
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-white md:flex-row dark:bg-[#0A1224]">
-      <aside className="relative overflow-hidden bg-[#0A1224] text-white md:min-h-screen md:w-1/2">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_15%,rgba(26,102,214,0.38),transparent_55%)]"
-        />
-        <div className="relative h-full p-6 md:p-12 lg:p-16">
-          <StudentSlides />
-        </div>
-      </aside>
-
-      <main className="flex flex-1 flex-col px-5 py-6 md:px-10 md:py-10 lg:px-16">
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-          {current ? (
-            <DepartmentLogo department={current} className="h-11 w-11" />
-          ) : (
-            <div className="h-11 w-11" aria-hidden="true" />
-          )}
-          <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-3">
-            {departments.length > 1 && (
-              <DepartmentLogoPicker departments={departments} selected={picked ? selected : ''} onSelect={onSelect} />
-            )}
-            <div className="whitespace-nowrap text-sm text-[#4A5D7A] dark:text-[#A3B3CC]">{topRight}</div>
+    <div className="min-h-screen w-full bg-[#E8EEF6] p-4 md:p-8 dark:bg-[#0D0E10]">
+      <div className="mx-auto flex min-h-[calc(100vh-2rem)] max-w-6xl flex-col gap-2 rounded-[2rem] bg-[#0A1224] p-2 shadow-xl md:min-h-[calc(100vh-4rem)] md:flex-row md:p-3 dark:bg-[#1C1E22]">
+        <aside className="relative flex min-h-[24rem] items-center justify-center overflow-hidden rounded-3xl bg-[#0A1224] px-8 py-12 text-white md:min-h-0 md:w-1/2 md:px-12">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(26,102,214,0.45),transparent_60%)]"
+          />
+          <div className="relative flex w-full max-w-sm flex-col items-center text-center">
+            <AdminParkLogoPlaceholder className="h-14 w-14" />
+            <div className="mt-8 w-full">
+              <StudentSlides />
+            </div>
           </div>
-        </div>
+        </aside>
 
-        <div className="flex flex-1 items-center justify-center py-10">
-          <div className="w-full max-w-sm">{children}</div>
-        </div>
+        <main className="flex flex-1 flex-col rounded-3xl bg-white px-6 py-6 md:px-10 md:py-8 dark:bg-[#121316]">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+            {current ? (
+              <DepartmentLogo department={current} className="h-10 w-10" />
+            ) : (
+              <div className="h-10 w-10" aria-hidden="true" />
+            )}
+            <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-3">
+              {departments.length > 1 && (
+                <DepartmentLogoPicker departments={departments} selected={picked ? selected : ''} onSelect={onSelect} />
+              )}
+              <div className="whitespace-nowrap text-sm text-[#4A5D7A] dark:text-[#A3B3CC]">{topRight}</div>
+            </div>
+          </div>
 
-        <CookieConsent />
-      </main>
+          <div className="flex flex-1 items-center justify-center py-10">
+            <div className="w-full max-w-sm text-center">{children}</div>
+          </div>
+
+          <CookieConsent />
+        </main>
+      </div>
     </div>
   );
 }
@@ -185,7 +191,7 @@ export function AuthNotice({ message }: { message: string }) {
   return (
     <div
       role="alert"
-      className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
+      className="flex items-start gap-3 rounded-xl text-left border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
     >
       <ShieldOff className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
       <p>{message}</p>
