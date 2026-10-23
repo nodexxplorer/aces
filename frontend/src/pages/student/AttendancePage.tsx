@@ -56,6 +56,8 @@ const AttendancePage = () => {
   }
 
   const summary = overview?.summary;
+  // Until a class has been held there is no rate to show.
+  const hasClasses = (summary?.total_sessions ?? 0) > 0;
   const courses = overview?.courses ?? [];
 
   return (
@@ -72,13 +74,16 @@ const AttendancePage = () => {
           <div>
             <p className="text-xs uppercase tracking-wider text-surface-400 font-medium">Overall Attendance</p>
             <p className="text-4xl font-bold text-surface-900 dark:text-white mt-1">
-              {(summary?.attendance_rate ?? 100).toFixed(0)}%
+              {hasClasses ? `${(summary?.attendance_rate ?? 0).toFixed(0)}%` : '—'}
             </p>
             <p className="text-xs text-surface-500 mt-1">
               {summary?.present ?? 0} of {summary?.total_sessions ?? 0} classes attended
             </p>
           </div>
-          <Badge variant={rateVariant(summary?.attendance_rate ?? 100)} className="text-sm px-3 py-1">
+          <Badge
+            variant={hasClasses ? rateVariant(summary?.attendance_rate ?? 0) : 'default'}
+            className="text-sm px-3 py-1"
+          >
             {summary && summary.total_sessions > 0
               ? summary.attendance_rate >= 75
                 ? 'Good Standing'

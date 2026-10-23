@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import {
+  // Design spec, not routed. Example outputs use [bracketed] placeholders, never real people, courses or figures.
   ArrowLeft,
   Brain,
   Database,
@@ -62,27 +63,27 @@ const aiModules = [
         name: 'Smart Study Planner',
         capability: 'Analyzes timetable, deadlines, and performance to suggest optimal study schedule',
         example:
-          '"Based on your CSC 301 weak areas and upcoming exam, I recommend 2 hours of review on Tuesday and Thursday."',
+          '"Based on your [course] weak areas and upcoming exam, I recommend 2 hours of review on Tuesday and Thursday."',
       },
       {
         name: 'GPA Predictor',
         capability: 'Predicts final GPA based on current performance trajectory',
-        example: '"If you maintain current effort in CSC 302, projected grade is B (4.0)."',
+        example: '"If you maintain current effort in [course], projected grade is [grade] ([N])."',
       },
       {
         name: 'At-Risk Alert',
         capability: 'Flags students likely to fail based on attendance + assignment patterns',
-        example: '"Your CSC 302 attendance is trending low. Consider attending extra classes."',
+        example: '"Your [course] attendance is trending low. Consider attending extra classes."',
       },
       {
         name: 'Course Recommendation',
         capability: 'Suggests electives based on interests, career goals, and peer success',
-        example: '"Students who took CSC 401 and did well in your position often succeed in AI/ML electives."',
+        example: '"Students who took [course] and did well in your position often succeed in AI/ML electives."',
       },
       {
         name: 'Question Answering',
         capability: 'Answers questions about courses, deadlines, policies via chatbot',
-        example: '"Assignment 3 is due July 25, 2026 at 11:59 PM."',
+        example: '"Assignment [N] is due [date] at [time]."',
       },
     ],
   },
@@ -95,7 +96,7 @@ const aiModules = [
       {
         name: 'Prerequisite Checker',
         capability: 'Validates prerequisite chains and suggests missing requirements',
-        example: '"You need CSC 201 before CSC 301. You passed CSC 201 in 2024/2025."',
+        example: '"You need [course] before [course]. You passed [course] in [session]."',
       },
       {
         name: 'Timetable Optimizer',
@@ -105,7 +106,7 @@ const aiModules = [
       {
         name: 'Workload Balancer',
         capability: 'Analyzes credit load against historical performance',
-        example: '"18 credits with 3 carryovers may be too heavy. Consider dropping one elective."',
+        example: '"[N] credits with [N] carryovers may be too heavy. Consider dropping one elective."',
       },
       {
         name: 'Career Path Mapper',
@@ -128,17 +129,17 @@ const aiModules = [
       {
         name: 'Pattern Analysis',
         capability: 'Detects unusual patterns (chronic lateness, sudden drops)',
-        example: '"5 students have dropped attendance in CSC 302 over 2 weeks."',
+        example: '"[N] students have dropped attendance in [course] over [N] weeks."',
       },
       {
         name: 'Predictive Absence',
         capability: 'Predicts likely absences based on historical patterns',
-        example: '"Tuesday 8 AM classes have 15% higher absence."',
+        example: '"Tuesday [time] classes have [N]% higher absence."',
       },
       {
         name: 'Geofence Optimization',
         capability: 'Suggests optimal geofence radius based on venue size',
-        example: '"LT 1 geofence should be 30 meters for accurate detection."',
+        example: '"LT [N] geofence should be [N] meters for accurate detection."',
       },
     ],
   },
@@ -151,17 +152,17 @@ const aiModules = [
       {
         name: 'Grade Distribution',
         capability: 'Analyzes class performance and flags anomalies',
-        example: '"CSC 301 has a bimodal distribution — consider offering remedial sessions."',
+        example: '"[course] has a bimodal distribution — consider offering remedial sessions."',
       },
       {
         name: 'Plagiarism Detection',
         capability: 'Compares assignment submissions for similarity',
-        example: '"2 submissions in CSC 301 show 85% similarity. Flag for lecturer review."',
+        example: '"[N] submissions in [course] show [N]% similarity. Flag for lecturer review."',
       },
       {
         name: 'Result Validation',
         capability: 'Cross-checks entered grades against attendance and assignment scores',
-        example: '"Student X has 90% attendance but exam grade is 35%. Possible data entry error?"',
+        example: '"[student] has [N]% attendance but exam grade is [N]%. Possible data entry error?"',
       },
       {
         name: 'Transcript Summarization',
@@ -179,7 +180,7 @@ const aiModules = [
       {
         name: 'Smart Connections',
         capability: 'Embeddings-based matching of students with similar interests',
-        example: '"You and Victor both list AI and Python — connect?"',
+        example: '"You and [student] both list AI and Python — connect?"',
       },
       {
         name: 'Content Moderation',
@@ -212,7 +213,7 @@ const aiModules = [
       {
         name: 'Job-Student Matching',
         capability: 'Matches student skills, CGPA, and level to job requirements',
-        example: '"This Google internship matches your Python skills and 300L status."',
+        example: '"This Google internship matches your Python skills and [level] status."',
       },
       {
         name: 'Resume Parser',
@@ -222,12 +223,12 @@ const aiModules = [
       {
         name: 'Interview Prep',
         capability: 'Generates mock interview questions based on job description',
-        example: '"Based on this backend role, here are 5 likely technical questions."',
+        example: '"Based on this backend role, here are [N] likely technical questions."',
       },
       {
         name: 'Salary Benchmarking',
         capability: 'Compares offered salary to market rates for role/location',
-        example: '"₦150,000 for junior backend in Lagos is below market average (₦200,000)."',
+        example: '"₦[amount] for junior backend in Lagos is below market average (₦[amount])."',
       },
     ],
   },
@@ -240,7 +241,7 @@ const aiModules = [
       {
         name: 'Mentor-Mentee Matching',
         capability: 'Matches based on career goals, skills, personality compatibility',
-        example: '"Dr. John Akpan\'s expertise in AI aligns with your career goal. 92% match."',
+        example: '"[lecturer]\'s expertise in AI aligns with your career goal. [N]% match."',
       },
       {
         name: 'Session Summarization',
@@ -250,7 +251,7 @@ const aiModules = [
       {
         name: 'Progress Tracking',
         capability: 'Analyzes mentorship effectiveness over time',
-        example: '"Mentee\'s confidence in technical interviews improved 40% over 5 sessions."',
+        example: '"Mentee\'s confidence in technical interviews improved [N]% over [N] sessions."',
       },
       {
         name: 'Resource Recommendation',
@@ -268,17 +269,17 @@ const aiModules = [
       {
         name: 'Fraud Detection',
         capability: 'Flags suspicious payment patterns',
-        example: '"3 manual payments from same bank account for different students. Verify?"',
+        example: '"[N] manual payments from same bank account for different students. Verify?"',
       },
       {
         name: 'Revenue Forecasting',
         capability: 'Predicts session revenue based on historical trends',
-        example: '"Projected revenue: ₦4.8M (85% confidence). Risk: 15% default rate."',
+        example: '"Projected revenue: ₦[amount] ([N]% confidence). Risk: [N]% default rate."',
       },
       {
         name: 'Defaulter Risk Scoring',
         capability: 'Predicts which students are likely to default on dues',
-        example: '"Peter Essien (400L) has 78% default probability based on history."',
+        example: '"[student] ([level]) has [N]% default probability based on history."',
       },
       {
         name: 'Expense Categorization',
@@ -296,32 +297,32 @@ const aiModules = [
       {
         name: 'Early Warning System',
         capability: 'Predicts students at risk of probation, carryover, or dropout',
-        example: '"12 students in 300L show early warning signs. Intervention recommended."',
+        example: '"[N] students in [level] show early warning signs. Intervention recommended."',
       },
       {
         name: 'Course Performance Prediction',
         capability: 'Predicts pass/fail rates before exams',
-        example: '"CSC 302 projected pass rate: 65%. Consider extra classes."',
+        example: '"[course] projected pass rate: [N]%. Consider extra classes."',
       },
       {
         name: 'Lecturer Performance Insights',
         capability: 'Analyzes student evaluations, attendance, and result trends',
-        example: '"Dr. Okon\'s classes show 20% higher engagement but 10% lower pass rates."',
+        example: '"[lecturer]\'s classes show [N]% higher engagement but [N]% lower pass rates."',
       },
       {
         name: 'Resource Allocation',
         capability: 'Suggests optimal course scheduling and lecturer assignment',
-        example: '"Assign Prof. Etim to CSC 301 — her specialization matches."',
+        example: '"Assign [lecturer] to [course] — her specialization matches."',
       },
       {
         name: 'Sentiment Analysis',
         capability: 'Analyzes student feedback and announcements engagement',
-        example: '"Student sentiment on fee increase is 72% negative. Consider town hall."',
+        example: '"Student sentiment on fee increase is [N]% negative. Consider town hall."',
       },
       {
         name: 'Anomaly Detection',
         capability: 'Flags unusual patterns in data',
-        example: '"CSC 301 results show 5 students with identical scores. Possible collusion?"',
+        example: '"[course] results show [N] students with identical scores. Possible collusion?"',
       },
     ],
   },
@@ -334,22 +335,22 @@ const aiModules = [
       {
         name: 'Predictive Maintenance',
         capability: 'Predicts server issues before they occur',
-        example: '"Database CPU trending toward 90% in 48 hours. Scale up recommended."',
+        example: '"Database CPU trending toward [N]% in [N] hours. Scale up recommended."',
       },
       {
         name: 'Log Analysis',
         capability: 'Parses error logs to identify root causes',
-        example: '"42% of 500 errors stem from Paystack timeout. Increase retry logic."',
+        example: '"[N]% of [N] errors stem from Paystack timeout. Increase retry logic."',
       },
       {
         name: 'User Behavior Anomaly',
         capability: 'Detects bot accounts or abuse patterns',
-        example: '"Account \'student_123\' sent 200 messages in 1 minute. Likely bot."',
+        example: '"Account \'[account]\' sent [N] messages in [N] minute. Likely bot."',
       },
       {
         name: 'Auto-Scaling',
         capability: 'Suggests infrastructure scaling based on usage patterns',
-        example: '"Registration week traffic up 300%. Scale API servers to 6 instances."',
+        example: '"Registration week traffic up [N]%. Scale API servers to [N] instances."',
       },
       {
         name: 'Security Threat Detection',
@@ -402,7 +403,7 @@ const techStack = [
 const chatbotDomains = [
   {
     domain: 'Academic',
-    examples: ['When is the CSC 301 exam?', 'What are my carryover courses?', 'How do I calculate my GPA?'],
+    examples: ['When is the [course] exam?', 'What are my carryover courses?', 'How do I calculate my GPA?'],
     icon: <BookOpen className="w-4 h-4" />,
   },
   {
@@ -412,7 +413,7 @@ const chatbotDomains = [
   },
   {
     domain: 'Registration',
-    examples: ['Can I register for CSC 401 without CSC 301?', 'What electives are available for 400L?'],
+    examples: ['Can I register for [course] without [course]?', 'What electives are available for [level]?'],
     icon: <ClipboardList className="w-4 h-4" />,
   },
   {
@@ -945,7 +946,7 @@ const AIBlueprintPage = () => {
                   </div>
                   <div className="bg-white dark:bg-surface-900 rounded-xl p-3 mr-8 text-xs shadow-sm space-y-2">
                     <p className="text-surface-700 dark:text-surface-300">
-                      Your next exam is CSC 301 on July 25, 2026 at 10:00 AM in LT 1. You have 5 days to prepare.
+                      Your next exam is [course] on [date] at [time] in LT [N]. You have [N] days to prepare.
                     </p>
                     <div className="flex gap-1.5">
                       <span className="px-2 py-1 rounded bg-surface-100 dark:bg-surface-800 text-[10px] text-surface-600 dark:text-surface-400">

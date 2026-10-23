@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useDarkMode } from '../../hooks/useDarkMode';
 import RoleSwitcher from '../ui/RoleSwitcher';
+import { useMultiRole } from '../../hooks/useMultiRole';
 import NotificationBell from '../notifications/NotificationBell';
 import { getMediaUrl } from '../../api/client';
 import { useSearch } from '../../hooks/useSearch';
@@ -20,6 +21,8 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
   const { mode, setMode, toggle, isDark } = useDarkMode();
   const { setQuery } = useSearch();
   const { activeRole } = useRBAC();
+  // A student who also holds another role (e.g. class rep) needs the switcher to reach it.
+  const { hasMultipleRoles } = useMultiRole();
   const profilePath = useProfilePath();
   const [profileOpen, setProfileOpen] = useState(false);
   const isStudent = activeRole === 'student';
@@ -79,6 +82,7 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
       <div className="flex items-center gap-2">
         {/* Mobile: Notification Bell & Theme Toggle */}
         <div className="flex items-center gap-2 md:hidden">
+          {hasMultipleRoles && <RoleSwitcher />}
           <NotificationBell />
           <button
             onClick={toggle}
@@ -91,7 +95,7 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
 
         {/* Desktop: Theme Toggle, Messages, Notifications, Profile (Exact match to mockup) */}
         <div className="hidden md:flex items-center gap-2.5">
-          {!isStudent && <RoleSwitcher />}
+          {(!isStudent || hasMultipleRoles) && <RoleSwitcher />}
 
           <button
             onClick={toggle}

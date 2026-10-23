@@ -55,8 +55,10 @@ export default function CRFSigningSettingsPage() {
   const [loading, setLoading] = useState(true);
 
   // Backlog price state (real data from API)
-  const [, setBacklogFee] = useState<number>(1000);
-  const [feeInput, setFeeInput] = useState<string>('1000');
+  const [, setBacklogFee] = useState<number | null>(null);
+  const [feeInput, setFeeInput] = useState<string>('');
+  // The fee is only shown and saved once the server has returned it.
+  const [feeLoaded, setFeeLoaded] = useState(false);
   const [savingFee, setSavingFee] = useState(false);
 
   // History Tab Filters
@@ -99,9 +101,12 @@ export default function CRFSigningSettingsPage() {
         setAssets(Array.isArray(assetsData.value) ? assetsData.value : []);
       }
       if (priceData.status === 'fulfilled') {
-        const amt = Number(priceData.value.amount_per_backlog) || 1000;
-        setBacklogFee(amt);
-        setFeeInput(String(amt));
+        const amt = Number(priceData.value?.amount_per_backlog);
+        if (Number.isFinite(amt) && amt > 0) {
+          setBacklogFee(amt);
+          setFeeInput(String(amt));
+          setFeeLoaded(true);
+        }
       }
       if (historyData.status === 'fulfilled') {
         setSubmissions(Array.isArray(historyData.value) ? historyData.value : []);
@@ -845,6 +850,8 @@ export default function CRFSigningSettingsPage() {
                       min={0}
                       step={100}
                       value={feeInput}
+                      disabled={!feeLoaded}
+                      placeholder={feeLoaded ? '' : 'Not loaded'}
                       onChange={(e) => setFeeInput(e.target.value)}
                       className="w-full pl-8 pr-3.5 py-2.5 rounded-xl text-sm font-bold bg-white dark:bg-[#162038] border border-slate-300 dark:border-slate-700/80 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                     />
@@ -860,7 +867,7 @@ export default function CRFSigningSettingsPage() {
 
                   <button
                     type="submit"
-                    disabled={savingFee}
+                    disabled={savingFee || !feeLoaded}
                     className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-sm transition-all"
                   >
                     {savingFee ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}

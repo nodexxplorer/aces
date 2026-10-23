@@ -69,55 +69,70 @@ const StudentDashboard = () => {
   const { user } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [attempt, setAttempt] = useState(0);
 
+  // No fallback data: if the dashboard cannot be loaded, the page says so and offers a retry.
   useEffect(() => {
+    let active = true;
+    setLoading(true);
     getStudentDashboard()
-      .then(setData)
-      .catch(() => {
-        // Fallback for seamless visual experience
-        setData({
-          student: {
-            full_name: user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'Student',
-            matric_number: user?.matricNumber || '',
-            level: 500,
-            cgpa: 4.35,
-            academic_standing: 'Good standing',
-          },
-          attendance: {
-            total_classes: 0,
-            attended: 0,
-            attendance_rate: 0,
-          },
-          payments: {
-            amount_pending: 0,
-            amount_paid: 0,
-            dues_outstanding: 0,
-          },
-          notifications: {
-            total: 1,
-            unread: 1,
-          },
-          announcements: [],
-          recent_grades: [],
-        });
+      .then((d) => {
+        if (active) setData(d);
       })
-      .finally(() => setLoading(false));
-  }, [user]);
+      .catch(() => {
+        if (active) setData(null);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [user, attempt]);
 
   const studentName = data?.student.full_name?.split(' ')[0] || user?.firstName || 'Student';
   const studentLevel = data?.student.level || 0;
-  const isDuesCleared = (data?.payments?.dues_outstanding ?? 0) === 0;
-  const unreadNotifications = data?.notifications?.unread ?? 1;
+  const duesOutstanding = data?.payments?.dues_outstanding;
+  const isDuesCleared = duesOutstanding === 0;
+  const duesLabel =
+    duesOutstanding === undefined || duesOutstanding === null
+      ? '—'
+      : isDuesCleared
+        ? 'Cleared'
+        : `₦${duesOutstanding.toLocaleString()}`;
+  const unreadNotifications = data?.notifications?.unread ?? 0;
+  const levelLabel = studentLevel > 0 ? `Level ${studentLevel}` : null;
+  const standingLabel = data?.student.academic_standing || null;
+  const mobileSubtitle = [levelLabel, standingLabel].filter(Boolean).join(' · ');
+  const desktopSubtitle = [levelLabel, 'All you need in one place.'].filter(Boolean).join(' · ');
   const attendanceAttended = data?.attendance?.attended ?? 0;
   const attendanceTotal = data?.attendance?.total_classes ?? 0;
   const amountPaid = data?.payments?.amount_paid ?? 0;
   const amountPending = data?.payments?.amount_pending ?? 0;
+  // Share of this student's dues already paid, from the real payment totals.
+  const duesBase = amountPaid + (duesOutstanding ?? 0);
+  const duesPaidPercent = duesBase > 0 ? Math.round((amountPaid / duesBase) * 100) : 0;
   const announcements = data?.announcements ?? [];
 
   if (loading && !data) {
     return (
       <div className="flex h-96 items-center justify-center">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="flex h-96 flex-col items-center justify-center gap-3 text-center">
+        <p className="text-sm text-[var(--text-muted)]">We could not load your dashboard.</p>
+        <button
+          type="button"
+          onClick={() => setAttempt((n) => n + 1)}
+          className="rounded-xl border border-[var(--border)] px-4 py-2 text-xs font-semibold text-[var(--text)] hover:bg-[var(--surface)] transition-colors"
+        >
+          Try again
+        </button>
       </div>
     );
   }
@@ -131,8 +146,8 @@ const StudentDashboard = () => {
             Hello, {studentName}!
           </h1>
           <p className="mt-1 text-xs sm:text-sm text-[var(--text-muted)]">
-            <span className="md:hidden">Level {studentLevel} · Good standing</span>
-            <span className="hidden md:inline">Level {studentLevel} · All you need in one place.</span>
+            <span className="md:hidden">{mobileSubtitle}</span>
+            <span className="hidden md:inline">{desktopSubtitle}</span>
           </p>
         </div>
 
@@ -169,9 +184,7 @@ const StudentDashboard = () => {
             <span className="text-xs font-medium text-white/85">Outstanding dues</span>
             <div className="mt-3 flex items-center gap-2">
               <Check className="h-7 w-7 text-white stroke-[3]" />
-              <span className="text-3xl font-extrabold tracking-tight">
-                {isDuesCleared ? 'Cleared' : `₦${data?.payments?.dues_outstanding?.toLocaleString()}`}
-              </span>
+              <span className="text-3xl font-extrabold tracking-tight">{duesLabel}</span>
             </div>
             <p className="mt-3 text-xs text-white/80">
               {isDuesCleared ? 'No payment needed' : 'Due for the current semester'}
@@ -232,9 +245,7 @@ const StudentDashboard = () => {
           <div className="mt-4">
             <div className="flex items-center gap-1.5">
               <Check className="h-6 w-6 text-white stroke-[3]" />
-              <span className="text-2xl font-bold tracking-tight">
-                {isDuesCleared ? 'Cleared' : `₦${data?.payments?.dues_outstanding?.toLocaleString()}`}
-              </span>
+              <span className="text-2xl font-bold tracking-tight">{duesLabel}</span>
             </div>
             <p className="mt-1 text-xs text-white/80">
               {isDuesCleared ? 'No payment needed' : 'Due for current session'}
@@ -499,7 +510,7 @@ const StudentDashboard = () => {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-2">
             {/* Left: Semi-circle Arc Gauge */}
             <div className="shrink-0 flex items-center justify-center">
-              <SemiCircleGauge cleared={isDuesCleared} percentage={isDuesCleared ? 100 : 45} />
+              <SemiCircleGauge cleared={isDuesCleared} percentage={duesPaidPercent} />
             </div>
 
             {/* Right: Paid / Pending & Action Button */}

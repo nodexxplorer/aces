@@ -28,6 +28,7 @@ import { getSessions, listSessionSemesters } from '../../api/sessions';
 import { getAllComplaints } from '../../api/complaints';
 import { getAllDues, getAllPayments } from '../../api/payments';
 import { getCourses } from '../../api/courses';
+import { listAllCRFHistory } from '../../api/crf-signing';
 import { createAnnouncementV2 } from '../../api/verification-announcements';
 import type { Session, SemesterEntry, User, DuePayment } from '../../types';
 
@@ -106,6 +107,7 @@ export default function AdminDashboard() {
         duesRes,
         paymentsRes,
         coursesRes,
+        crfRes,
       ] = await Promise.allSettled([
         getDashboardAnalytics(),
         getUsers({ perPage: 100 }),
@@ -115,6 +117,7 @@ export default function AdminDashboard() {
         getAllDues(),
         getAllPayments(),
         getCourses({ perPage: 100 }),
+        listAllCRFHistory(),
       ]);
 
       // 1. Analytics & Basic Stats
@@ -246,11 +249,22 @@ export default function AdminDashboard() {
         }
       }
 
-      // 8. Course Forms Signing estimation from real data
-      // If students have course forms waiting / signed
-      setSignedFormsCount(Math.min(96, Math.floor(totalUsers * 0.45)));
-      setWaitingFormsCount(Math.min(18, Math.floor(totalUsers * 0.08)));
-      setOldFormsCount(3);
+      // 8. Course forms from real CRF submissions. Signed and waiting count the
+      // current session's completed and draft forms; old forms are those from other sessions.
+      const currentSessionId =
+        sessionsRes.status === 'fulfilled' && Array.isArray(sessionsRes.value)
+          ? (sessionsRes.value.find((s) => s.is_active || s.isActive) || sessionsRes.value[0])?.id
+          : undefined;
+      if (crfRes.status === 'fulfilled' && Array.isArray(crfRes.value)) {
+        const currentForms = crfRes.value.filter((f) => f.session_id === currentSessionId);
+        setSignedFormsCount(currentForms.filter((f) => f.status === 'completed').length);
+        setWaitingFormsCount(currentForms.filter((f) => f.status === 'draft').length);
+        setOldFormsCount(crfRes.value.length - currentForms.length);
+      } else {
+        setSignedFormsCount(0);
+        setWaitingFormsCount(0);
+        setOldFormsCount(0);
+      }
     } catch (err) {
       console.error('Error fetching admin dashboard data:', err);
     } finally {
@@ -811,7 +825,7 @@ export default function AdminDashboard() {
             {activeSession && registeredStudentsCount > 0 ? (
               <div className="space-y-3 mt-5">
                 {[100, 200, 300, 400, 500].map((lvl) => {
-                  const data = levelCounts[lvl] || { registered: 0, total: 40 };
+                  const data = levelCounts[lvl] || { registered: 0, total: 0 };
                   const percent = data.total > 0 ? Math.round((data.registered / data.total) * 100) : 0;
                   return (
                     <div key={lvl} className="flex items-center gap-3">
