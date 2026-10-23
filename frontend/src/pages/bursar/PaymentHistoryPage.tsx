@@ -59,6 +59,7 @@ export default function PaymentHistoryPage() {
   // Selected payment for right column details panel
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [openRowMenuId, setOpenRowMenuId] = useState<string | null>(null);
 
   // Pagination
@@ -706,6 +707,7 @@ export default function PaymentHistoryPage() {
                                       )}
                                       <button
                                         type="button"
+                                        disabled={verifyingId === p.id}
                                         onClick={() => {
                                           setOpenRowMenuId(null);
                                           handleVerifyGateway(p.id);

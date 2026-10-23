@@ -8,6 +8,7 @@ import { DepartmentLogo } from '../../components/branding/DepartmentBrand';
 import { getMediaUrl } from '../../api/client';
 import { updateBasicInfo, uploadProfilePhoto, getAllAuditLogs, type AuditLog } from '../../api/profile-edit';
 import { getCGPAConfig, updateCGPAConfig } from '../../api/cgpa';
+import type { CGPAConfig } from '../../types';
 import { getAISettings, updateAISettings, type AISettings } from '../../api/ai';
 import { changePassword } from '../../api/additional-features';
 import { formatDepartmentDisplayName } from '../../config/department';
@@ -305,9 +306,9 @@ export const AdminProfilePage: React.FC = () => {
     let isMounted = true;
     setLoadingLogs(true);
     getAllAuditLogs(1, 50)
-      .then((res: { data?: Record<string, unknown>[] } | Record<string, unknown>[]) => {
+      .then((res: { data: AuditLog[] } | AuditLog[]) => {
         if (!isMounted) return;
-        const items = Array.isArray(res) ? res : res?.data || [];
+        const items = Array.isArray(res) ? res : (res?.data ?? []);
         setAuditLogs(items);
       })
       .catch(() => {
@@ -470,7 +471,7 @@ export const AdminProfilePage: React.FC = () => {
   useEffect(() => {
     setCgpaLoading(true);
     getCGPAConfig()
-      .then((config: Record<string, unknown>) => {
+      .then((config: CGPAConfig) => {
         if (config) {
           setScale(String(config.scale || config.maxScale || '5.0'));
           setPassingCGPA(String(config.passingCGPA || config.minimumPassing || '1.0'));

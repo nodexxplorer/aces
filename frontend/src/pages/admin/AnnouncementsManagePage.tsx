@@ -139,6 +139,7 @@ export const AnnouncementsManagePage: React.FC = () => {
 
   // Real data state
   const [announcements, setAnnouncements] = useState<AnnouncementV2[]>([]);
+  const [loading, setLoading] = useState(false);
   const [totalStudentsCount, setTotalStudentsCount] = useState<number>(214);
   const [templateDropdownOpen, setTemplateDropdownOpen] = useState(false);
 
@@ -967,6 +968,8 @@ export const AnnouncementsManagePage: React.FC = () => {
                 </select>
               </div>
             </div>
+
+            {loading && <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">Loading announcements…</p>}
 
             {/* ─── EMPTY STATE (Real empty state matching screenshot 1) ─── */}
             {filteredAnnouncements.length === 0 ? (

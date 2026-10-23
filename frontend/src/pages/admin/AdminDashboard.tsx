@@ -29,7 +29,7 @@ import { getAllComplaints } from '../../api/complaints';
 import { getAllDues, getAllPayments } from '../../api/payments';
 import { getCourses } from '../../api/courses';
 import { createAnnouncementV2 } from '../../api/verification-announcements';
-import type { Session, SemesterEntry, User } from '../../types';
+import type { Session, SemesterEntry, User, DuePayment } from '../../types';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -178,7 +178,7 @@ export default function AdminDashboard() {
         setLevelCounts(levels);
         setRegisteredStudentsCount(Object.values(levels).reduce((sum, item) => sum + item.registered, 0));
       } else if (analyticsData) {
-        setTotalUsers((analyticsData as Record<string, number>).totalUsers || 0);
+        setTotalUsers((analyticsData.totalStudents ?? 0) + (analyticsData.totalLecturers ?? 0));
       }
 
       // 3. Pending approvals (New accounts queue)
@@ -224,7 +224,7 @@ export default function AdminDashboard() {
       }
 
       // 7. Dues and Payments
-      let duesList: unknown[] = [];
+      let duesList: DuePayment[] = [];
       if (duesRes.status === 'fulfilled' && Array.isArray(duesRes.value)) {
         duesList = duesRes.value;
         setHasDues(duesList.length > 0);
@@ -239,10 +239,7 @@ export default function AdminDashboard() {
 
         // Calculate target from dues list or default reasonable calculation
         if (duesList.length > 0) {
-          const totalDuesPrice = duesList.reduce(
-            (sum: number, d: { amount?: number | string }) => sum + (Number(d.amount) || 0),
-            0,
-          );
+          const totalDuesPrice = duesList.reduce((sum: number, d: DuePayment) => sum + (Number(d.amount) || 0), 0);
           setDuesTarget(totalDuesPrice * Math.max(1, totalUsers));
         } else {
           setDuesTarget(0);

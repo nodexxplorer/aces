@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Minus, Plus, Loader2 } from 'lucide-react';
 import pdfjsLib from '../../utils/pdfjs';
-import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
+import type { PDFDocumentProxy, PageViewport, RenderTask } from 'pdfjs-dist';
 import apiClient from '../../api/client';
 import {
   getCRFSignatureImageUrl,
@@ -60,11 +60,7 @@ export default function SignaturePlacementCanvas({
   });
 
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
-  const [viewport, setViewport] = useState<{
-    width: number;
-    height: number;
-    convertToPdfPoint: (x: number, y: number) => number[];
-  } | null>(null);
+  const [viewport, setViewport] = useState<PageViewport | null>(null);
   const [numPages, setNumPages] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
   const [zoomPercent, setZoomPercent] = useState(100);

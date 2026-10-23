@@ -2396,7 +2396,7 @@ func (q *Queries) ListAllCRFSubmissions(ctx context.Context) ([]CRFAdminSubmissi
 			COALESCE(u.full_name, COALESCE(u.first_name || ' ' || u.last_name, '')) as student_name,
 			COALESCE(st.matric_number, '') as matric_number,
 			COALESCE(st.level, 0) as level,
-			COALESCE(sem.name, '') as semester_name,
+			COALESCE(sem.name::text, '') as semester_name,
 			COALESCE(sess.id, '00000000-0000-0000-0000-000000000000'::uuid) as session_id,
 			COALESCE(sess.name, '') as session_name
 		FROM crf_signing_submissions c

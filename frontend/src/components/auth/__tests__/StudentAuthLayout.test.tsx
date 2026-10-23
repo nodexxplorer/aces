@@ -2,24 +2,28 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import StudentAuthLayout, { SLIDE_INTERVAL_MS, STUDENT_SLIDES } from '../StudentAuthLayout';
-import type { Department } from '../../../api/departments';
 
-const departments: Department[] = [
-  { slug: 'uniuyo-ce', name: 'Dept of Computer Engineering', default: true, urlCode: 'co' },
-  { slug: 'dept-ee', name: 'Dept of Electrical Engineering', urlCode: 'ee' },
-];
+// The slide change waits on framer-motion's exit animation, which does not advance
+// reliably under fake timers. These tests check the timing and the slide order, so the
+// animation wrappers are replaced with plain elements.
+vi.mock('framer-motion', () => {
+  const Div = ({
+    initial: _initial,
+    animate: _animate,
+    exit: _exit,
+    transition: _transition,
+    ...rest
+  }: Record<string, unknown>) => <div {...rest} />;
+  return {
+    motion: { div: Div },
+    AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  };
+});
 
-function renderLayout(props: Partial<React.ComponentProps<typeof StudentAuthLayout>> = {}) {
+function renderLayout() {
   return render(
     <MemoryRouter>
-      <StudentAuthLayout
-        departments={departments}
-        selected="uniuyo-ce"
-        picked
-        onSelect={vi.fn()}
-        topRight={<span>Don&apos;t have an account?</span>}
-        {...props}
-      >
+      <StudentAuthLayout topRight={<span>Don&apos;t have an account?</span>}>
         <p>card content</p>
       </StudentAuthLayout>
     </MemoryRouter>,
@@ -46,12 +50,11 @@ describe('student sign-in layout: slides', () => {
 
   it('moves on to the next slide every five seconds', async () => {
     renderLayout();
-    await act(() => vi.advanceTimersByTimeAsync(SLIDE_INTERVAL_MS));
-    expect(screen.getByText(STUDENT_SLIDES[1].title)).toBeInTheDocument();
-    await act(() => vi.advanceTimersByTimeAsync(SLIDE_INTERVAL_MS));
-    expect(screen.getByText(STUDENT_SLIDES[2].title)).toBeInTheDocument();
-    await act(() => vi.advanceTimersByTimeAsync(SLIDE_INTERVAL_MS));
-    expect(screen.getByText(STUDENT_SLIDES[0].title)).toBeInTheDocument();
+    // Step through every slide, then check the rotation wraps back to the first.
+    for (let i = 1; i <= STUDENT_SLIDES.length; i += 1) {
+      await act(() => vi.advanceTimersByTimeAsync(SLIDE_INTERVAL_MS));
+      expect(screen.getByText(STUDENT_SLIDES[i % STUDENT_SLIDES.length].title)).toBeInTheDocument();
+    }
   });
 
   it('stays on a slide while the pointer is over it', async () => {
@@ -73,61 +76,23 @@ describe('student sign-in layout: slides', () => {
     expect(screen.getByRole('button', { name: 'Show slide 3' })).toHaveAttribute('aria-current', 'true');
   });
 
-  it('puts course form signing on the second slide only', () => {
-    const withForms = STUDENT_SLIDES.filter((s) => /course forms/.test(s.text));
-    expect(withForms).toHaveLength(1);
-    expect(withForms[0].title).toBe('Your courses, in one place');
+  it('puts CRF signing on the second slide only', () => {
+    const withCrf = STUDENT_SLIDES.filter((s) => /CRF/.test(`${s.title} ${s.text}`));
+    expect(withCrf).toHaveLength(1);
+    expect(withCrf[0]).toBe(STUDENT_SLIDES[1]);
   });
 });
 
-describe('student sign-in layout: department picker', () => {
-  it('marks the selected department and reports a choice', () => {
-    const onSelect = vi.fn();
-    renderLayout({ onSelect });
-    expect(screen.getByRole('button', { name: 'Dept of Computer Engineering' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    expect(screen.getByRole('button', { name: 'Dept of Electrical Engineering' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Dept of Electrical Engineering' }));
-    expect(onSelect).toHaveBeenCalledWith('dept-ee');
-  });
-
-  it('shows no logo top-left and presses no department until one is picked', () => {
-    const { unmount } = renderLayout({ picked: false });
-    // The picker's logos plus the Admin Park placeholder on the left; no top-left logo.
-    expect(screen.getAllByRole('img')).toHaveLength(departments.length + 1);
-    expect(screen.getByRole('button', { name: 'Dept of Computer Engineering' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
-    expect(screen.getByRole('button', { name: 'Dept of Electrical Engineering' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
-    unmount();
-
-    renderLayout({ picked: true });
-    // The same, plus the top-left logo.
-    expect(screen.getAllByRole('img')).toHaveLength(departments.length + 2);
-    expect(screen.getByRole('button', { name: 'Dept of Computer Engineering' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-  });
-
-  it('is hidden when there is only one department', () => {
-    renderLayout({ departments: [departments[0]] });
-    expect(screen.queryByRole('group', { name: 'Choose your department' })).not.toBeInTheDocument();
-  });
-
-  it('shows the link beside the picker and the card below', () => {
+describe('student sign-in layout: frame', () => {
+  it('shows the brand mark top-left and the top-right link beside the card', () => {
     renderLayout();
+    expect(screen.getByText('ADMIN PACK')).toBeInTheDocument();
     expect(screen.getByText("Don't have an account?")).toBeInTheDocument();
     expect(screen.getByText('card content')).toBeInTheDocument();
+  });
+
+  it('has no department picker, which now lives on the sign-in page', () => {
+    renderLayout();
+    expect(screen.queryByRole('group', { name: 'Choose your department' })).not.toBeInTheDocument();
   });
 });

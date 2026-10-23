@@ -73,7 +73,7 @@ describe('student sign-in page', () => {
 
   it('allows picking a department through the selector and continuing with Modools', async () => {
     renderLogin();
-    const dropdownTrigger = await screen.findByRole('button', { name: /select department|faculty of engineering/i });
+    const dropdownTrigger = await screen.findByRole('button', { name: /select engineering department/i });
     expect(dropdownTrigger).toBeInTheDocument();
 
     fireEvent.click(dropdownTrigger);
