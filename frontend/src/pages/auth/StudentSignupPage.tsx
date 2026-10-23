@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { modoolsLoginUrl, getModoolsStatus } from '../../api/modools';
 import { useDepartments } from '../../hooks/useDepartments';
 import StudentAuthLayout, { AuthNotice, ModoolsButton } from '../../components/auth/StudentAuthLayout';
+import FancyDepartmentSelector from '../../components/auth/FancyDepartmentSelector';
 
 // Student registration: Modools OAuth only. Accounts are created automatically
 // on first sign-in; profile details are collected in the onboarding flow
@@ -38,40 +39,60 @@ const StudentSignupPage = () => {
       picked={picked}
       onSelect={select}
       topRight={
-        <>
-          Already have an account?{' '}
-          <Link
-            to="/login"
-            className="font-semibold text-[#1A66D6] transition-colors hover:text-[#134FA8] dark:text-[#5AB0FF] dark:hover:text-[#8CCBFF]"
-          >
+        <div className="flex items-center gap-1.5">
+          <span>Already have an account?</span>
+          <Link to="/login" className="font-semibold text-[var(--primary-text)] hover:underline transition-colors">
             Sign in
           </Link>
-        </>
+        </div>
       }
     >
-      <h1 className="text-2xl font-semibold tracking-tight text-[#0E1B33] dark:text-[#E7EEF9]">Join Admin Park</h1>
-      <p className="mt-2 text-sm text-[#4A5D7A] dark:text-[#A3B3CC]">
-        Sign up with Modools. Your account is created automatically.
-      </p>
+      <div className="w-full text-left">
+        <div className="mb-4 sm:mb-6 lg:mb-7">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-[var(--text)]">
+            Join ADMIN PACK
+          </h1>
+          <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm text-[var(--text-muted)] leading-relaxed">
+            Choose your department and sign up with Modools. Your account is created automatically.
+          </p>
+        </div>
 
-      <div className="mt-8 space-y-4">
-        {authError && <AuthNotice message={authError} />}
-        <ModoolsButton
-          disabled={unavailable}
-          unavailable={unavailable}
-          onClick={() => {
-            window.location.href = modoolsLoginUrl(selected);
-          }}
-        />
-        <p className="pt-2 text-center text-xs text-[#4A5D7A] dark:text-[#A3B3CC]">
-          Don&apos;t have a Modools account?{' '}
-          <a
-            href="https://cpeuniuyo.modools.app/"
-            className="font-semibold text-[#1A66D6] hover:text-[#134FA8] dark:text-[#5AB0FF] dark:hover:text-[#8CCBFF]"
-          >
-            Create one
-          </a>
-        </p>
+        {authError && (
+          <div className="mb-4 sm:mb-5">
+            <AuthNotice message={authError} />
+          </div>
+        )}
+
+        <div className="space-y-4 sm:space-y-5">
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold text-[var(--text)] uppercase tracking-wider">
+              Department
+            </label>
+            <FancyDepartmentSelector departments={departments} selected={selected} onSelect={select} fullWidth={true} />
+          </div>
+
+          <div className="pt-1">
+            <ModoolsButton
+              disabled={unavailable}
+              unavailable={unavailable}
+              onClick={() => {
+                window.location.href = modoolsLoginUrl(selected);
+              }}
+            />
+          </div>
+
+          <p className="pt-2 text-center text-xs text-[var(--text-muted)] leading-relaxed">
+            Don&apos;t have a Modools account?{' '}
+            <a
+              href="https://cpeuniuyo.modools.app/"
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-[var(--primary-text)] hover:underline"
+            >
+              Create one
+            </a>
+          </p>
+        </div>
       </div>
     </StudentAuthLayout>
   );

@@ -1,14 +1,27 @@
-import { useState, useEffect, useMemo } from 'react';
-import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
-import Button from '../../components/ui/Button';
-import EmptyState from '../../components/ui/EmptyState';
-import StatusBadge from '../../components/data-display/StatusBadge';
-import DataTable, { type Column } from '../../components/data-display/DataTable';
-import { formatCurrency, formatDate } from '../../utils/formatters';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import {
+  CreditCard,
+  Download,
+  ShoppingCart,
+  Plus,
+  Loader2,
+  Receipt,
+  Search,
+  Check,
+  AlertTriangle,
+  Lock,
+  X,
+  Building2,
+  PhoneCall,
+  FileText,
+  Clock,
+  Share2,
+  ChevronDown,
+} from 'lucide-react';
+import { formatNumber, formatDate } from '../../utils/formatters';
 import {
   getStudentPayments,
   getStudentPaymentSummary,
-  initializeCheckout,
   checkoutCart,
   getMyDues,
   addToCart,
@@ -17,22 +30,29 @@ import {
   clearStudentCart,
   checkDuePaid,
   downloadPaymentReceipt,
+  type CartItem,
 } from '../../api/payments';
-import type { CartItem } from '../../api/payments';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
-import { CreditCard, Download, ShoppingCart, Trash2, Plus, Loader2, Receipt, Search } from 'lucide-react';
+import { getErrorMessage } from '../../utils/errors';
 import type { Payment, DuePayment, PaymentStatus, PaymentType } from '../../types';
 
-const STATUS_OPTIONS: (PaymentStatus | 'all')[] = ['all', 'pending', 'completed', 'failed', 'refunded'];
-const TYPE_OPTIONS: (PaymentType | 'all')[] = [
-  'all',
-  'dept_dues',
-  'class_dues',
-  'materials',
-  'transcript_fee',
-  'other',
+const STATUS_FILTERS: { key: PaymentStatus | 'all'; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'completed', label: 'Successful' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'failed', label: 'Failed' },
 ];
+
+const TYPE_OPTIONS: { key: PaymentType | 'all'; label: string }[] = [
+  { key: 'all', label: 'All types' },
+  { key: 'dept_dues', label: 'Department Dues' },
+  { key: 'class_dues', label: 'Class Dues' },
+  { key: 'materials', label: 'Course Materials' },
+  { key: 'transcript_fee', label: 'Transcript Fee' },
+  { key: 'other', label: 'Other' },
+];
+
 const TYPE_LABELS: Record<string, string> = {
   dept_dues: 'Department Dues',
   class_dues: 'Class Dues',
@@ -45,7 +65,7 @@ const PaymentsPage = () => {
   const { user } = useAuth();
   const { success, error: notifyError } = useNotification();
 
-  const [tab, setTab] = useState<'transactions' | 'cart'>('cart');
+  const [tab, setTab] = useState<'cart' | 'transactions'>('cart');
   const [payments, setPayments] = useState<Payment[]>([]);
   const [summary, setSummary] = useState<{
     total_paid: number;
@@ -56,58 +76,65 @@ const PaymentsPage = () => {
   const [dues, setDues] = useState<DuePayment[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [cartLoading, setCartLoading] = useState(false);
   const [cartBusyId, setCartBusyId] = useState<string | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [paidDueIds, setPaidDueIds] = useState<Set<string>>(new Set());
+
   const [txSearch, setTxSearch] = useState('');
   const [txStatusFilter, setTxStatusFilter] = useState<PaymentStatus | 'all'>('all');
   const [txTypeFilter, setTxTypeFilter] = useState<PaymentType | 'all'>('all');
+  const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
+  const typeDropdownRef = useRef<HTMLDivElement>(null);
+  const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
   const [receiptBusyId, setReceiptBusyId] = useState<string | null>(null);
 
-  // Receipts are only issued for department/class dues payments, and only
-  // once the payment has completed — mirrors the backend's gate.
-  const isDuesReceiptEligible = (p: Payment) =>
-    p.status === 'completed' && (p.type === 'dept_dues' || p.type === 'class_dues');
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (typeDropdownRef.current && !typeDropdownRef.current.contains(e.target as Node)) {
+        setTypeDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-  const handleDownloadReceipt = async (row: Payment) => {
-    setReceiptBusyId(row.id);
+  const fetchCart = useCallback(async () => {
+    if (!user?.id) return;
     try {
-      await downloadPaymentReceipt(row.id);
-      success('Receipt Downloaded', 'Your official receipt PDF has been saved.');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not download receipt';
-      notifyError('Download Failed', message);
-    } finally {
-      setReceiptBusyId(null);
+      const items = await listStudentCart(user.id);
+      setCart(items || []);
+    } catch {
+      // ignore
     }
-  };
-
-  const totalCartCount = cart.length;
-  // Dues already in the cart must be excluded from "add to cart" — the
-  // backend's AddToCart is a plain INSERT with no uniqueness constraint on
-  // (student_id, due_id), so without this a student could add the same due
-  // twice and be double-charged at checkout.
-  const cartDueIds = new Set(cart.map((item) => item.due_id));
+  }, [user?.id]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('tab') === 'cart') setTab('cart');
+    if (params.get('tab') === 'transactions') setTab('transactions');
 
     if (!user?.id) return;
     setLoading(true);
     Promise.all([
-      getStudentPayments(user.id).catch(() => {
-        notifyError('Error', 'Failed to load payments');
-        return [];
-      }),
+      getStudentPayments(user.id).catch(() => []),
       getStudentPaymentSummary(user.id).catch(() => null),
       getMyDues(user?.level).catch(() => []),
+      listStudentCart(user.id).catch(() => []),
     ])
-      .then(([pays, summ, duesData]) => {
-        setPayments(pays);
+      .then(([pays, summ, duesData, cartData]) => {
+        const sortedPays = (pays || []).sort(
+          (a, b) =>
+            new Date(b.created_at || b.createdAt || '').getTime() -
+            new Date(a.created_at || a.createdAt || '').getTime(),
+        );
+        setPayments(sortedPays);
+        if (sortedPays.length > 0) {
+          setSelectedPaymentId(sortedPays[0].id);
+        }
         setSummary(summ);
-        setDues(duesData);
-        duesData.forEach((d: DuePayment) => {
+        setDues(duesData || []);
+        setCart(cartData || []);
+
+        (duesData || []).forEach((d: DuePayment) => {
           checkDuePaid(d.id, user!.id)
             .then((res) => {
               if (res.is_paid) setPaidDueIds((prev) => new Set(prev).add(d.id));
@@ -117,30 +144,17 @@ const PaymentsPage = () => {
       })
       .catch(() => notifyError('Error', 'Failed to load payments'))
       .finally(() => setLoading(false));
-  }, [user?.id]);
-
-  const fetchCart = async () => {
-    if (!user?.id) return;
-    setCartLoading(true);
-    try {
-      const items = await listStudentCart(user.id);
-      setCart(items);
-    } catch {
-      notifyError('Error', 'Failed to load cart');
-    } finally {
-      setCartLoading(false);
-    }
-  };
+  }, [user?.id, user?.level, notifyError]);
 
   const handleAddToCart = async (due: DuePayment) => {
     if (!user?.id) return;
     setCartBusyId(due.id);
     try {
       await addToCart(user.id, due.id, due.amount);
+      await fetchCart();
       success('Added to Cart', `${due.name} added to your payment cart`);
-      fetchCart();
-    } catch {
-      notifyError('Error', 'Failed to add to cart');
+    } catch (err) {
+      notifyError('Error', getErrorMessage(err, 'Failed to add to cart'));
     } finally {
       setCartBusyId(null);
     }
@@ -151,8 +165,8 @@ const PaymentsPage = () => {
     try {
       await removeFromCart(cartItemId);
       setCart((prev) => prev.filter((c) => c.id !== cartItemId));
-    } catch {
-      notifyError('Error', 'Failed to remove from cart');
+    } catch (err) {
+      notifyError('Error', getErrorMessage(err, 'Failed to remove from cart'));
     } finally {
       setCartBusyId(null);
     }
@@ -164,35 +178,102 @@ const PaymentsPage = () => {
       await clearStudentCart(user.id);
       setCart([]);
       success('Cart Cleared', 'All dues removed from your cart');
-    } catch {
-      notifyError('Error', 'Failed to clear cart');
+    } catch (err) {
+      notifyError('Error', getErrorMessage(err, 'Failed to clear cart'));
     }
   };
 
-  const handleCheckout = async (paymentId: string, purpose: string) => {
+  const handleAddAllToCart = async () => {
+    if (!user?.id) return;
+    const duesToAdd = availableDues.filter((d) => !cartDueIds.has(d.id));
+    if (duesToAdd.length === 0) return;
+
+    setCartBusyId('all');
+    try {
+      for (const d of duesToAdd) {
+        await addToCart(user.id, d.id, d.amount);
+      }
+      await fetchCart();
+      success('Added to Cart', 'All dues added to your payment cart.');
+    } catch (err) {
+      notifyError('Error', getErrorMessage(err, 'Failed to add all dues to cart'));
+    } finally {
+      setCartBusyId(null);
+    }
+  };
+
+  const handleCheckoutCart = async () => {
     try {
       if (!user?.email) {
         notifyError('Checkout Error', 'User email is required.');
         return;
       }
-      const res = await initializeCheckout(paymentId, user.email);
-      success('Redirecting', `Forwarding to Paystack for ${purpose}...`);
+      setCheckoutLoading(true);
+      const res = await checkoutCart();
+      success('Redirecting', 'Forwarding to Paystack for dues payment...');
       if (res && res.authorization_url) {
         window.location.href = res.authorization_url;
       } else {
         notifyError('Checkout Error', 'No redirect URL returned.');
       }
-    } catch {
-      notifyError('Checkout Error', 'Unable to initiate gateway transaction.');
+    } catch (err) {
+      notifyError('Checkout Error', getErrorMessage(err, 'Unable to initiate gateway transaction.'));
+    } finally {
+      setCheckoutLoading(false);
     }
   };
 
-  const dueLookup = new Map(dues.map((d) => [d.id, d]));
-  const duesCartTotal = cart.reduce((sum, item) => sum + Number(item.amount), 0);
-  const combinedCartTotal = duesCartTotal;
+  const handleDownloadReceipt = async (paymentId: string) => {
+    setReceiptBusyId(paymentId);
+    try {
+      await downloadPaymentReceipt(paymentId);
+      success('Receipt Downloaded', 'Your official receipt PDF has been saved.');
+    } catch (err) {
+      notifyError('Download Failed', getErrorMessage(err, 'Could not download receipt'));
+    } finally {
+      setReceiptBusyId(null);
+    }
+  };
 
-  // Mirrors the search + status/type filter + sortable table design from the
-  // now-retired standalone student payment-history page.
+  const handleShareReceipt = async (p: Payment) => {
+    const amountVal = Number(p.amount) || 0;
+    const title = `Receipt: ${p.item_name || p.due_name || 'Dues'}`;
+    const text = `ACES Payment Receipt\nItem: ${p.item_name || p.due_name || 'Dues'}\nAmount: ₦${formatNumber(amountVal)}\nReference: ${p.paystack_reference || 'N/A'}\nStatus: ${p.status}`;
+    if (navigator.share && navigator.canShare && navigator.canShare({ title, text })) {
+      try {
+        await navigator.share({ title, text });
+      } catch {
+        // user dismissed share sheet
+      }
+    } else {
+      await navigator.clipboard.writeText(text);
+      success('Copied', 'Receipt details copied to clipboard.');
+    }
+  };
+
+  const dueLookup = useMemo(() => new Map(dues.map((d) => [d.id, d])), [dues]);
+  const cartDueIds = useMemo(() => new Set(cart.map((item) => item.due_id)), [cart]);
+
+  // Available dues: active dues not yet paid by this student
+  const availableDues = useMemo(() => {
+    return dues.filter((d) => d.is_active && !paidDueIds.has(d.id));
+  }, [dues, paidDueIds]);
+
+  const outstandingBalance = useMemo(() => {
+    if (summary && summary.amount_pending > 0) return summary.amount_pending;
+    return availableDues.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+  }, [summary, availableDues]);
+
+  const totalPaid = useMemo(() => {
+    if (summary && summary.amount_paid !== undefined) return summary.amount_paid;
+    return payments.filter((p) => p.status === 'completed').reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  }, [summary, payments]);
+
+  const cartTotal = useMemo(() => {
+    return cart.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  }, [cart]);
+
+  // Filtered transactions
   const filteredPayments = useMemo(() => {
     const q = txSearch.trim().toLowerCase();
     return payments.filter((p) => {
@@ -207,389 +288,774 @@ const PaymentsPage = () => {
     });
   }, [payments, txSearch, txStatusFilter, txTypeFilter]);
 
-  // Payment.amount is a Go decimal.Decimal, which serializes as a JSON
-  // string — always go through Number() before arithmetic, never sum the
-  // raw field (see the same note that was in the retired history page).
-  const totalPaidInView = filteredPayments
-    .filter((p) => p.status === 'completed')
-    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  // Keep selected payment in view
+  const selectedPayment = useMemo(() => {
+    if (selectedPaymentId) {
+      const found = filteredPayments.find((p) => p.id === selectedPaymentId);
+      if (found) return found;
+    }
+    return filteredPayments.length > 0 ? filteredPayments[0] : null;
+  }, [filteredPayments, selectedPaymentId]);
 
-  const transactionColumns: Column<Payment>[] = [
-    {
-      key: 'created_at',
-      label: 'Date',
-      sortable: true,
-      render: (_v, row) => formatDate((row as unknown as { created_at?: string }).created_at || ''),
-    },
-    {
-      key: 'item_name',
-      label: 'Purpose',
-      render: (v, row) => (v as string) || row.due_name || TYPE_LABELS[row.type] || row.type,
-    },
-    { key: 'type', label: 'Type', render: (v) => TYPE_LABELS[v as string] ?? (v as string) },
-    { key: 'amount', label: 'Amount', sortable: true, render: (v) => formatCurrency(v as number) },
-    {
-      key: 'paystack_reference',
-      label: 'Reference',
-      render: (v, row) =>
-        (v as string) || (row.receipt_number ? `Receipt No. ${String(row.receipt_number).padStart(4, '0')}` : 'N/A'),
-    },
-    { key: 'status', label: 'Status', render: (v) => <StatusBadge status={v as string} /> },
-    {
-      key: 'id',
-      label: 'Action',
-      render: (_v, row) =>
-        isDuesReceiptEligible(row) ? (
-          <Button
-            variant="outline"
-            size="xs"
-            leftIcon={
-              receiptBusyId === row.id ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Download className="w-3.5 h-3.5" />
-              )
-            }
-            onClick={() => handleDownloadReceipt(row)}
-            disabled={receiptBusyId === row.id}
-          >
-            Receipt
-          </Button>
-        ) : row.status === 'completed' ? (
-          <span className="text-xs text-surface-400">—</span>
-        ) : (
-          <Button
-            size="xs"
-            leftIcon={<CreditCard className="w-3.5 h-3.5" />}
-            onClick={() => handleCheckout(row.id, row.item_name)}
-          >
-            Pay Now
-          </Button>
-        ),
-    },
-  ];
+  const totalPaidInView = useMemo(() => {
+    return filteredPayments
+      .filter((p) => p.status === 'completed')
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  }, [filteredPayments]);
 
-  const tabs = [
-    { key: 'cart' as const, label: `Cart (${totalCartCount})`, icon: ShoppingCart },
-    { key: 'transactions' as const, label: 'Transactions', icon: Receipt },
-  ];
+  const completedCountInView = useMemo(() => {
+    return filteredPayments.filter((p) => p.status === 'completed').length;
+  }, [filteredPayments]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-surface-900 dark:text-white">Payments & Dues</h1>
-        <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-          Pay your department dues and class fees securely via Paystack gateway.
-        </p>
-      </div>
+    <div className="flex flex-col min-h-0 text-[var(--text)] space-y-6 pb-12">
+      {/* ======================================================== */}
+      {/* TOP HEADER                                               */}
+      {/* ======================================================== */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[var(--text)]">Payments & Dues</h1>
+          <p className="text-xs sm:text-sm text-[var(--text-muted)] mt-1">
+            Pay your department dues and class fees securely via Paystack.
+          </p>
+        </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <p className="text-xs text-surface-500 font-medium">Total Paid</p>
-          <p className="text-xl font-bold text-success-600 dark:text-success-400 mt-1">
-            {formatCurrency(summary?.amount_paid ?? 0)}
-          </p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs text-surface-500 font-medium">Outstanding</p>
-          <p className="text-xl font-bold text-warning-600 dark:text-warning-400 mt-1">
-            {formatCurrency(summary?.amount_pending ?? 0)}
-          </p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs text-surface-500 font-medium">Cart Items</p>
-          <p className="text-xl font-bold text-primary-600 dark:text-primary-400 mt-1">{totalCartCount}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs text-surface-500 font-medium">Cart Total</p>
-          <p className="text-xl font-bold text-primary-600 dark:text-primary-400 mt-1">
-            {formatCurrency(combinedCartTotal)}
-          </p>
-        </Card>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 bg-surface-100 dark:bg-surface-800 p-1 rounded-lg">
-        {tabs.map((t) => (
+        {/* Top Segmented Pills (Dues & cart, Transactions) */}
+        <div className="inline-flex p-1 rounded-full border border-slate-200 dark:border-[#262833] bg-white dark:bg-[#13151b] shadow-sm select-none gap-1 self-start sm:self-auto">
           <button
-            key={t.key}
-            onClick={() => {
-              setTab(t.key);
-              if (t.key === 'cart') fetchCart();
-            }}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-              tab === t.key
-                ? 'bg-white dark:bg-surface-900 text-primary-600 shadow-sm'
-                : 'text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white'
+            onClick={() => setTab('cart')}
+            className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all ${
+              tab === 'cart' ? 'bg-[#1d68ec] text-white shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
             }`}
           >
-            <t.icon className="w-4 h-4" />
-            {t.label}
+            <ShoppingCart className="w-4 h-4" />
+            <span>Dues & cart</span>
           </button>
-        ))}
+
+          <button
+            onClick={() => setTab('transactions')}
+            className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all ${
+              tab === 'transactions'
+                ? 'bg-[#1d68ec] text-white shadow-sm'
+                : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+            }`}
+          >
+            <Receipt className="w-4 h-4" />
+            <span>Transactions</span>
+          </button>
+        </div>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center p-12">
-          <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
-          <span className="ml-2 text-sm text-surface-500">Loading payments...</span>
+        <div className="flex flex-col items-center justify-center py-24 gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-[#1d68ec]" />
+          <p className="text-xs text-[var(--text-muted)]">Loading payments and dues...</p>
         </div>
       ) : tab === 'transactions' ? (
+        /* ======================================================== */
+        /* TRANSACTIONS VIEW (Matches Screenshots 2, 3, 4, 5)       */
+        /* ======================================================== */
         <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white dark:bg-surface-900 p-4 rounded-xl border border-surface-200 dark:border-surface-800">
-              <p className="text-xs text-surface-500">Showing</p>
-              <p className="text-2xl font-bold text-surface-900 dark:text-white">{filteredPayments.length}</p>
+          {/* 1. TOP 3 STAT SUMMARY CARDS */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">
+            {/* Showing */}
+            <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-[#222530] bg-white dark:bg-[#161820] shadow-sm flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-[#1d68ec] flex items-center justify-center shrink-0">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-[var(--text-muted)] font-medium truncate">Showing</p>
+                <p className="text-xl sm:text-2xl font-black tracking-tight text-[var(--text)] truncate mt-0.5">
+                  {filteredPayments.length}
+                </p>
+              </div>
             </div>
-            <div className="bg-white dark:bg-surface-900 p-4 rounded-xl border border-surface-200 dark:border-surface-800">
-              <p className="text-xs text-surface-500">Completed (in view)</p>
-              <p className="text-2xl font-bold text-success-600">
-                {filteredPayments.filter((p) => p.status === 'completed').length}
-              </p>
+
+            {/* Completed */}
+            <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-[#222530] bg-white dark:bg-[#161820] shadow-sm flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+                <Check className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-[var(--text-muted)] font-medium truncate">Completed</p>
+                <p className="text-xl sm:text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 truncate mt-0.5">
+                  {completedCountInView}
+                </p>
+              </div>
             </div>
-            <div className="bg-white dark:bg-surface-900 p-4 rounded-xl border border-surface-200 dark:border-surface-800">
-              <p className="text-xs text-surface-500">Total Paid (in view)</p>
-              <p className="text-2xl font-bold text-primary-600">{formatCurrency(totalPaidInView)}</p>
+
+            {/* Total Paid in View */}
+            <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-[#222530] bg-white dark:bg-[#161820] shadow-sm flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-[#1d68ec] flex items-center justify-center shrink-0">
+                <CreditCard className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-[var(--text-muted)] font-medium truncate">Total paid (in view)</p>
+                <p className="text-xl sm:text-2xl font-black tracking-tight text-[#1d68ec] truncate mt-0.5">
+                  ₦{formatNumber(totalPaidInView)}
+                </p>
+              </div>
             </div>
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Transactions Log</CardTitle>
-              <CardDescription>Search and filter your dues payments and transaction records</CardDescription>
-            </CardHeader>
-            <div className="p-4 pt-0 flex flex-col md:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
-                <input
-                  type="text"
-                  placeholder="Search reference or purpose..."
-                  value={txSearch}
-                  onChange={(e) => setTxSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-sm border rounded-lg dark:bg-surface-800 dark:border-surface-700"
-                />
-              </div>
-              <select
-                value={txStatusFilter}
-                onChange={(e) => setTxStatusFilter(e.target.value as PaymentStatus | 'all')}
-                className="px-3 py-2 text-sm border rounded-lg dark:bg-surface-800 dark:border-surface-700"
-              >
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s === 'all' ? 'All Statuses' : s.charAt(0).toUpperCase() + s.slice(1)}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={txTypeFilter}
-                onChange={(e) => setTxTypeFilter(e.target.value as PaymentType | 'all')}
-                className="px-3 py-2 text-sm border rounded-lg dark:bg-surface-800 dark:border-surface-700"
-              >
-                {TYPE_OPTIONS.map((t) => (
-                  <option key={t} value={t}>
-                    {t === 'all' ? 'All Types' : TYPE_LABELS[t]}
-                  </option>
-                ))}
-              </select>
+          {/* 2. SEARCH & FILTER PILLS ROW */}
+          <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+            {/* Search Input */}
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+              <input
+                type="text"
+                placeholder="Search reference or purpose"
+                value={txSearch}
+                onChange={(e) => setTxSearch(e.target.value)}
+                className="w-full pl-11 pr-4 py-2.5 text-xs sm:text-sm rounded-full border border-slate-200 dark:border-[#262833] bg-white dark:bg-[#161820] text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[#1d68ec] transition-colors"
+              />
+              {txSearch && (
+                <button
+                  onClick={() => setTxSearch('')}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-[var(--text-muted)] hover:text-[var(--text)]"
+                >
+                  Clear
+                </button>
+              )}
             </div>
-            <DataTable
-              columns={transactionColumns}
-              data={filteredPayments}
-              isLoading={loading}
-              emptyTitle="No transactions yet"
-              emptyDescription="Your payment history will appear here once you make a payment."
-              pageSize={15}
-            />
-          </Card>
-        </div>
-      ) : (
-        /* Cart Tab */
-        <div className="space-y-6">
-          {/* Available Dues to Add */}
-          {dues.filter((d) => d.is_active && !paidDueIds.has(d.id) && !cartDueIds.has(d.id)).length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Plus className="w-5 h-5" /> Add Dues to Cart
-                </CardTitle>
-                <CardDescription>Select dues to pay in bulk</CardDescription>
-              </CardHeader>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-surface-200 dark:border-surface-700">
-                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">
-                        DUE NAME
-                      </th>
-                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">
-                        AMOUNT
-                      </th>
-                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">
-                        LEVEL
-                      </th>
-                      <th className="text-right px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">
-                        ACTION
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dues
-                      .filter((d) => d.is_active && !paidDueIds.has(d.id) && !cartDueIds.has(d.id))
-                      .map((due) => (
-                        <tr key={due.id} className="border-b border-surface-100 dark:border-surface-800">
-                          <td className="px-4 py-3 font-medium text-surface-900 dark:text-white">{due.name}</td>
-                          <td className="px-4 py-3 text-surface-700 dark:text-surface-300">
-                            {formatCurrency(due.amount)}
-                          </td>
-                          <td className="px-4 py-3 text-xs text-surface-500">
-                            {due.level ? `${due.level} Level` : 'All'}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <Button
-                              size="xs"
-                              variant="outline"
-                              leftIcon={
-                                cartBusyId === due.id ? (
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                  <Plus className="w-3.5 h-3.5" />
-                                )
-                              }
-                              onClick={() => handleAddToCart(due)}
-                              disabled={cartBusyId === due.id}
-                            >
-                              Add
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          )}
 
-          {/* Unified Cart */}
-          {cart.length > 0 && (
-            <Card>
-              <CardHeader>
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <ShoppingCart className="w-5 h-5" /> Cart
-                    </CardTitle>
-                    <CardDescription>Review and checkout your selected items</CardDescription>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleClearCart}
-                    leftIcon={<Trash2 className="w-4 h-4" />}
-                  >
-                    Clear All
-                  </Button>
-                </div>
-              </CardHeader>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-surface-200 dark:border-surface-700">
-                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">ITEM</th>
-                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">TYPE</th>
-                      <th className="text-left px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">
-                        AMOUNT
-                      </th>
-                      <th className="text-right px-4 py-3 font-semibold text-surface-600 dark:text-surface-300">
-                        ACTION
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cart.map((item) => {
-                      const due = dueLookup.get(item.due_id);
+            {/* Status Filter Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+              {STATUS_FILTERS.map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setTxStatusFilter(f.key)}
+                  className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+                    txStatusFilter === f.key
+                      ? 'bg-[#1d68ec] text-white shadow-sm'
+                      : 'border border-slate-200 dark:border-[#262833] bg-white dark:bg-[#161820] text-[var(--text-muted)] hover:text-[var(--text)] hover:border-slate-300 dark:hover:border-[#383d4e]'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+
+              {/* Custom Type Dropdown Pill */}
+              <div className="relative shrink-0" ref={typeDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setTypeDropdownOpen((prev) => !prev)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold border transition-all ${
+                    txTypeFilter !== 'all'
+                      ? 'border-[#1d68ec] text-[#1d68ec] bg-blue-50/50 dark:bg-blue-950/20 shadow-sm'
+                      : 'border-slate-200 dark:border-[#262833] bg-white dark:bg-[#161820] text-[var(--text-muted)] hover:text-[var(--text)] hover:border-slate-300 dark:hover:border-[#383d4e]'
+                  }`}
+                >
+                  <span>{TYPE_OPTIONS.find((t) => t.key === txTypeFilter)?.label || 'All types'}</span>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-[var(--text-muted)] transition-transform duration-150 ${
+                      typeDropdownOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+
+                {typeDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-slate-200 dark:border-[#262833] bg-white dark:bg-[#161820] shadow-xl p-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
+                    {TYPE_OPTIONS.map((t) => {
+                      const isSelected = txTypeFilter === t.key;
                       return (
-                        <tr key={item.id} className="border-b border-surface-100 dark:border-surface-800">
-                          <td className="px-4 py-3 font-medium text-surface-900 dark:text-white">
-                            {due?.name || 'Unknown Due'}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                              Due
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-surface-700 dark:text-surface-300">
-                            {formatCurrency(Number(item.amount))}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <Button
-                              size="xs"
-                              variant="danger"
-                              leftIcon={
-                                cartBusyId === item.id ? (
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                )
-                              }
-                              onClick={() => handleRemoveFromCart(item.id)}
-                              disabled={cartBusyId === item.id}
-                            >
-                              Remove
-                            </Button>
-                          </td>
-                        </tr>
+                        <button
+                          key={t.key}
+                          type="button"
+                          onClick={() => {
+                            setTxTypeFilter(t.key);
+                            setTypeDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-left transition-colors ${
+                            isSelected
+                              ? 'bg-blue-50/80 dark:bg-blue-950/40 text-[#1d68ec]'
+                              : 'text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-slate-50 dark:hover:bg-[#1f222d]'
+                          }`}
+                        >
+                          <span>{t.label}</span>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-[#1d68ec]" />}
+                        </button>
                       );
                     })}
-                  </tbody>
-                </table>
+                  </div>
+                )}
               </div>
-              <div className="flex items-center justify-between p-4 border-t border-surface-200 dark:border-surface-700 flex-wrap gap-3">
-                <div className="text-sm text-surface-700 dark:text-surface-300 space-y-0.5">
-                  {cart.length > 0 && <div>Dues: {formatCurrency(duesCartTotal)}</div>}
-                  <div className="font-semibold">Total: {formatCurrency(combinedCartTotal)}</div>
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  {cart.length > 0 && (
-                    <Button
-                      variant="outline"
-                      leftIcon={<CreditCard className="w-4 h-4" />}
-                      onClick={async () => {
-                        try {
-                          if (!user?.email) {
-                            notifyError('Checkout Error', 'User email is required.');
-                            return;
-                          }
-                          const res = await checkoutCart();
-                          success('Redirecting', 'Forwarding to Paystack for dues payment...');
-                          if (res && res.authorization_url) {
-                            window.location.href = res.authorization_url;
-                          } else {
-                            notifyError('Checkout Error', 'No redirect URL returned.');
-                          }
-                        } catch {
-                          notifyError('Checkout Error', 'Unable to initiate gateway transaction.');
-                        }
-                      }}
-                    >
-                      Pay Dues ({cart.length})
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </Card>
-          )}
+            </div>
+          </div>
 
-          {/* Empty state */}
-          {cart.length === 0 && !cartLoading && (
-            <Card>
-              <EmptyState
-                icon={<ShoppingCart className="w-8 h-8 text-surface-400" />}
-                title="Your cart is empty."
-                description="Add dues from the list above."
-              />
-            </Card>
+          {/* 3. MAIN TRANSACTIONS CONTENT */}
+          {filteredPayments.length === 0 ? (
+            /* EMPTY TRANSACTIONS STATE (Screenshots 2 & 4) */
+            <div className="rounded-3xl border border-slate-200 dark:border-[#222530] bg-white dark:bg-[#161820] py-24 px-6 text-center shadow-sm space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-blue-500/10 text-[#1d68ec] flex items-center justify-center mx-auto">
+                <Receipt className="w-8 h-8 stroke-[1.8]" />
+              </div>
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-[var(--text)]">No transactions yet</h3>
+                <p className="text-xs sm:text-sm text-[var(--text-muted)] mt-1 max-w-sm mx-auto leading-relaxed">
+                  Your payment history and receipts will appear here once you make a payment.
+                </p>
+              </div>
+              <button
+                onClick={() => setTab('cart')}
+                className="px-5 py-2.5 rounded-full bg-[#1d68ec] hover:bg-[#1554c2] text-white text-xs font-bold inline-flex items-center gap-2 shadow-sm transition-all active:scale-95"
+              >
+                <ShoppingCart className="w-4 h-4" />
+                <span>Go to dues</span>
+              </button>
+            </div>
+          ) : (
+            /* POPULATED 2-COLUMN LAYOUT (Screenshots 3 & 5) */
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* LEFT COLUMN: TRANSACTIONS LOG TABLE (~8 cols) */}
+              <div className="lg:col-span-8 rounded-2xl border border-slate-200 dark:border-[#222530] bg-white dark:bg-[#161820] p-6 shadow-sm overflow-hidden space-y-4">
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-[var(--text)]">Transactions log</h3>
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5">Search and filter your payment records</p>
+                </div>
+
+                <div className="overflow-x-auto -mx-6 px-6">
+                  <table className="w-full text-left text-xs sm:text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-100 dark:border-[#20232e] text-[11px] font-bold text-[var(--text-muted)] tracking-wider">
+                        <th className="py-3 px-3">REFERENCE</th>
+                        <th className="py-3 px-3">PURPOSE</th>
+                        <th className="py-3 px-3">DATE</th>
+                        <th className="py-3 px-3">AMOUNT</th>
+                        <th className="py-3 px-3">STATUS</th>
+                        <th className="py-3 px-3 text-right"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-[#20232e]">
+                      {filteredPayments.map((p) => {
+                        const isSelected = selectedPayment?.id === p.id;
+                        const isCompleted = p.status === 'completed';
+                        const isPending = p.status === 'pending';
+
+                        return (
+                          <tr
+                            key={p.id}
+                            onClick={() => setSelectedPaymentId(p.id)}
+                            className={`cursor-pointer transition-colors ${
+                              isSelected
+                                ? 'bg-blue-50/50 dark:bg-blue-950/20 border-l-4 border-l-[#1d68ec]'
+                                : 'hover:bg-slate-50/70 dark:hover:bg-[#13151b] border-l-4 border-l-transparent'
+                            }`}
+                          >
+                            <td className="py-3.5 px-3 font-mono text-xs break-all tracking-wide font-bold text-[var(--text)]">
+                              {p.paystack_reference || 'N/A'}
+                            </td>
+
+                            <td className="py-3.5 px-3 font-bold text-[var(--text)]">
+                              {p.item_name || p.due_name || TYPE_LABELS[p.type] || 'Departmental dues'}
+                            </td>
+
+                            <td className="py-3.5 px-3 text-xs text-[var(--text-muted)] whitespace-nowrap">
+                              {formatDate(p.created_at || p.createdAt, 'd MMM yyyy')}
+                            </td>
+                            <td className="py-3.5 px-3 font-extrabold text-[var(--text)] whitespace-nowrap">
+                              ₦{formatNumber(Number(p.amount) || 0)}
+                            </td>
+
+                            <td className="py-3.5 px-3 whitespace-nowrap">
+                              {isCompleted ? (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5">
+                                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                                  <span>Successful</span>
+                                </span>
+                              ) : isPending ? (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border border-amber-500/30 text-amber-500 bg-amber-500/5">
+                                  <Clock className="w-3.5 h-3.5" />
+                                  <span>Pending</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border border-red-500/30 text-red-500 bg-red-500/5">
+                                  <AlertTriangle className="w-3.5 h-3.5" />
+                                  <span>Failed</span>
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="py-3.5 px-3 text-right whitespace-nowrap">
+                              {isCompleted && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDownloadReceipt(p.id);
+                                  }}
+                                  disabled={receiptBusyId === p.id}
+                                  className="p-2 rounded-xl border border-slate-200 dark:border-[#2b2e3c] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-slate-100 dark:hover:bg-[#1f222d] transition-colors"
+                                  title="Download receipt"
+                                >
+                                  {receiptBusyId === p.id ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <Download className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN: RECEIPT PREVIEW SIDE-PANEL (~4 cols) */}
+              {selectedPayment && (
+                <div className="lg:col-span-4 rounded-2xl border border-slate-200 dark:border-[#222530] bg-white dark:bg-[#161820] p-6 shadow-sm space-y-6">
+                  {/* Top Header of Receipt Box */}
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#20232e]">
+                    <h3 className="text-sm sm:text-base font-bold text-[var(--text)]">Receipt</h3>
+                    {selectedPayment.status === 'completed' ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5">
+                        <Check className="w-3 h-3 stroke-[2.5]" />
+                        <span>Successful</span>
+                      </span>
+                    ) : selectedPayment.status === 'pending' ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border border-amber-500/30 text-amber-500 bg-amber-500/5">
+                        <Clock className="w-3 h-3" />
+                        <span>Pending</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border border-red-500/30 text-red-500 bg-red-500/5">
+                        <AlertTriangle className="w-3 h-3" />
+                        <span>Failed</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Big Amount Paid */}
+                  <div className="text-center py-2">
+                    <p className="text-xs text-[var(--text-muted)] font-medium">Amount paid</p>
+                    <p className="text-3xl sm:text-4xl font-black text-[var(--text)] tracking-tight mt-1">
+                      ₦{formatNumber(Number(selectedPayment.amount) || 0)}
+                    </p>
+                  </div>
+
+                  {/* Receipt Details Card */}
+                  <div className="rounded-2xl border border-slate-200 dark:border-[#222530] bg-slate-50/50 dark:bg-[#12141a] p-4 text-xs divide-y divide-slate-100 dark:divide-[#20232e] space-y-2.5">
+                    <div className="flex items-center justify-between pb-2">
+                      <span className="text-[var(--text-muted)] pr-2 font-medium">Reference</span>
+                      <span className="font-mono font-bold text-[var(--text)] tracking-wider">
+                        {selectedPayment.paystack_reference || 'N/A'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2.5 pb-2">
+                      <span className="text-[var(--text-muted)] font-medium">Purpose</span>
+                      <span className="font-bold text-[var(--text)] text-right truncate ml-2">
+                        {selectedPayment.item_name ||
+                          selectedPayment.due_name ||
+                          TYPE_LABELS[selectedPayment.type] ||
+                          'Departmental dues'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2.5 pb-2">
+                      <span className="text-[var(--text-muted)] font-medium">Date</span>
+                      <span className="font-medium text-[var(--text)]">
+                        {formatDate(selectedPayment.created_at || selectedPayment.createdAt, 'd MMM yyyy')}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2.5 pb-2">
+                      <span className="text-[var(--text-muted)] font-medium">Method</span>
+                      <span className="font-medium text-[var(--text)]">Paystack &middot; Card</span>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2.5">
+                      <span className="text-[var(--text-muted)] font-medium">Student</span>
+                      <span className="font-bold text-[var(--text)] truncate ml-2">{user?.full_name || 'Student'}</span>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="space-y-2.5 pt-1">
+                    {selectedPayment.status === 'completed' && (
+                      <button
+                        onClick={() => handleDownloadReceipt(selectedPayment.id)}
+                        disabled={receiptBusyId === selectedPayment.id}
+                        className="w-full py-3 px-4 rounded-xl bg-[#1d68ec] hover:bg-[#1554c2] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95"
+                      >
+                        {receiptBusyId === selectedPayment.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Download className="w-4 h-4" />
+                        )}
+                        <span>Download receipt</span>
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => handleShareReceipt(selectedPayment)}
+                      className="w-full py-3 px-4 rounded-xl border border-slate-200 dark:border-[#2a2e3c] hover:bg-slate-50 dark:hover:bg-[#1c1f28] text-[var(--text)] text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm"
+                    >
+                      <Share2 className="w-4 h-4" />
+                      <span>Share</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
+        </div>
+      ) : (
+        /* ======================================================== */
+        /* DUES & CART VIEW (Matches Screenshots 1, 3, 4, 5)       */
+        /* ======================================================== */
+        <div className="space-y-6">
+          {/* 1. BLUE HERO BANNER */}
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#3b82f6] to-[#1d68ec] text-white p-6 sm:p-8 shadow-sm">
+            {/* Background concentric decorative curves */}
+            <div className="absolute right-0 top-0 bottom-0 w-2/3 pointer-events-none overflow-hidden select-none">
+              <svg
+                className="absolute -right-16 -top-16 w-[420px] h-[420px] opacity-20 text-white"
+                viewBox="0 0 200 200"
+                fill="none"
+                stroke="currentColor"
+              >
+                <circle cx="160" cy="40" r="45" strokeWidth="1" />
+                <circle cx="160" cy="40" r="80" strokeWidth="1" />
+                <circle cx="160" cy="40" r="120" strokeWidth="1" />
+                <circle cx="160" cy="40" r="160" strokeWidth="1" />
+              </svg>
+            </div>
+
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+              <div>
+                <div className="flex items-center gap-1.5 text-blue-100 text-xs sm:text-sm font-medium">
+                  {outstandingBalance === 0 && <Check className="w-4 h-4 text-white" />}
+                  <span>Outstanding balance</span>
+                </div>
+                <h2 className="text-3xl sm:text-5xl font-black tracking-tight mt-1">
+                  ₦{formatNumber(outstandingBalance)}
+                </h2>
+                <p className="text-xs sm:text-sm text-blue-100 mt-2">
+                  {outstandingBalance === 0
+                    ? 'You are all paid up. New dues will appear here.'
+                    : `${availableDues.length} ${availableDues.length === 1 ? 'due' : 'dues'} available this semester`}
+                </p>
+              </div>
+
+              <div className="flex flex-col items-start sm:items-end gap-2 shrink-0">
+                {outstandingBalance === 0 ? (
+                  <div className="px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold bg-[#0c0d12] text-white flex items-center gap-2 shadow-md">
+                    <Check className="w-4 h-4 text-emerald-400" />
+                    <span>No payment needed</span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleAddAllToCart}
+                    disabled={cartBusyId === 'all'}
+                    className="px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold bg-[#0c0d12] hover:bg-black text-white flex items-center gap-2 shadow-md transition-all active:scale-95"
+                  >
+                    {cartBusyId === 'all' ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <span>Pay all dues</span>
+                        <span>&gt;</span>
+                      </>
+                    )}
+                  </button>
+                )}
+                <div className="flex items-center gap-1.5 text-[11px] text-blue-100">
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Secured by Paystack</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. 4 STAT SUMMARY CARDS */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {/* Total Paid */}
+            <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-[#222530] bg-white dark:bg-[#161820] shadow-sm flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                <Check className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-[var(--text-muted)] font-medium truncate">Total paid</p>
+                <p className="text-lg sm:text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 truncate mt-0.5">
+                  ₦{formatNumber(totalPaid)}
+                </p>
+              </div>
+            </div>
+
+            {/* Outstanding */}
+            <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-[#222530] bg-white dark:bg-[#161820] shadow-sm flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-[var(--text-muted)] font-medium truncate">Outstanding</p>
+                <p className="text-lg sm:text-2xl font-black tracking-tight text-[var(--text)] truncate mt-0.5">
+                  ₦{formatNumber(outstandingBalance)}
+                </p>
+              </div>
+            </div>
+
+            {/* Cart Items */}
+            <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-[#222530] bg-white dark:bg-[#161820] shadow-sm flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-[#1d68ec] flex items-center justify-center shrink-0">
+                <ShoppingCart className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-[var(--text-muted)] font-medium truncate">Cart items</p>
+                <p className="text-lg sm:text-2xl font-black tracking-tight text-[var(--text)] truncate mt-0.5">
+                  {cart.length}
+                </p>
+              </div>
+            </div>
+
+            {/* Cart Total */}
+            <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-[#222530] bg-white dark:bg-[#161820] shadow-sm flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
+                <CreditCard className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-[var(--text-muted)] font-medium truncate">Cart total</p>
+                <p className="text-lg sm:text-2xl font-black tracking-tight text-[#1d68ec] truncate mt-0.5">
+                  ₦{formatNumber(cartTotal)}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. MAIN BODY: 2-COLUMN LAYOUT (AVAILABLE DUES + YOUR CART) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* LEFT COLUMN: AVAILABLE DUES (~8 cols) */}
+            <div className="lg:col-span-8 rounded-2xl border border-slate-200 dark:border-[#222530] bg-white dark:bg-[#161820] p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#20232e]">
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-[var(--text)]">Available dues</h3>
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5">Add what you want to pay now</p>
+                </div>
+                {availableDues.length > 0 && (
+                  <span className="text-xs text-[var(--text-muted)] font-medium">
+                    {availableDues.length} {availableDues.length === 1 ? 'item' : 'items'}
+                  </span>
+                )}
+              </div>
+
+              {availableDues.length === 0 ? (
+                /* EMPTY STATE (Screenshots 1 & 4) */
+                <div className="py-16 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto">
+                    <Check className="w-6 h-6 stroke-[2.5]" />
+                  </div>
+                  <h4 className="text-sm font-bold text-[var(--text)]">Nothing due right now</h4>
+                  <p className="text-xs text-[var(--text-muted)] max-w-sm mx-auto leading-relaxed">
+                    When the department adds dues or class fees, they will show up here for you to pay.
+                  </p>
+                </div>
+              ) : (
+                /* DUES LIST (Screenshots 3 & 5) */
+                <div className="space-y-3 pt-1">
+                  {availableDues.map((due) => {
+                    const isInCart = cartDueIds.has(due.id);
+                    const cartItem = cart.find((c) => c.due_id === due.id);
+                    const isRequired =
+                      due.type === 'dept_dues' ||
+                      due.type === 'class_dues' ||
+                      !due.description?.toLowerCase().includes('optional');
+
+                    return (
+                      <div
+                        key={due.id}
+                        className={`flex items-center justify-between gap-3 p-4 rounded-2xl border transition-all ${
+                          isInCart
+                            ? 'border-blue-500/40 bg-blue-50/20 dark:bg-blue-950/10'
+                            : 'border-slate-200/80 dark:border-[#222530] bg-slate-50/40 dark:bg-[#12141a] hover:border-slate-300 dark:hover:border-[#2c303f]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={isInCart}
+                            onChange={() => {
+                              if (isInCart && cartItem) {
+                                handleRemoveFromCart(cartItem.id);
+                              } else {
+                                handleAddToCart(due);
+                              }
+                            }}
+                            className="w-4 h-4 rounded text-[#1d68ec] focus:ring-[#1d68ec] border-slate-300 dark:border-[#2b2e3c] cursor-pointer"
+                          />
+                          <div className="w-9 h-9 rounded-xl bg-white dark:bg-[#191b24] border border-slate-200/60 dark:border-[#262936] flex items-center justify-center text-[var(--text-muted)] shrink-0">
+                            <CreditCard className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="text-xs sm:text-sm font-bold text-[var(--text)] truncate">{due.name}</h4>
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                  isRequired
+                                    ? 'bg-blue-500/10 text-[#1d68ec]'
+                                    : 'bg-slate-200/70 dark:bg-[#252833] text-slate-600 dark:text-slate-400'
+                                }`}
+                              >
+                                {isRequired ? 'Required' : 'Optional'}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-[var(--text-muted)] truncate mt-0.5">
+                              {due.description ||
+                                (due.type === 'dept_dues'
+                                  ? 'Annual contribution to the department'
+                                  : 'Handouts and class activities')}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className="text-sm sm:text-base font-extrabold text-[var(--text)]">
+                            ₦{formatNumber(Number(due.amount) || 0)}
+                          </span>
+                          {isInCart && cartItem ? (
+                            <button
+                              onClick={() => handleRemoveFromCart(cartItem.id)}
+                              disabled={cartBusyId === cartItem.id}
+                              className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5 hover:bg-emerald-500/20 transition-colors"
+                            >
+                              {cartBusyId === cartItem.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Check className="w-3.5 h-3.5" />
+                              )}
+                              <span>In cart</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleAddToCart(due)}
+                              disabled={cartBusyId === due.id}
+                              className="px-4 py-1.5 rounded-full text-xs font-bold border border-slate-200 dark:border-[#2d3140] text-[var(--text)] hover:bg-slate-100 dark:hover:bg-[#1d202a] flex items-center gap-1.5 transition-colors"
+                            >
+                              {cartBusyId === due.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Plus className="w-3.5 h-3.5" />
+                              )}
+                              <span>Add</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* RIGHT COLUMN: YOUR CART (~4 cols) */}
+            <div className="lg:col-span-4 rounded-2xl border border-slate-200 dark:border-[#222530] bg-white dark:bg-[#161820] p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#20232e]">
+                <h3 className="text-sm sm:text-base font-bold text-[var(--text)]">Your cart ({cart.length})</h3>
+                {cart.length > 0 && (
+                  <button onClick={handleClearCart} className="text-xs font-semibold text-[#1d68ec] hover:underline">
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {cart.length === 0 ? (
+                /* EMPTY CART STATE (Screenshots 1 & 4) */
+                <div className="space-y-4">
+                  <div className="p-8 text-center rounded-2xl border-2 border-dashed border-slate-200 dark:border-[#222530] bg-slate-50/40 dark:bg-[#12141a]">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-[#1d68ec] flex items-center justify-center mx-auto mb-3">
+                      <ShoppingCart className="w-5 h-5" />
+                    </div>
+                    <h4 className="text-sm font-bold text-[var(--text)]">Your cart is empty</h4>
+                    <p className="text-xs text-[var(--text-muted)] mt-1">Add dues from the list to pay.</p>
+                  </div>
+
+                  <button
+                    disabled
+                    className="w-full py-3 rounded-full bg-slate-200/80 dark:bg-[#202430] text-slate-400 dark:text-slate-500 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 cursor-not-allowed"
+                  >
+                    <Lock className="w-4 h-4" />
+                    <span>Pay with Paystack</span>
+                  </button>
+                </div>
+              ) : (
+                /* FILLED CART STATE (Screenshots 3 & 5) */
+                <div className="space-y-4">
+                  <div className="space-y-3 divide-y divide-slate-100 dark:divide-[#20232e]">
+                    {cart.map((item) => {
+                      const due = dueLookup.get(item.due_id);
+                      const isRequired =
+                        due?.type === 'dept_dues' ||
+                        due?.type === 'class_dues' ||
+                        !due?.description?.toLowerCase().includes('optional');
+
+                      return (
+                        <div key={item.id} className="flex items-center justify-between gap-3 pt-3 first:pt-0">
+                          <div className="min-w-0">
+                            <h4 className="text-xs sm:text-sm font-bold text-[var(--text)] truncate">
+                              {due?.name || 'Due'}
+                            </h4>
+                            <p className="text-[11px] text-[var(--text-muted)]">
+                              {isRequired ? 'Required' : 'Optional'}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2.5 shrink-0">
+                            <span className="text-xs sm:text-sm font-bold text-[var(--text)]">
+                              ₦{formatNumber(Number(item.amount) || 0)}
+                            </span>
+                            <button
+                              onClick={() => handleRemoveFromCart(item.id)}
+                              disabled={cartBusyId === item.id}
+                              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded transition-colors"
+                              title="Remove item"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="border-t border-slate-100 dark:border-[#20232e] pt-4 flex items-center justify-between">
+                    <span className="text-xs sm:text-sm font-semibold text-[var(--text-muted)]">Total</span>
+                    <span className="text-xl sm:text-2xl font-black text-[var(--text)]">
+                      ₦{formatNumber(cartTotal)}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={handleCheckoutCart}
+                    disabled={checkoutLoading}
+                    className="w-full py-3 rounded-xl bg-[#1d68ec] hover:bg-[#1554c2] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.99]"
+                  >
+                    {checkoutLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+                    <span>Pay ₦{formatNumber(cartTotal)} with Paystack</span>
+                  </button>
+
+                  <div className="flex items-center justify-center gap-3 text-[11px] text-[var(--text-muted)] pt-1">
+                    <span className="flex items-center gap-1">
+                      <CreditCard className="w-3.5 h-3.5" /> Card
+                    </span>
+                    <span>&middot;</span>
+                    <span className="flex items-center gap-1">
+                      <Building2 className="w-3.5 h-3.5" /> Transfer
+                    </span>
+                    <span>&middot;</span>
+                    <span className="flex items-center gap-1">
+                      <PhoneCall className="w-3.5 h-3.5" /> USSD
+                    </span>
+                  </div>
+
+                  <p className="text-[10px] text-[var(--text-muted)] text-center leading-relaxed">
+                    Payments are processed by Paystack. Your card details are never stored by the department.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

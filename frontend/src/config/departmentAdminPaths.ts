@@ -10,6 +10,28 @@ export function departmentAdminHome(urlCode?: string): string {
   return urlCode ? `/${urlCode}${ADMIN}` : ADMIN;
 }
 
+/** The address of a user's role dashboard based on role and department short code. */
+export function departmentDashboardPath(urlCode?: string, role?: string): string {
+  if (role === 'hod' || role === 'delegated_admin' || role === 'admin') {
+    return urlCode ? `/${urlCode}/admin/dashboard` : '/admin/dashboard';
+  }
+  if (role === 'lecturer') {
+    return '/l/dashboard';
+  }
+  return urlCode ? `/${urlCode}/i/dashboard` : '/i/dashboard';
+}
+
+/** The address of a user's role profile based on role and department short code. */
+export function departmentProfilePath(urlCode?: string, role?: string): string {
+  if (role === 'hod' || role === 'delegated_admin' || role === 'admin') {
+    return urlCode ? `/${urlCode}/admin/profile` : '/admin/profile';
+  }
+  if (role === 'lecturer') {
+    return '/l/profile';
+  }
+  return '/i/profile';
+}
+
 /**
  * Puts an admin path under the department's short name: /admin/results becomes
  * /co/admin/results. Paths outside the admin area, and every path when the

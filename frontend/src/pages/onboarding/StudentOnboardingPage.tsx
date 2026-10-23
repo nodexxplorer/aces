@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '../../hooks/useAuth';
+import { useDashboardPath } from '../../hooks/useDashboardPath';
 import { useNotification } from '../../hooks/useNotification';
 import { useDepartments } from '../../hooks/useDepartments';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -68,6 +69,7 @@ const StudentOnboardingPage = () => {
   const matricExample = matricCode ? `20/${matricCode}/1234` : '20/EG/XX/1234';
   const { success, error } = useNotification();
   const navigate = useNavigate();
+  const dashboardPath = useDashboardPath();
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   // Set when the matric number belongs to another department. Accounts are kept
@@ -137,7 +139,7 @@ const StudentOnboardingPage = () => {
         middleName: data.middleName || undefined,
       });
       success('Profile Set Up Complete', 'Welcome aboard! Your registration is now pending verification.');
-      navigate('/dashboard');
+      navigate(dashboardPath);
     } catch (err) {
       setOtherDepartment(getErrorDepartment(err));
       error('Could Not Complete Setup', getErrorMessage(err));

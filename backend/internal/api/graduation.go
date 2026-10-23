@@ -10,6 +10,8 @@ import (
 )
 
 // ─── Graduation path (500L) ──────────────────────────────────────────────
+
+const finalYearLevel = int32(500)
 // Final-year students don't pay the regular dues cycle: their level dues
 // never gate them (see effectiveUnpaidDues), and instead they pay a one-off
 // course-form-signing fee (admin-editable) whose payment unlocks CRF

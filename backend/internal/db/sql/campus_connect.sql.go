@@ -709,6 +709,60 @@ func (q *Queries) ListGroups(ctx context.Context, arg ListGroupsParams) ([]ListG
 	return items, nil
 }
 
+const listSentPendingConnectionRequests = `-- name: ListSentPendingConnectionRequests :many
+SELECT c.id, c.requester_id, c.receiver_id, c.status, c.message, c.responded_at, c.created_at, c.tenant_id, u.full_name, u.avatar_url, u.role
+FROM connections c
+JOIN users u ON c.receiver_id = u.id
+WHERE c.requester_id = $1 AND c.status = 'pending'
+ORDER BY c.created_at DESC
+`
+
+type ListSentPendingConnectionRequestsRow struct {
+	ID          uuid.UUID          `json:"id"`
+	RequesterID uuid.UUID          `json:"requester_id"`
+	ReceiverID  uuid.UUID          `json:"receiver_id"`
+	Status      ConnectionStatus   `json:"status"`
+	Message     *string            `json:"message"`
+	RespondedAt pgtype.Timestamptz `json:"responded_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	TenantID    uuid.UUID          `json:"tenant_id"`
+	FullName    *string            `json:"full_name"`
+	AvatarUrl   *string            `json:"avatar_url"`
+	Role        UserRole           `json:"role"`
+}
+
+func (q *Queries) ListSentPendingConnectionRequests(ctx context.Context, requesterID uuid.UUID) ([]ListSentPendingConnectionRequestsRow, error) {
+	rows, err := q.db.Query(ctx, listSentPendingConnectionRequests, requesterID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSentPendingConnectionRequestsRow{}
+	for rows.Next() {
+		var i ListSentPendingConnectionRequestsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.RequesterID,
+			&i.ReceiverID,
+			&i.Status,
+			&i.Message,
+			&i.RespondedAt,
+			&i.CreatedAt,
+			&i.TenantID,
+			&i.FullName,
+			&i.AvatarUrl,
+			&i.Role,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPendingConnectionRequests = `-- name: ListPendingConnectionRequests :many
 SELECT c.id, c.requester_id, c.receiver_id, c.status, c.message, c.responded_at, c.created_at, c.tenant_id, u.full_name, u.avatar_url, u.role
 FROM connections c

@@ -89,14 +89,12 @@ func (server *Server) createCRFBacklogRequest(ctx *gin.Context) {
 		return
 	}
 
-	// A student with an unpaid or not-yet-fully-used batch already open
-	// shouldn't be able to stack another one on top of it.
+	// A student with an unpaid batch gets their previous pending batch replaced.
+	// A student with an active paid batch with unsubmitted forms cannot stack.
 	if existing, err := queries.GetLatestCRFBacklogRequest(ctx, userID); err == nil {
 		if existing.Status == "pending_payment" {
-			ctx.JSON(http.StatusConflict, gin.H{"error": "you already have a backlog request awaiting payment"})
-			return
-		}
-		if existing.Status == "paid" && existing.FormsSubmitted < existing.RequestedCount {
+			_ = queries.DeletePendingCRFBacklogRequest(ctx, existing.ID)
+		} else if existing.Status == "paid" && existing.FormsSubmitted < existing.RequestedCount {
 			ctx.JSON(http.StatusConflict, gin.H{"error": "you still have unsubmitted forms from your last backlog payment"})
 			return
 		}

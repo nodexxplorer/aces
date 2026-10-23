@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { isAdminArea } from '../../config/departmentAdminPaths';
+import { useRBAC } from '../../hooks/useRBAC';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
-import Footer from './Footer';
+import AdminNavbar from './AdminNavbar';
+import StaffNavbar from './StaffNavbar';
 import CookieConsent from '../feedback/CookieConsent';
 import AdminMobileGuard from './AdminMobileGuard';
 import OfflineBanner from '../feedback/OfflineBanner';
@@ -13,10 +15,13 @@ const AppShell = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const { pathname } = useLocation();
-  const isAdmin = isAdminArea(pathname);
+  const { activeRole } = useRBAC();
+  const isAdmin =
+    isAdminArea(pathname) || activeRole === 'hod' || activeRole === 'admin' || activeRole === 'delegated_admin';
+  const isStaff = activeRole === 'lecturer' || activeRole === 'dept_bursar' || activeRole === 'class_bursar';
 
   return (
-    <div className="h-dvh bg-surface-50 dark:bg-surface-950 flex flex-col overflow-hidden print:h-auto print:block print:overflow-visible">
+    <div className="h-dvh bg-[var(--bg)] text-[var(--text)] flex flex-col overflow-hidden transition-colors duration-200 print:h-auto print:block print:overflow-visible">
       <div className="flex-1 flex w-full min-h-0 print:block">
         <div className="print:hidden">
           <Sidebar
@@ -28,13 +33,19 @@ const AppShell = () => {
         </div>
         <div className="flex flex-col flex-1 min-w-0 print:block">
           <div className="print:hidden">
-            <Navbar onMenuClick={() => setMobileSidebarOpen(true)} />
+            {isAdmin ? (
+              <AdminNavbar onMenuClick={() => setMobileSidebarOpen(true)} />
+            ) : isStaff ? (
+              <StaffNavbar onMenuClick={() => setMobileSidebarOpen(true)} />
+            ) : (
+              <Navbar onMenuClick={() => setMobileSidebarOpen(true)} />
+            )}
           </div>
           {/* print:overflow-visible/h-auto so a page's "Print" button (window.print())
               only outputs <main>'s content at natural height — without this, the
               scroll container clips to viewport height and everything outside it
               (sidebar, navbar, footer) still occupies page space in the printout. */}
-          <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto print:p-0 print:overflow-visible print:h-auto">
+          <main className="flex-1 min-w-0 p-3 sm:p-5 lg:p-7 overflow-y-auto overflow-x-hidden print:p-0 print:overflow-visible print:h-auto">
             {isAdmin ? (
               <AdminMobileGuard>
                 <Outlet />
@@ -45,7 +56,6 @@ const AppShell = () => {
           </main>
           <div className="print:hidden">
             <CookieConsent />
-            <Footer />
           </div>
         </div>
       </div>

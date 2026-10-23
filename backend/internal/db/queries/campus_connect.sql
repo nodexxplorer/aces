@@ -182,6 +182,13 @@ WHERE u.is_active = true AND u.is_approved = true
 ORDER BY u.full_name
 LIMIT $2 OFFSET $3;
 
+-- name: ListSentPendingConnectionRequests :many
+SELECT c.*, u.full_name, u.avatar_url, u.role
+FROM connections c
+JOIN users u ON c.receiver_id = u.id
+WHERE c.requester_id = $1 AND c.status = 'pending'
+ORDER BY c.created_at DESC;
+
 -- name: GetAllConnectionUserIds :many
 SELECT DISTINCT
     CASE WHEN c.requester_id = $1 THEN c.receiver_id ELSE c.requester_id END::uuid AS user_id

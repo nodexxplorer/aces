@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"github.com/aces/backend/internal/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/pdfcpu/pdfcpu/pkg/api"
 )
 
 // ─── CRF signing ───
@@ -165,10 +167,21 @@ func (server *Server) uploadCRF(ctx *gin.Context) {
 		}
 	}
 
-	semester, err := server.store.GetActiveSemester(ctx)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "no active semester"})
-		return
+	var semester db.Semester
+	if semIDStr := ctx.PostForm("semester_id"); semIDStr != "" {
+		if semUUID, err := uuid.Parse(semIDStr); err == nil {
+			if s, err := server.store.GetSemester(ctx, semUUID); err == nil {
+				semester = s
+			}
+		}
+	}
+	if semester.ID == uuid.Nil {
+		s, err := server.getOrResolveActiveSemester(ctx)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "no active semester"})
+			return
+		}
+		semester = s
 	}
 
 	if _, err := queries.GetCRFSubmissionForUserSemester(ctx, userID, semester.ID); err == nil {
@@ -259,11 +272,20 @@ func (server *Server) saveCRFPlacements(ctx *gin.Context) {
 		known[a.Kind] = true
 	}
 	for kind := range req.Placements {
+		p := req.Placements[kind]
+		if kind == "watermark" {
+			// Anti-fraud verification watermark badge (student name, matric number, QR code).
+			// This is generated dynamically and is not an admin signature asset.
+			if p.Page < 1 || p.X < 0 || p.Y < 0 || p.Width <= 0 {
+				ctx.JSON(http.StatusBadRequest, gin.H{"error": "watermark placement is out of range"})
+				return
+			}
+			continue
+		}
 		if !crfSignatureKinds[kind] || !known[kind] {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("no %s signature is configured yet", kind)})
 			return
 		}
-		p := req.Placements[kind]
 		if p.Page < 1 || p.X < 0 || p.Y < 0 || p.Width <= 0 {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("%s placement is out of range", kind)})
 			return
@@ -301,6 +323,52 @@ func (server *Server) listMyCRFDrafts(ctx *gin.Context) {
 		server.signSubmissionLinks(&drafts[i])
 	}
 	ctx.JSON(http.StatusOK, drafts)
+}
+
+// listMyCRFHistory GET /crf-signing/history — the student's completed and draft submission history
+func (server *Server) listMyCRFHistory(ctx *gin.Context) {
+	userID := getUserID(ctx)
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	submissions, err := queries.ListCRFSubmissionsForUser(ctx, userID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	for i := range submissions {
+		server.signSubmissionLinks(&submissions[i])
+	}
+	ctx.JSON(http.StatusOK, submissions)
+}
+
+// listAllCRFHistory GET /crf-signing/all — hod/admin/delegated_admin. Returns all submissions with student, semester and session details.
+func (server *Server) listAllCRFHistory(ctx *gin.Context) {
+	queries, ok := server.store.(*db.Queries)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	submissions, err := queries.ListAllCRFSubmissions(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	for i := range submissions {
+		if submissions[i].OriginalFilePath != "" {
+			submissions[i].OriginalFilePath = server.uploads.SignStored(submissions[i].OriginalFilePath)
+		}
+		if submissions[i].SignedFilePath != "" {
+			submissions[i].SignedFilePath = server.uploads.SignStored(submissions[i].SignedFilePath)
+		}
+	}
+	ctx.JSON(http.StatusOK, submissions)
 }
 
 // previewCRFSubmission POST /crf-signing/:id/preview — student. Stamps the
@@ -347,7 +415,7 @@ func (server *Server) previewCRFSubmission(ctx *gin.Context) {
 		return
 	}
 
-	stamped, err := server.stampCRFPDFWithPlacements(ctx, queries, pdfBytes, string(placementsJSON))
+	stamped, err := server.stampCRFPDFWithPlacements(ctx, queries, pdfBytes, string(placementsJSON), submission.UserID, submission.ID)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -416,7 +484,7 @@ func (server *Server) approveCRF(ctx *gin.Context) {
 		return
 	}
 
-	stamped, err := server.stampCRFPDFWithPlacements(ctx, queries, pdfBytes, string(placementsJSON))
+	stamped, err := server.stampCRFPDFWithPlacements(ctx, queries, pdfBytes, string(placementsJSON), submission.UserID, submission.ID)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -448,7 +516,7 @@ func (server *Server) getMyCRFSubmission(ctx *gin.Context) {
 		return
 	}
 
-	semester, err := server.store.GetActiveSemester(ctx)
+	semester, err := server.getOrResolveActiveSemester(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusOK, nil)
 		return
@@ -561,10 +629,9 @@ func departmentStampConfig(ctx context.Context) (utils.StampConfig, error) {
 }
 
 // stampCRFPDFWithPlacements applies each configured signature image at the
-// placements the student chose. placementsJSON is the raw
-// db.CRFPlacements JSON (already validated/owned by the caller where it
-// matters); only kinds with an uploaded signature asset are stamped.
-func (server *Server) stampCRFPDFWithPlacements(ctx context.Context, queries *db.Queries, pdfBytes []byte, placementsJSON string) ([]byte, error) {
+// placements the student chose, plus a feint white-and-brown anti-fraud
+// QR code watermark with the student's name on every page.
+func (server *Server) stampCRFPDFWithPlacements(ctx context.Context, queries *db.Queries, pdfBytes []byte, placementsJSON string, userID uuid.UUID, submissionID uuid.UUID) ([]byte, error) {
 	var placements db.CRFPlacements
 	if err := json.Unmarshal([]byte(placementsJSON), &placements); err != nil {
 		return nil, fmt.Errorf("invalid placements payload")
@@ -584,6 +651,9 @@ func (server *Server) stampCRFPDFWithPlacements(ctx context.Context, queries *db
 
 	stamps := make([]utils.SignatureStamp, 0, len(placements))
 	for kind, p := range placements {
+		if kind == "watermark" {
+			continue // anti-fraud watermark badge (name, reg no, QR) is rendered separately below
+		}
 		asset, ok := assetByKind[kind]
 		if !ok {
 			continue // configured after the draft was saved — skip silently
@@ -641,9 +711,95 @@ func (server *Server) stampCRFPDFWithPlacements(ctx context.Context, queries *db
 		})
 	}
 
+	// Student Anti-Fraud Verification Watermark:
+	// A small white-and-brown QR code badge with the student's name and matric number
+	// is watermarked in a very feint but visible manner (opacity 0.32)
+	// at the top-right corner of each page so that forms cannot be forged or duplicated.
+	var studentName string
+	var matricNumber string
+	if student, err := server.store.GetStudentByUserId(ctx, userID); err == nil && student.MatricNumber != nil {
+		matricNumber = *student.MatricNumber
+	}
+	if user, err := server.store.GetUser(ctx, userID); err == nil {
+		if user.FullName != nil && *user.FullName != "" {
+			studentName = *user.FullName
+		} else {
+			studentName = strings.TrimSpace(user.FirstName + " " + user.LastName)
+		}
+	}
+	if studentName == "" {
+		studentName = "STUDENT"
+	}
+	if matricNumber == "" {
+		matricNumber = "OFFICIAL"
+	}
+
+	wmPNG, err := utils.GenerateCRFStudentWatermarkPNG(studentName, matricNumber, submissionID.String())
+	if err == nil && len(wmPNG) > 0 {
+		dims, err := api.PageDims(bytes.NewReader(pdfBytes), nil)
+		const (
+			defaultWmWidthPt  = 44.0
+			defaultWmHeightPt = 50.0
+			bottomMarginPt    = 42.0
+			feintOpacity      = 1.0
+		)
+		wmPlacement, hasCustomWM := placements["watermark"]
+
+		if err == nil && len(dims) > 0 {
+			for pageNum, dim := range dims {
+				page := pageNum + 1
+				wmWidth := defaultWmWidthPt
+				wmHeight := defaultWmHeightPt
+				if hasCustomWM && wmPlacement.Width > 0 {
+					wmWidth = wmPlacement.Width
+				}
+				if hasCustomWM && wmPlacement.MaxHeight > 0 {
+					wmHeight = wmPlacement.MaxHeight
+				}
+
+				var posX, posY float64
+				if hasCustomWM && (wmPlacement.Page == 0 || int(wmPlacement.Page) == page) {
+					posX = wmPlacement.X
+					posY = wmPlacement.Y
+				} else {
+					// Default: centered at the bottom
+					posX = (float64(dim.Width) - wmWidth) / 2
+					posY = bottomMarginPt
+				}
+
+				if posX < 0 {
+					posX = bottomMarginPt
+				}
+				if posY < 0 {
+					posY = bottomMarginPt
+				}
+				stamps = append(stamps, utils.SignatureStamp{
+					ImageData: wmPNG,
+					Page:      page,
+					X:         posX,
+					Y:         posY,
+					Width:     wmWidth,
+					MaxHeight: wmHeight,
+					Opacity:   feintOpacity,
+				})
+			}
+		} else {
+			stamps = append(stamps, utils.SignatureStamp{
+				ImageData: wmPNG,
+				Page:      1,
+				X:         275.0,
+				Y:         14.0,
+				Width:     defaultWmWidthPt,
+				MaxHeight: defaultWmHeightPt,
+				Opacity:   feintOpacity,
+			})
+		}
+	}
+
 	stamped, err := utils.StampSignatures(pdfBytes, stamps)
 	if err != nil {
-		return nil, fmt.Errorf("could not sign this PDF — is it a valid, unencrypted file?")
+		fmt.Printf("StampSignatures failed: %v\n", err)
+		return nil, fmt.Errorf("could not sign this PDF: %w", err)
 	}
 	return stamped, nil
 }

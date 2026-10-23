@@ -122,7 +122,7 @@ func (server *Server) getStudentDashboard(ctx *gin.Context) {
 	// writer, createAttendanceSheet, is registered but never called from any
 	// frontend page), so the summary always showed 0/0 no matter how many
 	// times a student actually checked in.
-	if activeSem, err := queries.GetActiveSemester(ctx); err == nil {
+	if activeSem, err := server.getOrResolveActiveSemester(ctx); err == nil {
 		summary, err := queries.GetStudentAttendanceSummary(
 			ctx, student.ID, userID, activeSem.ID, activeSem.StartDate.Time, activeSem.EndDate.Time,
 		)

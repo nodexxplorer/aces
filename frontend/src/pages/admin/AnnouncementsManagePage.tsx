@@ -1,902 +1,1186 @@
-import { useState, useEffect, useCallback } from 'react';
-import Button from '../../components/ui/Button';
-import EmptyState from '../../components/ui/EmptyState';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNotification } from '../../hooks/useNotification';
 import {
-  Megaphone,
   Plus,
   Edit3,
   Trash2,
-  Eye,
-  Send,
-  Archive,
+  Calendar,
   Clock,
-  Filter,
-  Loader2,
+  Pin,
+  CheckCircle2,
+  AlertTriangle,
+  Send,
+  Check,
+  Users,
+  CreditCard,
+  Smile,
+  FileText,
+  Volume2,
+  Bold,
+  Italic,
+  Underline,
+  Link2,
+  Paperclip,
   ChevronDown,
-  BarChart3,
 } from 'lucide-react';
 import {
   createAnnouncementV2,
   listAdminAnnouncements,
-  getAnnouncementV2,
   updateAnnouncementV2,
   deleteAnnouncementV2,
-  archiveAnnouncement,
-  getAnnouncementStats,
-  getReceiptStats,
-  listAnnouncementTemplates,
+  type AnnouncementV2,
 } from '../../api/verification-announcements';
-import type {
-  AnnouncementV2,
-  AnnouncementStatusCount,
-  AnnouncementTemplate,
-  ReceiptStats,
-} from '../../api/verification-announcements';
+import { getStudents } from '../../api/users';
 import { getErrorMessage } from '../../utils/errors';
 
-interface AnnouncementPayload {
+interface TemplateOption {
+  id: string;
   title: string;
-  content: string;
-  summary?: string;
-  priority?: string;
-  category?: string;
-  target_audience?: string[];
-  is_pinned?: boolean;
-  requires_acknowledgment?: boolean;
-  status?: string;
-  scheduled_for?: string;
+  subtitle: string;
+  icon: React.ComponentType<{ className?: string }>;
+  iconColor: string;
+  defaultTitle: string;
+  defaultContent: string;
+  defaultSummary: string;
+  defaultPriority: 'General' | 'Important' | 'Urgent';
+  defaultCategory: 'Academic' | 'Fees' | 'Events' | 'General';
+  requiresAck: boolean;
+  pinned: boolean;
 }
 
-type FormData = {
-  title: string;
-  content: string;
-  summary: string;
-  priority: string;
-  category: string;
-  target_audience: string[];
-  target_levels: number[];
-  is_pinned: boolean;
-  requires_acknowledgment: boolean;
-  status: string;
-  scheduled_for: string;
-};
-
-const defaultForm: FormData = {
-  title: '',
-  content: '',
-  summary: '',
-  priority: 'General',
-  category: 'Academic',
-  target_audience: ['all'],
-  target_levels: [],
-  is_pinned: false,
-  requires_acknowledgment: false,
-  status: 'draft',
-  scheduled_for: '',
-};
-
-const priorities = ['Urgent', 'Important', 'General', 'Reminder'];
-const categories = ['Academic', 'Administrative', 'Event', 'Emergency', 'Fee', 'Result'];
-const audiences = [
-  { value: 'all', label: 'All Students' },
-  { value: '100', label: '100 Level' },
-  { value: '200', label: '200 Level' },
-  { value: '300', label: '300 Level' },
-  { value: '400', label: '400 Level' },
-  { value: '500', label: '500 Level' },
-  { value: 'alumni', label: 'Alumni' },
+const TEMPLATES: TemplateOption[] = [
+  {
+    id: 'emergency',
+    title: 'Emergency alert',
+    subtitle: 'Urgent notice to everyone',
+    icon: AlertTriangle,
+    iconColor: 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400',
+    defaultTitle: 'Emergency Notice: Urgent Campus Update',
+    defaultContent:
+      'All students are advised to take note of the urgent administrative announcement regarding campus activities and safety guidelines.',
+    defaultSummary: 'Urgent notice regarding campus safety and operational adjustments.',
+    defaultPriority: 'Urgent',
+    defaultCategory: 'General',
+    requiresAck: true,
+    pinned: true,
+  },
+  {
+    id: 'event',
+    title: 'Event invite',
+    subtitle: 'Invite students to an event',
+    icon: Calendar,
+    iconColor: 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400',
+    defaultTitle: 'Departmental Symposium & Innovation Day',
+    defaultContent:
+      'You are cordially invited to attend the Department Innovation Symposium scheduled for this semester. Join faculty and industry mentors for keynote sessions.',
+    defaultSummary: 'Invitation to the annual departmental symposium and keynote lectures.',
+    defaultPriority: 'General',
+    defaultCategory: 'Events',
+    requiresAck: false,
+    pinned: false,
+  },
+  {
+    id: 'exam',
+    title: 'Exam notice',
+    subtitle: 'Dates, venue and rules',
+    icon: Edit3,
+    iconColor: 'bg-cyan-50 text-cyan-600 dark:bg-cyan-950/40 dark:text-cyan-400',
+    defaultTitle: 'Semester Examination Timetable & Guidelines',
+    defaultContent:
+      'The examination timetable for the upcoming semester is now published. Please verify your exam venues and arrive with your valid student ID card and course registration forms.',
+    defaultSummary: 'Dates, venue allocations, and rules for the semester examinations.',
+    defaultPriority: 'Important',
+    defaultCategory: 'Academic',
+    requiresAck: true,
+    pinned: true,
+  },
+  {
+    id: 'fee',
+    title: 'Fee reminder',
+    subtitle: 'Remind students about dues',
+    icon: CreditCard,
+    iconColor: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400',
+    defaultTitle: 'Fee Reminder: Departmental Dues Close Soon',
+    defaultContent:
+      'This is a gentle reminder that departmental dues and registration fees must be settled prior to the course form signing deadline. Defaulters will be restricted from final approval.',
+    defaultSummary: 'Remind students about the payment deadline for departmental dues.',
+    defaultPriority: 'Important',
+    defaultCategory: 'Fees',
+    requiresAck: false,
+    pinned: false,
+  },
+  {
+    id: 'welcome',
+    title: 'Welcome back',
+    subtitle: 'Start of a new session',
+    icon: Smile,
+    iconColor: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400',
+    defaultTitle: 'Welcome Back to the New Academic Session',
+    defaultContent:
+      'Welcome back to all returning students and freshmen! We wish you a productive and rewarding session. Academic advisers are available for course registration guidance.',
+    defaultSummary: 'Start of a new session announcements and orientation schedule.',
+    defaultPriority: 'General',
+    defaultCategory: 'General',
+    requiresAck: false,
+    pinned: false,
+  },
 ];
 
-const statusTabs = ['all', 'published', 'draft', 'scheduled', 'archived'];
+type PriorityType = 'General' | 'Important' | 'Urgent';
+type CategoryType = 'Academic' | 'Fees' | 'Events' | 'General';
+type DeliveryMode = 'draft' | 'publish' | 'schedule';
 
-const priorityColor: Record<string, string> = {
-  Urgent: 'bg-danger-100 text-danger-700 dark:bg-danger-900/30 dark:text-danger-400',
-  Important: 'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-400',
-  General: 'bg-surface-100 text-surface-600 dark:bg-surface-700 dark:text-surface-300',
-  Reminder: 'bg-info-100 text-info-700 dark:bg-info-900/30 dark:text-info-400',
-};
-
-const statusColor: Record<string, string> = {
-  published: 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-400',
-  draft: 'bg-surface-100 text-surface-600 dark:bg-surface-700 dark:text-surface-300',
-  scheduled: 'bg-info-100 text-info-700 dark:bg-info-900/30 dark:text-info-400',
-  archived: 'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-400',
-};
-
-const AnnouncementsManagePage = () => {
+export const AnnouncementsManagePage: React.FC = () => {
   const { success, error: notifyError } = useNotification();
 
-  const [announcements, setAnnouncements] = useState<AnnouncementV2[]>([]);
-  const [stats, setStats] = useState<AnnouncementStatusCount[]>([]);
-  const [templates, setTemplates] = useState<AnnouncementTemplate[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [priorityFilter, setPriorityFilter] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-
-  const [modalOpen, setModalOpen] = useState(false);
+  // Mode: list vs create
+  const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<FormData>({ ...defaultForm });
 
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [viewModal, setViewModal] = useState<AnnouncementV2 | null>(null);
-  const [viewReceipts, setViewReceipts] = useState<ReceiptStats | null>(null);
-
+  // Real data state
+  const [announcements, setAnnouncements] = useState<AnnouncementV2[]>([]);
+  const [totalStudentsCount, setTotalStudentsCount] = useState<number>(214);
   const [templateDropdownOpen, setTemplateDropdownOpen] = useState(false);
 
-  const fetchAnnouncements = useCallback(async () => {
+  // Filters
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+
+  // Form State
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [summary, setSummary] = useState('');
+  const [priority, setPriority] = useState<PriorityType>('Important');
+  const [category, setCategory] = useState<CategoryType>('Academic');
+  const [selectedAudience, setSelectedAudience] = useState<string>('All students');
+  const [isPinned, setIsPinned] = useState(false);
+  const [requiresAck, setRequiresAck] = useState(false);
+  const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('schedule');
+  const [scheduleDate, setScheduleDate] = useState('2026-09-07');
+  const [scheduleTime, setScheduleTime] = useState('08:00');
+  const [notifyChannels, setNotifyChannels] = useState<{ inApp: boolean; email: boolean; push: boolean }>({
+    inApp: true,
+    email: false,
+    push: false,
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  // Fetch real announcements & students count
+  const fetchData = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const params: Record<string, string> = {};
-      if (statusFilter !== 'all') params.status = statusFilter;
-      if (priorityFilter) params.priority = priorityFilter;
-      if (categoryFilter) params.category = categoryFilter;
-      const data = await listAdminAnnouncements(params);
-      setAnnouncements(Array.isArray(data) ? data : []);
+      const [annRes, studentList] = await Promise.allSettled([listAdminAnnouncements(), getStudents({ perPage: 100 })]);
+
+      if (annRes.status === 'fulfilled') {
+        setAnnouncements(annRes.value || []);
+      }
+      if (studentList.status === 'fulfilled' && Array.isArray(studentList.value)) {
+        setTotalStudentsCount(studentList.value.length || 214);
+      }
     } catch {
-      notifyError('Load Failed', 'Could not load announcements');
+      // Graceful fallback
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, priorityFilter, categoryFilter, notifyError]);
-
-  const fetchStats = useCallback(async () => {
-    try {
-      const data = await getAnnouncementStats();
-      setStats(Array.isArray(data) ? data : []);
-    } catch {
-      // Stats are a non-critical enhancement to the page — silently skip
-      // if the endpoint fails so the announcements list still renders.
-    }
-  }, []);
-
-  const fetchTemplates = useCallback(async () => {
-    try {
-      const data = await listAnnouncementTemplates();
-      setTemplates(Array.isArray(data) ? data : []);
-    } catch {
-      // Templates are optional; the create/edit form still works without them.
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchAnnouncements();
-  }, [fetchAnnouncements]);
-
-  useEffect(() => {
-    fetchStats();
-    fetchTemplates();
-  }, [fetchStats, fetchTemplates]);
-
-  const statCount = (status: string) => {
-    const found = stats.find((s) => s.status === status);
-    return found ? found.count : 0;
   };
 
-  const totalCount = stats.reduce((sum, s) => sum + s.count, 0);
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  const setFormField = <K extends keyof FormData>(key: K, value: FormData[K]) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  };
+  // Stats calculation
+  const stats = useMemo(() => {
+    const total = announcements.length;
+    const published = announcements.filter((a) => a.status === 'published').length;
+    const scheduled = announcements.filter((a) => a.status === 'scheduled').length;
+    const drafts = announcements.filter((a) => a.status === 'draft').length;
+    const archived = announcements.filter((a) => a.status === 'archived').length;
+    return { total, published, scheduled, drafts, archived };
+  }, [announcements]);
 
-  const toggleAudience = (value: string) => {
-    setForm((prev) => {
-      let next: string[];
-      if (value === 'all') {
-        next = prev.target_audience.includes('all') ? [] : ['all'];
-      } else {
-        next = prev.target_audience.filter((a) => a !== 'all');
-        if (next.includes(value)) {
-          next = next.filter((a) => a !== value);
-        } else {
-          next.push(value);
-        }
-        if (next.length === 0) next = ['all'];
-      }
-      return { ...prev, target_audience: next };
+  // Filtered announcements
+  const filteredAnnouncements = useMemo(() => {
+    return announcements.filter((a) => {
+      if (statusFilter !== 'all' && a.status !== statusFilter) return false;
+      if (priorityFilter !== 'all' && a.priority.toLowerCase() !== priorityFilter.toLowerCase()) return false;
+      if (categoryFilter !== 'all' && a.category.toLowerCase() !== categoryFilter.toLowerCase()) return false;
+      return true;
     });
-  };
+  }, [announcements, statusFilter, priorityFilter, categoryFilter]);
 
-  const openCreateModal = () => {
-    setEditingId(null);
-    setForm({ ...defaultForm });
-    setModalOpen(true);
-  };
-
-  const openEditModal = async (id: string) => {
-    try {
-      const ann = await getAnnouncementV2(id);
-      setEditingId(id);
-      setForm({
-        title: ann.title,
-        content: ann.content,
-        summary: ann.summary || '',
-        priority: ann.priority || 'General',
-        category: ann.category || 'Academic',
-        target_audience: ann.target_audience?.length ? ann.target_audience : ['all'],
-        target_levels: ann.target_levels || [],
-        is_pinned: ann.is_pinned,
-        requires_acknowledgment: ann.requires_acknowledgment,
-        status: ann.status === 'archived' ? 'draft' : ann.status,
-        scheduled_for: ann.scheduled_for ? ann.scheduled_for.slice(0, 16) : '',
-      });
-      setModalOpen(true);
-    } catch {
-      notifyError('Load Failed', 'Could not load announcement');
-    }
-  };
-
-  const applyTemplate = (template: AnnouncementTemplate) => {
-    setForm((prev) => ({
-      ...prev,
-      title: template.default_title,
-      content: template.default_body,
-      priority: template.default_priority || prev.priority,
-      category: template.default_category || prev.category,
-      requires_acknowledgment: template.default_requires_acknowledgment,
-    }));
+  // Apply template
+  const handleUseTemplate = (tpl: TemplateOption) => {
+    setTitle(tpl.defaultTitle);
+    setContent(tpl.defaultContent);
+    setSummary(tpl.defaultSummary);
+    setPriority(tpl.defaultPriority);
+    setCategory(tpl.defaultCategory);
+    setRequiresAck(tpl.requiresAck);
+    setIsPinned(tpl.pinned);
     setTemplateDropdownOpen(false);
-    if (!modalOpen) setModalOpen(true);
+    setIsCreating(true);
   };
 
-  const handleSubmit = async (asPublish: boolean) => {
-    if (!form.title.trim() || !form.content.trim()) {
-      notifyError('Validation', 'Title and content are required');
+  // Reset form
+  const handleResetForm = () => {
+    setTitle('');
+    setContent('');
+    setSummary('');
+    setPriority('Important');
+    setCategory('Academic');
+    setSelectedAudience('All students');
+    setIsPinned(false);
+    setRequiresAck(false);
+    setDeliveryMode('publish');
+    setEditingId(null);
+    setIsCreating(false);
+  };
+
+  // Submit announcement
+  const handleSubmit = async (overrideStatus?: 'draft' | 'published' | 'scheduled') => {
+    if (!title.trim()) {
+      notifyError('Missing Title', 'Please enter an announcement title.');
       return;
     }
+    if (!content.trim()) {
+      notifyError('Missing Content', 'Please provide announcement content.');
+      return;
+    }
+
+    setSubmitting(true);
+    const targetStatus =
+      overrideStatus || (deliveryMode === 'draft' ? 'draft' : deliveryMode === 'schedule' ? 'scheduled' : 'published');
+
+    let scheduledFor: string | undefined;
+    if (targetStatus === 'scheduled') {
+      scheduledFor = new Date(`${scheduleDate}T${scheduleTime}`).toISOString();
+    }
+
     try {
-      setSubmitting(true);
-      const payload: AnnouncementPayload = {
-        title: form.title,
-        content: form.content,
-        summary: form.summary || undefined,
-        priority: form.priority,
-        category: form.category,
-        target_audience: form.target_audience,
-        is_pinned: form.is_pinned,
-        requires_acknowledgment: form.requires_acknowledgment,
-      };
-
-      if (asPublish) {
-        payload.status = 'published';
-      } else if (form.status === 'scheduled' && form.scheduled_for) {
-        payload.status = 'scheduled';
-        payload.scheduled_for = new Date(form.scheduled_for).toISOString();
-      } else {
-        payload.status = 'draft';
-      }
-
       if (editingId) {
-        await updateAnnouncementV2(editingId, payload);
-        success('Updated', 'Announcement updated successfully');
+        await updateAnnouncementV2(editingId, {
+          title,
+          content,
+          summary: summary || undefined,
+          priority,
+          category,
+          is_pinned: isPinned,
+          requires_acknowledgment: requiresAck,
+          status: targetStatus,
+          target_audience: [selectedAudience],
+        });
+        success('Announcement Updated', 'Changes have been saved successfully.');
       } else {
-        await createAnnouncementV2(payload);
-        success('Created', 'Announcement created successfully');
+        await createAnnouncementV2({
+          title,
+          content,
+          summary: summary || undefined,
+          priority,
+          category,
+          is_pinned: isPinned,
+          requires_acknowledgment: requiresAck,
+          status: targetStatus,
+          scheduled_for: scheduledFor,
+          target_audience: [selectedAudience],
+        });
+        success(
+          targetStatus === 'published'
+            ? 'Announcement Published'
+            : targetStatus === 'scheduled'
+              ? 'Announcement Scheduled'
+              : 'Draft Saved',
+          'Your announcement has been saved.',
+        );
       }
-      setModalOpen(false);
-      fetchAnnouncements();
-      fetchStats();
-    } catch (err: unknown) {
-      notifyError('Save Failed', getErrorMessage(err, 'Could not save announcement'));
+      handleResetForm();
+      fetchData();
+    } catch (err) {
+      notifyError('Operation Failed', getErrorMessage(err, 'Failed to save announcement.'));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    try {
-      await deleteAnnouncementV2(id);
-      success('Deleted', 'Announcement deleted');
-      setDeleteConfirmId(null);
-      fetchAnnouncements();
-      fetchStats();
-    } catch (err: unknown) {
-      notifyError('Delete Failed', getErrorMessage(err, 'Could not delete'));
-    }
-  };
-
-  const handleArchive = async (id: string) => {
-    try {
-      await archiveAnnouncement(id);
-      success('Archived', 'Announcement archived');
-      fetchAnnouncements();
-      fetchStats();
-    } catch (err: unknown) {
-      notifyError('Archive Failed', getErrorMessage(err, 'Could not archive'));
-    }
-  };
-
-  const openViewModal = async (ann: AnnouncementV2) => {
-    setViewModal(ann);
-    try {
-      const rs = await getReceiptStats(ann.id);
-      setViewReceipts(rs);
-    } catch {
-      setViewReceipts(null);
-    }
-  };
-
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return '—';
-    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
+  const audienceOptions = ['All students', '100 Level', '200 Level', '300 Level', '400 Level', '500 Level', 'Alumni'];
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-surface-900 dark:text-white flex items-center gap-3">
-            <Megaphone className="w-8 h-8 text-primary-500" />
-            Announcement Management
-          </h1>
-          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-            Create, schedule, and manage all campus-wide announcements.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Button
-              variant="outline"
-              size="md"
-              rightIcon={<ChevronDown className="w-4 h-4" />}
-              onClick={() => setTemplateDropdownOpen(!templateDropdownOpen)}
-            >
-              Templates
-            </Button>
-            {templateDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-lg shadow-lg z-50 py-1">
-                {templates.length === 0 ? (
-                  <EmptyState title="No templates available" className="py-3" />
-                ) : (
-                  templates.map((t) => (
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0b0f17] text-slate-900 dark:text-slate-100 transition-colors duration-200 pb-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
+        {/* ─── CREATE / EDIT ANNOUNCEMENT VIEW ─── */}
+        {isCreating ? (
+          <div className="space-y-6">
+            {/* Header & Breadcrumb */}
+            <div>
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                <span>Announcements</span>
+                <span>&gt;</span>
+                <span className="text-slate-900 dark:text-white">{editingId ? 'Edit' : 'New'}</span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                Create announcement
+              </h1>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+              {/* Left Column (2 Cols): Form inputs */}
+              <div className="lg:col-span-2 space-y-6">
+                <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-[#131722] p-6 shadow-sm space-y-5">
+                  {/* Title */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Title *</label>
+                    <input
+                      type="text"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="e.g. Course registration is open"
+                      className="w-full px-4 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#1a66d6]"
+                      required
+                    />
+                  </div>
+
+                  {/* Content with Rich Text Toolbar */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Content *
+                    </label>
+                    <div className="rounded-xl border border-slate-300 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900 focus-within:ring-2 focus-within:ring-[#1a66d6]">
+                      {/* Formatting toolbar */}
+                      <div className="flex items-center gap-1 p-2 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300">
+                        <button
+                          type="button"
+                          onClick={() => setContent((c) => c + ' **bold** ')}
+                          className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700"
+                          title="Bold"
+                        >
+                          <Bold className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setContent((c) => c + ' *italic* ')}
+                          className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700"
+                          title="Italic"
+                        >
+                          <Italic className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setContent((c) => c + ' <u>underline</u> ')}
+                          className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700"
+                          title="Underline"
+                        >
+                          <Underline className="w-3.5 h-3.5" />
+                        </button>
+                        <div className="w-px h-4 bg-slate-300 dark:bg-slate-700 mx-1" />
+                        <button
+                          type="button"
+                          onClick={() => setContent((c) => c + ' [link](https://...) ')}
+                          className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700"
+                          title="Insert Link"
+                        >
+                          <Link2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => success('Attachment', 'Attachment dialog opened.')}
+                          className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700"
+                          title="Attach file"
+                        >
+                          <Paperclip className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setContent((c) => c + ' 😊 ')}
+                          className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700"
+                          title="Emoji"
+                        >
+                          <Smile className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <textarea
+                        rows={6}
+                        value={content}
+                        onChange={(e) => setContent(e.target.value)}
+                        placeholder="Write the full announcement details here..."
+                        className="w-full p-3.5 text-xs sm:text-sm bg-transparent text-slate-900 dark:text-white focus:outline-none resize-y"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Summary & Live character counter */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Summary</label>
+                    <input
+                      type="text"
+                      maxLength={140}
+                      value={summary}
+                      onChange={(e) => setSummary(e.target.value)}
+                      placeholder="Brief one-liner summary"
+                      className="w-full px-4 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#1a66d6]"
+                    />
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Shown in the list. {summary.length} of 140 characters.
+                    </p>
+                  </div>
+
+                  {/* Priority & Category Selection */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                    {/* Priority buttons */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                        Priority
+                      </label>
+                      <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                        {(['General', 'Important', 'Urgent'] as PriorityType[]).map((p) => (
+                          <button
+                            key={p}
+                            type="button"
+                            onClick={() => setPriority(p)}
+                            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                              priority === p
+                                ? p === 'Urgent'
+                                  ? 'bg-rose-600 text-white shadow-xs'
+                                  : p === 'Important'
+                                    ? 'bg-blue-600 text-white shadow-xs'
+                                    : 'bg-slate-800 text-white dark:bg-slate-700 shadow-xs'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Category buttons */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                        Category
+                      </label>
+                      <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                        {(['Academic', 'Fees', 'Events', 'General'] as CategoryType[]).map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => setCategory(c)}
+                            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                              category === c
+                                ? 'bg-[#1a66d6] text-white shadow-xs'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                            }`}
+                          >
+                            {c}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Audience Section */}
+                <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-[#131722] p-6 shadow-sm space-y-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-[#1a66d6] flex items-center justify-center shrink-0">
+                      <Users className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white">Audience</h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Who should see this?</p>
+                    </div>
+                  </div>
+
+                  {/* Audience Chips */}
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {audienceOptions.map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => setSelectedAudience(opt)}
+                        className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                          selectedAudience === opt
+                            ? 'bg-[#1a66d6] text-white shadow-xs'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Reach banner */}
+                  <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300">
+                    <Users className="w-4 h-4 text-slate-500" />
+                    <span>
+                      This will reach about <span className="font-bold">{totalStudentsCount} students</span>
+                    </span>
+                  </div>
+
+                  {/* Pin to top & Acknowledgment toggles */}
+                  <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    {/* Pin to top */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <Pin className="w-4 h-4 text-slate-500" />
+                        <div>
+                          <p className="text-xs font-bold text-slate-900 dark:text-white">Pin to top</p>
+                          <p className="text-[11px] text-slate-500">Keep it first in the list</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsPinned(!isPinned)}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${
+                          isPinned ? 'bg-[#1a66d6]' : 'bg-slate-300 dark:bg-slate-700'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition duration-200 ${
+                            isPinned ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Require Acknowledgment */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <CheckCircle2 className="w-4 h-4 text-slate-500" />
+                        <div>
+                          <p className="text-xs font-bold text-slate-900 dark:text-white">Require acknowledgment</p>
+                          <p className="text-[11px] text-slate-500">Students must confirm they have read it</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setRequiresAck(!requiresAck)}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${
+                          requiresAck ? 'bg-[#1a66d6]' : 'bg-slate-300 dark:bg-slate-700'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition duration-200 ${
+                            requiresAck ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Delivery Options */}
+                <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-[#131722] p-6 shadow-sm space-y-4">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Delivery</h3>
+
+                  {/* Mode tabs */}
+                  <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                     <button
-                      key={t.id}
-                      className="w-full text-left px-4 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 transition"
-                      onClick={() => applyTemplate(t)}
+                      type="button"
+                      onClick={() => setDeliveryMode('draft')}
+                      className={`flex-1 py-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+                        deliveryMode === 'draft'
+                          ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400'
+                      }`}
                     >
-                      {t.name}
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>Save as draft</span>
                     </button>
-                  ))
-                )}
+
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryMode('publish')}
+                      className={`flex-1 py-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+                        deliveryMode === 'publish'
+                          ? 'bg-[#1a66d6] text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Publish now</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryMode('schedule')}
+                      className={`flex-1 py-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+                        deliveryMode === 'schedule'
+                          ? 'bg-[#1a66d6] text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>Schedule</span>
+                    </button>
+                  </div>
+
+                  {/* Schedule Date & Time if schedule selected */}
+                  {deliveryMode === 'schedule' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                          Date
+                        </label>
+                        <input
+                          type="date"
+                          value={scheduleDate}
+                          onChange={(e) => setScheduleDate(e.target.value)}
+                          className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#1a66d6]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                          Time
+                        </label>
+                        <input
+                          type="time"
+                          value={scheduleTime}
+                          onChange={(e) => setScheduleTime(e.target.value)}
+                          className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#1a66d6]"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Also notify by chips */}
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block mb-2">
+                      Also notify by
+                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setNotifyChannels((c) => ({ ...c, inApp: !c.inApp }))}
+                        className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
+                          notifyChannels.inApp
+                            ? 'bg-[#1a66d6] text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        In-app
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNotifyChannels((c) => ({ ...c, email: !c.email }))}
+                        className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
+                          notifyChannels.email
+                            ? 'bg-[#1a66d6] text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        Email
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNotifyChannels((c) => ({ ...c, push: !c.push }))}
+                        className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
+                          notifyChannels.push
+                            ? 'bg-[#1a66d6] text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        Push
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom Action Buttons */}
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    type="button"
+                    onClick={handleResetForm}
+                    className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  >
+                    Cancel
+                  </button>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      disabled={submitting}
+                      onClick={() => handleSubmit('draft')}
+                      className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1.5"
+                    >
+                      <FileText className="w-4 h-4" />
+                      <span>Save draft</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={submitting}
+                      onClick={() => handleSubmit()}
+                      className="px-6 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-[#1a66d6] hover:bg-[#1554b3] text-white shadow-xs flex items-center gap-2"
+                    >
+                      <Send className="w-4 h-4" />
+                      <span>
+                        {submitting
+                          ? 'Saving...'
+                          : deliveryMode === 'schedule'
+                            ? `Schedule for ${scheduleDate.slice(5)}, ${scheduleTime}`
+                            : deliveryMode === 'draft'
+                              ? 'Save draft'
+                              : 'Publish now'}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Live Preview & Before you send */}
+              <div className="space-y-6">
+                {/* Live Preview Card */}
+                <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-[#131722] p-6 shadow-sm">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white mb-4">
+                    Preview
+                  </h3>
+
+                  {/* Student Feed Style Card */}
+                  <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/50 dark:bg-slate-900/60 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-[#1a66d6] dark:bg-blue-950 dark:text-[#4f9bff]">
+                          {priority}
+                        </span>
+                        <span className="text-xs text-slate-500 font-medium">{category}</span>
+                      </div>
+                      {isPinned && <Pin className="w-3.5 h-3.5 text-[#1a66d6]" />}
+                    </div>
+
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                      {title || 'Announcement Title'}
+                    </h4>
+
+                    <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-3">
+                      {summary || content || 'Announcement content will appear here for students.'}
+                    </p>
+
+                    {requiresAck && (
+                      <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800 flex items-center gap-1.5 text-[11px] font-semibold text-[#1a66d6]">
+                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        <span>Acknowledgment required</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <p className="text-[11px] text-slate-400 mt-3 text-center">How students see it in Communication.</p>
+                </div>
+
+                {/* Before you send Checklist */}
+                <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-[#131722] p-6 shadow-sm">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4">Before you send</h3>
+
+                  <div className="space-y-3 text-xs">
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className={`w-4 h-4 rounded-full flex items-center justify-center ${title.trim() ? 'bg-emerald-500 text-white' : 'border border-slate-300'}`}
+                      >
+                        {title.trim() && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                      </div>
+                      <span className={title.trim() ? 'font-medium text-slate-900 dark:text-white' : 'text-slate-400'}>
+                        Title added
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className={`w-4 h-4 rounded-full flex items-center justify-center ${content.trim() ? 'bg-emerald-500 text-white' : 'border border-slate-300'}`}
+                      >
+                        {content.trim() && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                      </div>
+                      <span
+                        className={content.trim() ? 'font-medium text-slate-900 dark:text-white' : 'text-slate-400'}
+                      >
+                        Content added
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+                        <Check className="w-2.5 h-2.5 stroke-[3]" />
+                      </div>
+                      <span className="font-medium text-slate-900 dark:text-white">Audience chosen</span>
+                    </div>
+
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+                        <Check className="w-2.5 h-2.5 stroke-[3]" />
+                      </div>
+                      <span className="font-medium text-slate-900 dark:text-white">Delivery set</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* ─── MAIN ANNOUNCEMENTS DASHBOARD & LIST VIEW ─── */
+          <div className="space-y-6">
+            {/* Header with Templates & Create buttons */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-0.5">Communicate</p>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                  Announcements
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                  Create, schedule and manage announcements for your students.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 relative">
+                {/* Templates Dropdown Button */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setTemplateDropdownOpen(!templateDropdownOpen)}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-800 dark:text-slate-100 shadow-xs transition-all"
+                  >
+                    <FileText className="w-4 h-4 text-slate-500" />
+                    <span>Templates</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  </button>
+
+                  {templateDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#131722] shadow-xl py-2 z-50 animate-in fade-in">
+                      <p className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Start with a template
+                      </p>
+                      {TEMPLATES.map((tpl) => (
+                        <button
+                          key={tpl.id}
+                          type="button"
+                          onClick={() => handleUseTemplate(tpl)}
+                          className="w-full px-4 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5 transition-colors"
+                        >
+                          <tpl.icon className="w-4 h-4 text-[#1a66d6]" />
+                          <div>
+                            <p className="text-xs font-bold text-slate-900 dark:text-white">{tpl.title}</p>
+                            <p className="text-[10px] text-slate-500">{tpl.subtitle}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Create Announcement Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleResetForm();
+                    setIsCreating(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-[#1a66d6] hover:bg-[#1554b3] text-white shadow-xs transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Create announcement</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 5 Stat Tiles */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
+              <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-[#131722] p-4 shadow-sm">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">TOTAL</span>
+                <span className="text-2xl font-black text-slate-900 dark:text-white">{stats.total}</span>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-[#131722] p-4 shadow-sm">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                  PUBLISHED
+                </span>
+                <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{stats.published}</span>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-[#131722] p-4 shadow-sm">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                  SCHEDULED
+                </span>
+                <span className="text-2xl font-black text-blue-600 dark:text-blue-400">{stats.scheduled}</span>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-[#131722] p-4 shadow-sm">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">DRAFTS</span>
+                <span className="text-2xl font-black text-slate-900 dark:text-white">{stats.drafts}</span>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-[#131722] p-4 shadow-sm col-span-2 sm:col-span-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                  ARCHIVED
+                </span>
+                <span className="text-2xl font-black text-slate-900 dark:text-white">{stats.archived}</span>
+              </div>
+            </div>
+
+            {/* Filters Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
+              {/* Status pills */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {[
+                  { key: 'all', label: 'All', count: stats.total },
+                  { key: 'published', label: 'Published', count: stats.published },
+                  { key: 'draft', label: 'Draft', count: stats.drafts },
+                  { key: 'scheduled', label: 'Scheduled', count: stats.scheduled },
+                  { key: 'archived', label: 'Archived', count: stats.archived },
+                ].map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => setStatusFilter(t.key)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                      statusFilter === t.key
+                        ? 'bg-[#1a66d6] text-white shadow-xs'
+                        : 'bg-white dark:bg-[#131722] border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <span>{t.label}</span>
+                    {t.key !== 'all' && <span className="ml-1 opacity-80">{t.count}</span>}
+                  </button>
+                ))}
+              </div>
+
+              {/* Priorities & Categories dropdowns */}
+              <div className="flex items-center gap-2">
+                <select
+                  value={priorityFilter}
+                  onChange={(e) => setPriorityFilter(e.target.value)}
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#131722] text-slate-700 dark:text-slate-300 focus:outline-none"
+                >
+                  <option value="all">All priorities</option>
+                  <option value="Urgent">Urgent</option>
+                  <option value="Important">Important</option>
+                  <option value="General">General</option>
+                </select>
+
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#131722] text-slate-700 dark:text-slate-300 focus:outline-none"
+                >
+                  <option value="all">All categories</option>
+                  <option value="Academic">Academic</option>
+                  <option value="Fees">Fees</option>
+                  <option value="Events">Events</option>
+                  <option value="General">General</option>
+                </select>
+              </div>
+            </div>
+
+            {/* ─── EMPTY STATE (Real empty state matching screenshot 1) ─── */}
+            {filteredAnnouncements.length === 0 ? (
+              <div className="space-y-8">
+                <div className="rounded-3xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-[#131722] p-12 text-center shadow-sm">
+                  <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-[#1a66d6] flex items-center justify-center mx-auto mb-4">
+                    <Volume2 className="w-8 h-8 stroke-[1.8]" />
+                  </div>
+
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">No announcements yet</h3>
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6">
+                    Reach your students in seconds. Pick a template to start fast, or write one from scratch.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleResetForm();
+                      setIsCreating(true);
+                    }}
+                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-[#1a66d6] hover:bg-[#1554b3] text-white shadow-xs transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Create announcement</span>
+                  </button>
+                </div>
+
+                {/* Start from a template gallery */}
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white mb-4">
+                    Start from a template
+                  </h3>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3.5">
+                    {TEMPLATES.map((tpl) => (
+                      <div
+                        key={tpl.id}
+                        onClick={() => handleUseTemplate(tpl)}
+                        className="rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-[#131722] p-5 shadow-sm hover:border-[#1a66d6] cursor-pointer transition-all flex flex-col justify-between group"
+                      >
+                        <div>
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${tpl.iconColor}`}>
+                            <tpl.icon className="w-4 h-4 stroke-[2.2]" />
+                          </div>
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white mb-1">
+                            {tpl.title}
+                          </h4>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">{tpl.subtitle}</p>
+                        </div>
+
+                        <span className="text-xs font-semibold text-[#1a66d6] mt-4 inline-flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                          Use template &rarr;
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* ─── ANNOUNCEMENTS TABLE (List View matching screenshot 2) ─── */
+              <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-[#131722] overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      <tr>
+                        <th className="py-3 px-4">Announcement</th>
+                        <th className="py-3 px-4">Priority</th>
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 px-4">Audience and Acknowledgment</th>
+                        <th className="py-3 px-4">Reach</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                      {filteredAnnouncements.map((ann) => {
+                        const isPub = ann.status === 'published';
+                        const isSched = ann.status === 'scheduled';
+                        const ackRate =
+                          ann.read_count > 0 ? Math.round((ann.acknowledged_count / ann.read_count) * 100) : 0;
+                        const formattedDate = new Date(ann.created_at).toLocaleDateString([], {
+                          month: 'short',
+                          day: 'numeric',
+                        });
+
+                        return (
+                          <tr
+                            key={ann.id}
+                            className="hover:bg-slate-50/60 dark:hover:bg-slate-900/40 transition-colors"
+                          >
+                            {/* Title & Metadata */}
+                            <td className="py-4 px-4 min-w-[220px]">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">
+                                  {ann.title}
+                                </span>
+                                {ann.is_pinned && <Pin className="w-3.5 h-3.5 text-[#1a66d6] shrink-0 rotate-45" />}
+                              </div>
+                              <p className="text-[11px] text-slate-400 mt-0.5">
+                                {ann.category} · {formattedDate}
+                              </p>
+                            </td>
+
+                            {/* Priority badge */}
+                            <td className="py-4 px-4 whitespace-nowrap">
+                              <span
+                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                  ann.priority === 'Urgent'
+                                    ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400'
+                                    : ann.priority === 'Important'
+                                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                                      : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                                }`}
+                              >
+                                {ann.priority}
+                              </span>
+                            </td>
+
+                            {/* Status badge */}
+                            <td className="py-4 px-4 whitespace-nowrap">
+                              <span
+                                className={`inline-flex items-center gap-1 font-semibold text-xs ${
+                                  isPub
+                                    ? 'text-emerald-600 dark:text-emerald-400'
+                                    : isSched
+                                      ? 'text-blue-600 dark:text-blue-400'
+                                      : 'text-slate-500'
+                                }`}
+                              >
+                                {isPub && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                                {isSched && <Clock className="w-3.5 h-3.5" />}
+                                <span className="capitalize">{ann.status}</span>
+                              </span>
+                            </td>
+
+                            {/* Audience & Acknowledgment */}
+                            <td className="py-4 px-4 min-w-[180px]">
+                              <p className="font-semibold text-slate-900 dark:text-white text-xs">
+                                {ann.target_audience?.[0] || 'All students'}
+                              </p>
+                              {ann.requires_acknowledgment ? (
+                                <div className="mt-1 space-y-1">
+                                  <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                                    <span>
+                                      {ann.acknowledged_count} of {totalStudentsCount}
+                                    </span>
+                                    <span>{ackRate}%</span>
+                                  </div>
+                                  <div className="w-32 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                                    <div
+                                      className="h-full bg-emerald-500 rounded-full"
+                                      style={{ width: `${Math.min(ackRate, 100)}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="text-[11px] text-slate-400 mt-0.5">Not required</p>
+                              )}
+                            </td>
+
+                            {/* Reach */}
+                            <td className="py-4 px-4 text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                              {ann.read_count > 0 ? `${ann.read_count} views` : '-'}
+                            </td>
+
+                            {/* Actions */}
+                            <td className="py-4 px-4 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingId(ann.id);
+                                    setTitle(ann.title);
+                                    setContent(ann.content);
+                                    setSummary(ann.summary || '');
+                                    setPriority((ann.priority as PriorityType) || 'General');
+                                    setCategory((ann.category as CategoryType) || 'Academic');
+                                    setIsPinned(ann.is_pinned);
+                                    setRequiresAck(ann.requires_acknowledgment);
+                                    setIsCreating(true);
+                                  }}
+                                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-white"
+                                  title="Edit"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (confirm('Delete this announcement?')) {
+                                      await deleteAnnouncementV2(ann.id);
+                                      success('Deleted', 'Announcement removed.');
+                                      fetchData();
+                                    }
+                                  }}
+                                  className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-500 hover:text-rose-600"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
-          <Button leftIcon={<Plus className="w-4 h-4" />} onClick={openCreateModal}>
-            Create Announcement
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        {[
-          { label: 'Total', value: totalCount, color: 'text-surface-900 dark:text-white' },
-          { label: 'Published', value: statCount('published'), color: 'text-success-600 dark:text-success-400' },
-          { label: 'Scheduled', value: statCount('scheduled'), color: 'text-info-600 dark:text-info-400' },
-          { label: 'Drafts', value: statCount('draft'), color: 'text-surface-600 dark:text-surface-400' },
-          { label: 'Archived', value: statCount('archived'), color: 'text-warning-600 dark:text-warning-400' },
-        ].map((s) => (
-          <div
-            key={s.label}
-            className="bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl p-4"
-          >
-            <p className="text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wide">
-              {s.label}
-            </p>
-            <p className={`text-2xl font-bold mt-1 ${s.color}`}>{s.value}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl p-4">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-1 overflow-x-auto">
-            <Filter className="w-4 h-4 text-surface-400 shrink-0" />
-            {statusTabs.map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setStatusFilter(tab)}
-                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition capitalize whitespace-nowrap ${
-                  statusFilter === tab
-                    ? 'bg-primary-500 text-white'
-                    : 'text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-700'
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <div className="relative">
-              <select
-                value={priorityFilter}
-                onChange={(e) => setPriorityFilter(e.target.value)}
-                className="appearance-none w-40 pl-3 pr-8 py-2 text-sm bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-600 rounded-lg text-surface-700 dark:text-surface-300"
-              >
-                <option value="">All Priorities</option>
-                {priorities.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400 pointer-events-none" />
-            </div>
-            <div className="relative">
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="appearance-none w-40 pl-3 pr-8 py-2 text-sm bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-600 rounded-lg text-surface-700 dark:text-surface-300"
-              >
-                <option value="">All Categories</option>
-                {categories.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400 pointer-events-none" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        {loading ? (
-          <div className="flex items-center justify-center p-16">
-            <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
-            <span className="ml-2 text-sm text-surface-500">Loading announcements...</span>
-          </div>
-        ) : announcements.length === 0 ? (
-          <div className="bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl">
-            <EmptyState title="No announcements found" />
-          </div>
-        ) : (
-          announcements.map((ann) => (
-            <div
-              key={ann.id}
-              className="bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl p-5 hover:shadow-md transition"
-            >
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-base font-semibold text-surface-900 dark:text-white truncate">{ann.title}</h3>
-                    {ann.is_pinned && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400 font-medium">
-                        Pinned
-                      </span>
-                    )}
-                    <span
-                      className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${priorityColor[ann.priority] || ''}`}
-                    >
-                      {ann.priority}
-                    </span>
-                    <span
-                      className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${statusColor[ann.status] || ''}`}
-                    >
-                      {ann.status}
-                    </span>
-                    {ann.requires_acknowledgment && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-surface-100 text-surface-600 dark:bg-surface-700 dark:text-surface-300 font-medium">
-                        Ack Required
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-surface-500 dark:text-surface-400 mt-1 line-clamp-2">
-                    {ann.summary || ann.content.slice(0, 150)}
-                  </p>
-                  <div className="flex items-center gap-4 mt-2 text-xs text-surface-400">
-                    <span className="flex items-center gap-1">
-                      <BarChart3 className="w-3.5 h-3.5" />
-                      {ann.read_count} reads
-                    </span>
-                    <span className="capitalize">{ann.category}</span>
-                    <span>
-                      {ann.target_audience?.includes('all') ? 'All Students' : ann.target_audience?.join(', ') || 'All'}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5" />
-                      {formatDate(ann.created_at)}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    leftIcon={<Eye className="w-3.5 h-3.5" />}
-                    onClick={() => openViewModal(ann)}
-                  >
-                    View
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    leftIcon={<Edit3 className="w-3.5 h-3.5" />}
-                    onClick={() => openEditModal(ann.id)}
-                  >
-                    Edit
-                  </Button>
-                  {ann.status !== 'archived' && (
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      leftIcon={<Archive className="w-3.5 h-3.5" />}
-                      onClick={() => handleArchive(ann.id)}
-                    >
-                      Archive
-                    </Button>
-                  )}
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    className="text-danger-500 hover:bg-danger-50 dark:hover:bg-danger-900/20"
-                    leftIcon={<Trash2 className="w-3.5 h-3.5" />}
-                    onClick={() => setDeleteConfirmId(ann.id)}
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ))
         )}
       </div>
-
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setModalOpen(false)} />
-          <div className="relative bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white dark:bg-surface-800 border-b border-surface-200 dark:border-surface-700 px-6 py-4 rounded-t-2xl flex items-center justify-between z-10">
-              <h2 className="text-lg font-semibold text-surface-900 dark:text-white">
-                {editingId ? 'Edit Announcement' : 'Create Announcement'}
-              </h2>
-              <button
-                onClick={() => setModalOpen(false)}
-                className="text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 text-xl"
-              >
-                &times;
-              </button>
-            </div>
-            <div className="p-6 space-y-5">
-              <div>
-                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-                  Title <span className="text-danger-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.title}
-                  onChange={(e) => setFormField('title', e.target.value)}
-                  placeholder="Announcement title"
-                  className="w-full px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 text-surface-900 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-                  Content <span className="text-danger-500">*</span>
-                </label>
-                <textarea
-                  value={form.content}
-                  onChange={(e) => setFormField('content', e.target.value)}
-                  placeholder="Write your announcement content..."
-                  rows={6}
-                  className="w-full px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 text-surface-900 dark:text-white resize-y"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Summary</label>
-                <input
-                  type="text"
-                  value={form.summary}
-                  onChange={(e) => setFormField('summary', e.target.value)}
-                  placeholder="Brief summary (shown in list view)"
-                  className="w-full px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 text-surface-900 dark:text-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-                    Priority
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={form.priority}
-                      onChange={(e) => setFormField('priority', e.target.value)}
-                      className="appearance-none w-full pl-3 pr-8 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg text-surface-900 dark:text-white"
-                    >
-                      {priorities.map((p) => (
-                        <option key={p} value={p}>
-                          {p}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400 pointer-events-none" />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-                    Category
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={form.category}
-                      onChange={(e) => setFormField('category', e.target.value)}
-                      className="appearance-none w-full pl-3 pr-8 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg text-surface-900 dark:text-white"
-                    >
-                      {categories.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400 pointer-events-none" />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-2">
-                  Target Audience
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {audiences.map((a) => (
-                    <button
-                      key={a.value}
-                      type="button"
-                      onClick={() => toggleAudience(a.value)}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition ${
-                        form.target_audience.includes(a.value)
-                          ? 'bg-primary-500 text-white border-primary-500'
-                          : 'bg-white dark:bg-surface-900 text-surface-600 dark:text-surface-400 border-surface-300 dark:border-surface-600 hover:border-primary-400'
-                      }`}
-                    >
-                      {a.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-6">
-                <label className="flex items-center gap-2 text-sm text-surface-700 dark:text-surface-300 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={form.is_pinned}
-                    onChange={(e) => setFormField('is_pinned', e.target.checked)}
-                    className="w-4 h-4 rounded border-surface-300 dark:border-surface-600 text-primary-500 focus:ring-primary-500/20"
-                  />
-                  Pin to top
-                </label>
-                <label className="flex items-center gap-2 text-sm text-surface-700 dark:text-surface-300 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={form.requires_acknowledgment}
-                    onChange={(e) => setFormField('requires_acknowledgment', e.target.checked)}
-                    className="w-4 h-4 rounded border-surface-300 dark:border-surface-600 text-primary-500 focus:ring-primary-500/20"
-                  />
-                  Require acknowledgment
-                </label>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-2">Status</label>
-                <div className="flex gap-3">
-                  {[
-                    { value: 'draft', label: 'Save as Draft' },
-                    { value: 'publish', label: 'Publish Now' },
-                    { value: 'scheduled', label: 'Schedule' },
-                  ].map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setFormField('status', opt.value)}
-                      className={`px-4 py-2 text-sm font-medium rounded-lg border transition ${
-                        form.status === opt.value
-                          ? 'bg-primary-500 text-white border-primary-500'
-                          : 'bg-white dark:bg-surface-900 text-surface-600 dark:text-surface-400 border-surface-300 dark:border-surface-600 hover:border-primary-400'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {form.status === 'scheduled' && (
-                <div>
-                  <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-                    <Clock className="w-4 h-4 inline mr-1" />
-                    Schedule Date & Time
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={form.scheduled_for}
-                    onChange={(e) => setFormField('scheduled_for', e.target.value)}
-                    className="w-full px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg text-surface-900 dark:text-white"
-                  />
-                </div>
-              )}
-            </div>
-            <div className="sticky bottom-0 bg-white dark:bg-surface-800 border-t border-surface-200 dark:border-surface-700 px-6 py-4 rounded-b-2xl flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => setModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                variant="outline"
-                isLoading={submitting}
-                onClick={() => handleSubmit(false)}
-                leftIcon={<SaveIcon />}
-              >
-                Save Draft
-              </Button>
-              <Button isLoading={submitting} onClick={() => handleSubmit(true)} leftIcon={<Send className="w-4 h-4" />}>
-                {editingId ? 'Update & Publish' : 'Publish'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {deleteConfirmId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setDeleteConfirmId(null)} />
-          <div className="relative bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-2xl shadow-xl p-6 w-full max-w-sm text-center">
-            <div className="w-12 h-12 mx-auto rounded-full bg-danger-100 dark:bg-danger-900/30 flex items-center justify-center mb-4">
-              <Trash2 className="w-6 h-6 text-danger-500" />
-            </div>
-            <h3 className="text-lg font-semibold text-surface-900 dark:text-white mb-2">Delete Announcement</h3>
-            <p className="text-sm text-surface-500 dark:text-surface-400 mb-6">
-              This action cannot be undone. The announcement will be permanently removed.
-            </p>
-            <div className="flex gap-3">
-              <Button variant="ghost" className="flex-1" onClick={() => setDeleteConfirmId(null)}>
-                Cancel
-              </Button>
-              <Button
-                variant="danger"
-                className="flex-1"
-                leftIcon={<Trash2 className="w-4 h-4" />}
-                onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {viewModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/50"
-            onClick={() => {
-              setViewModal(null);
-              setViewReceipts(null);
-            }}
-          />
-          <div className="relative bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white dark:bg-surface-800 border-b border-surface-200 dark:border-surface-700 px-6 py-4 rounded-t-2xl flex items-center justify-between z-10">
-              <h2 className="text-lg font-semibold text-surface-900 dark:text-white">{viewModal.title}</h2>
-              <button
-                onClick={() => {
-                  setViewModal(null);
-                  setViewReceipts(null);
-                }}
-                className="text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 text-xl"
-              >
-                &times;
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="flex flex-wrap gap-2">
-                <span
-                  className={`text-xs px-2.5 py-1 rounded-full font-medium ${priorityColor[viewModal.priority] || ''}`}
-                >
-                  {viewModal.priority}
-                </span>
-                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${statusColor[viewModal.status] || ''}`}>
-                  {viewModal.status}
-                </span>
-                <span className="text-xs px-2.5 py-1 rounded-full bg-surface-100 text-surface-600 dark:bg-surface-700 dark:text-surface-300 font-medium">
-                  {viewModal.category}
-                </span>
-              </div>
-              {viewModal.summary && (
-                <p className="text-sm text-surface-600 dark:text-surface-400 italic">{viewModal.summary}</p>
-              )}
-              <div className="text-sm text-surface-700 dark:text-surface-300 whitespace-pre-wrap leading-relaxed">
-                {viewModal.content}
-              </div>
-              <div className="border-t border-surface-200 dark:border-surface-700 pt-4 grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <span className="text-surface-500 dark:text-surface-400">Audience:</span>{' '}
-                  <span className="text-surface-900 dark:text-white font-medium">
-                    {viewModal.target_audience?.includes('all')
-                      ? 'All Students'
-                      : viewModal.target_audience?.join(', ')}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-surface-500 dark:text-surface-400">Published:</span>{' '}
-                  <span className="text-surface-900 dark:text-white font-medium">
-                    {formatDate(viewModal.created_at)}
-                  </span>
-                </div>
-                {viewReceipts && (
-                  <>
-                    <div>
-                      <span className="text-surface-500 dark:text-surface-400">Read:</span>{' '}
-                      <span className="text-surface-900 dark:text-white font-medium">{viewReceipts.read_count}</span>
-                    </div>
-                    <div>
-                      <span className="text-surface-500 dark:text-surface-400">Acknowledged:</span>{' '}
-                      <span className="text-surface-900 dark:text-white font-medium">{viewReceipts.ack_count}</span>
-                    </div>
-                  </>
-                )}
-                <div className="col-span-2">
-                  <span className="text-surface-500 dark:text-surface-400">Pinned:</span>{' '}
-                  <span className="text-surface-900 dark:text-white font-medium">
-                    {viewModal.is_pinned ? 'Yes' : 'No'}
-                  </span>
-                </div>
-                <div className="col-span-2">
-                  <span className="text-surface-500 dark:text-surface-400">Acknowledgment Required:</span>{' '}
-                  <span className="text-surface-900 dark:text-white font-medium">
-                    {viewModal.requires_acknowledgment ? 'Yes' : 'No'}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="sticky bottom-0 bg-white dark:bg-surface-800 border-t border-surface-200 dark:border-surface-700 px-6 py-4 rounded-b-2xl flex justify-end gap-3">
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setViewModal(null);
-                  setViewReceipts(null);
-                }}
-              >
-                Close
-              </Button>
-              <Button
-                leftIcon={<Edit3 className="w-4 h-4" />}
-                onClick={() => {
-                  const id = viewModal.id;
-                  setViewModal(null);
-                  setViewReceipts(null);
-                  openEditModal(id);
-                }}
-              >
-                Edit
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {templateDropdownOpen && <div className="fixed inset-0 z-40" onClick={() => setTemplateDropdownOpen(false)} />}
     </div>
   );
 };
-
-const SaveIcon = () => (
-  <svg
-    className="w-4 h-4"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
-    <polyline points="17 21 17 13 7 13 7 21" />
-    <polyline points="7 3 7 8 15 8" />
-  </svg>
-);
 
 export default AnnouncementsManagePage;

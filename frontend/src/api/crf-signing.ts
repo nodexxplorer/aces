@@ -28,7 +28,9 @@ export interface CRFPlacement {
   date_font_size?: number;
 }
 
-export type CRFPlacements = Partial<Record<CRFSignatureKind, CRFPlacement>>;
+export type CRFPlacements = Partial<Record<CRFSignatureKind, CRFPlacement>> & {
+  watermark?: CRFPlacement;
+};
 
 export interface CRFSigningSubmission {
   id: string;
@@ -63,9 +65,12 @@ export const deleteCRFSignatureAsset = async (kind: CRFSignatureKind) => {
 
 // ─── Student: upload → place → preview → approve ────────────────────────────
 
-export const uploadCRF = async (file: File) => {
+export const uploadCRF = async (file: File, semesterId?: string) => {
   const formData = new FormData();
   formData.append('file', file);
+  if (semesterId) {
+    formData.append('semester_id', semesterId);
+  }
   const res = await apiClient.post('/crf-signing/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
@@ -81,6 +86,33 @@ export const getMyCRFSubmission = async (): Promise<CRFSigningSubmission | null>
 export const listMyCRFDrafts = async () => {
   const res = await apiClient.get('/crf-signing/drafts');
   return (unwrap<CRFSigningSubmission[]>(res) ?? []) as CRFSigningSubmission[];
+};
+
+export const listMyCRFHistory = async () => {
+  const res = await apiClient.get('/crf-signing/history');
+  return (unwrap<CRFSigningSubmission[]>(res) ?? []) as CRFSigningSubmission[];
+};
+
+export interface CRFAdminSubmission {
+  id: string;
+  user_id: string;
+  semester_id: string;
+  original_file_path: string;
+  signed_file_path: string;
+  placements: CRFPlacements;
+  status: 'draft' | 'completed';
+  created_at: string;
+  student_name: string;
+  matric_number: string;
+  level: number;
+  semester_name: string;
+  session_id: string;
+  session_name: string;
+}
+
+export const listAllCRFHistory = async () => {
+  const res = await apiClient.get('/crf-signing/all');
+  return (unwrap<CRFAdminSubmission[]>(res) ?? []) as CRFAdminSubmission[];
 };
 
 export const saveCRFPlacements = async (id: string, placements: CRFPlacements) => {

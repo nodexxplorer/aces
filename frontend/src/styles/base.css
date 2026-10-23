@@ -13,12 +13,13 @@ html {
 
 body {
   font-family: var(--font-sans);
-  background-color: var(--color-surface-50);
-  color: var(--color-surface-900);
+  background-color: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
 }
 
 .dark body,
 html.dark body {
-  background-color: var(--color-surface-950);
-  color: var(--color-surface-100);
+  background-color: var(--bg);
+  color: var(--text);
 }

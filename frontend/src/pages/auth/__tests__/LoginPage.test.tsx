@@ -54,11 +54,11 @@ describe('student sign-in page', () => {
     vi.mocked(modoolsLoginUrl).mockClear();
   });
 
-  it('shows the Admin Park heading, the Modools line and the sign-up link', async () => {
+  it('shows the welcome heading, subtitle and the sign-up link', async () => {
     renderLogin();
-    expect(screen.getByRole('heading', { name: 'Welcome back to Admin Park' })).toBeInTheDocument();
-    expect(screen.getByText('Students sign in with their Modools account.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Sign up' })).toHaveAttribute('href', '/signup/student');
+    expect(await screen.findByRole('heading', { name: /Welcome to/i })).toBeInTheDocument();
+    expect(screen.getByText(/Select your engineering department/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Sign Up' })).toHaveAttribute('href', '/signup/student');
     expect(await screen.findByRole('button', { name: 'Continue with Modools' })).toBeEnabled();
   });
 
@@ -71,16 +71,14 @@ describe('student sign-in page', () => {
     expect(screen.queryByRole('button', { name: /sign-in look|background|look/i })).not.toBeInTheDocument();
   });
 
-  it('presses no department until one is picked, then starts sign-in for the chosen one', async () => {
+  it('allows picking a department through the selector and continuing with Modools', async () => {
     renderLogin();
-    const defaultLogo = await screen.findByRole('button', { name: 'Dept of Computer Engineering' });
-    expect(defaultLogo).toHaveAttribute('aria-pressed', 'false');
+    const dropdownTrigger = await screen.findByRole('button', { name: /select department|faculty of engineering/i });
+    expect(dropdownTrigger).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Dept of Electrical Engineering' }));
-    expect(screen.getByRole('button', { name: 'Dept of Electrical Engineering' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    fireEvent.click(dropdownTrigger);
+    const electricalOption = await screen.findByText('Electrical Engineering');
+    fireEvent.click(electricalOption);
 
     fireEvent.click(screen.getByRole('button', { name: 'Continue with Modools' }));
     expect(modoolsLoginUrl).toHaveBeenCalledWith('unilag-ee');

@@ -75,7 +75,7 @@ const AttendancePage = () => {
 
         let sourceCourses: Course[] = [];
         if (coursesRes.status === 'fulfilled' && coursesRes.value.length > 0) {
-          const level = user?.level || 400;
+          const level = user?.level || 0;
           const levelCourses = coursesRes.value.filter((c: Course) => c.level === level);
           sourceCourses = levelCourses.length > 0 ? levelCourses : coursesRes.value;
         }

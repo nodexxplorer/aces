@@ -1,44 +1,75 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { MessageCircle, X, Send, Bot, User, Sparkles, HelpCircle, Sun, Moon, Monitor } from 'lucide-react';
+import { Sparkles, X, Minus, Send, HelpCircle, Sun, Moon, Monitor, ChevronRight, Copy, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { sendChatMessage, getQuickActions } from '../../api/ai';
-import type { QuickAction } from '../../api/ai';
+import { sendChatMessage } from '../../api/ai';
 import { useDarkMode } from '../../hooks/useDarkMode';
-import { useRBAC } from '../../hooks/useRBAC';
-import { cn } from '../../utils/cn';
-import { assistantName, useCurrentDepartment } from '../branding/department';
+import { useAuth } from '../../hooks/useAuth';
+import { getStudentDashboard, type StudentDashboard } from '../../api/dashboard';
 
-interface Message {
+interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
-  suggestions?: string[];
-  modelUsed?: string;
-  interactionId?: string;
+  action?: {
+    label: string;
+    url: string;
+  };
 }
+
+const DEFAULT_SUGGESTIONS = ['How do I register courses?', 'Why is signing locked?', 'Check my dues'];
 
 const ChatbotWidget = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [quickActions, setQuickActions] = useState<QuickAction[]>([]);
   const [sessionId] = useState(() => crypto.randomUUID());
-  const department = useCurrentDepartment();
-  const assistant = assistantName(department);
+  const [dashboardData, setDashboardData] = useState<StudentDashboard | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const { user } = useAuth();
+  const { mode, setMode } = useDarkMode();
+  const navigate = useNavigate();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const { mode, setMode } = useDarkMode();
-  const navigate = useNavigate();
-  const { isAdmin, activeRole } = useRBAC();
+  const studentName = user?.firstName || 'Student';
 
-  const hideSupport = isAdmin || activeRole === 'lecturer';
+  const formatTime = (d: Date) => {
+    if (!d) return '';
+    return new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: true,
+    }).format(new Date(d));
+  };
+
+  const handleCopy = (id: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  // Load real student dashboard data to accurately answer dues and signing queries
+  useEffect(() => {
+    getStudentDashboard()
+      .then(setDashboardData)
+      .catch(() => {});
+  }, [user]);
+
+  useEffect(() => {
+    const handleOpen = () => {
+      setIsChatOpen(true);
+      setIsMenuOpen(false);
+    };
+    window.addEventListener('open-chatbot', handleOpen);
+    return () => window.removeEventListener('open-chatbot', handleOpen);
+  }, []);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -48,29 +79,24 @@ const ChatbotWidget = () => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
+  // Initialize welcome message when chat opens
   useEffect(() => {
     if (isChatOpen && messages.length === 0) {
-      getQuickActions()
-        .then(setQuickActions)
-        .catch(() => {});
       setMessages([
         {
           id: 'welcome',
           role: 'assistant',
-          content:
-            "Hello! I'm your **" +
-            assistant +
-            '** 🤖\n\nI can help you with schedules, grades, dues, courses, mentorship, and more.\n\nTry a quick action below or just ask me anything!',
+          content: `Hi ${studentName}! I can help you with courses, dues, the course form and more. What do you need?`,
           timestamp: new Date(),
-          suggestions: ['Show my schedule', 'Check my grades', 'How to pay dues'],
         },
       ]);
     }
     if (isChatOpen) {
-      setTimeout(() => inputRef.current?.focus(), 300);
+      setTimeout(() => inputRef.current?.focus(), 250);
     }
-  }, [isChatOpen, messages.length, assistant]);
+  }, [isChatOpen, messages.length, studentName]);
 
+  // Click outside to close quick menu
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -83,70 +109,6 @@ const ChatbotWidget = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isMenuOpen]);
 
-  const sendMessage = async (text: string) => {
-    if (!text.trim() || isLoading) return;
-
-    const userMsg: Message = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content: text.trim(),
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
-    setInput('');
-    setIsLoading(true);
-
-    try {
-      const resp = await sendChatMessage(text, sessionId);
-
-      const assistantMsg: Message = {
-        id: `assistant-${Date.now()}`,
-        role: 'assistant',
-        content: resp.reply,
-        timestamp: new Date(),
-        suggestions: resp.suggestions,
-        modelUsed: resp.model_used,
-      };
-
-      setMessages((prev) => [...prev, assistantMsg]);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `error-${Date.now()}`,
-          role: 'assistant',
-          content:
-            "I'm having trouble connecting right now. Please try again or contact the HOD office for assistance.",
-          timestamp: new Date(),
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage(input);
-    }
-  };
-
-  const cycleTheme = () => {
-    if (mode === 'light') setMode('dark');
-    else if (mode === 'dark') setMode('system');
-    else setMode('light');
-  };
-
-  const getThemeInfo = () => {
-    if (mode === 'dark') return { label: 'Theme: Dark', Icon: Moon, color: 'text-accent-400' };
-    if (mode === 'light') return { label: 'Theme: Light', Icon: Sun, color: 'text-amber-500' };
-    return { label: 'Theme: System', Icon: Monitor, color: 'text-indigo-400' };
-  };
-
-  const themeInfo = getThemeInfo();
-
   const handleFabClick = () => {
     if (isChatOpen) {
       setIsChatOpen(false);
@@ -157,91 +119,417 @@ const ChatbotWidget = () => {
     }
   };
 
+  const handleSendMessage = async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || isLoading) return;
+
+    const userMsg: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: trimmed,
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    setInput('');
+    setIsLoading(true);
+
+    const lower = trimmed.toLowerCase();
+
+    // Check for intelligent real-time responses based on actual user status
+    if (lower.includes('signing locked') || lower.includes('sign form') || lower.includes('course form signing')) {
+      const isCleared = (dashboardData?.payments?.dues_outstanding ?? 0) === 0;
+      setTimeout(() => {
+        if (isCleared) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `assistant-${Date.now()}`,
+              role: 'assistant',
+              content:
+                'Course form signing opens once your dues are cleared. Your dues show **Cleared**, so you can upload your form now.',
+              timestamp: new Date(),
+              action: {
+                label: 'Go to course form signing',
+                url: '/course-form-signing',
+              },
+            },
+          ]);
+        } else {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `assistant-${Date.now()}`,
+              role: 'assistant',
+              content:
+                'Course form signing is currently locked because you have outstanding departmental dues. Once your dues are cleared, you will be able to sign your course form.',
+              timestamp: new Date(),
+              action: {
+                label: 'Pay dues now',
+                url: '/payments',
+              },
+            },
+          ]);
+        }
+        setIsLoading(false);
+      }, 400);
+      return;
+    }
+
+    if (lower.includes('register course') || lower.includes('course registration')) {
+      setTimeout(() => {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `assistant-${Date.now()}`,
+            role: 'assistant',
+            content:
+              'Course registration is active for your session. You can select your compulsory and elective courses and verify your credit units summary before submitting.',
+            timestamp: new Date(),
+            action: {
+              label: 'Go to course registration',
+              url: '/courses',
+            },
+          },
+        ]);
+        setIsLoading(false);
+      }, 400);
+      return;
+    }
+
+    if (lower.includes('check my dues') || lower.includes('dues') || lower.includes('payment')) {
+      const outstanding = dashboardData?.payments?.dues_outstanding ?? 0;
+      setTimeout(() => {
+        if (outstanding === 0) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `assistant-${Date.now()}`,
+              role: 'assistant',
+              content: 'Your dues for the academic session are completely **Cleared** with ₦0 outstanding.',
+              timestamp: new Date(),
+              action: {
+                label: 'View payments & dues',
+                url: '/payments',
+              },
+            },
+          ]);
+        } else {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `assistant-${Date.now()}`,
+              role: 'assistant',
+              content: `You currently have ₦${outstanding.toLocaleString()} in outstanding departmental dues.`,
+              timestamp: new Date(),
+              action: {
+                label: 'Pay dues now',
+                url: '/payments',
+              },
+            },
+          ]);
+        }
+        setIsLoading(false);
+      }, 400);
+      return;
+    }
+
+    // Call backend assistant API
+    try {
+      const resp = await sendChatMessage(trimmed, sessionId);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `assistant-${Date.now()}`,
+          role: 'assistant',
+          content: resp.reply,
+          timestamp: new Date(),
+        },
+      ]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `assistant-${Date.now()}`,
+          role: 'assistant',
+          content:
+            "I'm here to help with courses, dues, signing and department questions. If you need urgent administrative help, please file a ticket under Support.",
+          timestamp: new Date(),
+          action: {
+            label: 'File a ticket',
+            url: '/complaints',
+          },
+        },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage(input);
+    }
+  };
+
   return (
     <div ref={menuRef}>
-      {/* ── Chatbot Modal Window ── */}
+      {/* ────────────────── QUICK MENU POPOVER ────────────────── */}
+      <AnimatePresence>
+        {isMenuOpen && !isChatOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 12, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.96 }}
+            transition={{ duration: 0.15, ease: 'easeOut' }}
+            className="fixed bottom-20 right-6 z-50 w-[310px] sm:w-[330px] bg-white dark:bg-[#181a20] border border-slate-200/90 dark:border-[#22252b] rounded-2xl shadow-2xl overflow-hidden"
+          >
+            {/* Header */}
+            <div className="px-4 pt-3.5 pb-1 text-[10px] font-bold tracking-wider text-slate-400 dark:text-slate-500 uppercase">
+              QUICK MENU
+            </div>
+
+            {/* Item 1: Portal Assistant */}
+            <button
+              onClick={() => {
+                setIsChatOpen(true);
+                setIsMenuOpen(false);
+              }}
+              className="w-full flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-[#1e222a] transition-colors border-b border-slate-100 dark:border-slate-800/60 text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#1d68ec] text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white leading-tight">Portal assistant</h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Ask anything about the portal</p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+            </button>
+
+            {/* Item 2: Support */}
+            <button
+              onClick={() => {
+                navigate('/complaints');
+                setIsMenuOpen(false);
+              }}
+              className="w-full flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-[#1e222a] transition-colors border-b border-slate-100 dark:border-slate-800/60 text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0">
+                  <HelpCircle className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white leading-tight">Support</h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">File a ticket or get help</p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+            </button>
+
+            {/* Item 3: Theme */}
+            <div className="p-3.5">
+              <div className="flex items-center justify-between text-xs font-bold mb-2.5">
+                <div className="flex items-center gap-2 text-slate-900 dark:text-white">
+                  <Sun className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                  <span>Theme</span>
+                </div>
+                <span className="text-slate-500 dark:text-slate-400 font-normal capitalize">
+                  {mode === 'system' ? 'Auto' : mode}
+                </span>
+              </div>
+
+              {/* 3-Segmented Pill */}
+              <div className="p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 flex items-center border border-slate-200/60 dark:border-slate-700/60 gap-1">
+                <button
+                  type="button"
+                  onClick={() => setMode('light')}
+                  className={`flex-1 py-1 px-2 rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all ${
+                    mode === 'light'
+                      ? 'bg-[#1d68ec] text-white font-semibold shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Sun className="w-3.5 h-3.5" />
+                  <span>Light</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode('dark')}
+                  className={`flex-1 py-1 px-2 rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all ${
+                    mode === 'dark'
+                      ? 'bg-[#1d68ec] text-white font-semibold shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Moon className="w-3.5 h-3.5" />
+                  <span>Dark</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode('system')}
+                  className={`flex-1 py-1 px-2 rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all ${
+                    mode === 'system'
+                      ? 'bg-[#1d68ec] text-white font-semibold shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Monitor className="w-3.5 h-3.5" />
+                  <span>Auto</span>
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ────────────────── PORTAL ASSISTANT CHAT WIDGET ────────────────── */}
       <AnimatePresence>
         {isChatOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            initial={{ opacity: 0, y: 16, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 sm:inset-auto sm:bottom-20 sm:right-6 z-50 w-full sm:w-[calc(100vw-2rem)] sm:max-w-[400px] h-[100dvh] sm:h-[600px] sm:max-h-[calc(100vh-7rem)] bg-white dark:bg-surface-900 rounded-none sm:rounded-2xl shadow-2xl border-0 sm:border border-surface-200 dark:border-surface-700 flex flex-col overflow-hidden"
+            exit={{ opacity: 0, y: 16, scale: 0.96 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="fixed bottom-20 right-6 z-50 w-[350px] sm:w-[380px] h-[520px] max-h-[calc(100vh-6.5rem)] bg-white dark:bg-[#181a20] border border-slate-200/90 dark:border-[#22252b] rounded-2xl shadow-2xl flex flex-col overflow-hidden"
           >
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-gradient-to-r from-primary-500 to-primary-600 text-white">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-                  <Bot className="w-5 h-5" />
+            {/* Top Blue Header */}
+            <div className="bg-[#1d68ec] text-white p-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center text-white shrink-0">
+                  <Sparkles className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold">{assistant}</h3>
-                  <p className="text-xs text-white/80">Online · Powered by AI</p>
+                  <h3 className="text-xs font-bold text-white leading-tight">Portal assistant</h3>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                    <span className="text-[10px] text-white/90">Online</span>
+                  </div>
                 </div>
               </div>
-              <button
-                onClick={() => setIsChatOpen(false)}
-                className="p-1 hover:bg-white/20 rounded-lg transition-colors"
-                aria-label="Close chatbot"
-              >
-                <X className="w-5 h-5" />
-              </button>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => {
+                    setIsChatOpen(false);
+                    setIsMenuOpen(true);
+                  }}
+                  className="p-1 hover:bg-white/15 rounded-lg text-white/90 hover:text-white transition-colors"
+                  aria-label="Minimize"
+                  title="Minimize"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setIsChatOpen(false)}
+                  className="p-1 hover:bg-white/15 rounded-lg text-white/90 hover:text-white transition-colors"
+                  aria-label="Close"
+                  title="Close"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+            {/* Chat Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
               {messages.map((msg) => (
-                <div key={msg.id} className={cn('flex gap-2', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
+                <div key={msg.id} className={`flex gap-2.5 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {msg.role === 'assistant' && (
-                    <div className="w-7 h-7 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center shrink-0 mt-1">
-                      <Bot className="w-4 h-4 text-primary-500" />
+                    <div className="w-6 h-6 rounded-full bg-[#1d68ec] text-white flex items-center justify-center shrink-0 mt-0.5">
+                      <Sparkles className="w-3.5 h-3.5" />
                     </div>
                   )}
+
                   <div
-                    className={cn(
-                      'max-w-[80%] rounded-2xl px-3 py-2 text-sm',
+                    className={`rounded-2xl p-3 text-xs leading-relaxed max-w-[270px] ${
                       msg.role === 'user'
-                        ? 'bg-primary-500 text-white rounded-br-md'
-                        : 'bg-surface-100 dark:bg-surface-800 text-surface-800 dark:text-surface-200 rounded-bl-md',
-                    )}
+                        ? 'bg-[#1d68ec] text-white rounded-tr-sm shadow-sm'
+                        : 'bg-slate-100 dark:bg-[#20232b] text-slate-800 dark:text-slate-200 rounded-tl-sm'
+                    }`}
                   >
-                    <div
-                      className="whitespace-pre-wrap break-words"
-                      dangerouslySetInnerHTML={{ __html: formatMessage(msg.content) }}
-                    />
-                    {msg.modelUsed && msg.modelUsed !== 'disabled' && msg.modelUsed !== 'rate_limited' && (
-                      <div className="mt-1 flex items-center gap-1 text-[10px] text-surface-400">
-                        <Sparkles className="w-3 h-3" />
-                        <span>{msg.modelUsed}</span>
+                    <p className="whitespace-pre-wrap">{msg.content.replace(/\*\*(.*?)\*\*/g, '$1')}</p>
+
+                    {/* Action button if response has direct portal link */}
+                    {msg.action && (
+                      <div className="mt-2.5">
+                        <button
+                          onClick={() => {
+                            setIsChatOpen(false);
+                            navigate(msg.action!.url);
+                          }}
+                          className="inline-flex items-center px-3.5 py-1.5 rounded-full bg-[#1d68ec] hover:bg-[#1656c4] text-white text-xs font-semibold shadow-sm transition-all active:scale-95"
+                        >
+                          {msg.action.label}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Timestamp & Copy footer */}
+                    {msg.role === 'assistant' ? (
+                      <div className="mt-2 pt-1.5 border-t border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500">
+                        <span>{formatTime(msg.timestamp)}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(msg.id, msg.content.replace(/\*\*(.*?)\*\*/g, '$1'))}
+                          className="inline-flex items-center gap-1 hover:text-slate-700 dark:hover:text-slate-300 transition-colors py-0.5 px-1 rounded"
+                          title="Copy response"
+                        >
+                          {copiedId === msg.id ? (
+                            <>
+                              <Check className="w-3 h-3 text-emerald-500" />
+                              <span className="text-emerald-500 font-semibold">Copied</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3 h-3" />
+                              <span>Copy</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mt-1 flex justify-end text-[10px] text-white/75">
+                        <span>{formatTime(msg.timestamp)}</span>
                       </div>
                     )}
                   </div>
-                  {msg.role === 'user' && (
-                    <div className="w-7 h-7 rounded-full bg-surface-200 dark:bg-surface-700 flex items-center justify-center shrink-0 mt-1">
-                      <User className="w-4 h-4 text-surface-500" />
-                    </div>
-                  )}
                 </div>
               ))}
 
+              {/* Suggestions chips right after welcome message */}
+              {messages.length === 1 && (
+                <div className="flex flex-wrap gap-2 ml-8 mt-1">
+                  {DEFAULT_SUGGESTIONS.map((suggestion, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleSendMessage(suggestion)}
+                      className="border border-[#1d68ec] text-[#1d68ec] dark:text-[#4b8efc] hover:bg-[#1d68ec]/10 text-xs px-3 py-1.5 rounded-full font-medium transition-colors text-left"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Loading bubble */}
               {isLoading && (
-                <div className="flex gap-2 justify-start">
-                  <div className="w-7 h-7 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center shrink-0">
-                    <Bot className="w-4 h-4 text-primary-500" />
+                <div className="flex gap-2.5 justify-start">
+                  <div className="w-6 h-6 rounded-full bg-[#1d68ec] text-white flex items-center justify-center shrink-0 mt-0.5">
+                    <Sparkles className="w-3.5 h-3.5" />
                   </div>
-                  <div className="bg-surface-100 dark:bg-surface-800 rounded-2xl rounded-bl-md px-4 py-3">
-                    <div className="flex gap-1">
-                      <div
-                        className="w-2 h-2 bg-surface-300 dark:bg-surface-600 rounded-full animate-bounce"
-                        style={{ animationDelay: '0ms' }}
-                      />
-                      <div
-                        className="w-2 h-2 bg-surface-300 dark:bg-surface-600 rounded-full animate-bounce"
+                  <div className="bg-slate-100 dark:bg-[#20232b] rounded-2xl rounded-tl-sm px-4 py-2.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-500 animate-bounce" />
+                      <span
+                        className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-500 animate-bounce"
                         style={{ animationDelay: '150ms' }}
                       />
-                      <div
-                        className="w-2 h-2 bg-surface-300 dark:bg-surface-600 rounded-full animate-bounce"
+                      <span
+                        className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-500 animate-bounce"
                         style={{ animationDelay: '300ms' }}
                       />
                     </div>
@@ -249,158 +537,44 @@ const ChatbotWidget = () => {
                 </div>
               )}
 
-              {/* Suggestions */}
-              {messages.length > 0 &&
-                !isLoading &&
-                (() => {
-                  const lastAssistant = [...messages]
-                    .reverse()
-                    .find((m) => m.role === 'assistant' && m.suggestions?.length);
-                  if (!lastAssistant || lastAssistant.id === messages[messages.length - 1]?.id) return null;
-                  return (
-                    <div className="flex flex-wrap gap-1.5 ml-9">
-                      {lastAssistant.suggestions?.map((s, i) => (
-                        <button
-                          key={i}
-                          onClick={() => sendMessage(s)}
-                          className="text-xs px-3 py-1.5 rounded-full bg-primary-50 dark:bg-primary-950/30 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-800 hover:bg-primary-100 dark:hover:bg-primary-900/50 transition-colors"
-                        >
-                          {s}
-                        </button>
-                      ))}
-                    </div>
-                  );
-                })()}
-
-              {/* Quick Actions (only show on welcome) */}
-              {messages.length <= 1 && quickActions.length > 0 && (
-                <div className="grid grid-cols-3 gap-2 ml-0">
-                  {quickActions.map((action) => (
-                    <button
-                      key={action.id}
-                      onClick={() => sendMessage(action.query)}
-                      className="flex flex-col items-center gap-1 p-3 rounded-xl bg-surface-50 dark:bg-surface-800 hover:bg-surface-100 dark:hover:bg-surface-700 border border-surface-200 dark:border-surface-700 transition-colors"
-                    >
-                      <span className="text-xl">{action.icon}</span>
-                      <span className="text-[11px] font-medium text-surface-600 dark:text-surface-400">
-                        {action.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input */}
-            <div className="px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-surface-200 dark:border-surface-700">
-              <div className="flex items-center gap-2">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Ask me anything..."
-                  disabled={isLoading}
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-surface-100 dark:bg-surface-800 text-sm placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30 disabled:opacity-50"
-                />
-                <button
-                  onClick={() => sendMessage(input)}
-                  disabled={!input.trim() || isLoading}
-                  className="p-2.5 rounded-xl bg-primary-500 text-white hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
-              </div>
-              <p className="text-[10px] text-surface-400 mt-1.5 text-center">
-                AI responses may be inaccurate. Verify important info.
-              </p>
+            {/* Bottom Input */}
+            <div className="p-3 border-t border-slate-100 dark:border-slate-800/80 bg-white dark:bg-[#181a20] flex items-center gap-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask a question..."
+                disabled={isLoading}
+                className="flex-1 px-3.5 py-2 rounded-full border border-slate-200 dark:border-slate-700 bg-transparent text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-[#1d68ec] focus:rounded-2xl transition-colors"
+              />
+              <button
+                onClick={() => handleSendMessage(input)}
+                disabled={!input.trim() || isLoading}
+                className="w-8 h-8 rounded-full bg-[#1d68ec] text-white flex items-center justify-center hover:bg-[#1656c4] disabled:opacity-40 disabled:cursor-not-allowed shrink-0 transition-colors shadow-sm"
+                aria-label="Send message"
+              >
+                <Send className="w-3.5 h-3.5" />
+              </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── Collapsible Speed Dial Menu Options ── */}
-      <AnimatePresence>
-        {isMenuOpen && !isChatOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: 15, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 15, scale: 0.95 }}
-            transition={{ duration: 0.2 }}
-            className="fixed bottom-20 right-4 sm:right-6 z-50 flex flex-col items-end gap-2.5"
-          >
-            {/* Theme Changer Option */}
-            <motion.button
-              whileHover={{ scale: 1.03, x: -2 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={cycleTheme}
-              className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-surface-900/90 dark:bg-surface-800/90 text-white border border-surface-700/60 shadow-xl backdrop-blur-md hover:bg-surface-800 dark:hover:bg-surface-700 transition-all text-sm font-medium cursor-pointer"
-            >
-              <themeInfo.Icon className={cn('w-4 h-4', themeInfo.color)} />
-              <span>{themeInfo.label}</span>
-            </motion.button>
-
-            {/* Support Page Option - students only, hidden for admin/lecturer roles */}
-            {!hideSupport && (
-              <motion.button
-                whileHover={{ scale: 1.03, x: -2 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={() => {
-                  navigate('/support');
-                  setIsMenuOpen(false);
-                }}
-                className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-surface-900/90 dark:bg-surface-800/90 text-white border border-surface-700/60 shadow-xl backdrop-blur-md hover:bg-surface-800 dark:hover:bg-surface-700 transition-all text-sm font-medium cursor-pointer"
-              >
-                <HelpCircle className="w-4 h-4 text-sky-400" />
-                <span>Support Page</span>
-              </motion.button>
-            )}
-
-            {/* AI Chatbot Option */}
-            <motion.button
-              whileHover={{ scale: 1.03, x: -2 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => {
-                setIsChatOpen(true);
-                setIsMenuOpen(false);
-              }}
-              className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-surface-900/90 dark:bg-surface-800/90 text-white border border-surface-700/60 shadow-xl backdrop-blur-md hover:bg-surface-800 dark:hover:bg-surface-700 transition-all text-sm font-medium cursor-pointer"
-            >
-              <MessageCircle className="w-4 h-4 text-primary-400" />
-              <span>AI Chatbot</span>
-            </motion.button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── Main Collapsible Footer Button ── */}
-      {/* Hidden on mobile while the chat is open since it goes full-screen
-          there and the header's own close button already covers that job;
-          the FAB would otherwise float on top of the fullscreen chat. */}
-      <motion.button
+      {/* ────────────────── FLOATING ACTION BUTTON (FAB) ────────────────── */}
+      <button
         onClick={handleFabClick}
-        className={cn(
-          'fixed bottom-4 right-4 sm:right-6 z-50 w-14 h-14 rounded-full shadow-2xl items-center justify-center transition-all duration-300 border border-surface-200/20 dark:border-surface-700/50',
-          isChatOpen ? 'hidden sm:flex' : 'flex',
-          isMenuOpen || isChatOpen
-            ? 'bg-surface-200 dark:bg-surface-800 text-surface-900 dark:text-white'
-            : 'bg-primary-500 text-white hover:bg-primary-600',
-        )}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        aria-label="Toggle action menu"
+        className="fixed bottom-5 right-6 z-50 w-12 h-12 rounded-full bg-[#1d68ec] text-white hover:bg-[#1656c4] shadow-xl flex items-center justify-center transition-all duration-200 active:scale-95"
+        aria-label="Portal assistant & quick menu"
       >
-        {isMenuOpen || isChatOpen ? <X className="w-6 h-6" /> : <Sparkles className="w-6 h-6" />}
-      </motion.button>
+        {isMenuOpen || isChatOpen ? <X className="w-5 h-5 stroke-[2.5]" /> : <Sparkles className="w-5 h-5" />}
+      </button>
     </div>
   );
 };
-
-function formatMessage(content: string): string {
-  return content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>');
-}
 
 export default ChatbotWidget;

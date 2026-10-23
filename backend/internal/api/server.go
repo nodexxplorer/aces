@@ -339,8 +339,8 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	// Student profile editing
 	profileEdit := api.Group("/profile-edit")
 	{
-		profileEdit.PUT("/basic-info", middleware.RequireRoles("student"), server.updateStudentBasicInfo)
-		profileEdit.POST("/photo", middleware.RequireRoles("student"), server.uploadProfilePhoto)
+		profileEdit.PUT("/basic-info", middleware.RequireRoles("student", "hod", "admin", "delegated_admin", "lecturer", "class_rep", "dept_bursar", "class_bursar", "alumni"), server.updateStudentBasicInfo)
+		profileEdit.POST("/photo", middleware.RequireRoles("student", "hod", "admin", "delegated_admin", "lecturer", "class_rep", "dept_bursar", "class_bursar", "alumni"), server.uploadProfilePhoto)
 		profileEdit.GET("/documents", middleware.RequireRoles("student"), server.listStudentDocuments)
 		profileEdit.POST("/documents", middleware.RequireRoles("student"), server.uploadStudentDocument)
 	}
@@ -595,6 +595,7 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		connect.PUT("/connections/:id", server.respondToConnection)
 		connect.GET("/connections", server.listConnections)
 		connect.GET("/connections/pending", server.listPendingRequests)
+		connect.GET("/connections/sent", server.listSentPendingRequests)
 		connect.GET("/connections/user-ids", server.getAllConnectionUserIds)
 		connect.GET("/messages/unread", server.getUnreadCounts)
 		connect.POST("/messages", server.sendMessage)
@@ -788,6 +789,8 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		crfSigning.POST("/upload", server.uploadCRF)
 		crfSigning.GET("/mine", server.getMyCRFSubmission)
 		crfSigning.GET("/drafts", server.listMyCRFDrafts)
+		crfSigning.GET("/history", server.listMyCRFHistory)
+		crfSigning.GET("/all", middleware.RequireRoles("hod", "delegated_admin", "admin"), server.listAllCRFHistory)
 		crfSigning.PUT("/:id/placements", server.saveCRFPlacements)
 		crfSigning.POST("/:id/preview", server.previewCRFSubmission)
 		crfSigning.POST("/:id/approve", server.approveCRF)

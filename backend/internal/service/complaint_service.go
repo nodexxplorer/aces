@@ -30,17 +30,36 @@ func (s *ComplaintService) Create(ctx context.Context, studentID uuid.UUID, inpu
 		return db.Complaint{}, errors.New("student record not found")
 	}
 
-	priority := "medium"
-	if input.Priority != "" {
-		priority = input.Priority
+	priority := db.ComplaintPriorityMedium
+	switch strings.ToLower(input.Priority) {
+	case "low":
+		priority = db.ComplaintPriorityLow
+	case "high", "urgent":
+		priority = db.ComplaintPriorityHigh
+	}
+
+	category := db.ComplaintCategoryOther
+	switch strings.ToLower(input.Category) {
+	case "result_error", "result_discrepancy", "results":
+		category = db.ComplaintCategoryResultError
+	case "payment_issue", "payment_error", "payments", "dues":
+		category = db.ComplaintCategoryPaymentIssue
+	case "profile_issue", "profile", "account":
+		category = db.ComplaintCategoryProfileIssue
+	case "attendance_dispute", "attendance":
+		category = db.ComplaintCategoryAttendanceDispute
+	case "assignment_issue", "assignment":
+		category = db.ComplaintCategoryAssignmentIssue
+	default:
+		category = db.ComplaintCategoryOther
 	}
 
 	complaint, err := s.store.CreateComplaint(ctx, db.CreateComplaintParams{
 		StudentID: student.ID,
-		Category:  db.ComplaintCategory(input.Category),
+		Category:  category,
 		Subject:   input.Subject,
 		Body:      input.Body,
-		Priority:  db.ComplaintPriority(priority),
+		Priority:  priority,
 		Status:    db.ComplaintStatusOpen,
 	})
 	if err != nil {

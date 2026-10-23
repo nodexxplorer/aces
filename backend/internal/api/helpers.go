@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -161,23 +162,7 @@ func unpaidRequiredDues(ctx context.Context, store db.Querier, studentID uuid.UU
 }
 
 
-const finalYearLevel = int32(500)
-
 func (server *Server) blockOnUnpaidDues(ctx *gin.Context, student db.Student, action string) bool {
-	if student.Level >= finalYearLevel {
-		if queries, ok := server.store.(*db.Queries); ok {
-			if gr, err := queries.GetGraduationRequest(ctx, student.UserID); err == nil &&
-				(gr.Status == "paid" || gr.Status == "cleared" || gr.Waived) {
-				return false
-			}
-		}
-		ctx.JSON(http.StatusForbidden, gin.H{
-			"error":               "final-year students pay the graduation course-form signing fee instead of dues — settle it before " + action,
-			"graduation_required": true,
-		})
-		return true
-	}
-
 	if unpaid, err := unpaidRequiredDues(ctx, server.store, student.ID, student.Level); err == nil && len(unpaid) > 0 {
 		ctx.JSON(http.StatusForbidden, gin.H{
 			"error":       "you must pay your outstanding dues before " + action,
@@ -186,6 +171,72 @@ func (server *Server) blockOnUnpaidDues(ctx *gin.Context, student db.Student, ac
 		return true
 	}
 	return false
+}
+
+// getOrResolveActiveSemester returns the active semester, or dynamically resolves and activates
+// one from the active/latest session if no semester is currently flagged as is_active.
+func (server *Server) getOrResolveActiveSemester(ctx context.Context) (db.Semester, error) {
+	// 1. Try finding explicitly active semester
+	sem, err := server.store.GetActiveSemester(ctx)
+	if err == nil {
+		return sem, nil
+	}
+
+	// 2. Try finding the active session
+	var targetSessionID uuid.UUID
+	if activeSession, err := server.store.GetActiveSession(ctx); err == nil {
+		targetSessionID = activeSession.ID
+	}
+
+	// If no active session, look through recent sessions
+	if targetSessionID == uuid.Nil {
+		sessions, err := server.store.ListSessions(ctx, db.ListSessionsParams{Limit: 5, Offset: 0})
+		if err == nil && len(sessions) > 0 {
+			targetSessionID = sessions[0].ID
+			_, _ = server.store.UpdateSession(ctx, db.UpdateSessionParams{
+				ID:         sessions[0].ID,
+				Name:       sessions[0].Name,
+				StartDate:  sessions[0].StartDate,
+				EndDate:    sessions[0].EndDate,
+				IsActive:   true,
+				IsArchived: sessions[0].IsArchived,
+			})
+		}
+	}
+
+	if targetSessionID != uuid.Nil {
+		sems, err := server.store.ListSessionSemesters(ctx, targetSessionID)
+		if err == nil && len(sems) > 0 {
+			now := time.Now()
+			chosen := sems[0]
+			for _, s := range sems {
+				if s.StartDate.Valid && s.EndDate.Valid {
+					if !now.Before(s.StartDate.Time) && !now.After(s.EndDate.Time) {
+						chosen = s
+						break
+					}
+				}
+			}
+
+			// Automatically activate the chosen semester in the database
+			_ = server.store.DeactivateAllSemesters(ctx)
+			updated, err := server.store.UpdateSemester(ctx, db.UpdateSemesterParams{
+				ID:                   chosen.ID,
+				SessionID:            chosen.SessionID,
+				Name:                 chosen.Name,
+				StartDate:            chosen.StartDate,
+				EndDate:              chosen.EndDate,
+				RegistrationDeadline: chosen.RegistrationDeadline,
+				IsActive:             true,
+			})
+			if err == nil {
+				return updated, nil
+			}
+			return chosen, nil
+		}
+	}
+
+	return db.Semester{}, errors.New("no active semester")
 }
 
 func (server *Server) RequireStudentOnboarded(ctx *gin.Context) {

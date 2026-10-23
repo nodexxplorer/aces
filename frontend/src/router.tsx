@@ -2,7 +2,12 @@
 import { lazy, Suspense, type ReactNode } from 'react';
 import { createBrowserRouter, Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
-import { departmentAdminHome, departmentAdminPath } from './config/departmentAdminPaths';
+import {
+  departmentAdminHome,
+  departmentAdminPath,
+  departmentDashboardPath,
+  departmentProfilePath,
+} from './config/departmentAdminPaths';
 import type { UserRole } from './types';
 
 /* ── Lazy-loaded pages ───────────────────────── */
@@ -24,7 +29,9 @@ const PaymentsPage = lazy(() => import('./pages/student/PaymentsPage'));
 const PaymentConfirmationPage = lazy(() => import('./pages/student/PaymentConfirmationPage'));
 const CoursesPage = lazy(() => import('./pages/student/CoursesPage'));
 const ComplaintsPage = lazy(() => import('./pages/student/ComplaintsPage'));
-const ProfilePage = lazy(() => import('./pages/student/ProfilePage'));
+const StudentProfilePage = lazy(() => import('./pages/student/StudentProfilePage'));
+const StaffProfilePage = lazy(() => import('./pages/shared/StaffProfilePage'));
+const AdminProfilePage = lazy(() => import('./pages/admin/AdminProfilePage'));
 const StudentJobBoardPage = lazy(() => import('./pages/student/StudentJobBoardPage'));
 const MyApplicationsPage = lazy(() => import('./pages/student/MyApplicationsPage'));
 
@@ -67,7 +74,7 @@ const AlumniManagementPage = lazy(() => import('./pages/admin/AlumniManagementPa
 const ResultsManagementPage = lazy(() => import('./pages/admin/ResultsManagementPage'));
 
 const CGPASettingsPage = lazy(() => import('./pages/admin/CGPASettingsPage'));
-const SettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
+// const SettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
 const AISettingsPage = lazy(() => import('./pages/settings/AISettingsPage'));
 const CRFSigningSettingsPage = lazy(() => import('./pages/admin/CRFSigningSettingsPage'));
 const CourseFormSigningPage = lazy(() => import('./pages/student/CourseFormSigningPage'));
@@ -197,7 +204,7 @@ const PublicOnlyRoute = () => {
     if (justLoggedIn) {
       return <Navigate to="/login/celebration" replace />;
     }
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={departmentDashboardPath(user?.tenant?.urlCode)} replace />;
   }
   return (
     <SuspenseWrapper>
@@ -208,7 +215,8 @@ const PublicOnlyRoute = () => {
 
 const RoleRoute = ({ roles }: { roles: UserRole[] }) => {
   const activeRole = useAuthStore((s) => s.user?.activeRole ?? 'student');
-  if (!roles.includes(activeRole)) return <Navigate to="/dashboard" replace />;
+  const urlCode = useAuthStore((s) => s.user?.tenant?.urlCode);
+  if (!roles.includes(activeRole)) return <Navigate to={departmentDashboardPath(urlCode)} replace />;
   return <Outlet />;
 };
 
@@ -217,6 +225,8 @@ const RoleRoute = ({ roles }: { roles: UserRole[] }) => {
 // department's own short name (/co/admin, /ee/admin, ...).
 const adminPages: { path: string; element: ReactNode }[] = [
   { path: '/admin', element: <AdminDashboard /> },
+  { path: '/admin/dashboard', element: <AdminDashboard /> },
+  { path: '/admin/profile', element: <AdminProfilePage /> },
   { path: '/admin/results', element: <ResultApprovalPage /> },
   { path: '/admin/results/manage', element: <ResultsManagementPage /> },
   { path: '/admin/users', element: <UserManagementPage /> },
@@ -230,10 +240,13 @@ const adminPages: { path: string; element: ReactNode }[] = [
   { path: '/admin/system', element: <SystemAdminPage /> },
   { path: '/admin/alumni', element: <AlumniManagementPage /> },
   { path: '/admin/cgpa-settings', element: <CGPASettingsPage /> },
-  { path: '/admin/settings', element: <SettingsPage /> },
+  { path: '/admin/settings', element: <Navigate to="/admin/profile?tab=department" replace /> },
   { path: '/admin/ai-settings', element: <AISettingsPage /> },
   { path: '/admin/at-risk', element: <AtRiskDashboard /> },
   { path: '/admin/revenue-forecast', element: <RevenueForecastPage /> },
+  { path: '/admin/dues', element: <DuesPage /> },
+  { path: '/admin/payments', element: <PaymentHistoryPage /> },
+  { path: '/admin/transactions', element: <PaymentHistoryPage /> },
   { path: '/admin/expenses', element: <ExpensesPage /> },
   { path: '/admin/students/:id', element: <StudentDetailPage /> },
   { path: '/admin/users/:id', element: <UserDetailPage /> },
@@ -291,6 +304,20 @@ const toDepartmentRoute = (page: { path: string; element: ReactNode }) =>
   page.path === '/admin'
     ? { index: true, element: page.element }
     : { path: page.path.slice('/admin/'.length), element: page.element };
+
+/** Redirects to the user's role dashboard (e.g. /co/admin/dashboard, /l/dashboard, /co/i/dashboard) */
+const DashboardRedirect = () => {
+  const urlCode = useAuthStore((s) => s.user?.tenant?.urlCode);
+  const role = useAuthStore((s) => s.user?.activeRole || s.user?.role);
+  return <Navigate to={departmentDashboardPath(urlCode, role)} replace />;
+};
+
+/** Redirects /profile to the user's role profile (e.g. /co/admin/profile, /l/profile, /i/profile) */
+const ProfileRedirect = () => {
+  const urlCode = useAuthStore((s) => s.user?.tenant?.urlCode);
+  const role = useAuthStore((s) => s.user?.activeRole || s.user?.role);
+  return <Navigate to={departmentProfilePath(urlCode, role)} replace />;
+};
 
 /* ── Router ──────────────────────────────────── */
 export const router = createBrowserRouter([
@@ -364,7 +391,11 @@ export const router = createBrowserRouter([
       {
         element: <AppShell />,
         children: [
-          { path: '/dashboard', element: <Dashboard /> },
+          { path: '/dashboard', element: <DashboardRedirect /> },
+          { path: '/:code/dashboard', element: <DashboardRedirect /> },
+          { path: '/i/dashboard', element: <Dashboard /> },
+          { path: '/:code/i/dashboard', element: <Dashboard /> },
+          { path: '/i/profile', element: <StudentProfilePage /> },
 
           {
             element: (
@@ -406,7 +437,7 @@ export const router = createBrowserRouter([
           },
           // Shared routes (all roles)
           { path: '/complaints', element: <ComplaintsPage /> },
-          { path: '/profile', element: <ProfilePage /> },
+          { path: '/profile', element: <ProfileRedirect /> },
           { path: '/notices', element: <Navigate to="/communication" replace /> },
           { path: '/scan', element: <QRScanPage /> },
           { path: '/notice-board', element: <ClassNoticeBoardPage /> },
@@ -421,7 +452,11 @@ export const router = createBrowserRouter([
           {
             element: <RoleRoute roles={['lecturer', 'hod', 'delegated_admin']} />,
             children: [
+              { path: '/l/dashboard', element: <LecturerDashboard /> },
+              { path: '/l/profile', element: <StaffProfilePage /> },
               { path: '/lecturer', element: <LecturerDashboard /> },
+              { path: '/lecturer/dashboard', element: <Navigate to="/l/dashboard" replace /> },
+              { path: '/lecturer/profile', element: <Navigate to="/l/profile" replace /> },
               { path: '/lecturer/scores', element: <LecturerGradesPage /> },
               { path: '/lecturer/single-entry', element: <LecturerGradesPage /> },
               { path: '/lecturer/bulk-upload', element: <LecturerGradesPage /> },
@@ -456,6 +491,7 @@ export const router = createBrowserRouter([
               { path: '/bursar/verify', element: <PaymentVerificationPage /> },
               { path: '/bursar/defaulters', element: <DefaultersPage /> },
               { path: '/bursar/history', element: <PaymentHistoryPage /> },
+              { path: '/bursar/revenue-forecast', element: <RevenueForecastPage /> },
             ],
           },
 
@@ -471,7 +507,14 @@ export const router = createBrowserRouter([
           },
 
           // Campus Connect (new)
-          { path: '/connect', element: <ConnectPage /> },
+          {
+            path: '/connect',
+            element: (
+              <SuspenseWrapper>
+                <ConnectPage />
+              </SuspenseWrapper>
+            ),
+          },
 
           // Alumni
           {
@@ -490,9 +533,30 @@ export const router = createBrowserRouter([
           },
 
           // Shared
-          { path: '/notifications', element: <NotificationsPage /> },
-          { path: '/notifications/settings', element: <NotificationSettingsPage /> },
-          { path: '/search', element: <SearchResultsPage /> },
+          {
+            path: '/notifications',
+            element: (
+              <SuspenseWrapper>
+                <NotificationsPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: '/notifications/settings',
+            element: (
+              <SuspenseWrapper>
+                <NotificationSettingsPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: '/search',
+            element: (
+              <SuspenseWrapper>
+                <SearchResultsPage />
+              </SuspenseWrapper>
+            ),
+          },
           {
             path: '/forbidden',
             element: (
@@ -538,7 +602,7 @@ export const router = createBrowserRouter([
     ),
   },
   // { path: '/ai-blueprint', element: <SuspenseWrapper><AIBlueprintPage /></SuspenseWrapper> },
-  { path: '/', element: <Navigate to="/dashboard" replace /> },
+  { path: '/', element: <DashboardRedirect /> },
   {
     path: '*',
     element: (

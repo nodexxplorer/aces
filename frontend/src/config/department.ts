@@ -1,16 +1,16 @@
 import type { Department } from '../api/departments';
 
-/** Format department name from 'Department of ...' to 'Dept of ...' */
+/** Format department name by stripping 'Department of' or 'Dept of' prefixes so it displays clean, e.g. 'Computer Engineering' */
 export function formatDepartmentDisplayName(name?: string): string {
   if (!name) return '';
-  return name.replace(/^Department of\s+/i, 'Dept of ');
+  return name.replace(/^(Department|Dept\.?)\s+of\s+/i, '').trim();
 }
 
 /** Pre-loaded default departments so there is zero flash of the generic placeholder */
 export const DEFAULT_DEPARTMENTS: Department[] = [
   {
     slug: 'uniuyo-ce',
-    name: 'Dept of Computer Engineering',
+    name: 'Computer Engr',
     matricCode: 'EG/CO',
     urlCode: 'co',
     institution: 'University of Uyo',
@@ -20,7 +20,7 @@ export const DEFAULT_DEPARTMENTS: Department[] = [
   },
   {
     slug: 'dept-ee',
-    name: 'Dept of Electrical Engineering',
+    name: 'Electrical Engr',
     matricCode: 'EG/EE',
     urlCode: 'ee',
     institution: 'University of Uyo',
@@ -29,7 +29,7 @@ export const DEFAULT_DEPARTMENTS: Department[] = [
   },
   {
     slug: 'dept-ce',
-    name: 'Dept of Chemical Engineering',
+    name: 'Chemical Engr',
     matricCode: 'EG/CE',
     urlCode: 'ce',
     institution: 'University of Uyo',
@@ -38,7 +38,7 @@ export const DEFAULT_DEPARTMENTS: Department[] = [
   },
   {
     slug: 'dept-pe',
-    name: 'Dept of Petroleum Engineering',
+    name: 'Petroleum Engr',
     matricCode: 'EG/PE',
     urlCode: 'pe',
     institution: 'University of Uyo',
@@ -47,7 +47,7 @@ export const DEFAULT_DEPARTMENTS: Department[] = [
   },
   {
     slug: 'dept-ae',
-    name: 'Dept of Agricultural Engineering',
+    name: 'Agricultural Engr',
     matricCode: 'EG/AE',
     urlCode: 'ae',
     institution: 'University of Uyo',
@@ -56,7 +56,7 @@ export const DEFAULT_DEPARTMENTS: Department[] = [
   },
   {
     slug: 'dept-fe',
-    name: 'Dept of Food Engineering',
+    name: 'Food Engr',
     matricCode: 'EG/FE',
     urlCode: 'fe',
     institution: 'University of Uyo',
@@ -65,7 +65,7 @@ export const DEFAULT_DEPARTMENTS: Department[] = [
   },
   {
     slug: 'dept-cv',
-    name: 'Dept of Civil Engineering',
+    name: 'Civil Engr',
     matricCode: 'EG/CV',
     urlCode: 'cv',
     institution: 'University of Uyo',
@@ -74,7 +74,7 @@ export const DEFAULT_DEPARTMENTS: Department[] = [
   },
   {
     slug: 'dept-me',
-    name: 'Dept of Mechanical Engineering',
+    name: 'Mechanical Engr',
     matricCode: 'EG/ME',
     urlCode: 'me',
     institution: 'University of Uyo',

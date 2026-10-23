@@ -2346,6 +2346,104 @@ func (q *Queries) GetCRFSigningSubmission(ctx context.Context, id uuid.UUID) (CR
 	return scanCRFSigningSubmission(row)
 }
 
+// ListCRFSubmissionsForUser returns all submissions (draft and completed) for a user, newest first.
+func (q *Queries) ListCRFSubmissionsForUser(ctx context.Context, userID uuid.UUID) ([]CRFSigningSubmission, error) {
+	rows, err := q.db.Query(ctx, `
+		SELECT `+crfSubmissionColumns+`
+		FROM crf_signing_submissions
+		WHERE user_id = $1
+		ORDER BY created_at DESC
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := []CRFSigningSubmission{}
+	for rows.Next() {
+		s, err := scanCRFSigningSubmission(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, s)
+	}
+	return items, rows.Err()
+}
+
+type CRFAdminSubmissionRow struct {
+	ID               uuid.UUID     `json:"id"`
+	UserID           uuid.UUID     `json:"user_id"`
+	SemesterID       uuid.UUID     `json:"semester_id"`
+	OriginalFilePath string        `json:"original_file_path"`
+	SignedFilePath   string        `json:"signed_file_path"`
+	Placements       CRFPlacements `json:"placements"`
+	Status           string        `json:"status"`
+	CreatedAt        time.Time     `json:"created_at"`
+	StudentName      string        `json:"student_name"`
+	MatricNumber     string        `json:"matric_number"`
+	Level            int32         `json:"level"`
+	SemesterName     string        `json:"semester_name"`
+	SessionID        uuid.UUID     `json:"session_id"`
+	SessionName      string        `json:"session_name"`
+}
+
+// ListAllCRFSubmissions returns all course form submissions across all students with details.
+func (q *Queries) ListAllCRFSubmissions(ctx context.Context) ([]CRFAdminSubmissionRow, error) {
+	rows, err := q.db.Query(ctx, `
+		SELECT
+			c.id, c.user_id, c.semester_id, c.original_file_path, c.signed_file_path,
+			c.placements, c.status, c.created_at,
+			COALESCE(u.full_name, COALESCE(u.first_name || ' ' || u.last_name, '')) as student_name,
+			COALESCE(st.matric_number, '') as matric_number,
+			COALESCE(st.level, 0) as level,
+			COALESCE(sem.name, '') as semester_name,
+			COALESCE(sess.id, '00000000-0000-0000-0000-000000000000'::uuid) as session_id,
+			COALESCE(sess.name, '') as session_name
+		FROM crf_signing_submissions c
+		LEFT JOIN users u ON u.id = c.user_id
+		LEFT JOIN students st ON st.user_id = c.user_id
+		LEFT JOIN semesters sem ON sem.id = c.semester_id
+		LEFT JOIN sessions sess ON sess.id = sem.session_id
+		ORDER BY c.created_at DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []CRFAdminSubmissionRow
+	for rows.Next() {
+		var item CRFAdminSubmissionRow
+		var placementsRaw []byte
+		if err := rows.Scan(
+			&item.ID,
+			&item.UserID,
+			&item.SemesterID,
+			&item.OriginalFilePath,
+			&item.SignedFilePath,
+			&placementsRaw,
+			&item.Status,
+			&item.CreatedAt,
+			&item.StudentName,
+			&item.MatricNumber,
+			&item.Level,
+			&item.SemesterName,
+			&item.SessionID,
+			&item.SessionName,
+		); err != nil {
+			return nil, err
+		}
+		if len(placementsRaw) > 0 {
+			_ = json.Unmarshal(placementsRaw, &item.Placements)
+		}
+		if item.Placements == nil {
+			item.Placements = CRFPlacements{}
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
 // ─── CRF backlog (old/unsigned course forms from past semesters) ───
 
 type CRFBacklogPrice struct {
@@ -2410,6 +2508,11 @@ func (q *Queries) SetCRFBacklogRequestPayment(ctx context.Context, id, paymentID
 		id, paymentID,
 	)
 	return scanCRFBacklogRequest(row)
+}
+
+func (q *Queries) DeletePendingCRFBacklogRequest(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, `DELETE FROM crf_backlog_requests WHERE id = $1 AND status = 'pending_payment'`, id)
+	return err
 }
 
 // GetLatestCRFBacklogRequest returns pgx.ErrNoRows when the student has never

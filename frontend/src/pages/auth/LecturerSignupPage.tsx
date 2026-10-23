@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '../../hooks/useAuth';
+import { useDashboardPath } from '../../hooks/useDashboardPath';
 import { useNotification } from '../../hooks/useNotification';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -39,6 +40,7 @@ const LecturerSignupPage = () => {
   const { login } = useAuth();
   const { success, error } = useNotification();
   const navigate = useNavigate();
+  const dashboardPath = useDashboardPath();
   const { departments, selected, select } = useDepartments();
 
   const {
@@ -69,7 +71,7 @@ const LecturerSignupPage = () => {
         'Registration Successful',
         'Your lecturer account has been queued for Head of Department (HOD) approval.',
       );
-      navigate('/dashboard');
+      navigate(dashboardPath);
     } catch (err) {
       error(
         'Registration Failed',

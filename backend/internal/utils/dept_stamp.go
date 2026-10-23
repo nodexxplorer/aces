@@ -129,9 +129,9 @@ func GenerateStamp(width, height int, cfg StampConfig) *gg.Context {
 	cy := float64(height) / 2
 
 	outerRX, outerRY := float64(width)*0.46, float64(height)*0.46
-	// Smaller inner ellipse widens the band between the borders so the
-	// department name can carry visible padding above and below it.
-	innerRX, innerRY := outerRX*0.80, outerRY*0.80
+	// Wider band between borders (0.74 instead of 0.80) to provide generous padding
+	// above and below the department name, stars, and faculty text.
+	innerRX, innerRY := outerRX*0.74, outerRY*0.74
 
 	// --- Outer border: drawn DOUBLE (two closely-spaced lines) ---
 	doubleGapX, doubleGapY := outerRX*0.025, outerRY*0.025
@@ -146,20 +146,20 @@ func GenerateStamp(width, height int, cfg StampConfig) *gg.Context {
 	dc.DrawEllipse(cx, cy, innerRX, innerRY)
 	dc.Stroke()
 
-	// Radius for curved text sits between the (inner edge of the double)
-	// outer border and the inner border, pulled in a bit further so the
-	// company-name text has clear padding and doesn't hug the border.
+	// Radius for curved text sits right along the center of the expanded band,
+	// giving clear, balanced padding from both the outer and inner borders.
 	bandRX := (outerRX - doubleGapX) - innerRX
 	bandRY := (outerRY - doubleGapY) - innerRY
-	nameRX := (outerRX - doubleGapX) - bandRX*0.49
-	nameRY := (outerRY - doubleGapY) - bandRY*0.49
+	nameRX := (outerRX - doubleGapX) - bandRX*0.50
+	nameRY := (outerRY - doubleGapY) - bandRY*0.50
 
-	// The bottom curved text keeps sitting on the natural midpoint band.
+	// The bottom curved text and stars sit on the natural midpoint band.
 	textRX := (outerRX - doubleGapX + innerRX) / 2
 	textRY := (outerRY - doubleGapY + innerRY) / 2
 
 	// --- Top curved text: "DEPARTMENT OF COMPUTER ENGINEERING" ---
-	topFontSize := float64(height) / 17 // was height/21
+	// Larger font size with balanced tracking
+	topFontSize := float64(height) / 15.8
 	if err := dc.LoadFontFace(FontBoldPath, topFontSize); err != nil {
 		log.Printf("warning: could not load bold font (%v); falling back to default", err)
 	}
@@ -167,19 +167,18 @@ func GenerateStamp(width, height int, cfg StampConfig) *gg.Context {
 	drawArcText(dc, cfg.CompanyName, cx, cy, nameRX, nameRY,
 		degToRad(270), true, 0)
 
-	// Stars at the far left (9 o'clock) and far right (3 o'clock) of the
-	// oval, where the curve is tightest. They sit on the middle of the band
-	// between the outer and inner borders so they touch neither line.
+	// Stars on the band at 9 o'clock and 3 o'clock - larger size to match increased font
 	dc.SetColor(StampBlue)
-	drawStarAt(dc, cx, cy, textRX, textRY, math.Pi, 9)
-	drawStarAt(dc, cx, cy, textRX, textRY, 0, 9)
+	const starRadius = 11.5
+	drawStarAt(dc, cx, cy, textRX, textRY, math.Pi, starRadius)
+	drawStarAt(dc, cx, cy, textRX, textRY, 0, starRadius)
 
 	// --- Padding gap between the curved name / stars and the content below ---
 	const contentTopPad = 0.50 // fraction of innerRY reserved as breathing room
 
 	// --- University of Uyo logo (replaces the old "Contact here" line) ---
-	logoH := innerRY * 0.52
-	placeholderY := cy - innerRY*contentTopPad + innerRY*0.21
+	logoH := innerRY * 0.50
+	placeholderY := cy - innerRY*contentTopPad + innerRY*0.19
 	logo, err := stampLogo()
 	if err != nil {
 		log.Printf("warning: uniuyo logo unavailable (%v); stamp will omit it", err)
@@ -204,7 +203,7 @@ func GenerateStamp(width, height int, cfg StampConfig) *gg.Context {
 	}
 
 	// --- Date / Sign rows, each with a dotted fill-in line ---
-	rowFontSize := float64(height) / 15
+	rowFontSize := float64(height) / 16.5
 	if err := dc.LoadFontFace(FontRegularPath, rowFontSize); err != nil {
 		log.Printf("warning: could not load regular font (%v)", err)
 	}
@@ -212,30 +211,27 @@ func GenerateStamp(width, height int, cfg StampConfig) *gg.Context {
 	leftX := cx - lineHalfWidth
 	rightX := cx + lineHalfWidth
 
-	rowsTop := placeholderY + logoH/2 + innerRY*0.10
+	rowsTop := placeholderY + logoH/2 + innerRY*0.08
 	dateY := rowsTop
-	signY := rowsTop + innerRY*0.24
+	signY := rowsTop + innerRY*0.22
 
 	drawLabelWithDottedLine(dc, cfg.DateLabel, leftX, rightX, dateY, rowFontSize)
 	drawLabelWithDottedLine(dc, cfg.SignLabel, leftX, rightX, signY, rowFontSize)
 
 	// --- Bottom curved text: "FACULTY OF ENGINEERING UNIUYO" ---
-	bottomFontSize := float64(height) / 16 // was height/24
+	// Larger font size
+	bottomFontSize := float64(height) / 14.5
 	if err := dc.LoadFontFace(FontRegularPath, bottomFontSize); err != nil {
 		log.Printf("warning: could not load regular font (%v)", err)
 	}
 	// Centered on 90° (6 o'clock), running counter-clockwise so it still
-	// reads left to right and right-side up. A little extra letter spacing
-	// keeps the lighter font from looking cramped.
+	// reads left to right and right-side up.
 	drawArcText(dc, cfg.AddressLine, cx, cy, textRX, textRY,
-		degToRad(90), false, bottomFontSize*0.1)
+		degToRad(90), false, bottomFontSize*0.08)
 
 	return dc
 }
 
-// DeptStampPNG renders the department stamp at its standard size and
-// returns the PNG bytes (transparent background) ready to be stamped onto
-// a PDF, e.g. on top of a student's placed signature.
 func DeptStampPNG(width, height int, cfg StampConfig) ([]byte, error) {
 	dc := GenerateStamp(width, height, cfg)
 	var buf bytes.Buffer
@@ -245,21 +241,7 @@ func DeptStampPNG(width, height int, cfg StampConfig) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// drawArcText draws text along an elliptical arc, centered on centerAngle
-// (radians, 0 = +x axis, increasing = clockwise, since image coordinates
-// have y pointing down). Use 270° for the top of the ellipse and 90° for
-// the bottom.
-//
-// Letters are placed by real arc length using each glyph's measured width,
-// so spacing stays even and letters never overlap, even on an ellipse
-// where equal angle steps would bunch them up near the sides. Each glyph
-// is rotated to the tangent of the ellipse so the text follows the curve.
-//
-// clockwise = true  -> text travels in the direction of increasing angle
-//                      (left to right across the top).
-// clockwise = false -> text travels in the direction of decreasing angle
-//                      (left to right across the bottom, right-side up).
-// tracking is extra spacing in pixels added between letters.
+
 func drawArcText(dc *gg.Context, text string, cx, cy, rx, ry, centerAngle float64, clockwise bool, tracking float64) {
 	runes := []rune(text)
 	n := len(runes)
