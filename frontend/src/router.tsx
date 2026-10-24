@@ -31,7 +31,7 @@ const PaymentConfirmationPage = lazy(() => import('./pages/student/PaymentConfir
 const CoursesPage = lazy(() => import('./pages/student/CoursesPage'));
 const ComplaintsPage = lazy(() => import('./pages/student/ComplaintsPage'));
 const StudentProfilePage = lazy(() => import('./pages/student/StudentProfilePage'));
-const StaffProfilePage = lazy(() => import('./pages/shared/StaffProfilePage'));
+const LecturerProfilePage = lazy(() => import('./pages/lecturer/LecturerProfilePage'));
 const AdminProfilePage = lazy(() => import('./pages/admin/AdminProfilePage'));
 const StudentJobBoardPage = lazy(() => import('./pages/student/StudentJobBoardPage'));
 const MyApplicationsPage = lazy(() => import('./pages/student/MyApplicationsPage'));
@@ -407,6 +407,14 @@ const ProfileRedirect = () => {
   return <Navigate to={departmentProfilePath(urlCode, role)} replace />;
 };
 
+/** The lecturer's profile. Admin, HOD and delegated admin accounts are sent to their own profile instead. */
+const LecturerProfileRoute = () => {
+  const urlCode = useAuthStore((s) => s.user?.tenant?.urlCode);
+  const role = useAuthStore((s) => s.user?.activeRole || s.user?.role);
+  if (role !== 'lecturer') return <Navigate to={departmentProfilePath(urlCode, role)} replace />;
+  return <LecturerProfilePage />;
+};
+
 /* ── Router ──────────────────────────────────── */
 export const router = createBrowserRouter([
   {
@@ -540,7 +548,7 @@ export const router = createBrowserRouter([
                 children: [
                   { index: true, element: <RoleRedirect segment="l" to="/dashboard" /> },
                   { path: 'dashboard', element: <LecturerDashboard /> },
-                  { path: 'profile', element: <StaffProfilePage /> },
+                  { path: 'profile', element: <LecturerProfileRoute /> },
                   { path: 'scores', element: <LecturerGradesPage /> },
                   { path: 'single-entry', element: <LecturerGradesPage /> },
                   { path: 'bulk-upload', element: <LecturerGradesPage /> },
