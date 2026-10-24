@@ -106,36 +106,18 @@ const menuItems: MenuItem[] = [
     icon: TrendingUp,
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   },
-  // {
-  //   label: 'Study Planner',
-  //   path: '/i/study-planner',
-  //   icon: ClipboardList,
-  //   roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
-  // },
   {
     label: 'Courses Registration',
     path: '/i/courses',
     icon: BookMarked,
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   },
-  // {
-  //   label: 'My Attendance',
-  //   path: '/i/attendance',
-  //   icon: ClipboardCheck,
-  //   roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
-  // },
   {
     label: 'Complaints',
     path: '/i/complaints',
     icon: HelpCircle,
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   },
-  // {
-  //   label: 'Notice Board',
-  //   path: '/i/notice-board',
-  //   icon: Pin,
-  //   roles: ['student', 'lecturer', 'class_rep', 'class_bursar', 'dept_bursar', 'alumni', 'hod', 'delegated_admin'],
-  // },
 
   {
     label: 'Payments & Dues',
@@ -151,30 +133,8 @@ const menuItems: MenuItem[] = [
   },
 
   { label: 'Connect', path: '/connect', icon: Users },
-  // { label: 'Skills & Trade', path: '/skills', icon: TrendingUp },
-
-  // {
-  //   label: 'Alumni Portal',
-  //   path: '/alumni',
-  //   icon: GraduationCap,
-  //   roles: ['student', 'alumni', 'hod', 'delegated_admin'],
-  // },
-  // { label: 'Job Board', path: '/alumni/jobs', icon: Briefcase, roles: ['alumni', 'hod', 'delegated_admin'] },
-  // {
-  //   label: 'Mentorship Requests',
-  //   path: '/alumni/mentorship',
-  //   icon: Users,
-  //   roles: ['alumni', 'hod', 'delegated_admin'],
-  // },
-  // { label: 'Give Back', path: '/alumni/give-back', icon: DollarSign, roles: ['alumni', 'hod', 'delegated_admin'] },
-
   { label: 'Lecturer Portal', path: '/l/dashboard', icon: LayoutDashboard, roles: ['lecturer'] },
-  // { label: 'Grade Entry', path: '/l/scores', icon: ClipboardList, roles: ['lecturer'] },
-  // { label: 'Manage Assignments', path: '/l/assignments', icon: ListTodo, roles: ['lecturer'] },
   { label: 'Class List', path: '/l/class-list', icon: Users, roles: ['lecturer'] },
-  // { label: 'Review Attendance', path: '/l/attendance-review', icon: ClipboardCheck, roles: ['lecturer'] },
-  // { label: 'Course Materials', path: '/l/materials', icon: FolderOpen, roles: ['lecturer'] },
-  // { label: 'Leave Requests', path: '/l/leave', icon: FileClock, roles: ['lecturer'] },
 
   { label: 'Admin Portal', path: '/admin', icon: LayoutDashboard, roles: ['hod', 'delegated_admin', 'admin'] },
   // {
@@ -308,14 +268,6 @@ const mobileSections: NavSection[] = [
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
     items: [{ label: 'Payments & Dues', path: '/i/payments', icon: CreditCard }],
   },
-  // {
-  //   title: 'ALUMNI',
-  //   icon: '\u{1F393}',
-  //   key: 'alumni',
-  //   locked: true,
-  //   lockMessage: 'Available for graduates (Year 5+)',
-  //   items: [{ label: 'Alumni Portal', path: '/alumni', icon: GraduationCap }],
-  // },
   {
     title: 'OVERVIEW',
     icon: ChartColumn,
