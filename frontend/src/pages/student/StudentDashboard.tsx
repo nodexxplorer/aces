@@ -94,12 +94,18 @@ const StudentDashboard = () => {
   const studentLevel = data?.student.level || 0;
   const duesOutstanding = data?.payments?.dues_outstanding;
   const isDuesCleared = duesOutstanding === 0;
+  // Gauge and amounts are measured against the active semester's total dues.
+  const semesterDuesTotal = data?.payments?.semester_dues_total ?? 0;
+  const semesterPaid = data?.payments?.semester_amount_paid ?? 0;
+  const semesterOutstanding = Math.max(semesterDuesTotal - semesterPaid, 0);
   const duesLabel =
     duesOutstanding === undefined || duesOutstanding === null
       ? '—'
       : isDuesCleared
         ? 'Cleared'
-        : `₦${duesOutstanding.toLocaleString()}`;
+        : semesterDuesTotal > 0
+          ? `₦${semesterOutstanding.toLocaleString()}`
+          : `${duesOutstanding} due${duesOutstanding === 1 ? '' : 's'}`;
   const unreadNotifications = data?.notifications?.unread ?? 0;
   const levelLabel = studentLevel > 0 ? `Level ${studentLevel}` : null;
   const standingLabel = data?.student.academic_standing || null;
@@ -107,11 +113,15 @@ const StudentDashboard = () => {
   const desktopSubtitle = [levelLabel, 'All you need in one place.'].filter(Boolean).join(' · ');
   const attendanceAttended = data?.attendance?.attended ?? 0;
   const attendanceTotal = data?.attendance?.total_classes ?? 0;
-  const amountPaid = data?.payments?.amount_paid ?? 0;
   const amountPending = data?.payments?.amount_pending ?? 0;
-  // Share of this student's dues already paid, from the real payment totals.
-  const duesBase = amountPaid + (duesOutstanding ?? 0);
-  const duesPaidPercent = duesBase > 0 ? Math.round((amountPaid / duesBase) * 100) : 0;
+  // Share of the semester's dues already paid. With no dues set for the semester,
+  // the gauge is full only when nothing is outstanding.
+  const duesPaidPercent =
+    semesterDuesTotal > 0
+      ? Math.min(100, Math.round((semesterPaid / semesterDuesTotal) * 100))
+      : isDuesCleared
+        ? 100
+        : 0;
   const announcements = data?.announcements ?? [];
 
   if (loading && !data) {
@@ -306,9 +316,9 @@ const StudentDashboard = () => {
           <div className="mt-4">
             <div className="flex items-center gap-3">
               <div>
-                <span className="text-[10px] text-[var(--text-muted)] block">Paid</span>
+                <span className="text-[10px] text-[var(--text-muted)] block">Paid this semester</span>
                 <span className="text-lg font-bold text-[#186a3c] dark:text-[#4cc38a]">
-                  ₦{amountPaid.toLocaleString()}
+                  ₦{semesterPaid.toLocaleString()}
                 </span>
               </div>
               <div className="h-6 w-px bg-[var(--border)]" />
@@ -517,8 +527,8 @@ const StudentDashboard = () => {
             <div className="flex flex-1 flex-col justify-between space-y-4 w-full">
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-[var(--text-muted)]">Paid</span>
-                  <span className="font-bold text-[#186a3c] dark:text-[#4cc38a]">₦{amountPaid.toLocaleString()}</span>
+                  <span className="text-[var(--text-muted)]">Paid this semester</span>
+                  <span className="font-bold text-[#186a3c] dark:text-[#4cc38a]">₦{semesterPaid.toLocaleString()}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-[var(--text-muted)]">Pending</span>

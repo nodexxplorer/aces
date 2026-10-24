@@ -42,6 +42,10 @@ type paymentSummary struct {
 	AmountPending   float64 `json:"amount_pending"`
 	AmountPaid      float64 `json:"amount_paid"`
 	DuesOutstanding int     `json:"dues_outstanding"`
+	// SemesterDuesTotal is the sum of the active semester's dues for the
+	// student's level; SemesterAmountPaid is what has been paid against them.
+	SemesterDuesTotal  float64 `json:"semester_dues_total"`
+	SemesterAmountPaid float64 `json:"semester_amount_paid"`
 }
 
 type announcementItem struct {
@@ -149,6 +153,15 @@ func (server *Server) getStudentDashboard(ctx *gin.Context) {
 		resp.Payments = &paymentSummary{
 			AmountPending: paySummary.AmountPending.InexactFloat64(),
 			AmountPaid:    paySummary.AmountPaid.InexactFloat64(),
+		}
+	}
+
+	// 3b. Semester dues total and the amount paid against them, for the gauge.
+	if activeSem, err := server.getOrResolveActiveSemester(ctx); err == nil && resp.Payments != nil {
+		semDues, err := queries.GetStudentSemesterDuesSummary(ctx, student.ID, level, activeSem.ID)
+		if err == nil {
+			resp.Payments.SemesterDuesTotal = semDues.TotalDues.InexactFloat64()
+			resp.Payments.SemesterAmountPaid = semDues.PaidTowardDues.InexactFloat64()
 		}
 	}
 

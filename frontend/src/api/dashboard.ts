@@ -16,7 +16,12 @@ export interface StudentDashboard {
   payments: {
     amount_pending: number;
     amount_paid: number;
+    /** Number of active dues the student has not paid yet. */
     dues_outstanding: number;
+    /** Total of the active semester's dues for the student's level. */
+    semester_dues_total?: number;
+    /** Amount paid against the active semester's dues. */
+    semester_amount_paid?: number;
   };
   announcements: Array<{
     id: string;
