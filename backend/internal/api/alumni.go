@@ -37,15 +37,7 @@ type createAlumniStatusReq struct {
 // broader isStaffRole helper (which also covers bursars, who have no
 // business granting alumni status).
 func isAlumniAdminRole(ctx *gin.Context) bool {
-	claimsVal, exists := ctx.Get("claims")
-	if !exists {
-		return false
-	}
-	claims, ok := claimsVal.(*auth.Claims)
-	if !ok {
-		return false
-	}
-	return claims.HasAnyRole([]string{"hod", "admin", "delegated_admin"})
+	return staffAccess(ctx, capManageAlumni, "hod", "admin", "delegated_admin")
 }
 
 type updateAlumniStatusReq struct {
@@ -212,7 +204,7 @@ func (server *Server) updateAlumniStatus(ctx *gin.Context) {
 	// id is a users.id here (UpdateAlumniStatusParams.UserID), not a
 	// students.id, so this can't reuse requireOwnershipOrStaff — compare
 	// directly against the caller's own user ID instead.
-	if !isStaffCaller(ctx) && getUserID(ctx) != id {
+	if !isStaffCaller(ctx, capManageAlumni) && getUserID(ctx) != id {
 		ctx.JSON(http.StatusForbidden, gin.H{"error": "you can only update your own alumni profile"})
 		return
 	}
@@ -345,7 +337,7 @@ func (server *Server) updateMentorshipStatus(ctx *gin.Context) {
 	// Only the mentor a request was addressed to (or staff) may accept/
 	// decline it — without this, any alumni could resolve any other
 	// mentor's pending requests by guessing the request ID.
-	if !isStaffCaller(ctx) {
+	if !isStaffCaller(ctx, capManageAlumni) {
 		existing, gerr := server.store.GetMentorshipRequest(ctx, id)
 		if gerr != nil {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "mentorship request not found"})
@@ -421,14 +413,13 @@ func (server *Server) updateJobPost(ctx *gin.Context) {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-	claims, ok := claimsVal.(*auth.Claims)
-	if !ok {
+	if _, ok := claimsVal.(*auth.Claims); !ok {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 		return
 	}
 
 	isOwner := job.PostedBy == userID
-	isAdmin := claims.HasAnyRole([]string{"hod", "admin", "delegated_admin"})
+	isAdmin := staffAccess(ctx, capManageAlumni, "hod", "admin", "delegated_admin")
 	if !isOwner && !isAdmin {
 		ctx.JSON(http.StatusForbidden, gin.H{"error": "you are not authorized to edit this job post"})
 		return

@@ -281,6 +281,9 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 
 	api := v1.Group("")
 	api.Use(middleware.JWTAuth(tm), middleware.TenantScope(tenants))
+	// Loads a delegated admin's grant once per request, so every admin-tier check
+	// below reads the same grant (see admin_grants.go).
+	api.Use(server.loadAdminGrant)
 
 	api.Use(server.RequireStudentOnboarded)
 
@@ -288,52 +291,52 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 
 	sessions := api.Group("/sessions")
 	{
-		sessions.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createSession)
+		sessions.POST("", requireCapability(capManageSettings, "hod", "admin", "delegated_admin"), server.createSession)
 		sessions.GET("", server.listSessions)
 		sessions.GET("/:id", server.getSession)
-		sessions.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateSession)
-		sessions.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteSession)
+		sessions.PUT("/:id", requireCapability(capManageSettings, "hod", "admin", "delegated_admin"), server.updateSession)
+		sessions.DELETE("/:id", requireCapability(capManageSettings, "hod", "admin", "delegated_admin"), server.deleteSession)
 	}
 
 	// ── Session roll-over: HOD/admin-confirmed batch level promotion ──
 	rollover := api.Group("/session-rollover")
 	{
-		rollover.POST("/prepare", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.prepareLevelPromotion)
-		rollover.GET("/:sessionId", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listLevelPromotions)
-		rollover.PATCH("/:sessionId/promotions/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.flipLevelPromotion)
-		rollover.POST("/:sessionId/confirm", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.confirmLevelPromotion)
+		rollover.POST("/prepare", requireCapability(capManageSettings, "hod", "admin", "delegated_admin"), server.prepareLevelPromotion)
+		rollover.GET("/:sessionId", requireCapability(capManageSettings, "hod", "admin", "delegated_admin"), server.listLevelPromotions)
+		rollover.PATCH("/:sessionId/promotions/:id", requireCapability(capManageSettings, "hod", "admin", "delegated_admin"), server.flipLevelPromotion)
+		rollover.POST("/:sessionId/confirm", requireCapability(capManageSettings, "hod", "admin", "delegated_admin"), server.confirmLevelPromotion)
 	}
 
 	semesters := api.Group("/semesters")
 	{
-		semesters.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createSemester)
+		semesters.POST("", requireCapability(capManageSettings, "hod", "admin", "delegated_admin"), server.createSemester)
 		semesters.GET("/session/:session_id", server.listSessionSemesters)
 		semesters.GET("/:id", server.getSemester)
-		semesters.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateSemester)
-		semesters.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteSemester)
+		semesters.PUT("/:id", requireCapability(capManageSettings, "hod", "admin", "delegated_admin"), server.updateSemester)
+		semesters.DELETE("/:id", requireCapability(capManageSettings, "hod", "admin", "delegated_admin"), server.deleteSemester)
 	}
 
 	staff := api.Group("/staff")
 	{
-		staff.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createStaff)
-		staff.GET("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listStaff)
-		staff.GET("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getStaff)
-		staff.GET("/user/:user_id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getStaffByUserID)
-		staff.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateStaff)
-		staff.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteStaff)
+		staff.POST("", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.createStaff)
+		staff.GET("", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.listStaff)
+		staff.GET("/:id", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.getStaff)
+		staff.GET("/user/:user_id", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.getStaffByUserID)
+		staff.PUT("/:id", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.updateStaff)
+		staff.DELETE("/:id", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.deleteStaff)
 	}
 
 	users := api.Group("/users")
 	{
-		users.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createUser)
-		users.GET("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listUsers)
-		users.GET("/pending-approvals", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listPendingApprovals)
+		users.POST("", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.createUser)
+		users.GET("", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.listUsers)
+		users.GET("/pending-approvals", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.listPendingApprovals)
 		users.PATCH("/me", server.updateMe)
-		users.GET("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getUser)
-		users.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateUser)
-		users.POST("/:id/approve", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.approveSignup)
-		users.POST("/:id/reject", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.rejectSignup)
-		users.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteUser)
+		users.GET("/:id", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.getUser)
+		users.PUT("/:id", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.updateUser)
+		users.POST("/:id/approve", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.approveSignup)
+		users.POST("/:id/reject", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.rejectSignup)
+		users.DELETE("/:id", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.deleteUser)
 	}
 
 	// Student profile editing
@@ -348,44 +351,44 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	// HOD student management
 	hodStudents := api.Group("/hod/students")
 	{
-		hodStudents.GET("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getStudentFullProfile)
-		hodStudents.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.hodEditStudent)
-		hodStudents.GET("/:id/audit-logs", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getStudentAuditLogs)
+		hodStudents.GET("/:id", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.getStudentFullProfile)
+		hodStudents.PUT("/:id", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.hodEditStudent)
+		hodStudents.GET("/:id/audit-logs", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.getStudentAuditLogs)
 		hodStudents.POST("/bulk-update", middleware.RequireRoles("hod"), server.bulkUpdateStudents)
 	}
 
 	// Document management (HOD)
 	documents := api.Group("/documents")
 	{
-		documents.GET("/pending", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listPendingDocuments)
-		documents.POST("/:id/verify", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.verifyDocument)
-		documents.POST("/:id/reject", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.rejectDocument)
+		documents.GET("/pending", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.listPendingDocuments)
+		documents.POST("/:id/verify", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.verifyDocument)
+		documents.POST("/:id/reject", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.rejectDocument)
 	}
 
 	// Audit logs
 	auditLogs := api.Group("/audit-logs")
 	{
-		auditLogs.GET("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getAllAuditLogs)
+		auditLogs.GET("", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.getAllAuditLogs)
 	}
 
 	approvals := api.Group("/approvals")
 	{
-		approvals.GET("/pending", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listPendingApprovals)
+		approvals.GET("/pending", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.listPendingApprovals)
 		approvals.GET("/status", server.getApprovalStatus)
-		approvals.POST("/:id/approve", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.approveSignup)
-		approvals.POST("/:id/reject", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.rejectSignup)
+		approvals.POST("/:id/approve", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.approveSignup)
+		approvals.POST("/:id/reject", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.rejectSignup)
 	}
 
 	cgpa := api.Group("/cgpa")
 	{
 		cgpa.GET("/calculate/:studentId", server.calculateCgpa)
 		cgpa.GET("/settings", server.getCgpaSettings)
-		cgpa.PUT("/settings", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateCgpaSettings)
+		cgpa.PUT("/settings", requireCapability(capManageResults, "hod", "admin", "delegated_admin"), server.updateCgpaSettings)
 		cgpa.GET("/my-results", middleware.RequireRoles("student"), server.getMyApprovedResults)
 		cgpa.POST("/simulate", middleware.RequireRoles("student"), server.simulateCgpa)
 	}
 
-	api.POST("/students", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createStudent)
+	api.POST("/students", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.createStudent)
 
 	calendarSync := api.Group("/calendar")
 	{
@@ -395,86 +398,86 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 
 	attendance := api.Group("/attendance")
 	{
-		attendance.POST("", middleware.RequireRoles("class_rep", "hod", "delegated_admin"), server.createAttendanceSheet)
+		attendance.POST("", requireCapability(capManageCourses, "class_rep", "hod", "delegated_admin"), server.createAttendanceSheet)
 		attendance.GET("/registered-students/:course_id", server.getRegisteredStudentsForAttendance)
-		attendance.POST("/sessions/:id/submit", middleware.RequireRoles("class_rep", "hod", "delegated_admin"), server.submitAttendanceSession)
-		attendance.GET("/sessions/:id/pdf", middleware.RequireRoles("class_rep", "lecturer", "hod", "admin", "delegated_admin"), server.downloadAttendancePDF)
-		attendance.POST("/sessions/:id/review", middleware.RequireRoles("lecturer", "hod", "admin"), server.reviewAttendanceSession)
-		attendance.GET("/course", middleware.RequireRoles("lecturer", "hod", "admin", "delegated_admin", "class_rep"), server.listCourseAttendanceSheets)
+		attendance.POST("/sessions/:id/submit", requireCapability(capManageCourses, "class_rep", "hod", "delegated_admin"), server.submitAttendanceSession)
+		attendance.GET("/sessions/:id/pdf", requireCapability(capManageCourses, "class_rep", "lecturer", "hod", "admin", "delegated_admin"), server.downloadAttendancePDF)
+		attendance.POST("/sessions/:id/review", requireCapability(capManageCourses, "lecturer", "hod", "admin"), server.reviewAttendanceSession)
+		attendance.GET("/course", requireCapability(capManageCourses, "lecturer", "hod", "admin", "delegated_admin", "class_rep"), server.listCourseAttendanceSheets)
 		attendance.GET("/student", server.listStudentAttendance)
 		attendance.GET("/summary", server.getAttendanceSummary)
 		attendance.GET("/my-overview", middleware.RequireRoles("student"), server.getStudentAttendanceOverview)
 		attendance.GET("/my-courses/:course_id", middleware.RequireRoles("student"), server.getStudentCourseAttendanceDetail)
 		attendance.GET("/:id", server.getAttendanceSheet)
-		attendance.PUT("/:id", middleware.RequireRoles("class_rep", "hod", "delegated_admin"), server.updateAttendanceSheet)
-		attendance.POST("/:id/finalize", middleware.RequireRoles("class_rep", "hod", "delegated_admin"), server.finalizeAttendanceSheet)
-		attendance.DELETE("/:id", middleware.RequireRoles("class_rep", "hod", "admin", "delegated_admin"), server.deleteAttendanceSheet)
+		attendance.PUT("/:id", requireCapability(capManageCourses, "class_rep", "hod", "delegated_admin"), server.updateAttendanceSheet)
+		attendance.POST("/:id/finalize", requireCapability(capManageCourses, "class_rep", "hod", "delegated_admin"), server.finalizeAttendanceSheet)
+		attendance.DELETE("/:id", requireCapability(capManageCourses, "class_rep", "hod", "admin", "delegated_admin"), server.deleteAttendanceSheet)
 	}
 
 	courses := api.Group("/courses")
 	{
-		courses.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createCourse)
+		courses.POST("", requireCapability(capManageCourses, "hod", "admin", "delegated_admin"), server.createCourse)
 		courses.GET("", server.listCourses)
 		courses.GET("/filter", server.listCoursesByLevelAndSemester)
 		courses.GET("/count", server.countCourses)
 		courses.GET("/:id", server.getCourse)
 		courses.GET("/:id/class-list", server.getCourseClassList)
-		courses.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateCourse)
-		courses.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteCourse)
+		courses.PUT("/:id", requireCapability(capManageCourses, "hod", "admin", "delegated_admin"), server.updateCourse)
+		courses.DELETE("/:id", requireCapability(capManageCourses, "hod", "admin", "delegated_admin"), server.deleteCourse)
 	}
 
 	assignments := api.Group("/assignments")
 	{
-		assignments.POST("", middleware.RequireRoles("lecturer", "hod", "delegated_admin"), server.createAssignment)
+		assignments.POST("", requireCapability(capManageResults, "lecturer", "hod", "delegated_admin"), server.createAssignment)
 		assignments.GET("/course/:course_id/session/:session_id", server.listCourseAssignments)
 		assignments.GET("/:id", server.getAssignment)
-		assignments.PUT("/:id", middleware.RequireRoles("lecturer", "hod", "delegated_admin"), server.updateAssignment)
-		assignments.DELETE("/:id", middleware.RequireRoles("lecturer", "hod", "delegated_admin"), server.deleteAssignment)
-		assignments.POST("/grades", middleware.RequireRoles("lecturer", "hod", "delegated_admin"), server.createAssignmentGrade)
+		assignments.PUT("/:id", requireCapability(capManageResults, "lecturer", "hod", "delegated_admin"), server.updateAssignment)
+		assignments.DELETE("/:id", requireCapability(capManageResults, "lecturer", "hod", "delegated_admin"), server.deleteAssignment)
+		assignments.POST("/grades", requireCapability(capManageResults, "lecturer", "hod", "delegated_admin"), server.createAssignmentGrade)
 		assignments.GET("/grades/lookup", server.getAssignmentGrade)
 		assignments.GET("/:id/grades", server.listAssignmentGrades)
 		assignments.GET("/grades/student/:student_id", server.listStudentAssignmentGrades)
-		assignments.PUT("/grades/:id", middleware.RequireRoles("lecturer", "hod", "delegated_admin"), server.updateAssignmentGrade)
-		assignments.DELETE("/grades/:id", middleware.RequireRoles("lecturer", "hod", "delegated_admin"), server.deleteAssignmentGrade)
+		assignments.PUT("/grades/:id", requireCapability(capManageResults, "lecturer", "hod", "delegated_admin"), server.updateAssignmentGrade)
+		assignments.DELETE("/grades/:id", requireCapability(capManageResults, "lecturer", "hod", "delegated_admin"), server.deleteAssignmentGrade)
 	}
 
 	courseMaterials := api.Group("/course-materials")
 	{
-		courseMaterials.POST("", middleware.RequireRoles("lecturer", "hod", "admin", "delegated_admin"), server.uploadCourseMaterial)
+		courseMaterials.POST("", requireCapability(capManageCourses, "lecturer", "hod", "admin", "delegated_admin"), server.uploadCourseMaterial)
 		courseMaterials.GET("/course/:course_id", server.listCourseMaterialsByCourse)
-		courseMaterials.GET("/mine", middleware.RequireRoles("lecturer", "hod", "admin", "delegated_admin"), server.listMyCourseMaterials)
+		courseMaterials.GET("/mine", requireCapability(capManageCourses, "lecturer", "hod", "admin", "delegated_admin"), server.listMyCourseMaterials)
 		courseMaterials.GET("/:id/download", server.downloadCourseMaterial)
-		courseMaterials.DELETE("/:id", middleware.RequireRoles("lecturer", "hod", "admin", "delegated_admin"), server.deleteCourseMaterial)
+		courseMaterials.DELETE("/:id", requireCapability(capManageCourses, "lecturer", "hod", "admin", "delegated_admin"), server.deleteCourseMaterial)
 	}
 
 	courseRegistrations := api.Group("/course-registrations")
 	{
-		courseRegistrations.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createCourseRegistration)
+		courseRegistrations.POST("", requireCapability(capManageCourses, "hod", "admin", "delegated_admin"), server.createCourseRegistration)
 		courseRegistrations.POST("/submit", middleware.RequireRoles("student"), server.submitRegistration)
 		courseRegistrations.GET("/my-course-ids", middleware.RequireRoles("student"), server.listMyRegisteredCourseIDs)
 		courseRegistrations.GET("/student/:student_id", server.listStudentCourseRegistrations)
 		courseRegistrations.GET("/:id", server.getCourseRegistration)
-		courseRegistrations.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin", "class_rep"), server.updateCourseRegistration)
-		courseRegistrations.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteCourseRegistration)
-		courseRegistrations.POST("/:id/courses", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createRegisteredCourse)
+		courseRegistrations.PUT("/:id", requireCapability(capManageCourses, "hod", "admin", "delegated_admin", "class_rep"), server.updateCourseRegistration)
+		courseRegistrations.DELETE("/:id", requireCapability(capManageCourses, "hod", "admin", "delegated_admin"), server.deleteCourseRegistration)
+		courseRegistrations.POST("/:id/courses", requireCapability(capManageCourses, "hod", "admin", "delegated_admin"), server.createRegisteredCourse)
 		courseRegistrations.GET("/:id/courses", server.listRegisteredCourses)
-		courseRegistrations.PUT("/:id/courses/:registered_course_id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateRegisteredCourse)
-		courseRegistrations.DELETE("/:id/courses/:registered_course_id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteRegisteredCourse)
+		courseRegistrations.PUT("/:id/courses/:registered_course_id", requireCapability(capManageCourses, "hod", "admin", "delegated_admin"), server.updateRegisteredCourse)
+		courseRegistrations.DELETE("/:id/courses/:registered_course_id", requireCapability(capManageCourses, "hod", "admin", "delegated_admin"), server.deleteRegisteredCourse)
 	}
 
 	results := api.Group("/results")
 	{
-		results.GET("", middleware.RequireRoles("lecturer", "hod", "admin", "delegated_admin"), server.listAllResults)
-		results.POST("", middleware.RequireRoles("lecturer", "hod", "delegated_admin"), server.createResult)
+		results.GET("", requireCapability(capManageResults, "lecturer", "hod", "admin", "delegated_admin"), server.listAllResults)
+		results.POST("", requireCapability(capManageResults, "lecturer", "hod", "delegated_admin"), server.createResult)
 		results.GET("/slip", server.downloadResultSlip)
 		results.GET("/:id", server.getResult)
 		results.GET("/student/:student_id", server.listStudentResults)
 		results.GET("/course/:course_id/session/:session_id", server.listCourseResults)
-		results.PUT("/:id", middleware.RequireRoles("lecturer", "hod", "delegated_admin"), server.updateResult)
-		results.PUT("/:id/status", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateResultStatus)
-		results.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteResult)
-		results.POST("/:id/audit-logs", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createResultAuditLog)
-		results.GET("/:id/audit-logs", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listResultAuditLogs)
+		results.PUT("/:id", requireCapability(capManageResults, "lecturer", "hod", "delegated_admin"), server.updateResult)
+		results.PUT("/:id/status", requireCapability(capManageResults, "hod", "admin", "delegated_admin"), server.updateResultStatus)
+		results.DELETE("/:id", requireCapability(capManageResults, "hod", "admin", "delegated_admin"), server.deleteResult)
+		results.POST("/:id/audit-logs", requireCapability(capManageResults, "hod", "admin", "delegated_admin"), server.createResultAuditLog)
+		results.GET("/:id/audit-logs", requireCapability(capManageResults, "hod", "admin", "delegated_admin"), server.listResultAuditLogs)
 	}
 
 	notifications := api.Group("/notifications")
@@ -488,17 +491,17 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		notifications.GET("/preferences", server.getMyNotificationPreferences)
 		notifications.PUT("/preferences", server.updateMyNotificationPreferences)
 		notifications.PUT("/push-token", server.updateMyPushToken)
-		notifications.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin", "class_rep"), server.createNotification)
+		notifications.POST("", requireCapability(capManageAnnouncements, "hod", "admin", "delegated_admin", "class_rep"), server.createNotification)
 	}
 
 	payments := api.Group("/payments")
 	{
-		payments.POST("/dues", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.createDue)
+		payments.POST("/dues", requireCapability(capManageFinance, "hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.createDue)
 		payments.GET("/dues", server.listDues)
 		payments.GET("/dues/level", server.listDuesByLevel)
 		payments.GET("/dues/:id", server.getDue)
-		payments.PUT("/dues/:id", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.updateDue)
-		payments.DELETE("/dues/:id", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.deleteDue)
+		payments.PUT("/dues/:id", requireCapability(capManageFinance, "hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.updateDue)
+		payments.DELETE("/dues/:id", requireCapability(capManageFinance, "hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.deleteDue)
 
 		payments.POST("/cart", middleware.RequireRoles("student"), server.addToCart)
 		payments.GET("/cart/me", middleware.RequireRoles("student"), server.listStudentCart)
@@ -509,7 +512,7 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		payments.GET("/batches/student/:student_id", server.listStudentPaymentBatches)
 		payments.GET("/batches/:id", server.getPaymentBatch)
 		payments.GET("/batches/:id/payments", server.listBatchPayments)
-		payments.PUT("/batches/:id/status", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.updatePaymentBatchStatus)
+		payments.PUT("/batches/:id/status", requireCapability(capManageFinance, "hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.updatePaymentBatchStatus)
 
 		payments.POST("", middleware.RequireRoles("student"), server.createPayment)
 		payments.POST("/checkout", middleware.RequireRoles("student"), server.initializeCheckout)
@@ -522,23 +525,23 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		payments.GET("/:id/receipt", server.getDuesPaymentReceipt)
 		payments.GET("/my-reference", middleware.RequireRoles("student"), server.getMyPaymentByReference)
 		payments.POST("/confirm", middleware.RequireRoles("student"), server.confirmMyPaymentByReference)
-		payments.GET("/by-reference", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.getPaymentByReference)
-		payments.GET("/defaulters", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.listDefaulters)
-		payments.GET("/recent-verified", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.listRecentVerifiedPayments)
-		payments.GET("", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.listAllPayments)
+		payments.GET("/by-reference", requireCapability(capManageFinance, "hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.getPaymentByReference)
+		payments.GET("/defaulters", requireCapability(capManageFinance, "hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.listDefaulters)
+		payments.GET("/recent-verified", requireCapability(capManageFinance, "hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.listRecentVerifiedPayments)
+		payments.GET("", requireCapability(capManageFinance, "hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.listAllPayments)
 		payments.GET("/:id", server.getPayment)
-		payments.PUT("/:id/status", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.updatePaymentStatus)
-		payments.POST("/:id/verify", middleware.RequireRoles("hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.verifyPayment)
+		payments.PUT("/:id/status", requireCapability(capManageFinance, "hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.updatePaymentStatus)
+		payments.POST("/:id/verify", requireCapability(capManageFinance, "hod", "admin", "bursar_dept", "bursar_class", "delegated_admin"), server.verifyPayment)
 	}
 
 	profileUpdates := api.Group("/profile-update-requests")
 	{
 		profileUpdates.POST("", middleware.RequireRoles("student"), server.createProfileUpdateRequest)
-		profileUpdates.GET("/pending", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listPendingProfileUpdateRequests)
+		profileUpdates.GET("/pending", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.listPendingProfileUpdateRequests)
 		profileUpdates.GET("/student/:student_id", server.listStudentProfileUpdateRequests)
 		profileUpdates.GET("/:id", server.getProfileUpdateRequest)
-		profileUpdates.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateProfileUpdateRequestStatus)
-		profileUpdates.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteProfileUpdateRequest)
+		profileUpdates.PUT("/:id", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.updateProfileUpdateRequestStatus)
+		profileUpdates.DELETE("/:id", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.deleteProfileUpdateRequest)
 	}
 
 	adminPermissions := api.Group("/admin-permissions")
@@ -552,40 +555,40 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 
 	analytics := api.Group("/analytics")
 	{
-		analytics.GET("/dashboard", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getDashboardStats)
-		analytics.GET("/users", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getRecentUsers)
-		analytics.GET("/activity", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getRecentActivity)
-		analytics.GET("/performance", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getPerformanceTrend)
-		analytics.GET("/overview", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getAnalyticsOverview)
-		analytics.GET("/trend", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getAnalyticsTrend)
+		analytics.GET("/dashboard", requireCapability(capViewAnalytics, "hod", "admin", "delegated_admin"), server.getDashboardStats)
+		analytics.GET("/users", requireCapability(capViewAnalytics, "hod", "admin", "delegated_admin"), server.getRecentUsers)
+		analytics.GET("/activity", requireCapability(capViewAnalytics, "hod", "admin", "delegated_admin"), server.getRecentActivity)
+		analytics.GET("/performance", requireCapability(capViewAnalytics, "hod", "admin", "delegated_admin"), server.getPerformanceTrend)
+		analytics.GET("/overview", requireCapability(capViewAnalytics, "hod", "admin", "delegated_admin"), server.getAnalyticsOverview)
+		analytics.GET("/trend", requireCapability(capViewAnalytics, "hod", "admin", "delegated_admin"), server.getAnalyticsTrend)
 	}
 
 	api.POST("/complaints", middleware.RequireRoles("student"), server.createComplaint)
 	api.GET("/complaints/my", middleware.RequireRoles("student"), server.listMyComplaints)
-	api.GET("/complaints", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listComplaints)
+	api.GET("/complaints", requireCapability(capManageComplaints, "hod", "admin", "delegated_admin"), server.listComplaints)
 	api.GET("/complaints/:id", server.getComplaint)
-	api.PUT("/complaints/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateComplaint)
-	api.DELETE("/complaints/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteComplaint)
-	api.POST("/complaints/:id/assign", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.assignComplaint)
-	api.POST("/complaints/:id/resolve", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.resolveComplaint)
+	api.PUT("/complaints/:id", requireCapability(capManageComplaints, "hod", "admin", "delegated_admin"), server.updateComplaint)
+	api.DELETE("/complaints/:id", requireCapability(capManageComplaints, "hod", "admin", "delegated_admin"), server.deleteComplaint)
+	api.POST("/complaints/:id/assign", requireCapability(capManageComplaints, "hod", "admin", "delegated_admin"), server.assignComplaint)
+	api.POST("/complaints/:id/resolve", requireCapability(capManageComplaints, "hod", "admin", "delegated_admin"), server.resolveComplaint)
 	api.GET("/complaints/:id/history", server.listComplaintHistory)
 
 	// ── Roles ──
 	rolesGroup := api.Group("/roles")
 	{
 		rolesGroup.GET("", server.listRoles)
-		rolesGroup.POST("", middleware.RequireRoles("hod", "admin"), server.createRole)
-		rolesGroup.POST("/assign", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.assignUserRole)
-		rolesGroup.POST("/revoke", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.revokeUserRole)
-		rolesGroup.GET("/user/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listUserRoles)
-		rolesGroup.GET("/user/:id/names", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listUserRolesByName)
-		rolesGroup.GET("/students", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.searchStudentsForRoleManagement)
-		rolesGroup.GET("/logs", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listRoleAssignmentLogs)
-		rolesGroup.GET("/logs/user/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listRoleLogsByUser)
-		rolesGroup.GET("/additional-count", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.countStudentsWithAdditionalRoles)
-		rolesGroup.POST("/promote", middleware.RequireRoles("hod", "admin"), server.promoteUser)
-		rolesGroup.GET("/promotions", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listPromotions)
-		rolesGroup.GET("/promotable-students", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listPromotableStudents)
+		rolesGroup.POST("", requireCapability(capManageUsers, "hod", "admin"), server.createRole)
+		rolesGroup.POST("/assign", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.assignUserRole)
+		rolesGroup.POST("/revoke", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.revokeUserRole)
+		rolesGroup.GET("/user/:id", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.listUserRoles)
+		rolesGroup.GET("/user/:id/names", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.listUserRolesByName)
+		rolesGroup.GET("/students", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.searchStudentsForRoleManagement)
+		rolesGroup.GET("/logs", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.listRoleAssignmentLogs)
+		rolesGroup.GET("/logs/user/:id", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.listRoleLogsByUser)
+		rolesGroup.GET("/additional-count", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.countStudentsWithAdditionalRoles)
+		rolesGroup.POST("/promote", requireCapability(capManageUsers, "hod", "admin"), server.promoteUser)
+		rolesGroup.GET("/promotions", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.listPromotions)
+		rolesGroup.GET("/promotable-students", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.listPromotableStudents)
 	}
 
 	// ── Campus Connect ──
@@ -625,10 +628,10 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	// ── Backups ──
 	backups := api.Group("/backups")
 	{
-		backups.GET("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listBackups)
-		backups.GET("/summary", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getBackupSummary)
-		backups.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createBackup)
-		backups.POST("/:id/restore", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.restoreBackup)
+		backups.GET("", requireCapability(capBackupData, "hod", "admin", "delegated_admin"), server.listBackups)
+		backups.GET("/summary", requireCapability(capBackupData, "hod", "admin", "delegated_admin"), server.getBackupSummary)
+		backups.POST("", requireCapability(capBackupData, "hod", "admin", "delegated_admin"), server.createBackup)
+		backups.POST("/:id/restore", requireCapability(capBackupData, "hod", "admin", "delegated_admin"), server.restoreBackup)
 	}
 
 	// ── Alumni ──
@@ -643,14 +646,14 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		alumniGroup.GET("/mentors", server.listMentors)
 		alumniGroup.POST("/mentorship/requests", middleware.RequireRoles("student", "class_rep", "project_coordinator", "event_coordinator", "alumni_rep"), server.requestMentorship)
 		alumniGroup.GET("/mentorship/my", server.listMyMentorshipRequests)
-		alumniGroup.PUT("/mentorship/requests/:id", middleware.RequireRoles("alumni", "hod", "admin", "delegated_admin"), server.updateMentorshipStatus)
+		alumniGroup.PUT("/mentorship/requests/:id", requireCapability(capManageAlumni, "alumni", "hod", "admin", "delegated_admin"), server.updateMentorshipStatus)
 		alumniGroup.POST("/status", server.createAlumniStatus)
 		alumniGroup.GET("/status/:id", server.getAlumniStatus)
 		alumniGroup.GET("", server.listAlumni)
 		alumniGroup.PUT("/status/:id", server.updateAlumniStatus)
-		alumniGroup.POST("/verify/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.verifyAlumni)
-		alumniGroup.GET("/verifications/pending", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listPendingAlumniVerifications)
-		alumniGroup.POST("/jobs", middleware.RequireRoles("alumni", "hod", "admin", "delegated_admin"), server.createJobPost)
+		alumniGroup.POST("/verify/:id", requireCapability(capManageAlumni, "hod", "admin", "delegated_admin"), server.verifyAlumni)
+		alumniGroup.GET("/verifications/pending", requireCapability(capManageAlumni, "hod", "admin", "delegated_admin"), server.listPendingAlumniVerifications)
+		alumniGroup.POST("/jobs", requireCapability(capManageAlumni, "alumni", "hod", "admin", "delegated_admin"), server.createJobPost)
 		alumniGroup.GET("/jobs", server.listJobPosts)
 		alumniGroup.GET("/jobs/:id", server.getJobPost)
 		alumniGroup.PUT("/jobs/:id", server.updateJobPost)
@@ -660,13 +663,13 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		alumniGroup.PUT("/jobs/applications/:id", server.updateJobApplicationStatus)
 		alumniGroup.GET("/jobs/applications/mine", server.listStudentJobApplications)
 		alumniGroup.POST("/jobs/:id/view", server.incrementJobViews)
-		alumniGroup.DELETE("/jobs/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteJobPost)
-		alumniGroup.POST("/events", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createAlumniEvent)
+		alumniGroup.DELETE("/jobs/:id", requireCapability(capManageAlumni, "hod", "admin", "delegated_admin"), server.deleteJobPost)
+		alumniGroup.POST("/events", requireCapability(capManageAlumni, "hod", "admin", "delegated_admin"), server.createAlumniEvent)
 		alumniGroup.GET("/events", server.listAlumniEvents)
 		alumniGroup.POST("/events/:id/register", server.registerForAlumniEvent)
 		alumniGroup.GET("/events/:id/attendees", server.listAlumniEventAttendees)
 		alumniGroup.POST("/donations", server.createDonation)
-		alumniGroup.GET("/donations", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listDonations)
+		alumniGroup.GET("/donations", requireCapability(capManageAlumni, "hod", "admin", "delegated_admin"), server.listDonations)
 		alumniGroup.GET("/donations/mine", server.listMyDonations)
 		alumniGroup.GET("/donations/stats", server.getDonationStats)
 	}
@@ -677,54 +680,54 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	// ── Class Representative Management ──
 	classRep := api.Group("/class-rep")
 	{
-		classRep.GET("/class-list", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.getClassRepClassList)
-		classRep.GET("/pending-registrations", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.listPendingCourseRegistrations)
-		classRep.GET("/pending-student-registrations", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.listPendingStudentRegistrations)
-		classRep.POST("/pending-student-registrations/:id/approve", middleware.RequireRoles("class_rep", "admin", "delegated_admin", "hod"), server.approveStudentRegistration)
-		classRep.POST("/appoint", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.appointClassRep)
-		classRep.GET("/list", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listClassReps)
-		classRep.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deactivateClassRep)
+		classRep.GET("/class-list", requireCapability(capManageUsers, "class_rep", "student", "admin", "delegated_admin", "hod"), server.getClassRepClassList)
+		classRep.GET("/pending-registrations", requireCapability(capManageCourses, "class_rep", "student", "admin", "delegated_admin", "hod"), server.listPendingCourseRegistrations)
+		classRep.GET("/pending-student-registrations", requireCapability(capManageCourses, "class_rep", "student", "admin", "delegated_admin", "hod"), server.listPendingStudentRegistrations)
+		classRep.POST("/pending-student-registrations/:id/approve", requireCapability(capManageCourses, "class_rep", "admin", "delegated_admin", "hod"), server.approveStudentRegistration)
+		classRep.POST("/appoint", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.appointClassRep)
+		classRep.GET("/list", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.listClassReps)
+		classRep.DELETE("/:id", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.deactivateClassRep)
 
 		// Attendance sessions — class_rep/staff only; "student" is deliberately
 		// excluded here (unlike /checkin below, which is legitimate self-service).
 		// A plain student must never be able to create, open, close, or view the
 		// roster of an attendance session — only the assigned class rep or staff.
-		classRep.POST("/attendance-sessions", middleware.RequireRoles("class_rep", "admin", "delegated_admin", "hod"), server.createAttendanceSession)
-		classRep.PUT("/attendance-sessions/:id/open", middleware.RequireRoles("class_rep", "admin", "delegated_admin", "hod"), server.openAttendanceSession)
-		classRep.PUT("/attendance-sessions/:id/close", middleware.RequireRoles("class_rep", "admin", "delegated_admin", "hod"), server.closeAttendanceSession)
-		classRep.GET("/attendance-sessions/mine", middleware.RequireRoles("class_rep", "admin", "delegated_admin", "hod"), server.listMyAttendanceSessions)
-		classRep.GET("/attendance-sessions/:id/checkins", middleware.RequireRoles("class_rep", "admin", "delegated_admin", "hod"), server.listAttendanceSessionCheckins)
-		classRep.POST("/checkin", middleware.RequireRoles("class_rep", "student", "admin", "delegated_admin", "hod"), server.checkInStudent)
+		classRep.POST("/attendance-sessions", requireCapability(capManageCourses, "class_rep", "admin", "delegated_admin", "hod"), server.createAttendanceSession)
+		classRep.PUT("/attendance-sessions/:id/open", requireCapability(capManageCourses, "class_rep", "admin", "delegated_admin", "hod"), server.openAttendanceSession)
+		classRep.PUT("/attendance-sessions/:id/close", requireCapability(capManageCourses, "class_rep", "admin", "delegated_admin", "hod"), server.closeAttendanceSession)
+		classRep.GET("/attendance-sessions/mine", requireCapability(capManageCourses, "class_rep", "admin", "delegated_admin", "hod"), server.listMyAttendanceSessions)
+		classRep.GET("/attendance-sessions/:id/checkins", requireCapability(capManageCourses, "class_rep", "admin", "delegated_admin", "hod"), server.listAttendanceSessionCheckins)
+		classRep.POST("/checkin", requireCapability(capManageCourses, "class_rep", "student", "admin", "delegated_admin", "hod"), server.checkInStudent)
 
 		// Reports
-		classRep.POST("/reports", middleware.RequireRoles("class_rep", "admin", "delegated_admin", "hod"), server.submitClassRepReport)
-		classRep.GET("/reports", middleware.RequireRoles("class_rep", "admin", "delegated_admin", "hod"), server.listClassRepReports)
-		classRep.GET("/reports/all", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listAllClassRepReports)
-		classRep.PUT("/reports/:id/status", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateClassRepReportStatus)
+		classRep.POST("/reports", requireCapability(capManageComplaints, "class_rep", "admin", "delegated_admin", "hod"), server.submitClassRepReport)
+		classRep.GET("/reports", requireCapability(capManageComplaints, "class_rep", "admin", "delegated_admin", "hod"), server.listClassRepReports)
+		classRep.GET("/reports/all", requireCapability(capManageComplaints, "hod", "admin", "delegated_admin"), server.listAllClassRepReports)
+		classRep.PUT("/reports/:id/status", requireCapability(capManageComplaints, "hod", "admin", "delegated_admin"), server.updateClassRepReportStatus)
 
 		// Performance reviews
-		classRep.POST("/performance", middleware.RequireRoles("hod", "admin"), server.createPerformanceReview)
+		classRep.POST("/performance", requireCapability(capViewAnalytics, "hod", "admin"), server.createPerformanceReview)
 		classRep.GET("/performance", server.listPerformanceReviews)
 	}
 
 	// ── Lecturer Management ──
 	lecturers := api.Group("/lecturers")
 	{
-		lecturers.GET("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listLecturers)
-		lecturers.GET("/attendance/pending", middleware.RequireRoles("lecturer", "hod", "admin"), server.getLecturerPendingAttendanceReviews)
-		lecturers.GET("/attendance/history", middleware.RequireRoles("lecturer", "hod", "admin"), server.getLecturerAttendanceHistory)
-		lecturers.GET("/attendance/overview", middleware.RequireRoles("lecturer", "hod", "admin"), server.getLecturerCourseAttendanceOverview)
-		lecturers.GET("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin", "lecturer"), server.getLecturerProfile)
-		lecturers.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateLecturerProfile)
-		lecturers.POST("/assign-course", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.assignCourseToLecturer)
-		lecturers.GET("/:id/assignments", middleware.RequireRoles("hod", "admin", "delegated_admin", "lecturer"), server.listLecturerAssignments)
-		lecturers.DELETE("/assignments/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.removeCourseAssignment)
+		lecturers.GET("", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.listLecturers)
+		lecturers.GET("/attendance/pending", requireCapability(capManageCourses, "lecturer", "hod", "admin"), server.getLecturerPendingAttendanceReviews)
+		lecturers.GET("/attendance/history", requireCapability(capManageCourses, "lecturer", "hod", "admin"), server.getLecturerAttendanceHistory)
+		lecturers.GET("/attendance/overview", requireCapability(capManageCourses, "lecturer", "hod", "admin"), server.getLecturerCourseAttendanceOverview)
+		lecturers.GET("/:id", requireCapability(capManageUsers, "hod", "admin", "delegated_admin", "lecturer"), server.getLecturerProfile)
+		lecturers.PUT("/:id", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.updateLecturerProfile)
+		lecturers.POST("/assign-course", requireCapability(capManageCourses, "hod", "admin", "delegated_admin"), server.assignCourseToLecturer)
+		lecturers.GET("/:id/assignments", requireCapability(capManageCourses, "hod", "admin", "delegated_admin", "lecturer"), server.listLecturerAssignments)
+		lecturers.DELETE("/assignments/:id", requireCapability(capManageCourses, "hod", "admin", "delegated_admin"), server.removeCourseAssignment)
 
 		// Leave
 		lecturers.POST("/leave", middleware.RequireRoles("lecturer"), server.createLeaveRequestHandler)
 		lecturers.GET("/leave/mine", middleware.RequireRoles("lecturer"), server.listMyLeaveRequests)
-		lecturers.GET("/leave", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listAllLeaveRequests)
-		lecturers.PUT("/leave/:id/status", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateLeaveStatusHandler)
+		lecturers.GET("/leave", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.listAllLeaveRequests)
+		lecturers.PUT("/leave/:id/status", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.updateLeaveStatusHandler)
 
 		// Dashboard
 		lecturers.GET("/dashboard/stats", middleware.RequireRoles("lecturer"), server.getLecturerDashboardStats)
@@ -733,8 +736,8 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	// ── Bursar Dashboard ──
 	bursar := api.Group("/bursar")
 	{
-		bursar.GET("/dashboard", middleware.RequireRoles("bursar_class", "bursar_dept", "hod", "delegated_admin"), server.getBursarDashboardStats)
-		bursar.POST("/record-payment", middleware.RequireRoles("bursar_class", "bursar_dept", "hod", "delegated_admin"), server.recordManualPayment)
+		bursar.GET("/dashboard", requireCapability(capManageFinance, "bursar_class", "bursar_dept", "hod", "delegated_admin"), server.getBursarDashboardStats)
+		bursar.POST("/record-payment", requireCapability(capManageFinance, "bursar_class", "bursar_dept", "hod", "delegated_admin"), server.recordManualPayment)
 	}
 
 	// ── AI Integration ──
@@ -753,16 +756,16 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	predictions := api.Group("/predictions")
 	{
 		predictions.GET("/gpa", middleware.RequireRoles("student"), server.getStudentGPAPrediction)
-		predictions.GET("/at-risk", middleware.RequireRoles("hod", "delegated_admin", "admin", "class_rep"), server.getAtRiskStudents)
-		predictions.GET("/revenue", middleware.RequireRoles("hod", "delegated_admin", "admin", "bursar_class", "bursar_dept"), server.getRevenueForecast)
-		predictions.GET("/grade-distribution", middleware.RequireRoles("hod", "delegated_admin", "admin", "lecturer"), server.getGradeDistribution)
-		predictions.GET("/pass-rate/:id", middleware.RequireRoles("hod", "delegated_admin", "admin", "lecturer"), server.getCoursePassRate)
-		predictions.POST("/store", middleware.RequireRoles("hod", "delegated_admin", "admin"), server.storeAIPrediction)
+		predictions.GET("/at-risk", requireCapability(capViewAnalytics, "hod", "delegated_admin", "admin", "class_rep"), server.getAtRiskStudents)
+		predictions.GET("/revenue", requireCapability(capManageFinance, "hod", "delegated_admin", "admin", "bursar_class", "bursar_dept"), server.getRevenueForecast)
+		predictions.GET("/grade-distribution", requireCapability(capViewAnalytics, "hod", "delegated_admin", "admin", "lecturer"), server.getGradeDistribution)
+		predictions.GET("/pass-rate/:id", requireCapability(capViewAnalytics, "hod", "delegated_admin", "admin", "lecturer"), server.getCoursePassRate)
+		predictions.POST("/store", requireCapability(capViewAnalytics, "hod", "delegated_admin", "admin"), server.storeAIPrediction)
 	}
 
 	// ── Exportable Reports ──
 	reports := api.Group("/reports")
-	reports.Use(middleware.RequireRoles("hod", "delegated_admin", "admin"))
+	reports.Use(requireCapability(capViewAnalytics, "hod", "delegated_admin", "admin"))
 	{
 		reports.POST("", server.generateReport)
 		reports.GET("", server.listReports)
@@ -774,7 +777,7 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	// document-signing utility, unrelated to the course-registration data
 	// elsewhere in the app.
 	crfSignatures := api.Group("/crf-signatures")
-	crfSignatures.Use(middleware.RequireRoles("hod", "delegated_admin", "admin"))
+	crfSignatures.Use(requireCapability(capManageCourseForms, "hod", "delegated_admin", "admin"))
 	{
 		crfSignatures.POST("/:kind", server.uploadCRFSignatureAsset)
 		crfSignatures.DELETE("/:kind", server.deleteCRFSignatureAsset)
@@ -790,7 +793,7 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		crfSigning.GET("/mine", server.getMyCRFSubmission)
 		crfSigning.GET("/drafts", server.listMyCRFDrafts)
 		crfSigning.GET("/history", server.listMyCRFHistory)
-		crfSigning.GET("/all", middleware.RequireRoles("hod", "delegated_admin", "admin"), server.listAllCRFHistory)
+		crfSigning.GET("/all", requireCapability(capManageCourseForms, "hod", "delegated_admin", "admin"), server.listAllCRFHistory)
 		crfSigning.PUT("/:id/placements", server.saveCRFPlacements)
 		crfSigning.POST("/:id/preview", server.previewCRFSubmission)
 		crfSigning.POST("/:id/approve", server.approveCRF)
@@ -803,7 +806,7 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	crfBacklog := api.Group("/crf-backlog")
 	{
 		crfBacklog.GET("/price", server.getCRFBacklogPrice)
-		crfBacklog.PUT("/price", middleware.RequireRoles("hod", "delegated_admin", "admin"), server.updateCRFBacklogPrice)
+		crfBacklog.PUT("/price", requireCapability(capManageFinance, "hod", "delegated_admin", "admin"), server.updateCRFBacklogPrice)
 		crfBacklog.POST("/request", middleware.RequireRoles("student"), server.createCRFBacklogRequest)
 		crfBacklog.GET("/mine", middleware.RequireRoles("student"), server.getMyCRFBacklogStatus)
 		crfBacklog.POST("/upload", middleware.RequireRoles("student"), server.submitCRFBacklogForm)
@@ -814,12 +817,12 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	graduation := api.Group("/graduation")
 	{
 		graduation.GET("/fee", server.getGraduationFee)
-		graduation.PUT("/fee", middleware.RequireRoles("hod", "delegated_admin", "admin"), server.updateGraduationFee)
+		graduation.PUT("/fee", requireCapability(capManageFinance, "hod", "delegated_admin", "admin"), server.updateGraduationFee)
 		graduation.POST("/request", middleware.RequireRoles("student"), server.createGraduationRequest)
 		graduation.GET("/mine", middleware.RequireRoles("student"), server.getMyGraduationStatus)
-		graduation.GET("/requests", middleware.RequireRoles("hod", "delegated_admin", "admin"), server.listGraduationRequests)
-		graduation.POST("/requests", middleware.RequireRoles("hod", "delegated_admin", "admin"), server.createWaivedGraduationRequest)
-		graduation.POST("/requests/:id/clear", middleware.RequireRoles("hod", "delegated_admin", "admin"), server.clearGraduationRequest)
+		graduation.GET("/requests", requireCapability(capManageFinance, "hod", "delegated_admin", "admin"), server.listGraduationRequests)
+		graduation.POST("/requests", requireCapability(capManageFinance, "hod", "delegated_admin", "admin"), server.createWaivedGraduationRequest)
+		graduation.POST("/requests/:id/clear", requireCapability(capManageFinance, "hod", "delegated_admin", "admin"), server.clearGraduationRequest)
 	}
 
 	// ── Security: Sessions ──
@@ -845,11 +848,11 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	// ── Class Notice Board ──
 	notices := api.Group("/class-notices")
 	{
-		notices.POST("", middleware.RequireRoles("class_rep", "hod", "admin"), server.createClassNotice)
+		notices.POST("", requireCapability(capManageAnnouncements, "class_rep", "hod", "admin"), server.createClassNotice)
 		notices.GET("", server.listClassNotices)
 		notices.GET("/:id", server.getClassNotice)
-		notices.PUT("/:id", middleware.RequireRoles("class_rep", "hod", "admin"), server.updateClassNotice)
-		notices.DELETE("/:id", middleware.RequireRoles("class_rep", "hod", "admin"), server.deleteClassNotice)
+		notices.PUT("/:id", requireCapability(capManageAnnouncements, "class_rep", "hod", "admin"), server.updateClassNotice)
+		notices.DELETE("/:id", requireCapability(capManageAnnouncements, "class_rep", "hod", "admin"), server.deleteClassNotice)
 		notices.POST("/:id/comments", server.createNoticeComment)
 		notices.GET("/:id/comments", server.listNoticeComments)
 	}
@@ -857,33 +860,33 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	// ── Departmental Calendar ──
 	calendar := api.Group("/calendar")
 	{
-		calendar.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createDepartmentalEvent)
+		calendar.POST("", requireCapability(capManageSettings, "hod", "admin", "delegated_admin"), server.createDepartmentalEvent)
 		calendar.GET("", server.listDepartmentalEvents)
 		calendar.GET("/:id/ics", server.downloadDepartmentalEventICS)
 		calendar.GET("/:id", server.getDepartmentalEvent)
-		calendar.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateDepartmentalEvent)
-		calendar.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteDepartmentalEvent)
+		calendar.PUT("/:id", requireCapability(capManageSettings, "hod", "admin", "delegated_admin"), server.updateDepartmentalEvent)
+		calendar.DELETE("/:id", requireCapability(capManageSettings, "hod", "admin", "delegated_admin"), server.deleteDepartmentalEvent)
 	}
 
 	// ── Expenses ──
 	expenses := api.Group("/expenses")
 	{
-		expenses.POST("", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.createExpense)
-		expenses.GET("", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.listExpenses)
-		expenses.GET("/summary", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.getExpenseSummary)
-		expenses.GET("/by-category", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.getExpensesByCategory)
-		expenses.GET("/:id", middleware.RequireRoles("hod", "admin", "bursar_dept", "delegated_admin"), server.getExpense)
-		expenses.PUT("/:id/status", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateExpenseStatus)
+		expenses.POST("", requireCapability(capManageFinance, "hod", "admin", "bursar_dept", "delegated_admin"), server.createExpense)
+		expenses.GET("", requireCapability(capManageFinance, "hod", "admin", "bursar_dept", "delegated_admin"), server.listExpenses)
+		expenses.GET("/summary", requireCapability(capManageFinance, "hod", "admin", "bursar_dept", "delegated_admin"), server.getExpenseSummary)
+		expenses.GET("/by-category", requireCapability(capManageFinance, "hod", "admin", "bursar_dept", "delegated_admin"), server.getExpensesByCategory)
+		expenses.GET("/:id", requireCapability(capManageFinance, "hod", "admin", "bursar_dept", "delegated_admin"), server.getExpense)
+		expenses.PUT("/:id/status", requireCapability(capManageFinance, "hod", "admin", "delegated_admin"), server.updateExpenseStatus)
 	}
 
 	// ── In-App Feedback ──
 	feedback := api.Group("/feedback")
 	{
 		feedback.POST("", server.createFeedback)
-		feedback.GET("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listFeedback)
+		feedback.GET("", requireCapability(capManageComplaints, "hod", "admin", "delegated_admin"), server.listFeedback)
 		feedback.GET("/my", server.listMyFeedback)
-		feedback.GET("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getFeedback)
-		feedback.PUT("/:id/status", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateFeedbackStatus)
+		feedback.GET("/:id", requireCapability(capManageComplaints, "hod", "admin", "delegated_admin"), server.getFeedback)
+		feedback.PUT("/:id/status", requireCapability(capManageComplaints, "hod", "admin", "delegated_admin"), server.updateFeedbackStatus)
 	}
 
 	// ── Help Center ──
@@ -893,20 +896,20 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		help.GET("/search", server.searchHelpArticles)
 		help.GET("/:id", server.getHelpArticle)
 		help.POST("/:id/helpful", server.markHelpArticleHelpful)
-		help.POST("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createHelpArticle)
-		help.PUT("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateHelpArticle)
-		help.DELETE("/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteHelpArticle)
+		help.POST("", requireCapability(capManageAnnouncements, "hod", "admin", "delegated_admin"), server.createHelpArticle)
+		help.PUT("/:id", requireCapability(capManageAnnouncements, "hod", "admin", "delegated_admin"), server.updateHelpArticle)
+		help.DELETE("/:id", requireCapability(capManageAnnouncements, "hod", "admin", "delegated_admin"), server.deleteHelpArticle)
 	}
 
 	// ── Feature Flags ──
 	featureFlags := api.Group("/feature-flags")
 	{
-		featureFlags.GET("", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listFeatureFlags)
-		featureFlags.POST("", middleware.RequireRoles("hod", "admin"), server.createFeatureFlag)
-		featureFlags.GET("/:name", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getFeatureFlag)
-		featureFlags.PUT("/:name", middleware.RequireRoles("hod", "admin"), server.updateFeatureFlag)
-		featureFlags.PATCH("/:name/toggle", middleware.RequireRoles("hod", "admin"), server.toggleFeatureFlag)
-		featureFlags.DELETE("/:name", middleware.RequireRoles("hod", "admin"), server.deleteFeatureFlag)
+		featureFlags.GET("", requireCapability(capManageSettings, "hod", "admin", "delegated_admin"), server.listFeatureFlags)
+		featureFlags.POST("", requireCapability(capManageSettings, "hod", "admin"), server.createFeatureFlag)
+		featureFlags.GET("/:name", requireCapability(capManageSettings, "hod", "admin", "delegated_admin"), server.getFeatureFlag)
+		featureFlags.PUT("/:name", requireCapability(capManageSettings, "hod", "admin"), server.updateFeatureFlag)
+		featureFlags.PATCH("/:name/toggle", requireCapability(capManageSettings, "hod", "admin"), server.toggleFeatureFlag)
+		featureFlags.DELETE("/:name", requireCapability(capManageSettings, "hod", "admin"), server.deleteFeatureFlag)
 	}
 
 	// ── GPA Calculator Scenarios ──
@@ -956,15 +959,15 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 
 	// ── Campus Connect V2: Moderation ──
 	api.POST("/reports/campus", server.createCampusReport)
-	api.GET("/reports/campus", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listCampusReports)
-	api.PUT("/reports/campus/:id/status", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateCampusReportStatus)
-	api.POST("/strikes", middleware.RequireRoles("hod", "admin"), server.createConnectionStrikeHandler)
+	api.GET("/reports/campus", requireCapability(capManageComplaints, "hod", "admin", "delegated_admin"), server.listCampusReports)
+	api.PUT("/reports/campus/:id/status", requireCapability(capManageComplaints, "hod", "admin", "delegated_admin"), server.updateCampusReportStatus)
+	api.POST("/strikes", requireCapability(capManageComplaints, "hod", "admin"), server.createConnectionStrikeHandler)
 
 	api.DELETE("/comments/:id", server.deletePostComment)
 
 	// ── Verification & Onboarding V2 ──
 	verification := api.Group("/verification")
-	verification.Use(middleware.RequireRoles("hod", "admin", "delegated_admin"))
+	verification.Use(requireCapability(capManageUsers, "hod", "admin", "delegated_admin"))
 	{
 		verification.POST("/bulk-upload", server.bulkUploadVerificationRecords)
 		verification.GET("/records", server.listVerificationRecords)
@@ -975,39 +978,39 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	// ── Student Onboarding V2 ──
 	api.POST("/onboarding", server.createStudentOnboarding)
 	api.GET("/onboarding/status", server.getStudentOnboarding)
-	api.GET("/onboarding/admin/list", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listStudentOnboardings)
-	api.GET("/onboarding/admin/counts", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.countStudentOnboardingsByStatus)
-	api.PUT("/onboarding/:id/status", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateStudentOnboardingStatus)
-	api.POST("/onboarding/bulk-approve", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.bulkApproveStudentOnboardings)
+	api.GET("/onboarding/admin/list", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.listStudentOnboardings)
+	api.GET("/onboarding/admin/counts", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.countStudentOnboardingsByStatus)
+	api.PUT("/onboarding/:id/status", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.updateStudentOnboardingStatus)
+	api.POST("/onboarding/bulk-approve", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.bulkApproveStudentOnboardings)
 
 	// ── Enhanced Announcements V2 ──
 	announcementsV2 := api.Group("/announcements")
 	{
 		announcementsV2.GET("/feed", server.listStudentAnnouncements)
 		announcementsV2.GET("/search", server.searchStudentAnnouncements)
-		announcementsV2.GET("/templates", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listAnnouncementTemplatesHandler)
-		announcementsV2.POST("/templates", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.createAnnouncementTemplateHandler)
+		announcementsV2.GET("/templates", requireCapability(capManageAnnouncements, "hod", "admin", "delegated_admin"), server.listAnnouncementTemplatesHandler)
+		announcementsV2.POST("/templates", requireCapability(capManageAnnouncements, "hod", "admin", "delegated_admin"), server.createAnnouncementTemplateHandler)
 	}
 	adminAnn := api.Group("/announcements")
-	adminAnn.Use(middleware.RequireRoles("hod", "admin", "delegated_admin"))
+	adminAnn.Use(requireCapability(capManageAnnouncements, "hod", "admin", "delegated_admin"))
 	{
 		adminAnn.POST("", server.createAnnouncementV2)
 		adminAnn.GET("/admin", server.listAdminAnnouncements)
 		adminAnn.GET("/stats", server.getAnnouncementStats)
 	}
 	api.GET("/announcements/:id", server.getAnnouncementV2)
-	api.PUT("/announcements/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.updateAnnouncementV2)
-	api.DELETE("/announcements/:id", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.deleteAnnouncementV2)
-	api.POST("/announcements/:id/publish", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.publishAnnouncement)
-	api.POST("/announcements/:id/archive", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.archiveAnnouncement)
+	api.PUT("/announcements/:id", requireCapability(capManageAnnouncements, "hod", "admin", "delegated_admin"), server.updateAnnouncementV2)
+	api.DELETE("/announcements/:id", requireCapability(capManageAnnouncements, "hod", "admin", "delegated_admin"), server.deleteAnnouncementV2)
+	api.POST("/announcements/:id/publish", requireCapability(capManageAnnouncements, "hod", "admin", "delegated_admin"), server.publishAnnouncement)
+	api.POST("/announcements/:id/archive", requireCapability(capManageAnnouncements, "hod", "admin", "delegated_admin"), server.archiveAnnouncement)
 
 	// ── Announcement Read Receipts ──
 	api.POST("/announcements/:id/read", server.markAnnouncementRead)
 	api.POST("/announcements/:id/acknowledge", server.acknowledgeAnnouncement)
 	api.GET("/announcements/:id/read-status", server.getAnnouncementReadStatus)
-	api.GET("/announcements/:id/receipts", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listAnnouncementReceipts)
-	api.GET("/announcements/:id/unacknowledged", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.listUnacknowledgedStudentsHandler)
-	api.GET("/announcements/:id/receipt-stats", middleware.RequireRoles("hod", "admin", "delegated_admin"), server.getReceiptStats)
+	api.GET("/announcements/:id/receipts", requireCapability(capManageAnnouncements, "hod", "admin", "delegated_admin"), server.listAnnouncementReceipts)
+	api.GET("/announcements/:id/unacknowledged", requireCapability(capManageAnnouncements, "hod", "admin", "delegated_admin"), server.listUnacknowledgedStudentsHandler)
+	api.GET("/announcements/:id/receipt-stats", requireCapability(capManageAnnouncements, "hod", "admin", "delegated_admin"), server.getReceiptStats)
 
 	// ── Announcement Comments ──
 	api.POST("/announcements/:id/comments", server.createAnnouncementCommentHandler)

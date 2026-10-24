@@ -554,7 +554,7 @@ func (server *Server) getCRFOriginal(ctx *gin.Context) {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "submission not found"})
 		return
 	}
-	if submission.UserID != userID && !isStaffRole(ctx) {
+	if submission.UserID != userID && !isStaffRole(ctx, capManageCourseForms) {
 		ctx.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		return
 	}
@@ -589,7 +589,7 @@ func (server *Server) downloadCRFSubmission(ctx *gin.Context) {
 		return
 	}
 
-	if submission.UserID != getUserID(ctx) && !isStaffRole(ctx) {
+	if submission.UserID != getUserID(ctx) && !isStaffRole(ctx, capManageCourseForms) {
 		ctx.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		return
 	}

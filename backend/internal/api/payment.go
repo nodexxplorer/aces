@@ -136,7 +136,7 @@ type checkDuePaidQuery struct {
 // "trust it, this must be staff looking up someone else" — fixes that
 // without touching role-checking at all.
 func (server *Server) resolveStudentIDForPaymentRead(ctx *gin.Context, pathParam string) (uuid.UUID, error) {
-	if !isStaffRole(ctx) {
+	if !isStaffRole(ctx, capManageFinance) {
 		return server.getStudentIDFromUser(ctx)
 	}
 	if parsed, err := uuid.Parse(pathParam); err == nil && parsed == getUserID(ctx) {
@@ -145,17 +145,10 @@ func (server *Server) resolveStudentIDForPaymentRead(ctx *gin.Context, pathParam
 	return uuid.Parse(pathParam)
 }
 
-// isStaffRole checks if the caller holds a staff/admin role.
-func isStaffRole(ctx *gin.Context) bool {
-	claimsVal, exists := ctx.Get("claims")
-	if !exists {
-		return false
-	}
-	claims, ok := claimsVal.(*auth.Claims)
-	if !ok {
-		return false
-	}
-	return claims.HasAnyRole([]string{"hod", "admin", "delegated_admin", "bursar_dept", "bursar_class"})
+// isStaffRole reports whether the caller holds a staff role for the area c. Bursars
+// and the HOD act directly. A delegated admin needs a grant for c.
+func isStaffRole(ctx *gin.Context, c AdminCapability) bool {
+	return staffAccess(ctx, c, "hod", "admin", "delegated_admin", "bursar_dept", "bursar_class")
 }
 
 // ─── Dues Handlers ────────────────────────────────────────────────────────────
@@ -468,7 +461,7 @@ func (server *Server) removeFromCart(ctx *gin.Context) {
 	}
 
 	// Students can only remove items from their own cart.
-	if !isStaffRole(ctx) {
+	if !isStaffRole(ctx, capManageFinance) {
 		studentID, err := server.getStudentIDFromUser(ctx)
 		if err != nil {
 			ctx.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
@@ -577,7 +570,7 @@ func (server *Server) getPaymentBatch(ctx *gin.Context) {
 		return
 	}
 
-	if !isStaffRole(ctx) {
+	if !isStaffRole(ctx, capManageFinance) {
 		studentID, err := server.getStudentIDFromUser(ctx)
 		if err != nil || batch.StudentID != studentID {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "payment batch not found"})
@@ -679,7 +672,7 @@ func (server *Server) listBatchPayments(ctx *gin.Context) {
 		return
 	}
 
-	if !isStaffRole(ctx) {
+	if !isStaffRole(ctx, capManageFinance) {
 		batch, err := server.store.GetPaymentBatch(ctx, id)
 		if err != nil {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "payment batch not found"})
@@ -778,7 +771,7 @@ func (server *Server) getPayment(ctx *gin.Context) {
 		return
 	}
 
-	if !isStaffRole(ctx) {
+	if !isStaffRole(ctx, capManageFinance) {
 		studentID, err := server.getStudentIDFromUser(ctx)
 		if err != nil || payment.StudentID != studentID {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "payment not found"})
@@ -993,7 +986,7 @@ func (server *Server) checkDuePaid(ctx *gin.Context) {
 	// For students always resolve from JWT — ignore any supplied student_id.
 	// Staff may optionally pass a student_id to check on behalf of a student.
 	var studentID uuid.UUID
-	if isStaffRole(ctx) && q.StudentID != "" {
+	if isStaffRole(ctx, capManageFinance) && q.StudentID != "" {
 		studentID, err = uuid.Parse(q.StudentID)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid student_id"})
@@ -1059,7 +1052,7 @@ func (server *Server) initializeCheckout(ctx *gin.Context) {
 	}
 
 	// Ownership check: students can only check out their own payments.
-	if !isStaffRole(ctx) {
+	if !isStaffRole(ctx, capManageFinance) {
 		ownStudentID, err := server.getStudentIDFromUser(ctx)
 		if err != nil || ownStudentID != paymentRecord.StudentID {
 			ctx.JSON(http.StatusForbidden, gin.H{"error": "not authorized to check out this payment"})
@@ -1301,7 +1294,7 @@ func (server *Server) getMyPaymentByReference(ctx *gin.Context) {
 	}
 
 	// Students can only view their own payments.
-	if !isStaffRole(ctx) {
+	if !isStaffRole(ctx, capManageFinance) {
 		studentID, err := server.getStudentIDFromUser(ctx)
 		if err != nil || payment.StudentID != studentID {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "payment not found for this reference"})

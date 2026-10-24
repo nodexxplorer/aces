@@ -611,6 +611,7 @@ type Querier interface {
 	// ==================== CAMPUS PROFILES ====================
 	UpsertCampusProfile(ctx context.Context, arg UpsertCampusProfileParams) (CampusProfile, error)
 	UsePasswordReset(ctx context.Context, id uuid.UUID) error
+	UserHoldsAdminRole(ctx context.Context, id uuid.UUID) (bool, error)
 	VerifyAlumni(ctx context.Context, arg VerifyAlumniParams) (AlumniStatus, error)
 	VerifyPayment(ctx context.Context, arg VerifyPaymentParams) (Payment, error)
 	VerifyStudentDocument(ctx context.Context, arg VerifyStudentDocumentParams) (StudentDocument, error)

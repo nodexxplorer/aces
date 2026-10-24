@@ -81,7 +81,7 @@ func (server *Server) getCourseRegistration(ctx *gin.Context) {
 		return
 	}
 
-	if !requireOwnershipOrStaff(ctx, server.store, registration.StudentID) {
+	if !requireOwnershipOrStaff(ctx, server.store, registration.StudentID, capManageCourses) {
 		return
 	}
 
@@ -113,8 +113,8 @@ func (server *Server) listStudentCourseRegistrations(ctx *gin.Context) {
 		return
 	}
 
-	if !isStaffCaller(ctx) {
-		callerStudentID, ok := requireOwnershipOrStaffByStudentIDParam(ctx, server.store)
+	if !isStaffCaller(ctx, capManageCourses) {
+		callerStudentID, ok := requireOwnershipOrStaffByStudentIDParam(ctx, server.store, capManageCourses)
 		if !ok {
 			return
 		}
@@ -148,7 +148,7 @@ func (server *Server) updateCourseRegistration(ctx *gin.Context) {
 		return
 	}
 
-	if !isStaffCaller(ctx) {
+	if !isStaffCaller(ctx, capManageCourses) {
 		existing, gerr := server.store.GetCourseRegistration(ctx, id)
 		if gerr != nil {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "course registration not found"})
@@ -315,7 +315,7 @@ func (server *Server) listRegisteredCourses(ctx *gin.Context) {
 		return
 	}
 
-	if !requireOwnershipOrStaff(ctx, server.store, registration.StudentID) {
+	if !requireOwnershipOrStaff(ctx, server.store, registration.StudentID, capManageCourses) {
 		return
 	}
 

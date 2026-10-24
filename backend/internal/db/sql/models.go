@@ -2176,6 +2176,10 @@ type AdminPermission struct {
 	ExpiresAt              pgtype.Timestamptz `json:"expires_at"`
 	IsActive               bool               `json:"is_active"`
 	TenantID               uuid.UUID          `json:"tenant_id"`
+	CanManageComplaints    bool               `json:"can_manage_complaints"`
+	CanManageAlumni        bool               `json:"can_manage_alumni"`
+	CanManageCourseForms   bool               `json:"can_manage_course_forms"`
+	CanManageSettings      bool               `json:"can_manage_settings"`
 }
 
 type AiInteraction struct {

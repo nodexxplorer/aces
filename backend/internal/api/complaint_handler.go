@@ -86,7 +86,7 @@ func (server *Server) getComplaint(ctx *gin.Context) {
 		return
 	}
 
-	if !requireOwnershipOrStaff(ctx, server.store, complaint.StudentID) {
+	if !requireOwnershipOrStaff(ctx, server.store, complaint.StudentID, capManageComplaints) {
 		return
 	}
 
@@ -232,7 +232,7 @@ func (server *Server) listComplaintHistory(ctx *gin.Context) {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "complaint not found"})
 		return
 	}
-	if !requireOwnershipOrStaff(ctx, server.store, complaint.StudentID) {
+	if !requireOwnershipOrStaff(ctx, server.store, complaint.StudentID, capManageComplaints) {
 		return
 	}
 

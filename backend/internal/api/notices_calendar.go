@@ -194,7 +194,7 @@ func (server *Server) updateClassNotice(ctx *gin.Context) {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "notice not found"})
 		return
 	}
-	if !isStaffRole(ctx) && existing.ClassRepID != userID {
+	if !isStaffRole(ctx, capManageAnnouncements) && existing.ClassRepID != userID {
 		ctx.JSON(http.StatusForbidden, gin.H{"error": "you do not own this notice"})
 		return
 	}
@@ -268,7 +268,7 @@ func (server *Server) deleteClassNotice(ctx *gin.Context) {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "notice not found"})
 		return
 	}
-	if !isStaffRole(ctx) && existing.ClassRepID != userID {
+	if !isStaffRole(ctx, capManageAnnouncements) && existing.ClassRepID != userID {
 		ctx.JSON(http.StatusForbidden, gin.H{"error": "you do not own this notice"})
 		return
 	}
