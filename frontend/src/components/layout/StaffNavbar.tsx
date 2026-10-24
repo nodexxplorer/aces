@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { tenantPath } from '../../config/departmentAdminPaths';
 import { useDarkMode } from '../../hooks/useDarkMode';
 import { useRBAC } from '../../hooks/useRBAC';
 import { useSearch } from '../../hooks/useSearch';
@@ -29,6 +30,7 @@ interface StaffNavbarProps {
 export default function StaffNavbar({ onMenuClick }: StaffNavbarProps) {
   const navigate = useNavigate();
   const { user, logout, switchRole } = useAuth();
+  const urlCode = user?.tenant?.urlCode;
   const { setQuery } = useSearch();
   const department = useCurrentDepartment();
   const { mode, setMode, toggle, isDark } = useDarkMode();
@@ -44,7 +46,7 @@ export default function StaffNavbar({ onMenuClick }: StaffNavbarProps) {
   const handleSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && searchValue.trim()) {
       setQuery(searchValue.trim());
-      navigate(`/l/class-list?search=${encodeURIComponent(searchValue.trim())}`);
+      navigate(`${tenantPath(urlCode, '/l/class-list')}?search=${encodeURIComponent(searchValue.trim())}`);
     }
   };
 
@@ -216,7 +218,7 @@ export default function StaffNavbar({ onMenuClick }: StaffNavbarProps) {
               {/* Staff Menu Links */}
               <div className="px-2 py-2 space-y-0.5 border-b border-surface-100 dark:border-surface-800">
                 <Link
-                  to="/l/dashboard"
+                  to={tenantPath(urlCode, '/l/dashboard')}
                   onClick={() => setProfileOpen(false)}
                   className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
                 >
@@ -225,7 +227,7 @@ export default function StaffNavbar({ onMenuClick }: StaffNavbarProps) {
                 </Link>
 
                 <Link
-                  to="/l/class-list"
+                  to={tenantPath(urlCode, '/l/class-list')}
                   onClick={() => setProfileOpen(false)}
                   className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
                 >
@@ -234,7 +236,7 @@ export default function StaffNavbar({ onMenuClick }: StaffNavbarProps) {
                 </Link>
 
                 <Link
-                  to="/l/scores"
+                  to={tenantPath(urlCode, '/l/scores')}
                   onClick={() => setProfileOpen(false)}
                   className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
                 >
@@ -243,7 +245,7 @@ export default function StaffNavbar({ onMenuClick }: StaffNavbarProps) {
                 </Link>
 
                 <Link
-                  to="/l/materials"
+                  to={tenantPath(urlCode, '/l/materials')}
                   onClick={() => setProfileOpen(false)}
                   className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
                 >
@@ -252,7 +254,7 @@ export default function StaffNavbar({ onMenuClick }: StaffNavbarProps) {
                 </Link>
 
                 <Link
-                  to="/l/profile"
+                  to={tenantPath(urlCode, '/l/profile')}
                   onClick={() => setProfileOpen(false)}
                   className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
                 >
