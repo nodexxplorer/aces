@@ -44,7 +44,7 @@ export default function StaffNavbar({ onMenuClick }: StaffNavbarProps) {
   const handleSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && searchValue.trim()) {
       setQuery(searchValue.trim());
-      navigate(`/lecturer/class-list?search=${encodeURIComponent(searchValue.trim())}`);
+      navigate(`/l/class-list?search=${encodeURIComponent(searchValue.trim())}`);
     }
   };
 
@@ -216,7 +216,7 @@ export default function StaffNavbar({ onMenuClick }: StaffNavbarProps) {
               {/* Staff Menu Links */}
               <div className="px-2 py-2 space-y-0.5 border-b border-surface-100 dark:border-surface-800">
                 <Link
-                  to="/lecturer"
+                  to="/l/dashboard"
                   onClick={() => setProfileOpen(false)}
                   className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
                 >
@@ -225,7 +225,7 @@ export default function StaffNavbar({ onMenuClick }: StaffNavbarProps) {
                 </Link>
 
                 <Link
-                  to="/lecturer/class-list"
+                  to="/l/class-list"
                   onClick={() => setProfileOpen(false)}
                   className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
                 >
@@ -234,7 +234,7 @@ export default function StaffNavbar({ onMenuClick }: StaffNavbarProps) {
                 </Link>
 
                 <Link
-                  to="/lecturer/scores"
+                  to="/l/scores"
                   onClick={() => setProfileOpen(false)}
                   className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
                 >
@@ -243,7 +243,7 @@ export default function StaffNavbar({ onMenuClick }: StaffNavbarProps) {
                 </Link>
 
                 <Link
-                  to="/lecturer/materials"
+                  to="/l/materials"
                   onClick={() => setProfileOpen(false)}
                   className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
                 >

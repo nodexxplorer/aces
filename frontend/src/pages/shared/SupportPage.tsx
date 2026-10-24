@@ -405,7 +405,7 @@ function HelpCenterTab() {
   ];
 
   const handleFileTicket = () => {
-    navigate('/complaints?new=true');
+    navigate('/i/complaints?new=true');
   };
 
   const handleAskAssistant = () => {
@@ -1591,7 +1591,7 @@ function MyFeedbackTab({ onBrowseHelpCenter }: FeedbackTabProps) {
             </p>
 
             <button
-              onClick={() => navigate('/complaints?new=true')}
+              onClick={() => navigate('/i/complaints?new=true')}
               className="w-full mt-2 py-2.5 px-4 rounded-xl border border-surface-200 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800 text-surface-900 dark:text-surface-100 font-semibold text-xs transition-colors"
             >
               File a ticket

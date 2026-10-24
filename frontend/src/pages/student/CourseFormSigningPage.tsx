@@ -1281,7 +1281,7 @@ export default function CourseFormSigningPage() {
                 {/* Action Buttons */}
                 <div className="flex items-center gap-3 pt-1">
                   <Link
-                    to="/payments"
+                    to="/i/payments"
                     className="px-5 py-2.5 rounded-xl bg-[#1d68ec] hover:bg-[#1554c2] text-white text-xs font-bold inline-flex items-center gap-2 shadow-sm transition-all"
                   >
                     <CreditCard className="w-4 h-4" />
@@ -1289,7 +1289,7 @@ export default function CourseFormSigningPage() {
                   </Link>
 
                   <Link
-                    to="/payments?tab=cart"
+                    to="/i/payments?tab=cart"
                     className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-[#2b2e3c] bg-white dark:bg-[#161820] hover:bg-slate-50 dark:hover:bg-[#1c1f28] text-xs font-bold text-[var(--text)] inline-flex items-center gap-2 transition-all shadow-sm"
                   >
                     <span>View in Payments</span>

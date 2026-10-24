@@ -7,6 +7,7 @@ import {
   departmentAdminPath,
   departmentDashboardPath,
   departmentProfilePath,
+  tenantPath,
 } from './config/departmentAdminPaths';
 import type { UserRole } from './types';
 
@@ -305,6 +306,91 @@ const toDepartmentRoute = (page: { path: string; element: ReactNode }) =>
     ? { index: true, element: page.element }
     : { path: page.path.slice('/admin/'.length), element: page.element };
 
+/**
+ * Guards a role area (/:code/i, /:code/l, /:code/rep, /:code/bu). A signed-out
+ * visitor goes to sign-in. A signed-in person on another department's address
+ * is sent to the same page under their own short name.
+ */
+const RoleGate = ({ segment }: { segment: string }) => {
+  const { code = '' } = useParams();
+  const { pathname, search } = useLocation();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const hasHydrated = useAuthStore((s) => s._hasHydrated);
+  const urlCode = useAuthStore((s) => s.user?.tenant?.urlCode);
+
+  if (!hasHydrated) return <PageLoader />;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!urlCode) return <Navigate to="/forbidden" replace />;
+  if (urlCode !== code) {
+    const rest = pathname.slice(`/${code}/${segment}`.length);
+    return <Navigate to={`/${urlCode}/${segment}${rest}${search}`} replace />;
+  }
+  return <Outlet />;
+};
+
+/** Sends a page inside a role area to another page in the same area, e.g. /co/i/payments/history to /co/i/payments. */
+const RoleRedirect = ({ segment, to }: { segment: string; to: string }) => {
+  const { code = '' } = useParams();
+  return <Navigate to={`/${code}/${segment}${to}`} replace />;
+};
+
+/**
+ * An old address outside the role areas (/payments, /class-rep/pending,
+ * /bursar/dues). It moves to the same page under the signed-in person's short
+ * name and role segment, so no old address stays in the browser.
+ */
+const LegacyRedirect = ({ from, to }: { from: string; to: string }) => {
+  const { pathname, search } = useLocation();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const hasHydrated = useAuthStore((s) => s._hasHydrated);
+  const urlCode = useAuthStore((s) => s.user?.tenant?.urlCode);
+
+  if (!hasHydrated) return <PageLoader />;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!urlCode) return <Navigate to="/forbidden" replace />;
+  const rest = pathname.slice(from.length);
+  return <Navigate to={`${tenantPath(urlCode, `${to}${rest}`)}${search}`} replace />;
+};
+
+/** Old role addresses, each mapped to its new place in a role area. */
+const LEGACY_ADDRESSES: Array<[string, string]> = [
+  ['/i', '/i'],
+  ['/l', '/l'],
+  ['/rep', '/rep'],
+  ['/bu', '/bu'],
+  ['/lecturer', '/l'],
+  ['/class-rep', '/rep'],
+  ['/bursar', '/bu'],
+  ['/results', '/i/results'],
+  ['/payments', '/i/payments'],
+  ['/course-form-signing', '/i/course-form-signing'],
+  ['/courses', '/i/courses'],
+  ['/attendance', '/i/attendance'],
+  ['/student', '/i/student'],
+  ['/study-planner', '/i/study-planner'],
+  ['/gpa', '/i/gpa'],
+  ['/gpa-calculator', '/i/gpa'],
+  ['/gpa-prediction', '/i/gpa'],
+  ['/students/gpa', '/i/gpa'],
+  ['/students/communications', '/i/communication'],
+  ['/find-mentor', '/i/find-mentor'],
+  ['/help-center', '/i/help-center'],
+  ['/materials', '/i/courses'],
+  ['/complaints', '/i/complaints'],
+  ['/communication', '/i/communication'],
+  ['/announcements', '/i/communication'],
+  ['/notices', '/i/communication'],
+  ['/notice-board', '/i/notice-board'],
+  ['/scan', '/i/scan'],
+];
+
+/** Each old address and everything under it. */
+const legacyRoutes = () =>
+  LEGACY_ADDRESSES.flatMap(([from, to]) => [
+    { path: from, element: <LegacyRedirect from={from} to={to} /> },
+    { path: `${from}/*`, element: <LegacyRedirect from={from} to={to} /> },
+  ]);
+
 /** Redirects to the user's role dashboard (e.g. /co/admin/dashboard, /l/dashboard, /co/i/dashboard) */
 const DashboardRedirect = () => {
   const urlCode = useAuthStore((s) => s.user?.tenant?.urlCode);
@@ -369,6 +455,163 @@ export const router = createBrowserRouter([
       },
     ],
   },
+  // ── Role areas. Each role's pages live under the department's short name and
+  // the role's segment: /co/i (students), /co/l (lecturers), /co/rep (class
+  // reps), /co/bu (bursars). Admin is /co/admin, above.
+  {
+    path: '/:code/i',
+    element: <RoleGate segment="i" />,
+    children: [
+      {
+        element: <ProtectedRoute />,
+        children: [
+          {
+            element: <AppShell />,
+            children: [
+              {
+                element: (
+                  <RoleRoute
+                    roles={[
+                      'student',
+                      'class_rep',
+                      'dept_bursar',
+                      'class_bursar',
+                      'alumni',
+                      'project_coordinator',
+                      'event_coordinator',
+                      'alumni_rep',
+                    ]}
+                  />
+                ),
+                children: [
+                  { index: true, element: <RoleRedirect segment="i" to="/dashboard" /> },
+                  { path: 'dashboard', element: <Dashboard /> },
+                  { path: 'profile', element: <StudentProfilePage /> },
+                  { path: 'results', element: <ResultsPage /> },
+                  { path: 'results/:id', element: <ResultDetailPage /> },
+                  { path: 'payments', element: <PaymentsPage /> },
+                  { path: 'payments/history', element: <RoleRedirect segment="i" to="/payments" /> },
+                  { path: 'payments/confirmation', element: <PaymentConfirmationPage /> },
+                  { path: 'course-form-signing', element: <CourseFormSigningPage /> },
+                  { path: 'courses', element: <CoursesPage /> },
+                  { path: 'courses/register', element: <RoleRedirect segment="i" to="/courses?tab=register" /> },
+                  { path: 'materials', element: <RoleRedirect segment="i" to="/courses?tab=materials" /> },
+                  { path: 'attendance', element: <StudentAttendancePage /> },
+                  { path: 'attendance/checkin', element: <AttendanceCheckinPage /> },
+                  { path: 'student/jobs', element: <StudentJobBoardPage /> },
+                  { path: 'student/applications', element: <MyApplicationsPage /> },
+                  { path: 'study-planner', element: <StudyPlannerPage /> },
+                  { path: 'gpa', element: <GPAHubPage /> },
+                  { path: 'gpa-calculator', element: <RoleRedirect segment="i" to="/gpa" /> },
+                  { path: 'gpa-prediction', element: <RoleRedirect segment="i" to="/gpa" /> },
+                  { path: 'students/gpa', element: <RoleRedirect segment="i" to="/gpa" /> },
+                  { path: 'find-mentor', element: <FindMentorPage /> },
+                  { path: 'support', element: <SupportPage /> },
+                  { path: 'help-center', element: <SupportPage /> },
+                  { path: 'complaints', element: <ComplaintsPage /> },
+                  { path: 'communication', element: <StudentCommunicationPage /> },
+                  { path: 'students/communications', element: <RoleRedirect segment="i" to="/communication" /> },
+                  { path: 'announcements', element: <RoleRedirect segment="i" to="/communication" /> },
+                  { path: 'notices', element: <RoleRedirect segment="i" to="/communication" /> },
+                  { path: 'notice-board', element: <ClassNoticeBoardPage /> },
+                  { path: 'scan', element: <QRScanPage /> },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    path: '/:code/l',
+    element: <RoleGate segment="l" />,
+    children: [
+      {
+        element: <ProtectedRoute />,
+        children: [
+          {
+            element: <AppShell />,
+            children: [
+              {
+                element: <RoleRoute roles={['lecturer', 'hod', 'delegated_admin']} />,
+                children: [
+                  { index: true, element: <RoleRedirect segment="l" to="/dashboard" /> },
+                  { path: 'dashboard', element: <LecturerDashboard /> },
+                  { path: 'profile', element: <StaffProfilePage /> },
+                  { path: 'scores', element: <LecturerGradesPage /> },
+                  { path: 'single-entry', element: <LecturerGradesPage /> },
+                  { path: 'bulk-upload', element: <LecturerGradesPage /> },
+                  { path: 'assignments', element: <AssignmentsPage /> },
+                  { path: 'class-list', element: <LecturerClassListPage /> },
+                  { path: 'reports', element: <LecturerReportsPage /> },
+                  { path: 'attendance-review', element: <LecturerAttendanceReviewPage /> },
+                  { path: 'materials', element: <LecturerCourseMaterialsPage /> },
+                  { path: 'leave', element: <LecturerLeaveRequestsPage /> },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    path: '/:code/rep',
+    element: <RoleGate segment="rep" />,
+    children: [
+      {
+        element: <ProtectedRoute />,
+        children: [
+          {
+            element: <AppShell />,
+            children: [
+              {
+                element: <RoleRoute roles={['class_rep', 'hod', 'delegated_admin']} />,
+                children: [
+                  { index: true, element: <RoleRedirect segment="rep" to="/dashboard" /> },
+                  { path: 'dashboard', element: <ClassRepDashboard /> },
+                  { path: 'attendance', element: <AttendancePage /> },
+                  { path: 'assignments', element: <AssignmentUploadPage /> },
+                  { path: 'pending', element: <PendingRequestsPage /> },
+                  { path: 'class-list', element: <ClassRepClassListPage /> },
+                  { path: 'notify', element: <NotifyStudentsPage /> },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    path: '/:code/bu',
+    element: <RoleGate segment="bu" />,
+    children: [
+      {
+        element: <ProtectedRoute />,
+        children: [
+          {
+            element: <AppShell />,
+            children: [
+              {
+                element: <RoleRoute roles={['class_bursar', 'dept_bursar', 'hod', 'delegated_admin']} />,
+                children: [
+                  { index: true, element: <RoleRedirect segment="bu" to="/dashboard" /> },
+                  { path: 'dashboard', element: <BursarDashboard /> },
+                  { path: 'dues', element: <DuesPage /> },
+                  { path: 'verify', element: <PaymentVerificationPage /> },
+                  { path: 'defaulters', element: <DefaultersPage /> },
+                  { path: 'history', element: <PaymentHistoryPage /> },
+                  { path: 'revenue-forecast', element: <RoleRedirect segment="bu" to="/verify" /> },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
   {
     element: <ProtectedRoute />,
     children: [
@@ -393,107 +636,13 @@ export const router = createBrowserRouter([
         children: [
           { path: '/dashboard', element: <DashboardRedirect /> },
           { path: '/:code/dashboard', element: <DashboardRedirect /> },
-          { path: '/i/dashboard', element: <Dashboard /> },
-          { path: '/:code/i/dashboard', element: <Dashboard /> },
-          { path: '/i/profile', element: <StudentProfilePage /> },
-
-          {
-            element: (
-              <RoleRoute
-                roles={[
-                  'student',
-                  'class_rep',
-                  'dept_bursar',
-                  'class_bursar',
-                  'alumni',
-                  'project_coordinator',
-                  'event_coordinator',
-                  'alumni_rep',
-                ]}
-              />
-            ),
-            children: [
-              { path: '/results', element: <ResultsPage /> },
-              { path: '/results/:id', element: <ResultDetailPage /> },
-              { path: '/gpa-prediction', element: <Navigate to="/gpa" replace /> },
-              { path: '/payments', element: <PaymentsPage /> },
-              { path: '/payments/history', element: <Navigate to="/payments" replace /> },
-              { path: '/course-form-signing', element: <CourseFormSigningPage /> },
-              { path: '/payments/confirmation', element: <PaymentConfirmationPage /> },
-              { path: '/courses', element: <CoursesPage /> },
-              { path: '/courses/register', element: <Navigate to="/courses?tab=register" replace /> },
-              { path: '/attendance', element: <StudentAttendancePage /> },
-              { path: '/student/jobs', element: <StudentJobBoardPage /> },
-              { path: '/student/applications', element: <MyApplicationsPage /> },
-              { path: '/study-planner', element: <StudyPlannerPage /> },
-              { path: '/gpa-calculator', element: <Navigate to="/gpa" replace /> },
-              { path: '/gpa', element: <GPAHubPage /> },
-              { path: '/find-mentor', element: <FindMentorPage /> },
-              { path: '/support', element: <SupportPage /> },
-              { path: '/help-center', element: <SupportPage /> },
-              { path: '/materials', element: <Navigate to="/courses?tab=materials" replace /> },
-              { path: '/attendance/checkin', element: <AttendanceCheckinPage /> },
-            ],
-          },
-          // Shared routes (all roles)
-          { path: '/complaints', element: <ComplaintsPage /> },
           { path: '/profile', element: <ProfileRedirect /> },
-          { path: '/notices', element: <Navigate to="/communication" replace /> },
-          { path: '/scan', element: <QRScanPage /> },
-          { path: '/notice-board', element: <ClassNoticeBoardPage /> },
-
           { path: '/waiting', element: <WaitingDashboardPage /> },
-          { path: '/announcements', element: <Navigate to="/communication" replace /> },
-          { path: '/communication', element: <StudentCommunicationPage /> },
-          { path: '/students/communications', element: <Navigate to="/communication" replace /> },
-          { path: '/students/gpa', element: <Navigate to="/gpa" replace /> },
-
-          // Lecturer routes
-          {
-            element: <RoleRoute roles={['lecturer', 'hod', 'delegated_admin']} />,
-            children: [
-              { path: '/l/dashboard', element: <LecturerDashboard /> },
-              { path: '/l/profile', element: <StaffProfilePage /> },
-              { path: '/lecturer', element: <LecturerDashboard /> },
-              { path: '/lecturer/dashboard', element: <Navigate to="/l/dashboard" replace /> },
-              { path: '/lecturer/profile', element: <Navigate to="/l/profile" replace /> },
-              { path: '/lecturer/scores', element: <LecturerGradesPage /> },
-              { path: '/lecturer/single-entry', element: <LecturerGradesPage /> },
-              { path: '/lecturer/bulk-upload', element: <LecturerGradesPage /> },
-              { path: '/lecturer/assignments', element: <AssignmentsPage /> },
-              { path: '/lecturer/class-list', element: <LecturerClassListPage /> },
-              { path: '/lecturer/reports', element: <LecturerReportsPage /> },
-              { path: '/lecturer/attendance-review', element: <LecturerAttendanceReviewPage /> },
-              { path: '/lecturer/materials', element: <LecturerCourseMaterialsPage /> },
-              { path: '/lecturer/leave', element: <LecturerLeaveRequestsPage /> },
-            ],
-          },
-
-          // Class Rep routes
-          {
-            element: <RoleRoute roles={['class_rep', 'hod', 'delegated_admin']} />,
-            children: [
-              { path: '/class-rep', element: <ClassRepDashboard /> },
-              { path: '/class-rep/attendance', element: <AttendancePage /> },
-              { path: '/class-rep/assignments', element: <AssignmentUploadPage /> },
-              { path: '/class-rep/pending', element: <PendingRequestsPage /> },
-              { path: '/class-rep/class-list', element: <ClassRepClassListPage /> },
-              { path: '/class-rep/notify', element: <NotifyStudentsPage /> },
-            ],
-          },
-
-          // Bursar routes
-          {
-            element: <RoleRoute roles={['class_bursar', 'dept_bursar', 'hod', 'delegated_admin']} />,
-            children: [
-              { path: '/bursar', element: <BursarDashboard /> },
-              { path: '/bursar/dues', element: <DuesPage /> },
-              { path: '/bursar/verify', element: <PaymentVerificationPage /> },
-              { path: '/bursar/defaulters', element: <DefaultersPage /> },
-              { path: '/bursar/history', element: <PaymentHistoryPage /> },
-              { path: '/bursar/revenue-forecast', element: <RevenueForecastPage /> },
-            ],
-          },
+          // Help is reachable from the sign-in page, so it is not limited to a role.
+          { path: '/support', element: <SupportPage /> },
+          // Old role addresses: each one moves to the signed-in person's own
+          // department and role area.
+          ...legacyRoutes(),
 
           // Admin routes
           {

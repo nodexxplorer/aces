@@ -151,7 +151,7 @@ const ChatbotWidget = () => {
               timestamp: new Date(),
               action: {
                 label: 'Go to course form signing',
-                url: '/course-form-signing',
+                url: '/i/course-form-signing',
               },
             },
           ]);
@@ -166,7 +166,7 @@ const ChatbotWidget = () => {
               timestamp: new Date(),
               action: {
                 label: 'Pay dues now',
-                url: '/payments',
+                url: '/i/payments',
               },
             },
           ]);
@@ -188,7 +188,7 @@ const ChatbotWidget = () => {
             timestamp: new Date(),
             action: {
               label: 'Go to course registration',
-              url: '/courses',
+              url: '/i/courses',
             },
           },
         ]);
@@ -210,7 +210,7 @@ const ChatbotWidget = () => {
               timestamp: new Date(),
               action: {
                 label: 'View payments & dues',
-                url: '/payments',
+                url: '/i/payments',
               },
             },
           ]);
@@ -224,7 +224,7 @@ const ChatbotWidget = () => {
               timestamp: new Date(),
               action: {
                 label: 'Pay dues now',
-                url: '/payments',
+                url: '/i/payments',
               },
             },
           ]);
@@ -257,7 +257,7 @@ const ChatbotWidget = () => {
           timestamp: new Date(),
           action: {
             label: 'File a ticket',
-            url: '/complaints',
+            url: '/i/complaints',
           },
         },
       ]);
@@ -313,7 +313,7 @@ const ChatbotWidget = () => {
             {/* Item 2: Support */}
             <button
               onClick={() => {
-                navigate('/complaints');
+                navigate('/i/complaints');
                 setIsMenuOpen(false);
               }}
               className="w-full flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-[#1e222a] transition-colors border-b border-slate-100 dark:border-slate-800/60 text-left"

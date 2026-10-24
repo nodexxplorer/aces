@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { departmentAdminHome, departmentAdminPath, isAdminArea } from '../departmentAdminPaths';
+import {
+  departmentAdminHome,
+  departmentAdminPath,
+  departmentDashboardPath,
+  departmentProfilePath,
+  isAdminArea,
+  roleSegment,
+  tenantPath,
+} from '../departmentAdminPaths';
 
 describe('departmentAdminHome', () => {
   it('puts the admin home under the department short name', () => {
@@ -46,5 +54,42 @@ describe('isAdminArea', () => {
     expect(isAdminArea('/dashboard')).toBe(false);
     expect(isAdminArea('/administration')).toBe(false);
     expect(isAdminArea('/co')).toBe(false);
+  });
+});
+
+describe('role areas', () => {
+  it('gives each role its segment', () => {
+    expect(roleSegment('hod')).toBe('admin');
+    expect(roleSegment('admin')).toBe('admin');
+    expect(roleSegment('student')).toBe('i');
+    expect(roleSegment('lecturer')).toBe('l');
+    expect(roleSegment('class_rep')).toBe('rep');
+    expect(roleSegment('class_bursar')).toBe('bu');
+    expect(roleSegment('dept_bursar')).toBe('bu');
+  });
+
+  it('puts every role page under the short name', () => {
+    expect(tenantPath('co', '/i/payments')).toBe('/co/i/payments');
+    expect(tenantPath('co', '/l/class-list?x=1')).toBe('/co/l/class-list?x=1');
+    expect(tenantPath('co', '/rep/pending')).toBe('/co/rep/pending');
+    expect(tenantPath('co', '/bu/verify')).toBe('/co/bu/verify');
+  });
+
+  it('leaves shared pages alone', () => {
+    expect(tenantPath('co', '/notifications')).toBe('/notifications');
+    expect(tenantPath('co', '/connect')).toBe('/connect');
+    expect(tenantPath('co', '/support')).toBe('/support');
+    expect(tenantPath(undefined, '/i/payments')).toBe('/i/payments');
+  });
+
+  it('builds the dashboard and profile addresses for each role', () => {
+    expect(departmentDashboardPath('co', 'student')).toBe('/co/i/dashboard');
+    expect(departmentDashboardPath('co', 'lecturer')).toBe('/co/l/dashboard');
+    expect(departmentDashboardPath('co', 'class_rep')).toBe('/co/rep/dashboard');
+    expect(departmentDashboardPath('co', 'dept_bursar')).toBe('/co/bu/dashboard');
+    expect(departmentDashboardPath('co', 'hod')).toBe('/co/admin/dashboard');
+    expect(departmentProfilePath('co', 'lecturer')).toBe('/co/l/profile');
+    expect(departmentProfilePath('co', 'hod')).toBe('/co/admin/profile');
+    expect(departmentProfilePath('co', 'student')).toBe('/co/i/profile');
   });
 });

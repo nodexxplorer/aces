@@ -369,7 +369,7 @@ export default function AdminDashboard() {
 
           <button
             type="button"
-            onClick={() => navigate('/bursar/dues')}
+            onClick={() => navigate('/bu/dues')}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-primary-600 hover:bg-primary-500 text-white transition-colors shadow-sm"
           >
             <Plus className="w-4 h-4" />
@@ -458,7 +458,7 @@ export default function AdminDashboard() {
 
         {/* Card 3: Active Complaints */}
         <div
-          onClick={() => navigate('/complaints')}
+          onClick={() => navigate('/i/complaints')}
           className="group relative rounded-2xl p-5 bg-white dark:bg-surface-900/70 border border-surface-200 dark:border-surface-800/80 hover:border-surface-300 dark:hover:border-surface-700 transition-all cursor-pointer shadow-sm hover:shadow-md flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
@@ -593,7 +593,7 @@ export default function AdminDashboard() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => navigate('/complaints')}
+                      onClick={() => navigate('/i/complaints')}
                       className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-primary-600 hover:bg-primary-500 text-white transition-colors"
                     >
                       Review
@@ -975,7 +975,7 @@ export default function AdminDashboard() {
             ) : (
               <button
                 type="button"
-                onClick={() => navigate('/bursar/dues')}
+                onClick={() => navigate('/bu/dues')}
                 className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl border border-surface-300 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800 text-surface-800 dark:text-surface-200 transition-colors shadow-sm"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -995,7 +995,7 @@ export default function AdminDashboard() {
               <h2 className="text-sm font-bold text-surface-900 dark:text-white">Support and feedback</h2>
               <button
                 type="button"
-                onClick={() => navigate('/complaints')}
+                onClick={() => navigate('/i/complaints')}
                 className="text-primary-600 dark:text-primary-400 hover:underline text-xs font-semibold"
               >
                 Open inbox

@@ -9,9 +9,9 @@ interface StudentBottomNavProps {
 export default function StudentBottomNav({ unreadCount = 1 }: StudentBottomNavProps) {
   const navItems = [
     { label: 'Home', path: '/i/dashboard', icon: Home },
-    { label: 'Courses', path: '/courses', icon: BookMarked },
-    { label: 'Pay', path: '/payments', icon: CreditCard },
-    { label: 'Inbox', path: '/communication', icon: MessageSquare, badge: unreadCount > 0 },
+    { label: 'Courses', path: '/i/courses', icon: BookMarked },
+    { label: 'Pay', path: '/i/payments', icon: CreditCard },
+    { label: 'Inbox', path: '/i/communication', icon: MessageSquare, badge: unreadCount > 0 },
     { label: 'Profile', path: '/i/profile', icon: User },
   ];
 

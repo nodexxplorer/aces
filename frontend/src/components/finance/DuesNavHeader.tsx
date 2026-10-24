@@ -31,9 +31,9 @@ export const DuesNavHeader: React.FC<DuesNavHeaderProps> = ({
       return;
     }
     if (key === 'dues') {
-      navigate(departmentAdminPath(urlCode, '/bursar/dues'));
+      navigate(departmentAdminPath(urlCode, '/bu/dues'));
     } else if (key === 'transactions') {
-      navigate(departmentAdminPath(urlCode, '/bursar/history'));
+      navigate(departmentAdminPath(urlCode, '/bu/history'));
     } else if (key === 'forecast') {
       navigate(departmentAdminPath(urlCode, '/admin/revenue-forecast'));
     }

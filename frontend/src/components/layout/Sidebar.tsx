@@ -89,63 +89,63 @@ const menuItems: MenuItem[] = [
 
   {
     label: 'Communication',
-    path: '/communication',
+    path: '/i/communication',
     icon: Bell,
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   },
 
   // {
   //   label: 'My Results',
-  //   path: '/results',
+  //   path: '/i/results',
   //   icon: Award,
   //   roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   // },
   {
     label: 'GPA Tools',
-    path: '/gpa',
+    path: '/i/gpa',
     icon: TrendingUp,
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   },
   // {
   //   label: 'Study Planner',
-  //   path: '/study-planner',
+  //   path: '/i/study-planner',
   //   icon: ClipboardList,
   //   roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   // },
   {
     label: 'Courses Registration',
-    path: '/courses',
+    path: '/i/courses',
     icon: BookMarked,
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   },
   // {
   //   label: 'My Attendance',
-  //   path: '/attendance',
+  //   path: '/i/attendance',
   //   icon: ClipboardCheck,
   //   roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   // },
   {
     label: 'Complaints',
-    path: '/complaints',
+    path: '/i/complaints',
     icon: HelpCircle,
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   },
   // {
   //   label: 'Notice Board',
-  //   path: '/notice-board',
+  //   path: '/i/notice-board',
   //   icon: Pin,
   //   roles: ['student', 'lecturer', 'class_rep', 'class_bursar', 'dept_bursar', 'alumni', 'hod', 'delegated_admin'],
   // },
 
   {
     label: 'Payments & Dues',
-    path: '/payments',
+    path: '/i/payments',
     icon: CreditCard,
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   },
   {
     label: 'Course Form Signing',
-    path: '/course-form-signing',
+    path: '/i/course-form-signing',
     icon: FileSignature,
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   },
@@ -169,29 +169,29 @@ const menuItems: MenuItem[] = [
   // { label: 'Give Back', path: '/alumni/give-back', icon: DollarSign, roles: ['alumni', 'hod', 'delegated_admin'] },
 
   { label: 'Lecturer Portal', path: '/l/dashboard', icon: LayoutDashboard, roles: ['lecturer'] },
-  // { label: 'Grade Entry', path: '/lecturer/scores', icon: ClipboardList, roles: ['lecturer'] },
-  // { label: 'Manage Assignments', path: '/lecturer/assignments', icon: ListTodo, roles: ['lecturer'] },
-  { label: 'Class List', path: '/lecturer/class-list', icon: Users, roles: ['lecturer'] },
-  // { label: 'Review Attendance', path: '/lecturer/attendance-review', icon: ClipboardCheck, roles: ['lecturer'] },
-  // { label: 'Course Materials', path: '/lecturer/materials', icon: FolderOpen, roles: ['lecturer'] },
-  // { label: 'Leave Requests', path: '/lecturer/leave', icon: FileClock, roles: ['lecturer'] },
+  // { label: 'Grade Entry', path: '/l/scores', icon: ClipboardList, roles: ['lecturer'] },
+  // { label: 'Manage Assignments', path: '/l/assignments', icon: ListTodo, roles: ['lecturer'] },
+  { label: 'Class List', path: '/l/class-list', icon: Users, roles: ['lecturer'] },
+  // { label: 'Review Attendance', path: '/l/attendance-review', icon: ClipboardCheck, roles: ['lecturer'] },
+  // { label: 'Course Materials', path: '/l/materials', icon: FolderOpen, roles: ['lecturer'] },
+  // { label: 'Leave Requests', path: '/l/leave', icon: FileClock, roles: ['lecturer'] },
 
-  { label: 'Class Rep Portal', path: '/class-rep', icon: LayoutDashboard, roles: ['class_rep'] },
-  // { label: 'Track Attendance', path: '/class-rep/attendance', icon: ClipboardList, roles: ['class_rep'] },
-  { label: 'Pending Registrations', path: '/class-rep/pending', icon: ShieldAlert, roles: ['class_rep'] },
-  { label: 'Class List', path: '/class-rep/class-list', icon: Users, roles: ['class_rep'] },
-  { label: 'Notify Classmates', path: '/class-rep/notify', icon: Megaphone, roles: ['class_rep'] },
+  { label: 'Class Rep Portal', path: '/rep/dashboard', icon: LayoutDashboard, roles: ['class_rep'] },
+  // { label: 'Track Attendance', path: '/rep/attendance', icon: ClipboardList, roles: ['class_rep'] },
+  { label: 'Pending Registrations', path: '/rep/pending', icon: ShieldAlert, roles: ['class_rep'] },
+  { label: 'Class List', path: '/rep/class-list', icon: Users, roles: ['class_rep'] },
+  { label: 'Notify Classmates', path: '/rep/notify', icon: Megaphone, roles: ['class_rep'] },
 
-  { label: 'Bursar Portal', path: '/bursar', icon: LayoutDashboard, roles: ['class_bursar', 'dept_bursar'] },
+  { label: 'Bursar Portal', path: '/bu/dashboard', icon: LayoutDashboard, roles: ['class_bursar', 'dept_bursar'] },
   {
     label: 'Dues Management',
-    path: '/bursar/dues',
+    path: '/bu/dues',
     icon: DollarSign,
     roles: ['class_bursar', 'dept_bursar', 'hod', 'delegated_admin'],
   },
-  { label: 'Verify Payments', path: '/bursar/verify', icon: DollarSign, roles: ['class_bursar', 'dept_bursar'] },
-  { label: 'Defaulters List', path: '/bursar/defaulters', icon: ShieldAlert, roles: ['class_bursar', 'dept_bursar'] },
-  { label: 'Payment History', path: '/bursar/history', icon: Clock, roles: ['class_bursar', 'dept_bursar'] },
+  { label: 'Verify Payments', path: '/bu/verify', icon: DollarSign, roles: ['class_bursar', 'dept_bursar'] },
+  { label: 'Defaulters List', path: '/bu/defaulters', icon: ShieldAlert, roles: ['class_bursar', 'dept_bursar'] },
+  { label: 'Payment History', path: '/bu/history', icon: Clock, roles: ['class_bursar', 'dept_bursar'] },
 
   { label: 'Admin Portal', path: '/admin', icon: LayoutDashboard, roles: ['hod', 'delegated_admin', 'admin'] },
   // {
@@ -256,7 +256,7 @@ const studentSections: NavSection[] = [
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
     items: [
       { label: 'Dashboard', path: '/i/dashboard', icon: LayoutDashboard },
-      { label: 'Communication', path: '/communication', icon: Bell },
+      { label: 'Communication', path: '/i/communication', icon: Bell },
       { label: 'Connect', path: '/connect', icon: Users },
     ],
   },
@@ -266,9 +266,9 @@ const studentSections: NavSection[] = [
     key: 'student_academics',
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
     items: [
-      { label: 'GPA Tools', path: '/gpa', icon: TrendingUp },
-      { label: 'Course Registration', path: '/courses', icon: BookMarked },
-      { label: 'Course Form Signing', path: '/course-form-signing', icon: FileSignature },
+      { label: 'GPA Tools', path: '/i/gpa', icon: TrendingUp },
+      { label: 'Course Registration', path: '/i/courses', icon: BookMarked },
+      { label: 'Course Form Signing', path: '/i/course-form-signing', icon: FileSignature },
     ],
   },
   {
@@ -276,7 +276,7 @@ const studentSections: NavSection[] = [
     icon: Wallet,
     key: 'student_finance',
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
-    items: [{ label: 'Payments & Dues', path: '/payments', icon: CreditCard }],
+    items: [{ label: 'Payments & Dues', path: '/i/payments', icon: CreditCard }],
   },
   {
     title: 'GENERAL',
@@ -284,7 +284,7 @@ const studentSections: NavSection[] = [
     key: 'student_general',
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
     items: [
-      { label: 'Complaints', path: '/complaints', icon: HelpCircle },
+      { label: 'Complaints', path: '/i/complaints', icon: HelpCircle },
       { label: 'Profile', path: '/i/profile', icon: User },
     ],
   },
@@ -297,13 +297,13 @@ const mobileSections: NavSection[] = [
     key: 'academics',
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
     items: [
-      // { label: 'My Results', path: '/results', icon: Award },
-      { label: 'GPA Tools', path: '/gpa', icon: TrendingUp },
-      // { label: 'Study Planner', path: '/study-planner', icon: ClipboardList },
-      { label: 'Courses Registration', path: '/courses', icon: BookMarked },
-      { label: 'Course Form Signing', path: '/course-form-signing', icon: FileSignature },
-      // { label: 'My Attendance', path: '/attendance', icon: ClipboardCheck },
-      { label: 'Complaints', path: '/complaints', icon: HelpCircle },
+      // { label: 'My Results', path: '/i/results', icon: Award },
+      { label: 'GPA Tools', path: '/i/gpa', icon: TrendingUp },
+      // { label: 'Study Planner', path: '/i/study-planner', icon: ClipboardList },
+      { label: 'Courses Registration', path: '/i/courses', icon: BookMarked },
+      { label: 'Course Form Signing', path: '/i/course-form-signing', icon: FileSignature },
+      // { label: 'My Attendance', path: '/i/attendance', icon: ClipboardCheck },
+      { label: 'Complaints', path: '/i/complaints', icon: HelpCircle },
     ],
   },
   {
@@ -312,10 +312,10 @@ const mobileSections: NavSection[] = [
     key: 'community',
     items: [
       { label: 'Connect', path: '/connect', icon: Users },
-      { label: 'Communication', path: '/communication', icon: Bell },
-      // { label: 'Find a Mentor', path: '/find-mentor', icon: GraduationCap },
+      { label: 'Communication', path: '/i/communication', icon: Bell },
+      // { label: 'Find a Mentor', path: '/i/find-mentor', icon: GraduationCap },
 
-      // { label: 'Notice Board', path: '/notice-board', icon: Pin },
+      // { label: 'Notice Board', path: '/i/notice-board', icon: Pin },
     ],
   },
   {
@@ -323,7 +323,7 @@ const mobileSections: NavSection[] = [
     icon: Wallet,
     key: 'finance',
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
-    items: [{ label: 'Payments & Dues', path: '/payments', icon: CreditCard }],
+    items: [{ label: 'Payments & Dues', path: '/i/payments', icon: CreditCard }],
   },
   // {
   //   title: 'ALUMNI',
@@ -363,7 +363,7 @@ const mobileSections: NavSection[] = [
     icon: Wallet,
     key: 'admin_finance',
     roles: ['hod', 'delegated_admin', 'admin'],
-    items: [{ label: 'Dues & Payments', path: '/bursar/dues', icon: CreditCard }],
+    items: [{ label: 'Dues & Payments', path: '/bu/dues', icon: CreditCard }],
   },
   {
     title: 'COMMUNICATE',
@@ -395,11 +395,11 @@ const mobileSections: NavSection[] = [
     key: 'class_rep',
     roles: ['class_rep'],
     items: [
-      { label: 'Class Rep Portal', path: '/class-rep', icon: LayoutDashboard },
-      // { label: 'Track Attendance', path: '/class-rep/attendance', icon: ClipboardList },
-      { label: 'Pending Registrations', path: '/class-rep/pending', icon: ShieldAlert },
-      { label: 'Class List', path: '/class-rep/class-list', icon: Users },
-      { label: 'Notify Classmates', path: '/class-rep/notify', icon: Megaphone },
+      { label: 'Class Rep Portal', path: '/rep/dashboard', icon: LayoutDashboard },
+      // { label: 'Track Attendance', path: '/rep/attendance', icon: ClipboardList },
+      { label: 'Pending Registrations', path: '/rep/pending', icon: ShieldAlert },
+      { label: 'Class List', path: '/rep/class-list', icon: Users },
+      { label: 'Notify Classmates', path: '/rep/notify', icon: Megaphone },
     ],
   },
   {
@@ -408,11 +408,11 @@ const mobileSections: NavSection[] = [
     key: 'bursar',
     roles: ['class_bursar', 'dept_bursar'],
     items: [
-      { label: 'Bursar Portal', path: '/bursar', icon: LayoutDashboard },
-      { label: 'Dues Management', path: '/bursar/dues', icon: DollarSign },
-      { label: 'Verify Payments', path: '/bursar/verify', icon: DollarSign },
-      { label: 'Defaulters List', path: '/bursar/defaulters', icon: ShieldAlert },
-      { label: 'Payment History', path: '/bursar/history', icon: Clock },
+      { label: 'Bursar Portal', path: '/bu/dashboard', icon: LayoutDashboard },
+      { label: 'Dues Management', path: '/bu/dues', icon: DollarSign },
+      { label: 'Verify Payments', path: '/bu/verify', icon: DollarSign },
+      { label: 'Defaulters List', path: '/bu/defaulters', icon: ShieldAlert },
+      { label: 'Payment History', path: '/bu/history', icon: Clock },
     ],
   },
 ];
@@ -473,10 +473,10 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
 
   const renderDesktopItem = (item: MenuItem) => {
     const Icon = item.icon;
-    const isCommunication = item.path === '/communication';
+    const isCommunication = item.path === '/i/communication';
     const isDuesFinanceActive =
-      (item.label === 'Dues & Payments' || item.path === '/bursar/dues') &&
-      (location.pathname.includes('/bursar') ||
+      (item.label === 'Dues & Payments' || item.path === '/bu/dues') &&
+      (location.pathname.includes('/bu/') ||
         location.pathname.includes('/revenue-forecast') ||
         location.pathname.includes('/dues'));
     return (
@@ -677,8 +677,8 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
                                 cn(
                                   'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors',
                                   isActive ||
-                                    ((item.label === 'Dues & Payments' || item.path === '/bursar/dues') &&
-                                      (location.pathname.includes('/bursar') ||
+                                    ((item.label === 'Dues & Payments' || item.path === '/bu/dues') &&
+                                      (location.pathname.includes('/bu/') ||
                                         location.pathname.includes('/revenue-forecast') ||
                                         location.pathname.includes('/dues')))
                                     ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/20 dark:text-primary-400'

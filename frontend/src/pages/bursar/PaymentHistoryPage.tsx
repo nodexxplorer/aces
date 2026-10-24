@@ -512,7 +512,7 @@ export default function PaymentHistoryPage() {
               </p>
               <button
                 type="button"
-                onClick={() => navigate(departmentAdminPath(urlCode, '/bursar/dues'))}
+                onClick={() => navigate(departmentAdminPath(urlCode, '/bu/dues'))}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-[#1a66d6] hover:bg-blue-600 text-white shadow-xs transition-colors"
               >
                 <Plus className="w-4 h-4" />

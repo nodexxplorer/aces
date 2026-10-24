@@ -107,7 +107,7 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
           </button>
 
           <Link
-            to="/scan"
+            to="/i/scan"
             className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface)] transition-colors"
             title="QR Scanner"
           >
@@ -232,7 +232,7 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
                   </div>
 
                   <Link
-                    to="/payments"
+                    to="/i/payments"
                     onClick={() => setProfileOpen(false)}
                     className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
                   >
@@ -241,7 +241,7 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
                   </Link>
 
                   <Link
-                    to="/complaints"
+                    to="/i/complaints"
                     onClick={() => setProfileOpen(false)}
                     className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
                   >

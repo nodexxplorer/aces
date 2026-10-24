@@ -108,7 +108,7 @@ const PaymentConfirmationPage = () => {
           </p>
           <div className="pt-2">
             <Link
-              to="/payments"
+              to="/i/payments"
               className="w-full py-2.5 rounded-xl bg-[#1d68ec] hover:bg-[#1554c2] text-white text-xs font-bold inline-flex items-center justify-center gap-2 transition-colors"
             >
               <ArrowLeft className="w-4 h-4" /> Back to Payments
@@ -173,7 +173,7 @@ const PaymentConfirmationPage = () => {
                   <span className="font-bold text-[var(--text)]">₦{formatNumber(remainingBalance)}</span>
                 </div>
               </div>
-              <Link to="/payments" className="text-[#1d68ec] hover:underline font-bold text-xs shrink-0">
+              <Link to="/i/payments" className="text-[#1d68ec] hover:underline font-bold text-xs shrink-0">
                 Optional dues &rarr;
               </Link>
             </div>

@@ -332,7 +332,7 @@ export default function NotificationSettingsPage() {
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div className="space-y-3">
             <Link
-              to="/communication"
+              to="/i/communication"
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline"
             >
               <ChevronLeft className="w-4 h-4" /> Back to Communication
