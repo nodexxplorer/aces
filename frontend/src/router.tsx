@@ -91,6 +91,7 @@ const GPAHubPage = lazy(() => import('./pages/student/GPAHubPage'));
 const FindMentorPage = lazy(() => import('./pages/student/FindMentorPage'));
 const AtRiskDashboard = lazy(() => import('./pages/admin/AtRiskDashboard'));
 const RevenueForecastPage = lazy(() => import('./pages/admin/RevenueForecastPage'));
+const DuesManagementPage = lazy(() => import('./pages/admin/DuesManagementPage'));
 
 // Additional Features
 const StudyPlannerPage = lazy(() => import('./pages/student/StudyPlannerPage'));
@@ -245,7 +246,8 @@ const adminPages: { path: string; element: ReactNode }[] = [
   { path: '/admin/ai-settings', element: <AISettingsPage /> },
   { path: '/admin/at-risk', element: <AtRiskDashboard /> },
   { path: '/admin/revenue-forecast', element: <RevenueForecastPage /> },
-  { path: '/admin/dues', element: <DuesPage /> },
+  { path: '/admin/duesmanagement', element: <DuesManagementPage /> },
+  { path: '/admin/dues', element: <Navigate to="/admin/duesmanagement" replace /> },
   { path: '/admin/payments', element: <PaymentHistoryPage /> },
   { path: '/admin/transactions', element: <PaymentHistoryPage /> },
   { path: '/admin/expenses', element: <ExpensesPage /> },

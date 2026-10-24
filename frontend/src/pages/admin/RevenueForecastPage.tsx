@@ -571,7 +571,7 @@ export const RevenueForecastPage: React.FC = () => {
                   </p>
                   <button
                     type="button"
-                    onClick={() => navigate(departmentAdminPath(urlCode, '/bu/dues'))}
+                    onClick={() => navigate(departmentAdminPath(urlCode, '/admin/duesmanagement'))}
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold bg-[#1a66d6] hover:bg-[#1554b3] text-white shadow-xs transition-colors"
                   >
                     <Plus className="w-4 h-4" />

@@ -972,7 +972,7 @@ export const AdminProfilePage: React.FC = () => {
 
                   <button
                     type="button"
-                    onClick={() => navigate(departmentAdminPath(urlCode, '/bu/dues'))}
+                    onClick={() => navigate(departmentAdminPath(urlCode, '/admin/duesmanagement'))}
                     className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 hover:border-[#1a66d6] text-left transition-all group"
                   >
                     <CreditCard className="w-4 h-4 text-purple-600 mb-1.5 group-hover:scale-110 transition-transform" />
@@ -1112,7 +1112,7 @@ export const AdminProfilePage: React.FC = () => {
                     </div>
                     <button
                       type="button"
-                      onClick={() => navigate(departmentAdminPath(urlCode, '/bu/dues'))}
+                      onClick={() => navigate(departmentAdminPath(urlCode, '/admin/duesmanagement'))}
                       className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-[#1a66d6] hover:bg-[#1554b3] text-white shadow-xs transition-colors shrink-0"
                     >
                       Manage

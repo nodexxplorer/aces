@@ -369,7 +369,7 @@ export default function AdminDashboard() {
 
           <button
             type="button"
-            onClick={() => navigate('/bu/dues')}
+            onClick={() => navigate('/admin/duesmanagement')}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-primary-600 hover:bg-primary-500 text-white transition-colors shadow-sm"
           >
             <Plus className="w-4 h-4" />
@@ -975,7 +975,7 @@ export default function AdminDashboard() {
             ) : (
               <button
                 type="button"
-                onClick={() => navigate('/bu/dues')}
+                onClick={() => navigate('/admin/duesmanagement')}
                 className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl border border-surface-300 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800 text-surface-800 dark:text-surface-200 transition-colors shadow-sm"
               >
                 <Plus className="w-3.5 h-3.5" />

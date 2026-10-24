@@ -363,7 +363,7 @@ const mobileSections: NavSection[] = [
     icon: Wallet,
     key: 'admin_finance',
     roles: ['hod', 'delegated_admin', 'admin'],
-    items: [{ label: 'Dues & Payments', path: '/bu/dues', icon: CreditCard }],
+    items: [{ label: 'Dues & Payments', path: '/admin/duesmanagement', icon: CreditCard }],
   },
   {
     title: 'COMMUNICATE',
@@ -475,10 +475,10 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
     const Icon = item.icon;
     const isCommunication = item.path === '/i/communication';
     const isDuesFinanceActive =
-      (item.label === 'Dues & Payments' || item.path === '/bu/dues') &&
-      (location.pathname.includes('/bu/') ||
-        location.pathname.includes('/revenue-forecast') ||
-        location.pathname.includes('/dues'));
+      item.label === 'Dues & Payments' &&
+      (location.pathname.includes('/admin/duesmanagement') ||
+        location.pathname.includes('/admin/transactions') ||
+        location.pathname.includes('/admin/revenue-forecast'));
     return (
       <NavLink
         key={item.path}
@@ -677,10 +677,10 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
                                 cn(
                                   'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors',
                                   isActive ||
-                                    ((item.label === 'Dues & Payments' || item.path === '/bu/dues') &&
-                                      (location.pathname.includes('/bu/') ||
-                                        location.pathname.includes('/revenue-forecast') ||
-                                        location.pathname.includes('/dues')))
+                                    (item.label === 'Dues & Payments' &&
+                                      (location.pathname.includes('/admin/duesmanagement') ||
+                                        location.pathname.includes('/admin/transactions') ||
+                                        location.pathname.includes('/admin/revenue-forecast')))
                                     ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/20 dark:text-primary-400'
                                     : 'text-surface-600 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800 hover:text-surface-800 dark:hover:text-surface-200',
                                 )
