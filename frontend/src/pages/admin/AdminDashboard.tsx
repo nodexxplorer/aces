@@ -28,8 +28,9 @@ import { getSessions, listSessionSemesters } from '../../api/sessions';
 import { getAllComplaints } from '../../api/complaints';
 import { getAllDues, getAllPayments } from '../../api/payments';
 import { getCourses } from '../../api/courses';
+import { listAllCRFHistory } from '../../api/crf-signing';
 import { createAnnouncementV2 } from '../../api/verification-announcements';
-import type { Session, SemesterEntry, User } from '../../types';
+import type { Session, SemesterEntry, User, DuePayment } from '../../types';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -106,6 +107,7 @@ export default function AdminDashboard() {
         duesRes,
         paymentsRes,
         coursesRes,
+        crfRes,
       ] = await Promise.allSettled([
         getDashboardAnalytics(),
         getUsers({ perPage: 100 }),
@@ -115,6 +117,7 @@ export default function AdminDashboard() {
         getAllDues(),
         getAllPayments(),
         getCourses({ perPage: 100 }),
+        listAllCRFHistory(),
       ]);
 
       // 1. Analytics & Basic Stats
@@ -126,9 +129,6 @@ export default function AdminDashboard() {
       // 2. Users calculation
       if (usersRes.status === 'fulfilled' && Array.isArray(usersRes.value)) {
         const usersList: User[] = usersRes.value;
-        const totalU = usersList.length;
-        setTotalUsers(totalU);
-
         // This week calculation
         const now = Date.now();
         const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
@@ -177,8 +177,13 @@ export default function AdminDashboard() {
         setRoleCounts({ students: stCount, staff: staffCount, hod: hodCount, other: othCount });
         setLevelCounts(levels);
         setRegisteredStudentsCount(Object.values(levels).reduce((sum, item) => sum + item.registered, 0));
-      } else if (analyticsData) {
-        setTotalUsers((analyticsData as Record<string, number>).totalUsers || 0);
+      }
+
+      // The total is every user on the server. The user list is one page (at most 100), so it is only a fallback.
+      if (analyticsData) {
+        setTotalUsers((analyticsData.totalStudents ?? 0) + (analyticsData.totalLecturers ?? 0));
+      } else if (usersRes.status === 'fulfilled' && Array.isArray(usersRes.value)) {
+        setTotalUsers(usersRes.value.length);
       }
 
       // 3. Pending approvals (New accounts queue)
@@ -224,7 +229,7 @@ export default function AdminDashboard() {
       }
 
       // 7. Dues and Payments
-      let duesList: unknown[] = [];
+      let duesList: DuePayment[] = [];
       if (duesRes.status === 'fulfilled' && Array.isArray(duesRes.value)) {
         duesList = duesRes.value;
         setHasDues(duesList.length > 0);
@@ -239,21 +244,29 @@ export default function AdminDashboard() {
 
         // Calculate target from dues list or default reasonable calculation
         if (duesList.length > 0) {
-          const totalDuesPrice = duesList.reduce(
-            (sum: number, d: { amount?: number | string }) => sum + (Number(d.amount) || 0),
-            0,
-          );
+          const totalDuesPrice = duesList.reduce((sum: number, d: DuePayment) => sum + (Number(d.amount) || 0), 0);
           setDuesTarget(totalDuesPrice * Math.max(1, totalUsers));
         } else {
           setDuesTarget(0);
         }
       }
 
-      // 8. Course Forms Signing estimation from real data
-      // If students have course forms waiting / signed
-      setSignedFormsCount(Math.min(96, Math.floor(totalUsers * 0.45)));
-      setWaitingFormsCount(Math.min(18, Math.floor(totalUsers * 0.08)));
-      setOldFormsCount(3);
+      // 8. Course forms from real CRF submissions. Signed and waiting count the
+      // current session's completed and draft forms; old forms are those from other sessions.
+      const currentSessionId =
+        sessionsRes.status === 'fulfilled' && Array.isArray(sessionsRes.value)
+          ? (sessionsRes.value.find((s) => s.is_active || s.isActive) || sessionsRes.value[0])?.id
+          : undefined;
+      if (crfRes.status === 'fulfilled' && Array.isArray(crfRes.value)) {
+        const currentForms = crfRes.value.filter((f) => f.session_id === currentSessionId);
+        setSignedFormsCount(currentForms.filter((f) => f.status === 'completed').length);
+        setWaitingFormsCount(currentForms.filter((f) => f.status === 'draft').length);
+        setOldFormsCount(crfRes.value.length - currentForms.length);
+      } else {
+        setSignedFormsCount(0);
+        setWaitingFormsCount(0);
+        setOldFormsCount(0);
+      }
     } catch (err) {
       console.error('Error fetching admin dashboard data:', err);
     } finally {
@@ -302,7 +315,8 @@ export default function AdminDashboard() {
   const totalAttentionItems = waitingFormsCount + complaintsCount + pendingApprovalsCount;
 
   // Donut chart angles calculation
-  const totalDonutUsers = Math.max(1, totalUsers);
+  // The role split comes from the loaded user page, so the donut is drawn from that page's own total.
+  const totalDonutUsers = Math.max(1, roleCounts.students + roleCounts.staff + roleCounts.hod + roleCounts.other);
   const studentFraction = roleCounts.students / totalDonutUsers;
   const staffFraction = roleCounts.staff / totalDonutUsers;
   const hodFraction = roleCounts.hod / totalDonutUsers;
@@ -358,7 +372,7 @@ export default function AdminDashboard() {
 
           <button
             type="button"
-            onClick={() => navigate('/bursar/dues')}
+            onClick={() => navigate('/admin/duesmanagement')}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-primary-600 hover:bg-primary-500 text-white transition-colors shadow-sm"
           >
             <Plus className="w-4 h-4" />
@@ -447,7 +461,7 @@ export default function AdminDashboard() {
 
         {/* Card 3: Active Complaints */}
         <div
-          onClick={() => navigate('/complaints')}
+          onClick={() => navigate('/i/complaints')}
           className="group relative rounded-2xl p-5 bg-white dark:bg-surface-900/70 border border-surface-200 dark:border-surface-800/80 hover:border-surface-300 dark:hover:border-surface-700 transition-all cursor-pointer shadow-sm hover:shadow-md flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
@@ -582,7 +596,7 @@ export default function AdminDashboard() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => navigate('/complaints')}
+                      onClick={() => navigate('/i/complaints')}
                       className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-primary-600 hover:bg-primary-500 text-white transition-colors"
                     >
                       Review
@@ -814,7 +828,7 @@ export default function AdminDashboard() {
             {activeSession && registeredStudentsCount > 0 ? (
               <div className="space-y-3 mt-5">
                 {[100, 200, 300, 400, 500].map((lvl) => {
-                  const data = levelCounts[lvl] || { registered: 0, total: 40 };
+                  const data = levelCounts[lvl] || { registered: 0, total: 0 };
                   const percent = data.total > 0 ? Math.round((data.registered / data.total) * 100) : 0;
                   return (
                     <div key={lvl} className="flex items-center gap-3">
@@ -964,7 +978,7 @@ export default function AdminDashboard() {
             ) : (
               <button
                 type="button"
-                onClick={() => navigate('/bursar/dues')}
+                onClick={() => navigate('/admin/duesmanagement')}
                 className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl border border-surface-300 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800 text-surface-800 dark:text-surface-200 transition-colors shadow-sm"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -984,7 +998,7 @@ export default function AdminDashboard() {
               <h2 className="text-sm font-bold text-surface-900 dark:text-white">Support and feedback</h2>
               <button
                 type="button"
-                onClick={() => navigate('/complaints')}
+                onClick={() => navigate('/i/complaints')}
                 className="text-primary-600 dark:text-primary-400 hover:underline text-xs font-semibold"
               >
                 Open inbox

@@ -357,7 +357,7 @@ const BursarDashboard = () => {
                   <CardDescription>{data?.recent_payments?.length ?? 0} recent payment(s)</CardDescription>
                 </div>
                 <a
-                  href="/bursar/history"
+                  href="/bu/history"
                   className="text-xs font-medium text-primary-500 hover:text-primary-600 flex items-center gap-1 shrink-0"
                 >
                   View Full History
@@ -423,7 +423,7 @@ const BursarDashboard = () => {
             </CardHeader>
             <div className="space-y-3">
               <a
-                href="/bursar/verify"
+                href="/bu/verify"
                 className="flex items-center justify-between p-3 rounded-lg border border-surface-200 dark:border-surface-700/50 hover:bg-surface-50 dark:hover:bg-surface-700/30 transition-colors group"
               >
                 <div className="flex items-center gap-3">
@@ -436,7 +436,7 @@ const BursarDashboard = () => {
               </a>
 
               <a
-                href="/bursar/history"
+                href="/bu/history"
                 className="flex items-center justify-between p-3 rounded-lg border border-surface-200 dark:border-surface-700/50 hover:bg-surface-50 dark:hover:bg-surface-700/30 transition-colors group"
               >
                 <div className="flex items-center gap-3">

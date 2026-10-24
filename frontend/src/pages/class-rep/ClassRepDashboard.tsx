@@ -93,7 +93,7 @@ const ClassRepDashboard = () => {
                 <ClipboardList className="w-5 h-5 text-primary-500" />
                 <CardTitle>Recent Attendance Sessions</CardTitle>
               </div>
-              <Link to="/class-rep/attendance">
+              <Link to="/rep/attendance">
                 <Button size="xs" leftIcon={<Plus className="w-3 h-3" />}>
                   New Session
                 </Button>
@@ -212,7 +212,7 @@ const ClassRepDashboard = () => {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <div className="p-4 pt-0 space-y-2">
-              <Link to="/class-rep/attendance" className="block">
+              <Link to="/rep/attendance" className="block">
                 <Button
                   variant="outline"
                   className="w-full justify-start"
@@ -221,12 +221,12 @@ const ClassRepDashboard = () => {
                   Take Attendance
                 </Button>
               </Link>
-              <Link to="/class-rep/class-list" className="block">
+              <Link to="/rep/class-list" className="block">
                 <Button variant="outline" className="w-full justify-start" leftIcon={<Users className="w-4 h-4" />}>
                   View Class List
                 </Button>
               </Link>
-              <Link to="/class-rep/pending" className="block">
+              <Link to="/rep/pending" className="block">
                 <Button variant="outline" className="w-full justify-start" leftIcon={<Send className="w-4 h-4" />}>
                   Submit Report
                 </Button>

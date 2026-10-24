@@ -51,13 +51,13 @@ export default function SessionManagementPage() {
   };
 
   /** Determine a semester's status from its is_active flag and real dates. */
-  const getSemesterStatus = (sem: SemesterEntry): 'active' | 'completed' | 'upcoming' => {
+  const getSemesterStatus = (sem: SemesterEntry): 'active' | 'completed' | 'upcoming' | 'undated' => {
     if (sem.is_active) return 'active';
     const now = Date.now();
     if (sem.end_date && new Date(sem.end_date).getTime() < now) return 'completed';
     if (sem.start_date && new Date(sem.start_date).getTime() > now) return 'upcoming';
-    // Fallback: if dates are missing, treat as completed
-    return 'completed';
+    // Without dates the status is unknown, so it is not reported as completed.
+    return 'undated';
   };
 
   /** Compute a semester's progress percentage (0–100) from its real start/end dates. */
@@ -141,7 +141,7 @@ export default function SessionManagementPage() {
   // Calculate active semester progress & weeks
   const semesterProgress = useMemo(() => {
     if (!activeSemester?.start_date || !activeSemester?.end_date) {
-      return { weekCurrent: 11, totalWeeks: 21, percent: 58 };
+      return null;
     }
     const start = new Date(activeSemester.start_date).getTime();
     const end = new Date(activeSemester.end_date).getTime();
@@ -1005,18 +1005,24 @@ export default function SessionManagementPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 w-full sm:w-auto max-w-xs">
-            <span className="text-xs text-surface-500 dark:text-surface-400 font-medium whitespace-nowrap">
-              Week {semesterProgress.weekCurrent} of {semesterProgress.totalWeeks}
-            </span>
-            <div className="flex-1 h-2 bg-surface-200 dark:bg-surface-800 rounded-full overflow-hidden w-28">
-              <div
-                className="h-full bg-primary-600 rounded-full transition-all duration-500"
-                style={{ width: `${semesterProgress.percent}%` }}
-              />
+          {semesterProgress ? (
+            <div className="flex items-center gap-3 w-full sm:w-auto max-w-xs">
+              <span className="text-xs text-surface-500 dark:text-surface-400 font-medium whitespace-nowrap">
+                Week {semesterProgress.weekCurrent} of {semesterProgress.totalWeeks}
+              </span>
+              <div className="flex-1 h-2 bg-surface-200 dark:bg-surface-800 rounded-full overflow-hidden w-28">
+                <div
+                  className="h-full bg-primary-600 rounded-full transition-all duration-500"
+                  style={{ width: `${semesterProgress.percent}%` }}
+                />
+              </div>
+              <span className="text-xs font-bold text-surface-900 dark:text-white">{semesterProgress.percent}%</span>
             </div>
-            <span className="text-xs font-bold text-surface-900 dark:text-white">{semesterProgress.percent}%</span>
-          </div>
+          ) : (
+            <span className="text-xs text-surface-500 dark:text-surface-400 font-medium">
+              Start and end dates not set
+            </span>
+          )}
         </div>
       )}
 

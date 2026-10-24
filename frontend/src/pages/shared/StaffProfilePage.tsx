@@ -76,12 +76,12 @@ export const StaffProfilePage = () => {
           : 'Faculty Staff';
 
   const memberSince = useMemo(() => {
-    if (!user?.createdAt) return '9/26/2026';
+    if (!user?.createdAt) return '—';
     try {
       const d = new Date(user.createdAt);
       return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
     } catch {
-      return '9/26/2026';
+      return '—';
     }
   }, [user?.createdAt]);
 

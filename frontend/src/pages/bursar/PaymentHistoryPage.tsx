@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
 import { getAllPayments, getAllDues, downloadPaymentReceipt, verifyPayment } from '../../api/payments';
@@ -7,7 +7,7 @@ import { getStudents } from '../../api/users';
 import { getSessions } from '../../api/sessions';
 import type { Payment, DuePayment, User, Session } from '../../types';
 import { getErrorMessage } from '../../utils/errors';
-import { departmentAdminPath } from '../../config/departmentAdminPaths';
+import { departmentAdminPath, isAdminArea } from '../../config/departmentAdminPaths';
 import { DuesNavHeader } from '../../components/finance/DuesNavHeader';
 import {
   CreditCard,
@@ -37,6 +37,7 @@ const getPaymentMethod = (p: Payment): string => {
 
 export default function PaymentHistoryPage() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { user } = useAuth();
   const urlCode = user?.tenant?.urlCode;
   const { success, error: notifyError } = useNotification();
@@ -59,6 +60,7 @@ export default function PaymentHistoryPage() {
   // Selected payment for right column details panel
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [openRowMenuId, setOpenRowMenuId] = useState<string | null>(null);
 
   // Pagination
@@ -511,7 +513,9 @@ export default function PaymentHistoryPage() {
               </p>
               <button
                 type="button"
-                onClick={() => navigate(departmentAdminPath(urlCode, '/bursar/dues'))}
+                onClick={() =>
+                  navigate(departmentAdminPath(urlCode, isAdminArea(pathname) ? '/admin/duesmanagement' : '/bu/dues'))
+                }
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-[#1a66d6] hover:bg-blue-600 text-white shadow-xs transition-colors"
               >
                 <Plus className="w-4 h-4" />
@@ -706,6 +710,7 @@ export default function PaymentHistoryPage() {
                                       )}
                                       <button
                                         type="button"
+                                        disabled={verifyingId === p.id}
                                         onClick={() => {
                                           setOpenRowMenuId(null);
                                           handleVerifyGateway(p.id);

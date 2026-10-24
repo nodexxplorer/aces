@@ -69,55 +69,80 @@ const StudentDashboard = () => {
   const { user } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [attempt, setAttempt] = useState(0);
 
+  // No fallback data: if the dashboard cannot be loaded, the page says so and offers a retry.
   useEffect(() => {
+    let active = true;
+    setLoading(true);
     getStudentDashboard()
-      .then(setData)
-      .catch(() => {
-        // Fallback for seamless visual experience
-        setData({
-          student: {
-            full_name: user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'Student',
-            matric_number: user?.matricNumber || '',
-            level: 500,
-            cgpa: 4.35,
-            academic_standing: 'Good standing',
-          },
-          attendance: {
-            total_classes: 0,
-            attended: 0,
-            attendance_rate: 0,
-          },
-          payments: {
-            amount_pending: 0,
-            amount_paid: 0,
-            dues_outstanding: 0,
-          },
-          notifications: {
-            total: 1,
-            unread: 1,
-          },
-          announcements: [],
-          recent_grades: [],
-        });
+      .then((d) => {
+        if (active) setData(d);
       })
-      .finally(() => setLoading(false));
-  }, [user]);
+      .catch(() => {
+        if (active) setData(null);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [user, attempt]);
 
   const studentName = data?.student.full_name?.split(' ')[0] || user?.firstName || 'Student';
   const studentLevel = data?.student.level || 0;
-  const isDuesCleared = (data?.payments?.dues_outstanding ?? 0) === 0;
-  const unreadNotifications = data?.notifications?.unread ?? 1;
+  const duesOutstanding = data?.payments?.dues_outstanding;
+  const isDuesCleared = duesOutstanding === 0;
+  // Gauge and amounts are measured against the active semester's total dues.
+  const semesterDuesTotal = data?.payments?.semester_dues_total ?? 0;
+  const semesterPaid = data?.payments?.semester_amount_paid ?? 0;
+  const semesterOutstanding = Math.max(semesterDuesTotal - semesterPaid, 0);
+  const duesLabel =
+    duesOutstanding === undefined || duesOutstanding === null
+      ? '—'
+      : isDuesCleared
+        ? 'Cleared'
+        : semesterDuesTotal > 0
+          ? `₦${semesterOutstanding.toLocaleString()}`
+          : `${duesOutstanding} due${duesOutstanding === 1 ? '' : 's'}`;
+  const unreadNotifications = data?.notifications?.unread ?? 0;
+  const levelLabel = studentLevel > 0 ? `Level ${studentLevel}` : null;
+  const standingLabel = data?.student.academic_standing || null;
+  const mobileSubtitle = [levelLabel, standingLabel].filter(Boolean).join(' · ');
+  const desktopSubtitle = [levelLabel, 'All you need in one place.'].filter(Boolean).join(' · ');
   const attendanceAttended = data?.attendance?.attended ?? 0;
   const attendanceTotal = data?.attendance?.total_classes ?? 0;
-  const amountPaid = data?.payments?.amount_paid ?? 0;
   const amountPending = data?.payments?.amount_pending ?? 0;
+  // Share of the semester's dues already paid. With no dues set for the semester,
+  // the gauge is full only when nothing is outstanding.
+  const duesPaidPercent =
+    semesterDuesTotal > 0
+      ? Math.min(100, Math.round((semesterPaid / semesterDuesTotal) * 100))
+      : isDuesCleared
+        ? 100
+        : 0;
   const announcements = data?.announcements ?? [];
 
   if (loading && !data) {
     return (
       <div className="flex h-96 items-center justify-center">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="flex h-96 flex-col items-center justify-center gap-3 text-center">
+        <p className="text-sm text-[var(--text-muted)]">We could not load your dashboard.</p>
+        <button
+          type="button"
+          onClick={() => setAttempt((n) => n + 1)}
+          className="rounded-xl border border-[var(--border)] px-4 py-2 text-xs font-semibold text-[var(--text)] hover:bg-[var(--surface)] transition-colors"
+        >
+          Try again
+        </button>
       </div>
     );
   }
@@ -131,22 +156,22 @@ const StudentDashboard = () => {
             Hello, {studentName}!
           </h1>
           <p className="mt-1 text-xs sm:text-sm text-[var(--text-muted)]">
-            <span className="md:hidden">Level {studentLevel} · Good standing</span>
-            <span className="hidden md:inline">Level {studentLevel} · All you need in one place.</span>
+            <span className="md:hidden">{mobileSubtitle}</span>
+            <span className="hidden md:inline">{desktopSubtitle}</span>
           </p>
         </div>
 
         {/* Desktop Quick Actions in Header */}
         <div className="hidden sm:flex items-center gap-3">
           <Link
-            to="/payments"
+            to="/i/payments"
             className="inline-flex items-center gap-2 rounded-2xl bg-[#1a66d6] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-[#1554b2] active:scale-95"
           >
             <CreditCard className="h-4 w-4" />
             <span>Pay Dues</span>
           </Link>
           <Link
-            to="/courses"
+            to="/i/courses"
             className="inline-flex items-center gap-2 rounded-2xl border border-[var(--primary)] text-[var(--primary)] bg-transparent px-5 py-2.5 text-xs font-semibold transition-all hover:bg-blue-50/50 dark:hover:bg-blue-950/20 active:scale-95"
           >
             <span>Register Courses</span>
@@ -157,7 +182,7 @@ const StudentDashboard = () => {
       {/* ────────────────── MOBILE HERO CARD: OUTSTANDING DUES (mobile only) ────────────────── */}
       <div className="block md:hidden">
         <Link
-          to="/payments"
+          to="/i/payments"
           className="relative block overflow-hidden rounded-[24px] bg-[#1a66d6] p-6 text-white shadow-xl shadow-blue-500/25 transition-transform active:scale-[0.99]"
         >
           {/* Subtle decorative glow */}
@@ -169,9 +194,7 @@ const StudentDashboard = () => {
             <span className="text-xs font-medium text-white/85">Outstanding dues</span>
             <div className="mt-3 flex items-center gap-2">
               <Check className="h-7 w-7 text-white stroke-[3]" />
-              <span className="text-3xl font-extrabold tracking-tight">
-                {isDuesCleared ? 'Cleared' : `₦${data?.payments?.dues_outstanding?.toLocaleString()}`}
-              </span>
+              <span className="text-3xl font-extrabold tracking-tight">{duesLabel}</span>
             </div>
             <p className="mt-3 text-xs text-white/80">
               {isDuesCleared ? 'No payment needed' : 'Due for the current semester'}
@@ -184,7 +207,7 @@ const StudentDashboard = () => {
       {/* Mobile 3-Card Row */}
       <div className="grid grid-cols-3 gap-2.5 md:hidden">
         <Link
-          to="/communication"
+          to="/i/communication"
           className="flex flex-col justify-between rounded-2xl border border-[var(--border)] bg-white p-3.5 dark:bg-[#1c1e22] shadow-sm transition-all active:scale-95"
         >
           <span className="text-[11px] font-medium text-[var(--text-muted)]">Notifications</span>
@@ -194,7 +217,7 @@ const StudentDashboard = () => {
         </Link>
 
         <Link
-          to="/courses"
+          to="/i/courses"
           className="flex flex-col justify-between rounded-2xl border border-[var(--border)] bg-white p-3.5 dark:bg-[#1c1e22] shadow-sm transition-all active:scale-95"
         >
           <span className="text-[11px] font-medium text-[var(--text-muted)]">Attendance</span>
@@ -204,7 +227,7 @@ const StudentDashboard = () => {
         </Link>
 
         <Link
-          to="/payments"
+          to="/i/payments"
           className="flex flex-col justify-between rounded-2xl border border-[var(--border)] bg-white p-3.5 dark:bg-[#1c1e22] shadow-sm transition-all active:scale-95"
         >
           <span className="text-[11px] font-medium text-[var(--text-muted)]">Pending</span>
@@ -216,7 +239,7 @@ const StudentDashboard = () => {
       <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* 1. Outstanding Dues Card */}
         <Link
-          to="/payments"
+          to="/i/payments"
           className="group relative flex flex-col justify-between overflow-hidden rounded-[22px] bg-[#1a66d6] p-5 text-white shadow-lg shadow-blue-500/20 transition-all duration-200 hover:-translate-y-1 hover:shadow-xl"
         >
           <div
@@ -232,9 +255,7 @@ const StudentDashboard = () => {
           <div className="mt-4">
             <div className="flex items-center gap-1.5">
               <Check className="h-6 w-6 text-white stroke-[3]" />
-              <span className="text-2xl font-bold tracking-tight">
-                {isDuesCleared ? 'Cleared' : `₦${data?.payments?.dues_outstanding?.toLocaleString()}`}
-              </span>
+              <span className="text-2xl font-bold tracking-tight">{duesLabel}</span>
             </div>
             <p className="mt-1 text-xs text-white/80">
               {isDuesCleared ? 'No payment needed' : 'Due for current session'}
@@ -244,7 +265,7 @@ const StudentDashboard = () => {
 
         {/* 2. Notifications Card */}
         <Link
-          to="/communication"
+          to="/i/communication"
           className="group relative flex flex-col justify-between overflow-hidden rounded-[22px] border border-[var(--border)] bg-white p-5 dark:bg-[#1c1e22] shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md"
         >
           <div className="flex items-center justify-between">
@@ -263,7 +284,7 @@ const StudentDashboard = () => {
 
         {/* 3. Attendance Card */}
         <Link
-          to="/courses"
+          to="/i/courses"
           className="group relative flex flex-col justify-between overflow-hidden rounded-[22px] border border-[var(--border)] bg-white p-5 dark:bg-[#1c1e22] shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md"
         >
           <div className="flex items-center justify-between">
@@ -283,7 +304,7 @@ const StudentDashboard = () => {
 
         {/* 4. Payments Card */}
         <Link
-          to="/payments"
+          to="/i/payments"
           className="group relative flex flex-col justify-between overflow-hidden rounded-[22px] border border-[var(--border)] bg-white p-5 dark:bg-[#1c1e22] shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md"
         >
           <div className="flex items-center justify-between">
@@ -295,9 +316,9 @@ const StudentDashboard = () => {
           <div className="mt-4">
             <div className="flex items-center gap-3">
               <div>
-                <span className="text-[10px] text-[var(--text-muted)] block">Paid</span>
+                <span className="text-[10px] text-[var(--text-muted)] block">Paid this semester</span>
                 <span className="text-lg font-bold text-[#186a3c] dark:text-[#4cc38a]">
-                  ₦{amountPaid.toLocaleString()}
+                  ₦{semesterPaid.toLocaleString()}
                 </span>
               </div>
               <div className="h-6 w-px bg-[var(--border)]" />
@@ -316,7 +337,7 @@ const StudentDashboard = () => {
         <h2 className="text-base font-bold text-[var(--text)]">Quick actions</h2>
         <div className="grid grid-cols-2 gap-3">
           <Link
-            to="/courses"
+            to="/i/courses"
             className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-white p-4 dark:bg-[#1c1e22] shadow-sm transition-transform active:scale-95"
           >
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#1a66d6] dark:bg-blue-950/40 dark:text-[#4f9bff]">
@@ -326,7 +347,7 @@ const StudentDashboard = () => {
           </Link>
 
           <Link
-            to="/course-form-signing"
+            to="/i/course-form-signing"
             className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-white p-4 dark:bg-[#1c1e22] shadow-sm transition-transform active:scale-95"
           >
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#1a66d6] dark:bg-blue-950/40 dark:text-[#4f9bff]">
@@ -336,7 +357,7 @@ const StudentDashboard = () => {
           </Link>
 
           <Link
-            to="/gpa"
+            to="/i/gpa"
             className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-white p-4 dark:bg-[#1c1e22] shadow-sm transition-transform active:scale-95"
           >
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#1a66d6] dark:bg-blue-950/40 dark:text-[#4f9bff]">
@@ -346,7 +367,7 @@ const StudentDashboard = () => {
           </Link>
 
           <Link
-            to="/complaints"
+            to="/i/complaints"
             className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-white p-4 dark:bg-[#1c1e22] shadow-sm transition-transform active:scale-95"
           >
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#1a66d6] dark:bg-blue-950/40 dark:text-[#4f9bff]">
@@ -365,7 +386,7 @@ const StudentDashboard = () => {
             Register courses and sign your form
           </h3>
           <Link
-            to="/courses"
+            to="/i/courses"
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#1a66d6] py-3 text-xs font-semibold text-white shadow-md shadow-blue-500/20 active:scale-[0.99]"
           >
             Start
@@ -382,7 +403,7 @@ const StudentDashboard = () => {
               <Megaphone className="h-4 w-4 text-[var(--primary)]" />
               <h2 className="text-sm font-bold tracking-tight">Announcements</h2>
             </div>
-            <Link to="/communication" className="text-xs font-semibold text-[var(--primary-text)] hover:underline">
+            <Link to="/i/communication" className="text-xs font-semibold text-[var(--primary-text)] hover:underline">
               View all
             </Link>
           </div>
@@ -419,7 +440,7 @@ const StudentDashboard = () => {
 
           <div className="divide-y divide-[var(--border)]/50">
             <Link
-              to="/courses"
+              to="/i/courses"
               className="flex items-center gap-3.5 py-3.5 transition-colors hover:text-[var(--primary)] group"
             >
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-[#1a66d6] dark:bg-blue-950/40 dark:text-[#4f9bff] transition-transform group-hover:scale-105">
@@ -431,7 +452,7 @@ const StudentDashboard = () => {
             </Link>
 
             <Link
-              to="/course-form-signing"
+              to="/i/course-form-signing"
               className="flex items-center gap-3.5 py-3.5 transition-colors hover:text-[var(--primary)] group"
             >
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-[#1a66d6] dark:bg-blue-950/40 dark:text-[#4f9bff] transition-transform group-hover:scale-105">
@@ -443,7 +464,7 @@ const StudentDashboard = () => {
             </Link>
 
             <Link
-              to="/gpa"
+              to="/i/gpa"
               className="flex items-center gap-3.5 py-3.5 transition-colors hover:text-[var(--primary)] group"
             >
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-[#1a66d6] dark:bg-blue-950/40 dark:text-[#4f9bff] transition-transform group-hover:scale-105">
@@ -455,7 +476,7 @@ const StudentDashboard = () => {
             </Link>
 
             <Link
-              to="/complaints"
+              to="/i/complaints"
               className="flex items-center gap-3.5 py-3.5 transition-colors hover:text-[var(--primary)] group"
             >
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-[#1a66d6] dark:bg-blue-950/40 dark:text-[#4f9bff] transition-transform group-hover:scale-105">
@@ -481,7 +502,7 @@ const StudentDashboard = () => {
           </div>
 
           <Link
-            to="/courses"
+            to="/i/courses"
             className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-[#1a66d6] py-3 text-xs font-semibold text-white shadow-md shadow-blue-500/20 transition-all hover:bg-[#1554b2] active:scale-95"
           >
             <FileCheck2 className="h-4 w-4" />
@@ -499,15 +520,15 @@ const StudentDashboard = () => {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-2">
             {/* Left: Semi-circle Arc Gauge */}
             <div className="shrink-0 flex items-center justify-center">
-              <SemiCircleGauge cleared={isDuesCleared} percentage={isDuesCleared ? 100 : 45} />
+              <SemiCircleGauge cleared={isDuesCleared} percentage={duesPaidPercent} />
             </div>
 
             {/* Right: Paid / Pending & Action Button */}
             <div className="flex flex-1 flex-col justify-between space-y-4 w-full">
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-[var(--text-muted)]">Paid</span>
-                  <span className="font-bold text-[#186a3c] dark:text-[#4cc38a]">₦{amountPaid.toLocaleString()}</span>
+                  <span className="text-[var(--text-muted)]">Paid this semester</span>
+                  <span className="font-bold text-[#186a3c] dark:text-[#4cc38a]">₦{semesterPaid.toLocaleString()}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-[var(--text-muted)]">Pending</span>
@@ -518,7 +539,7 @@ const StudentDashboard = () => {
               </div>
 
               <Link
-                to="/payments"
+                to="/i/payments"
                 className="inline-flex w-full items-center justify-center rounded-full border border-[var(--primary)] bg-transparent py-2.5 text-xs font-semibold text-[var(--primary)] transition-all hover:bg-blue-50/50 dark:hover:bg-blue-950/20 active:scale-95"
               >
                 Payments &amp; Dues

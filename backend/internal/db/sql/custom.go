@@ -153,6 +153,32 @@ func (q *Queries) GetStudentAttendanceSummary(ctx context.Context, studentID, us
 	return i, err
 }
 
+// StudentSemesterDuesSummary is what a student owes for one semester's dues,
+// and how much of that has been paid against those dues.
+type StudentSemesterDuesSummary struct {
+	TotalDues      decimal.Decimal
+	PaidTowardDues decimal.Decimal
+}
+
+// GetStudentSemesterDuesSummary totals the active dues for a student's level
+// that belong to the given semester, and the completed payments made against
+// those dues. Dues with no semester are not counted.
+func (q *Queries) GetStudentSemesterDuesSummary(ctx context.Context, studentID uuid.UUID, level int32, semesterID uuid.UUID) (StudentSemesterDuesSummary, error) {
+	var i StudentSemesterDuesSummary
+	err := q.db.QueryRow(ctx, `
+		WITH semester_dues AS (
+			SELECT id, amount FROM dues
+			WHERE is_active = true AND semester_id = $2 AND (level IS NULL OR level = $3)
+		)
+		SELECT
+			COALESCE((SELECT SUM(amount) FROM semester_dues), 0)::DECIMAL(10,2),
+			COALESCE((SELECT SUM(p.amount) FROM payments p
+				WHERE p.student_id = $1 AND p.status = 'completed'
+				AND p.due_id IN (SELECT id FROM semester_dues)), 0)::DECIMAL(10,2)
+	`, studentID, semesterID, level).Scan(&i.TotalDues, &i.PaidTowardDues)
+	return i, err
+}
+
 // UpdateUserEmailAndRole updates email and role fields of a user.
 func (q *Queries) UpdateUserEmailAndRole(ctx context.Context, id uuid.UUID, email string, role UserRole) (User, error) {
 	var i User
@@ -2396,7 +2422,7 @@ func (q *Queries) ListAllCRFSubmissions(ctx context.Context) ([]CRFAdminSubmissi
 			COALESCE(u.full_name, COALESCE(u.first_name || ' ' || u.last_name, '')) as student_name,
 			COALESCE(st.matric_number, '') as matric_number,
 			COALESCE(st.level, 0) as level,
-			COALESCE(sem.name, '') as semester_name,
+			COALESCE(sem.name::text, '') as semester_name,
 			COALESCE(sess.id, '00000000-0000-0000-0000-000000000000'::uuid) as session_id,
 			COALESCE(sess.name, '') as session_name
 		FROM crf_signing_submissions c

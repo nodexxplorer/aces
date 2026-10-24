@@ -85,6 +85,7 @@ export default function CourseFormSigningPage() {
   const [requestCount, setRequestCount] = useState(1);
   const [requestingBacklog, setRequestingBacklog] = useState(false);
   const [isBacklogModalOpen, setIsBacklogModalOpen] = useState(false);
+  const [showNewCourse, setShowNewCourse] = useState(false);
   const [pastSemesters, setPastSemesters] = useState<SemesterEntry[]>([]);
   const [allSemesters, setAllSemesters] = useState<SemesterEntry[]>([]);
   const [activeSemesterId, setActiveSemesterId] = useState<string>('');
@@ -421,6 +422,137 @@ export default function CourseFormSigningPage() {
     });
   }, [historyList, historyFilter, activeSemesterId]);
 
+  // Sign another course form: the backlog card (upload a form from an earlier semester, or pay for slots).
+  const backlogCardNode = (
+    <div className="rounded-2xl border border-slate-200 dark:border-[#222530] bg-white dark:bg-[#161820] p-6 shadow-sm space-y-5">
+      <div className="flex items-start gap-3.5">
+        <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-[#1d68ec] flex items-center justify-center shrink-0">
+          <Clock className="w-5 h-5" />
+        </div>
+        <div className="min-w-0">
+          <h3 className="text-sm sm:text-base font-bold text-[var(--text)]">Sign an old course form</h3>
+          <p className="text-xs text-[var(--text-muted)] mt-0.5">
+            For unsigned forms from previous semesters. Pay first, then upload.
+          </p>
+        </div>
+      </div>
+
+      {remainingSlots > 0 ? (
+        /* Unlocked Backlog Slot Upload Area */
+        <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 space-y-4">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+              <Check className="w-4 h-4" /> {remainingSlots} old form slot(s) unlocked!
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setRequestCount(1);
+                setIsBacklogModalOpen(true);
+              }}
+              className="text-xs font-semibold text-[#1d68ec] dark:text-blue-400 hover:underline inline-flex items-center gap-1"
+            >
+              <Plus className="w-3.5 h-3.5" /> Unlock more slots
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <select
+              value={selectedSemesterId}
+              onChange={(e) => setSelectedSemesterId(e.target.value)}
+              className="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-[#262833] bg-white dark:bg-[#13151b] text-xs text-[var(--text)] focus:outline-none focus:border-[#1d68ec]"
+            >
+              <option value="">Select past semester...</option>
+              {pastSemesters.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+
+            <input
+              type="file"
+              accept="application/pdf"
+              onChange={(e) => setBacklogFile(e.target.files?.[0] || null)}
+              className="text-xs text-[var(--text-muted)] self-center"
+            />
+          </div>
+
+          <button
+            disabled={!backlogFile || !selectedSemesterId || uploadingBacklog}
+            onClick={async () => {
+              if (!backlogFile || !selectedSemesterId) return;
+              setUploadingBacklog(true);
+              try {
+                const draft = await submitCRFBacklogForm(backlogFile, selectedSemesterId);
+                setSubmission(draft);
+                const rawPlacements = draft.placements || {};
+                const initialPlacements: CRFPlacements = {
+                  hod: rawPlacements.hod || {
+                    page: 1,
+                    x: 72,
+                    y: 150,
+                    width: 110 * sizeFactor,
+                    max_height: 34 * sizeFactor,
+                  },
+                  exam_officer: rawPlacements.exam_officer || {
+                    page: 1,
+                    x: 260,
+                    y: 150,
+                    width: 110 * sizeFactor,
+                    max_height: 34 * sizeFactor,
+                  },
+                };
+                setPlacements(initialPlacements);
+                setActiveStep(3);
+                success('Uploaded', 'Old form uploaded. Place signatures to complete.');
+              } catch (err) {
+                notifyError('Error', getErrorMessage(err, 'Failed to upload form'));
+              } finally {
+                setUploadingBacklog(false);
+              }
+            }}
+            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center gap-2 shadow-sm transition-colors disabled:opacity-40"
+          >
+            {uploadingBacklog ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+            <span>Upload backlog form</span>
+          </button>
+        </div>
+      ) : (
+        /* Backlog Pay Call-to-action */
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 rounded-xl border border-slate-200 dark:border-[#262833] bg-slate-50/50 dark:bg-[#13151b]">
+          <div className="space-y-1">
+            <p className="text-xs font-bold text-[var(--text)]">No backlog form slots currently unlocked</p>
+            <p className="text-xs text-[var(--text-muted)]">
+              Fee: <span className="font-bold text-[var(--text)]">₦{formatNumber(backlogPrice)}</span> per semester
+              form. You can select how many forms you want to pay for.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setRequestCount(1);
+              setIsBacklogModalOpen(true);
+            }}
+            className="px-5 py-2.5 rounded-xl bg-[#1d68ec] hover:bg-[#1554c2] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 whitespace-nowrap self-stretch sm:self-auto"
+          >
+            <CreditCard className="w-4 h-4" />
+            <span>Pay for Backlog</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  const handleSignNewCourse = () => {
+    setShowNewCourse(true);
+    setTimeout(
+      () => document.getElementById('sign-new-course')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }),
+      0,
+    );
+  };
+
   return (
     <div className="flex flex-col min-h-0 text-[var(--text)] space-y-6 pb-12">
       {/* ======================================================== */}
@@ -557,7 +689,7 @@ export default function CourseFormSigningPage() {
               <div className="min-w-0">
                 <h3 className="text-lg sm:text-xl font-black text-[var(--text)]">Course form signed</h3>
                 <p className="text-xs sm:text-sm text-[var(--text-muted)] mt-0.5">
-                  Your signed PDF is saved in your history. Next signing opens next semester.
+                  Your signed PDF is saved in your history. To sign another course, use Sign new course.
                 </p>
               </div>
             </div>
@@ -579,8 +711,23 @@ export default function CourseFormSigningPage() {
                 <Eye className="w-4 h-4" />
                 <span>View</span>
               </button>
+
+              <button
+                type="button"
+                onClick={handleSignNewCourse}
+                className="px-4 py-2.5 rounded-xl bg-[#1d68ec] hover:bg-[#1554c2] text-white text-xs sm:text-sm font-bold inline-flex items-center gap-2 shadow-sm transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Sign new course</span>
+              </button>
             </div>
           </div>
+
+          {showNewCourse && (
+            <div id="sign-new-course" className="scroll-mt-6">
+              {backlogCardNode}
+            </div>
+          )}
 
           {/* Signing History Table Card */}
           <div className="rounded-2xl border border-slate-200 dark:border-[#222530] bg-white dark:bg-[#161820] p-6 shadow-sm space-y-4">
@@ -1281,7 +1428,7 @@ export default function CourseFormSigningPage() {
                 {/* Action Buttons */}
                 <div className="flex items-center gap-3 pt-1">
                   <Link
-                    to="/payments"
+                    to="/i/payments"
                     className="px-5 py-2.5 rounded-xl bg-[#1d68ec] hover:bg-[#1554c2] text-white text-xs font-bold inline-flex items-center gap-2 shadow-sm transition-all"
                   >
                     <CreditCard className="w-4 h-4" />
@@ -1289,7 +1436,7 @@ export default function CourseFormSigningPage() {
                   </Link>
 
                   <Link
-                    to="/payments?tab=cart"
+                    to="/i/payments?tab=cart"
                     className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-[#2b2e3c] bg-white dark:bg-[#161820] hover:bg-slate-50 dark:hover:bg-[#1c1f28] text-xs font-bold text-[var(--text)] inline-flex items-center gap-2 transition-all shadow-sm"
                   >
                     <span>View in Payments</span>
@@ -1419,126 +1566,7 @@ export default function CourseFormSigningPage() {
               </button>
             </div>
 
-            {/* 3. SIGN AN OLD COURSE FORM CARD (Screenshots 1 & 4) */}
-            <div className="rounded-2xl border border-slate-200 dark:border-[#222530] bg-white dark:bg-[#161820] p-6 shadow-sm space-y-5">
-              <div className="flex items-start gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-[#1d68ec] flex items-center justify-center shrink-0">
-                  <Clock className="w-5 h-5" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-sm sm:text-base font-bold text-[var(--text)]">Sign an old course form</h3>
-                  <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                    For unsigned forms from previous semesters. Pay first, then upload.
-                  </p>
-                </div>
-              </div>
-
-              {remainingSlots > 0 ? (
-                /* Unlocked Backlog Slot Upload Area */
-                <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 space-y-4">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                      <Check className="w-4 h-4" /> {remainingSlots} old form slot(s) unlocked!
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRequestCount(1);
-                        setIsBacklogModalOpen(true);
-                      }}
-                      className="text-xs font-semibold text-[#1d68ec] dark:text-blue-400 hover:underline inline-flex items-center gap-1"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Unlock more slots
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <select
-                      value={selectedSemesterId}
-                      onChange={(e) => setSelectedSemesterId(e.target.value)}
-                      className="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-[#262833] bg-white dark:bg-[#13151b] text-xs text-[var(--text)] focus:outline-none focus:border-[#1d68ec]"
-                    >
-                      <option value="">Select past semester...</option>
-                      {pastSemesters.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </select>
-
-                    <input
-                      type="file"
-                      accept="application/pdf"
-                      onChange={(e) => setBacklogFile(e.target.files?.[0] || null)}
-                      className="text-xs text-[var(--text-muted)] self-center"
-                    />
-                  </div>
-
-                  <button
-                    disabled={!backlogFile || !selectedSemesterId || uploadingBacklog}
-                    onClick={async () => {
-                      if (!backlogFile || !selectedSemesterId) return;
-                      setUploadingBacklog(true);
-                      try {
-                        const draft = await submitCRFBacklogForm(backlogFile, selectedSemesterId);
-                        setSubmission(draft);
-                        const rawPlacements = draft.placements || {};
-                        const initialPlacements: CRFPlacements = {
-                          hod: rawPlacements.hod || {
-                            page: 1,
-                            x: 72,
-                            y: 150,
-                            width: 110 * sizeFactor,
-                            max_height: 34 * sizeFactor,
-                          },
-                          exam_officer: rawPlacements.exam_officer || {
-                            page: 1,
-                            x: 260,
-                            y: 150,
-                            width: 110 * sizeFactor,
-                            max_height: 34 * sizeFactor,
-                          },
-                        };
-                        setPlacements(initialPlacements);
-                        setActiveStep(3);
-                        success('Uploaded', 'Old form uploaded. Place signatures to complete.');
-                      } catch (err) {
-                        notifyError('Error', getErrorMessage(err, 'Failed to upload form'));
-                      } finally {
-                        setUploadingBacklog(false);
-                      }
-                    }}
-                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center gap-2 shadow-sm transition-colors disabled:opacity-40"
-                  >
-                    {uploadingBacklog ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                    <span>Upload backlog form</span>
-                  </button>
-                </div>
-              ) : (
-                /* Backlog Pay Call-to-action */
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 rounded-xl border border-slate-200 dark:border-[#262833] bg-slate-50/50 dark:bg-[#13151b]">
-                  <div className="space-y-1">
-                    <p className="text-xs font-bold text-[var(--text)]">No backlog form slots currently unlocked</p>
-                    <p className="text-xs text-[var(--text-muted)]">
-                      Fee: <span className="font-bold text-[var(--text)]">₦{formatNumber(backlogPrice)}</span> per
-                      semester form. You can select how many forms you want to pay for.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRequestCount(1);
-                      setIsBacklogModalOpen(true);
-                    }}
-                    className="px-5 py-2.5 rounded-xl bg-[#1d68ec] hover:bg-[#1554c2] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 whitespace-nowrap self-stretch sm:self-auto"
-                  >
-                    <CreditCard className="w-4 h-4" />
-                    <span>Pay for Backlog</span>
-                  </button>
-                </div>
-              )}
-            </div>
+            {backlogCardNode}
           </div>
 
           {/* RIGHT COLUMN: HOW IT WORKS & HISTORY (~4 cols) */}

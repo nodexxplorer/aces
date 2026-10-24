@@ -2,8 +2,10 @@ import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
 import { Search, Sun, Moon, LogOut, Menu, ScanLine, User, QrCode, CreditCard, HelpCircle, Monitor } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { tenantPath } from '../../config/departmentAdminPaths';
 import { useDarkMode } from '../../hooks/useDarkMode';
 import RoleSwitcher from '../ui/RoleSwitcher';
+import { useMultiRole } from '../../hooks/useMultiRole';
 import NotificationBell from '../notifications/NotificationBell';
 import { getMediaUrl } from '../../api/client';
 import { useSearch } from '../../hooks/useSearch';
@@ -17,9 +19,12 @@ interface NavbarProps {
 const Navbar = ({ onMenuClick }: NavbarProps) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const urlCode = user?.tenant?.urlCode;
   const { mode, setMode, toggle, isDark } = useDarkMode();
   const { setQuery } = useSearch();
   const { activeRole } = useRBAC();
+  // A student who also holds another role (e.g. class rep) needs the switcher to reach it.
+  const { hasMultipleRoles } = useMultiRole();
   const profilePath = useProfilePath();
   const [profileOpen, setProfileOpen] = useState(false);
   const isStudent = activeRole === 'student';
@@ -79,6 +84,7 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
       <div className="flex items-center gap-2">
         {/* Mobile: Notification Bell & Theme Toggle */}
         <div className="flex items-center gap-2 md:hidden">
+          {hasMultipleRoles && <RoleSwitcher />}
           <NotificationBell />
           <button
             onClick={toggle}
@@ -91,7 +97,7 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
 
         {/* Desktop: Theme Toggle, Messages, Notifications, Profile (Exact match to mockup) */}
         <div className="hidden md:flex items-center gap-2.5">
-          {!isStudent && <RoleSwitcher />}
+          {(!isStudent || hasMultipleRoles) && <RoleSwitcher />}
 
           <button
             onClick={toggle}
@@ -103,7 +109,7 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
           </button>
 
           <Link
-            to="/scan"
+            to={tenantPath(urlCode, '/i/scan')}
             className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface)] transition-colors"
             title="QR Scanner"
           >
@@ -228,7 +234,7 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
                   </div>
 
                   <Link
-                    to="/payments"
+                    to={tenantPath(urlCode, '/i/payments')}
                     onClick={() => setProfileOpen(false)}
                     className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
                   >
@@ -237,7 +243,7 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
                   </Link>
 
                   <Link
-                    to="/complaints"
+                    to={tenantPath(urlCode, '/i/complaints')}
                     onClick={() => setProfileOpen(false)}
                     className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
                   >

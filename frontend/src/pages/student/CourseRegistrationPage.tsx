@@ -530,7 +530,7 @@ export default function CourseRegistrationPage() {
             </div>
           </div>
           <Link
-            to="/payments"
+            to="/i/payments"
             className="px-5 py-2.5 rounded-xl bg-[#1d68ec] hover:bg-[#1554c2] text-white text-xs font-bold inline-flex items-center gap-2 shadow-sm transition-all whitespace-nowrap self-start sm:self-auto"
           >
             <CreditCard className="w-4 h-4" />
@@ -572,7 +572,7 @@ export default function CourseRegistrationPage() {
                   </button>
 
                   <Link
-                    to="/complaints"
+                    to="/i/complaints"
                     className="px-5 py-2.5 rounded-full border border-slate-200 dark:border-[#2b2e3c] bg-white dark:bg-[#161820] hover:bg-slate-50 dark:hover:bg-[#1c1f28] text-xs font-bold text-[var(--text)] inline-flex items-center gap-2 transition-all shadow-sm"
                   >
                     <HelpCircle className="w-4 h-4 text-blue-500" />
@@ -1142,7 +1142,7 @@ export default function CourseRegistrationPage() {
                     </div>
 
                     <Link
-                      to="/course-form-signing"
+                      to="/i/course-form-signing"
                       className="w-full py-3 px-4 rounded-xl bg-[#1d68ec] hover:bg-[#1554c2] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.99]"
                     >
                       <span>Go to course form signing</span>

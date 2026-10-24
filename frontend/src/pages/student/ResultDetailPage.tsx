@@ -35,7 +35,7 @@ const ResultDetailPage = () => {
   if (!result) {
     return (
       <div className="space-y-6">
-        <Link to="/results">
+        <Link to="/i/results">
           <Button variant="outline" size="sm" leftIcon={<ArrowLeft className="w-4 h-4" />}>
             Back to Results
           </Button>
@@ -49,7 +49,7 @@ const ResultDetailPage = () => {
 
   return (
     <div className="space-y-6">
-      <Link to="/results">
+      <Link to="/i/results">
         <Button variant="outline" size="sm" leftIcon={<ArrowLeft className="w-4 h-4" />}>
           Back to Results
         </Button>

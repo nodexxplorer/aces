@@ -101,12 +101,12 @@ const LecturerDashboard = () => {
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    {/* <Link to="/lecturer/grades">
+                    {/* <Link to="/l/dashboard/grades">
                       <Button size="xs" variant="outline" leftIcon={<ClipboardList className="w-3.5 h-3.5" />}>
                         Enter Grades
                       </Button>
                     </Link> */}
-                    <Link to="/lecturer/class-list">
+                    <Link to="/l/class-list">
                       <Button size="xs" variant="outline" leftIcon={<Users className="w-3.5 h-3.5" />}>
                         Class List
                       </Button>
@@ -125,12 +125,12 @@ const LecturerDashboard = () => {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <div className="p-4 pt-0 space-y-3">
-              {/* <Link to="/lecturer/grades" className="block">
+              {/* <Link to="/l/dashboard/grades" className="block">
                 <Button variant="outline" className="w-full justify-start" leftIcon={<Calendar className="w-4 h-4" />}>
                   Bulk Upload Grades
                 </Button>
               </Link>
-              <Link to="/lecturer/assignments" className="block">
+              <Link to="/l/assignments" className="block">
                 <Button
                   variant="outline"
                   className="w-full justify-start"
@@ -139,12 +139,12 @@ const LecturerDashboard = () => {
                   Grading Assignments
                 </Button>
               </Link> */}
-              <Link to="/lecturer/class-list" className="block">
+              <Link to="/l/class-list" className="block">
                 <Button variant="outline" className="w-full justify-start" leftIcon={<Users className="w-4 h-4" />}>
                   View Class List
                 </Button>
               </Link>
-              <Link to="/lecturer/leave" className="block">
+              <Link to="/l/leave" className="block">
                 <Button variant="outline" className="w-full justify-start" leftIcon={<FileClock className="w-4 h-4" />}>
                   Leave Requests
                 </Button>

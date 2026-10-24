@@ -30,7 +30,7 @@ import {
   deleteAnnouncementV2,
   type AnnouncementV2,
 } from '../../api/verification-announcements';
-import { getStudents } from '../../api/users';
+import { getDashboardAnalytics } from '../../api/analytics';
 import { getErrorMessage } from '../../utils/errors';
 
 interface TemplateOption {
@@ -139,7 +139,8 @@ export const AnnouncementsManagePage: React.FC = () => {
 
   // Real data state
   const [announcements, setAnnouncements] = useState<AnnouncementV2[]>([]);
-  const [totalStudentsCount, setTotalStudentsCount] = useState<number>(214);
+  const [loading, setLoading] = useState(false);
+  const [totalStudentsCount, setTotalStudentsCount] = useState<number>(0);
   const [templateDropdownOpen, setTemplateDropdownOpen] = useState(false);
 
   // Filters
@@ -170,13 +171,14 @@ export const AnnouncementsManagePage: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [annRes, studentList] = await Promise.allSettled([listAdminAnnouncements(), getStudents({ perPage: 100 })]);
+      // The real student total comes from the dashboard analytics; the users list is paged and cannot give a full count.
+      const [annRes, analyticsRes] = await Promise.allSettled([listAdminAnnouncements(), getDashboardAnalytics()]);
 
       if (annRes.status === 'fulfilled') {
         setAnnouncements(annRes.value || []);
       }
-      if (studentList.status === 'fulfilled' && Array.isArray(studentList.value)) {
-        setTotalStudentsCount(studentList.value.length || 214);
+      if (analyticsRes.status === 'fulfilled' && typeof analyticsRes.value?.totalStudents === 'number') {
+        setTotalStudentsCount(analyticsRes.value.totalStudents);
       }
     } catch {
       // Graceful fallback
@@ -967,6 +969,8 @@ export const AnnouncementsManagePage: React.FC = () => {
                 </select>
               </div>
             </div>
+
+            {loading && <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">Loading announcements…</p>}
 
             {/* ─── EMPTY STATE (Real empty state matching screenshot 1) ─── */}
             {filteredAnnouncements.length === 0 ? (

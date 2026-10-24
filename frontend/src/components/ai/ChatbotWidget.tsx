@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { sendChatMessage } from '../../api/ai';
 import { useDarkMode } from '../../hooks/useDarkMode';
 import { useAuth } from '../../hooks/useAuth';
+import { tenantPath } from '../../config/departmentAdminPaths';
 import { getStudentDashboard, type StudentDashboard } from '../../api/dashboard';
 
 interface ChatMessage {
@@ -31,6 +32,7 @@ const ChatbotWidget = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const { user } = useAuth();
+  const urlCode = user?.tenant?.urlCode;
   const { mode, setMode } = useDarkMode();
   const navigate = useNavigate();
 
@@ -151,7 +153,7 @@ const ChatbotWidget = () => {
               timestamp: new Date(),
               action: {
                 label: 'Go to course form signing',
-                url: '/course-form-signing',
+                url: '/i/course-form-signing',
               },
             },
           ]);
@@ -166,7 +168,7 @@ const ChatbotWidget = () => {
               timestamp: new Date(),
               action: {
                 label: 'Pay dues now',
-                url: '/payments',
+                url: '/i/payments',
               },
             },
           ]);
@@ -188,7 +190,7 @@ const ChatbotWidget = () => {
             timestamp: new Date(),
             action: {
               label: 'Go to course registration',
-              url: '/courses',
+              url: '/i/courses',
             },
           },
         ]);
@@ -210,7 +212,7 @@ const ChatbotWidget = () => {
               timestamp: new Date(),
               action: {
                 label: 'View payments & dues',
-                url: '/payments',
+                url: '/i/payments',
               },
             },
           ]);
@@ -224,7 +226,7 @@ const ChatbotWidget = () => {
               timestamp: new Date(),
               action: {
                 label: 'Pay dues now',
-                url: '/payments',
+                url: '/i/payments',
               },
             },
           ]);
@@ -257,7 +259,7 @@ const ChatbotWidget = () => {
           timestamp: new Date(),
           action: {
             label: 'File a ticket',
-            url: '/complaints',
+            url: '/i/complaints',
           },
         },
       ]);
@@ -313,7 +315,7 @@ const ChatbotWidget = () => {
             {/* Item 2: Support */}
             <button
               onClick={() => {
-                navigate('/complaints');
+                navigate(tenantPath(urlCode, '/i/complaints'));
                 setIsMenuOpen(false);
               }}
               className="w-full flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-[#1e222a] transition-colors border-b border-slate-100 dark:border-slate-800/60 text-left"
@@ -459,7 +461,7 @@ const ChatbotWidget = () => {
                         <button
                           onClick={() => {
                             setIsChatOpen(false);
-                            navigate(msg.action!.url);
+                            navigate(tenantPath(urlCode, msg.action!.url));
                           }}
                           className="inline-flex items-center px-3.5 py-1.5 rounded-full bg-[#1d68ec] hover:bg-[#1656c4] text-white text-xs font-semibold shadow-sm transition-all active:scale-95"
                         >
