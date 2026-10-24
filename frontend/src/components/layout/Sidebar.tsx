@@ -363,8 +363,8 @@ const bursarSections: NavSection[] = [
     roles: ['class_bursar', 'dept_bursar'],
     items: [
       { label: 'Dues Management', path: '/bu/dues', icon: DollarSign },
-      { label: 'Verify Payments', path: '/bu/verify', icon: DollarSign },
       { label: 'Payment History', path: '/bu/history', icon: Clock },
+      { label: 'Verify Payments', path: '/bu/verify', icon: DollarSign },
     ],
   },
   {
