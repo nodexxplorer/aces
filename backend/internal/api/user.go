@@ -316,6 +316,12 @@ func (server *Server) updateUser(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
+	if req.Role != nil {
+		if err := server.dropGrantIfNoAdminRole(ctx, id); err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
+	}
 
 	queries, ok := server.store.(*db.Queries)
 	if ok {

@@ -75,7 +75,7 @@ func encodeAttendanceData(records []AttendanceRecord) (json.RawMessage, error) {
 // attendance sheet id — staff always may; a class rep only for a sheet they
 // themselves submitted. Writes the response and returns false if not.
 func (server *Server) requireAttendanceSheetOwnership(ctx *gin.Context, id uuid.UUID) bool {
-	if isStaffCaller(ctx) {
+	if isStaffCaller(ctx, capManageCourses) {
 		return true
 	}
 	sheet, err := server.store.GetAttendanceSheet(ctx, id)
@@ -109,7 +109,7 @@ func (server *Server) createAttendanceSheet(ctx *gin.Context) {
 	// Never trust class_rep_id from the body for a non-staff caller — it's
 	// the audit-trail record of who actually submitted the sheet.
 	var classRepID uuid.UUID
-	if isStaffCaller(ctx) {
+	if isStaffCaller(ctx, capManageCourses) {
 		classRepID, err = uuid.Parse(req.ClassRepID)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid class_rep_id"})
@@ -168,7 +168,7 @@ func (server *Server) getAttendanceSheet(ctx *gin.Context) {
 	}
 
 	// Attendance sheets contain all students' data — restrict to staff/class_rep
-	if !isStaffCaller(ctx) {
+	if !isStaffCaller(ctx, capManageCourses) {
 		claimsVal, exists := ctx.Get("claims")
 		if !exists {
 			ctx.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
@@ -234,7 +234,7 @@ func (server *Server) listStudentAttendance(ctx *gin.Context) {
 
 	// If caller is a student, force student_id to their own
 	studentIDStr := q.StudentID
-	if !isStaffCaller(ctx) {
+	if !isStaffCaller(ctx, capManageCourses) {
 		callerStudent, err := server.store.GetStudentByUserId(ctx, getUserID(ctx))
 		if err != nil {
 			ctx.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
@@ -342,7 +342,7 @@ func (server *Server) getAttendanceSummary(ctx *gin.Context) {
 
 	// If caller is a student, force student_id to their own
 	studentIDStr := q.StudentID
-	if !isStaffCaller(ctx) {
+	if !isStaffCaller(ctx, capManageCourses) {
 		callerStudent, err := server.store.GetStudentByUserId(ctx, getUserID(ctx))
 		if err != nil {
 			ctx.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})

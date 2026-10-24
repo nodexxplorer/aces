@@ -13,10 +13,22 @@ import (
 )
 
 const getAdminPermissions = `-- name: GetAdminPermissions :one
-SELECT id, user_id, can_manage_results, can_manage_users, can_manage_finance, can_manage_courses, can_view_analytics, can_manage_announcements, can_backup_data, granted_by_hod_id, granted_at, expires_at, is_active, tenant_id FROM admin_permissions
-WHERE user_id = $1 AND is_active = true
+SELECT ap.id, ap.user_id, ap.can_manage_results, ap.can_manage_users, ap.can_manage_finance, ap.can_manage_courses, ap.can_view_analytics, ap.can_manage_announcements, ap.can_backup_data, ap.granted_by_hod_id, ap.granted_at, ap.expires_at, ap.is_active, ap.tenant_id, ap.can_manage_complaints, ap.can_manage_alumni, ap.can_manage_course_forms, ap.can_manage_settings FROM admin_permissions ap
+WHERE ap.user_id = $1
+  AND ap.is_active = true
+  AND (ap.expires_at IS NULL OR ap.expires_at > NOW())
+  AND (
+    EXISTS (SELECT 1 FROM users u WHERE u.id = ap.user_id AND u.role = 'admin')
+    OR EXISTS (
+        SELECT 1 FROM user_role_assignments ura
+        WHERE ura.user_id = ap.user_id AND ura.role = 'admin' AND ura.is_active = true
+    )
+  )
 `
 
+// GetAdminPermissions returns the active grant for a person. A grant counts only while the person still
+// holds the delegated admin role, so a grant left behind by a removed role
+// never works again.
 func (q *Queries) GetAdminPermissions(ctx context.Context, userID uuid.UUID) (AdminPermission, error) {
 	row := q.db.QueryRow(ctx, getAdminPermissions, userID)
 	var i AdminPermission
@@ -35,6 +47,10 @@ func (q *Queries) GetAdminPermissions(ctx context.Context, userID uuid.UUID) (Ad
 		&i.ExpiresAt,
 		&i.IsActive,
 		&i.TenantID,
+		&i.CanManageComplaints,
+		&i.CanManageAlumni,
+		&i.CanManageCourseForms,
+		&i.CanManageSettings,
 	)
 	return i, err
 }
@@ -49,11 +65,32 @@ INSERT INTO admin_permissions (
     can_view_analytics,
     can_manage_announcements,
     can_backup_data,
+    can_manage_complaints,
+    can_manage_alumni,
+    can_manage_course_forms,
+    can_manage_settings,
     granted_by_hod_id,
     expires_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
-) RETURNING id, user_id, can_manage_results, can_manage_users, can_manage_finance, can_manage_courses, can_view_analytics, can_manage_announcements, can_backup_data, granted_by_hod_id, granted_at, expires_at, is_active, tenant_id
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+)
+ON CONFLICT (tenant_id, user_id) DO UPDATE SET
+    can_manage_results = EXCLUDED.can_manage_results,
+    can_manage_users = EXCLUDED.can_manage_users,
+    can_manage_finance = EXCLUDED.can_manage_finance,
+    can_manage_courses = EXCLUDED.can_manage_courses,
+    can_view_analytics = EXCLUDED.can_view_analytics,
+    can_manage_announcements = EXCLUDED.can_manage_announcements,
+    can_backup_data = EXCLUDED.can_backup_data,
+    can_manage_complaints = EXCLUDED.can_manage_complaints,
+    can_manage_alumni = EXCLUDED.can_manage_alumni,
+    can_manage_course_forms = EXCLUDED.can_manage_course_forms,
+    can_manage_settings = EXCLUDED.can_manage_settings,
+    granted_by_hod_id = EXCLUDED.granted_by_hod_id,
+    granted_at = NOW(),
+    expires_at = EXCLUDED.expires_at,
+    is_active = true
+RETURNING id, user_id, can_manage_results, can_manage_users, can_manage_finance, can_manage_courses, can_view_analytics, can_manage_announcements, can_backup_data, granted_by_hod_id, granted_at, expires_at, is_active, tenant_id, can_manage_complaints, can_manage_alumni, can_manage_course_forms, can_manage_settings
 `
 
 type GrantAdminPermissionsParams struct {
@@ -65,10 +102,16 @@ type GrantAdminPermissionsParams struct {
 	CanViewAnalytics       bool               `json:"can_view_analytics"`
 	CanManageAnnouncements bool               `json:"can_manage_announcements"`
 	CanBackupData          bool               `json:"can_backup_data"`
+	CanManageComplaints    bool               `json:"can_manage_complaints"`
+	CanManageAlumni        bool               `json:"can_manage_alumni"`
+	CanManageCourseForms   bool               `json:"can_manage_course_forms"`
+	CanManageSettings      bool               `json:"can_manage_settings"`
 	GrantedByHodID         uuid.UUID          `json:"granted_by_hod_id"`
 	ExpiresAt              pgtype.Timestamptz `json:"expires_at"`
 }
 
+// GrantAdminPermissions creates or replaces the grant for one person. A person has at most one grant
+// per department, so a grant that was revoked earlier is reactivated here.
 func (q *Queries) GrantAdminPermissions(ctx context.Context, arg GrantAdminPermissionsParams) (AdminPermission, error) {
 	row := q.db.QueryRow(ctx, grantAdminPermissions,
 		arg.UserID,
@@ -79,6 +122,10 @@ func (q *Queries) GrantAdminPermissions(ctx context.Context, arg GrantAdminPermi
 		arg.CanViewAnalytics,
 		arg.CanManageAnnouncements,
 		arg.CanBackupData,
+		arg.CanManageComplaints,
+		arg.CanManageAlumni,
+		arg.CanManageCourseForms,
+		arg.CanManageSettings,
 		arg.GrantedByHodID,
 		arg.ExpiresAt,
 	)
@@ -98,12 +145,16 @@ func (q *Queries) GrantAdminPermissions(ctx context.Context, arg GrantAdminPermi
 		&i.ExpiresAt,
 		&i.IsActive,
 		&i.TenantID,
+		&i.CanManageComplaints,
+		&i.CanManageAlumni,
+		&i.CanManageCourseForms,
+		&i.CanManageSettings,
 	)
 	return i, err
 }
 
 const listAdminPermissions = `-- name: ListAdminPermissions :many
-SELECT id, user_id, can_manage_results, can_manage_users, can_manage_finance, can_manage_courses, can_view_analytics, can_manage_announcements, can_backup_data, granted_by_hod_id, granted_at, expires_at, is_active, tenant_id FROM admin_permissions
+SELECT id, user_id, can_manage_results, can_manage_users, can_manage_finance, can_manage_courses, can_view_analytics, can_manage_announcements, can_backup_data, granted_by_hod_id, granted_at, expires_at, is_active, tenant_id, can_manage_complaints, can_manage_alumni, can_manage_course_forms, can_manage_settings FROM admin_permissions
 WHERE is_active = true
 ORDER BY granted_at DESC
 LIMIT $1 OFFSET $2
@@ -114,6 +165,7 @@ type ListAdminPermissionsParams struct {
 	Offset int32 `json:"offset"`
 }
 
+// ListAdminPermissions
 func (q *Queries) ListAdminPermissions(ctx context.Context, arg ListAdminPermissionsParams) ([]AdminPermission, error) {
 	rows, err := q.db.Query(ctx, listAdminPermissions, arg.Limit, arg.Offset)
 	if err != nil {
@@ -138,6 +190,10 @@ func (q *Queries) ListAdminPermissions(ctx context.Context, arg ListAdminPermiss
 			&i.ExpiresAt,
 			&i.IsActive,
 			&i.TenantID,
+			&i.CanManageComplaints,
+			&i.CanManageAlumni,
+			&i.CanManageCourseForms,
+			&i.CanManageSettings,
 		); err != nil {
 			return nil, err
 		}
@@ -151,10 +207,24 @@ func (q *Queries) ListAdminPermissions(ctx context.Context, arg ListAdminPermiss
 
 const revokeAdminPermissions = `-- name: RevokeAdminPermissions :exec
 UPDATE admin_permissions
-SET is_active = false
+SET
+    is_active = false,
+    can_manage_results = false,
+    can_manage_users = false,
+    can_manage_finance = false,
+    can_manage_courses = false,
+    can_view_analytics = false,
+    can_manage_announcements = false,
+    can_backup_data = false,
+    can_manage_complaints = false,
+    can_manage_alumni = false,
+    can_manage_course_forms = false,
+    can_manage_settings = false
 WHERE user_id = $1
 `
 
+// RevokeAdminPermissions turns every flag off as well as deactivating the grant, so a later grant starts
+// from a clean state.
 func (q *Queries) RevokeAdminPermissions(ctx context.Context, userID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, revokeAdminPermissions, userID)
 	return err
@@ -162,7 +232,7 @@ func (q *Queries) RevokeAdminPermissions(ctx context.Context, userID uuid.UUID) 
 
 const updateAdminPermissions = `-- name: UpdateAdminPermissions :one
 UPDATE admin_permissions
-SET 
+SET
     can_manage_results = $2,
     can_manage_users = $3,
     can_manage_finance = $4,
@@ -170,9 +240,13 @@ SET
     can_view_analytics = $6,
     can_manage_announcements = $7,
     can_backup_data = $8,
-    expires_at = COALESCE($9, expires_at)
-WHERE user_id = $1
-RETURNING id, user_id, can_manage_results, can_manage_users, can_manage_finance, can_manage_courses, can_view_analytics, can_manage_announcements, can_backup_data, granted_by_hod_id, granted_at, expires_at, is_active, tenant_id
+    can_manage_complaints = $9,
+    can_manage_alumni = $10,
+    can_manage_course_forms = $11,
+    can_manage_settings = $12,
+    expires_at = COALESCE($13, expires_at)
+WHERE user_id = $1 AND is_active = true
+RETURNING id, user_id, can_manage_results, can_manage_users, can_manage_finance, can_manage_courses, can_view_analytics, can_manage_announcements, can_backup_data, granted_by_hod_id, granted_at, expires_at, is_active, tenant_id, can_manage_complaints, can_manage_alumni, can_manage_course_forms, can_manage_settings
 `
 
 type UpdateAdminPermissionsParams struct {
@@ -184,9 +258,14 @@ type UpdateAdminPermissionsParams struct {
 	CanViewAnalytics       bool               `json:"can_view_analytics"`
 	CanManageAnnouncements bool               `json:"can_manage_announcements"`
 	CanBackupData          bool               `json:"can_backup_data"`
+	CanManageComplaints    bool               `json:"can_manage_complaints"`
+	CanManageAlumni        bool               `json:"can_manage_alumni"`
+	CanManageCourseForms   bool               `json:"can_manage_course_forms"`
+	CanManageSettings      bool               `json:"can_manage_settings"`
 	ExpiresAt              pgtype.Timestamptz `json:"expires_at"`
 }
 
+// UpdateAdminPermissions
 func (q *Queries) UpdateAdminPermissions(ctx context.Context, arg UpdateAdminPermissionsParams) (AdminPermission, error) {
 	row := q.db.QueryRow(ctx, updateAdminPermissions,
 		arg.UserID,
@@ -197,6 +276,10 @@ func (q *Queries) UpdateAdminPermissions(ctx context.Context, arg UpdateAdminPer
 		arg.CanViewAnalytics,
 		arg.CanManageAnnouncements,
 		arg.CanBackupData,
+		arg.CanManageComplaints,
+		arg.CanManageAlumni,
+		arg.CanManageCourseForms,
+		arg.CanManageSettings,
 		arg.ExpiresAt,
 	)
 	var i AdminPermission
@@ -215,6 +298,29 @@ func (q *Queries) UpdateAdminPermissions(ctx context.Context, arg UpdateAdminPer
 		&i.ExpiresAt,
 		&i.IsActive,
 		&i.TenantID,
+		&i.CanManageComplaints,
+		&i.CanManageAlumni,
+		&i.CanManageCourseForms,
+		&i.CanManageSettings,
 	)
 	return i, err
+}
+
+const userHoldsAdminRole = `-- name: UserHoldsAdminRole :one
+SELECT (
+    EXISTS (SELECT 1 FROM users u WHERE u.id = $1 AND u.role = 'admin')
+    OR EXISTS (
+        SELECT 1 FROM user_role_assignments ura
+        WHERE ura.user_id = $1 AND ura.role = 'admin' AND ura.is_active = true
+    )
+) AS holds_role
+`
+
+// UserHoldsAdminRole reports whether the person holds the delegated admin role, by primary role or by an
+// active extra role. Grants can only be given to such a person.
+func (q *Queries) UserHoldsAdminRole(ctx context.Context, id uuid.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, userHoldsAdminRole, id)
+	var holds_role bool
+	err := row.Scan(&holds_role)
+	return holds_role, err
 }

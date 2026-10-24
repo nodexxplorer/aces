@@ -85,20 +85,14 @@ func pgUUIDToUUID(p pgtype.UUID) uuid.UUID {
 	return uuid.UUID(p.Bytes)
 }
 
-func isStaffCaller(ctx *gin.Context) bool {
-	claimsVal, exists := ctx.Get("claims")
-	if !exists {
-		return false
-	}
-	c, ok := claimsVal.(*auth.Claims)
-	if !ok {
-		return false
-	}
-	return c.HasAnyRole([]string{"hod", "admin", "delegated_admin"})
+// isStaffCaller reports whether the caller may act on any student's records in
+// the area c. A HOD always may. A delegated admin may only with a grant for c.
+func isStaffCaller(ctx *gin.Context, c AdminCapability) bool {
+	return staffAccess(ctx, c, "hod", "admin", "delegated_admin")
 }
 
-func requireOwnershipOrStaff(ctx *gin.Context, store db.Querier, recordStudentID uuid.UUID) bool {
-	if isStaffCaller(ctx) {
+func requireOwnershipOrStaff(ctx *gin.Context, store db.Querier, recordStudentID uuid.UUID, c AdminCapability) bool {
+	if isStaffCaller(ctx, c) {
 		return true
 	}
 	userID := getUserID(ctx)
@@ -118,8 +112,8 @@ func requireOwnershipOrStaff(ctx *gin.Context, store db.Querier, recordStudentID
 	return true
 }
 
-func requireOwnershipOrStaffByStudentIDParam(ctx *gin.Context, store db.Querier) (uuid.UUID, bool) {
-	if isStaffCaller(ctx) {
+func requireOwnershipOrStaffByStudentIDParam(ctx *gin.Context, store db.Querier, c AdminCapability) (uuid.UUID, bool) {
+	if isStaffCaller(ctx, c) {
 		userID := getUserID(ctx)
 		return userID, true
 	}

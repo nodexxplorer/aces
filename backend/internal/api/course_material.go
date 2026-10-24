@@ -59,7 +59,7 @@ func (server *Server) uploadCourseMaterial(ctx *gin.Context) {
 
 	// Lecturers may only upload materials for courses they're actually
 	// assigned to teach — admins/HODs can upload for any course.
-	if !isStaffRole(ctx) {
+	if !isStaffRole(ctx, capManageCourses) {
 		assigned, err := q.IsLecturerOrPrimaryForCourse(ctx, lecturerID, courseID)
 		if err != nil || !assigned {
 			ctx.JSON(http.StatusForbidden, gin.H{"error": "you are not assigned to this course"})
@@ -205,7 +205,7 @@ func (server *Server) deleteCourseMaterial(ctx *gin.Context) {
 		return
 	}
 
-	if !isStaffRole(ctx) && material.UploadedBy != getUserID(ctx) {
+	if !isStaffRole(ctx, capManageCourses) && material.UploadedBy != getUserID(ctx) {
 		ctx.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		return
 	}
