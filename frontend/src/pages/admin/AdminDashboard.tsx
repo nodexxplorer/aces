@@ -129,9 +129,6 @@ export default function AdminDashboard() {
       // 2. Users calculation
       if (usersRes.status === 'fulfilled' && Array.isArray(usersRes.value)) {
         const usersList: User[] = usersRes.value;
-        const totalU = usersList.length;
-        setTotalUsers(totalU);
-
         // This week calculation
         const now = Date.now();
         const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
@@ -180,8 +177,13 @@ export default function AdminDashboard() {
         setRoleCounts({ students: stCount, staff: staffCount, hod: hodCount, other: othCount });
         setLevelCounts(levels);
         setRegisteredStudentsCount(Object.values(levels).reduce((sum, item) => sum + item.registered, 0));
-      } else if (analyticsData) {
+      }
+
+      // The total is every user on the server. The user list is one page (at most 100), so it is only a fallback.
+      if (analyticsData) {
         setTotalUsers((analyticsData.totalStudents ?? 0) + (analyticsData.totalLecturers ?? 0));
+      } else if (usersRes.status === 'fulfilled' && Array.isArray(usersRes.value)) {
+        setTotalUsers(usersRes.value.length);
       }
 
       // 3. Pending approvals (New accounts queue)
@@ -313,7 +315,8 @@ export default function AdminDashboard() {
   const totalAttentionItems = waitingFormsCount + complaintsCount + pendingApprovalsCount;
 
   // Donut chart angles calculation
-  const totalDonutUsers = Math.max(1, totalUsers);
+  // The role split comes from the loaded user page, so the donut is drawn from that page's own total.
+  const totalDonutUsers = Math.max(1, roleCounts.students + roleCounts.staff + roleCounts.hod + roleCounts.other);
   const studentFraction = roleCounts.students / totalDonutUsers;
   const staffFraction = roleCounts.staff / totalDonutUsers;
   const hodFraction = roleCounts.hod / totalDonutUsers;
