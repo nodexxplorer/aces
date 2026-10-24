@@ -22,6 +22,7 @@ import {
 } from '../../api/role-management';
 import type { User, UserRole, StudentForRoleManagement } from '../../types';
 import { getErrorMessage } from '../../utils/errors';
+import { CAPABILITIES, capabilitiesForRole, capabilitiesForRoles, type Capability } from '../../config/permissions';
 import {
   Users,
   Shield,
@@ -126,6 +127,12 @@ const getFullDisplayName = (user: User): string => {
   return user.fullName || user.email;
 };
 
+/** Every role a person holds: the primary role plus extra roles, without duplicates. */
+function rolesOfPerson(u: User): string[] {
+  const names = [u.role, ...(u.roles ?? [])].filter((r): r is UserRole => Boolean(r));
+  return Array.from(new Set(names));
+}
+
 // Student extra roles configuration
 const STUDENT_ASSIGNABLE_ROLES: {
   key: UserRole;
@@ -225,17 +232,11 @@ export default function UserManagementPage() {
   const [creatingRole, setCreatingRole] = useState(false);
   const [rolePage, setRolePage] = useState(1);
 
-  // Role permissions toggles (simulated for UI toggle, real saved)
-  const [rolePermissions, setRolePermissions] = useState<Record<string, Record<string, boolean>>>({
-    class_bursar: {
-      view_transactions: true,
-      verify_payments: true,
-      manage_defaulters: true,
-      create_dues: false,
-      view_student_list: true,
-      edit_student_details: false,
-    },
-  });
+  // Permissions for a person: a search over the directory, then the chosen person.
+  const [permissionSearch, setPermissionSearch] = useState('');
+  const [permissionResults, setPermissionResults] = useState<User[]>([]);
+  const [permissionPerson, setPermissionPerson] = useState<User | null>(null);
+  const [searchingPeople, setSearchingPeople] = useState(false);
 
   // Active action menu row id
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
@@ -273,6 +274,28 @@ export default function UserManagementPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Search the directory for the person whose permissions are shown (debounced).
+  useEffect(() => {
+    const term = permissionSearch.trim();
+    if (!term) {
+      setPermissionResults([]);
+      setSearchingPeople(false);
+      return;
+    }
+    setSearchingPeople(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await getUsers({ page: 1, perPage: 10, search: term });
+        setPermissionResults(Array.isArray(res) ? res : []);
+      } catch {
+        setPermissionResults([]);
+      } finally {
+        setSearchingPeople(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [permissionSearch]);
 
   // Fetch assignable students when assign tab is active or search changes
   useEffect(() => {
@@ -614,6 +637,10 @@ export default function UserManagementPage() {
 
   // Selected role for Permissions panel
   const activeSelectedRole = roles[selectedRoleIndex] || roles[0];
+  // Everything the chosen person can do: the union over all of their roles, including extra roles.
+  const personRoleNames = permissionPerson ? rolesOfPerson(permissionPerson) : [];
+  const personGranted = new Set(capabilitiesForRoles(personRoleNames).map((c) => c.key));
+  const roleCapabilities: Capability[] = activeSelectedRole ? capabilitiesForRole(activeSelectedRole.name) : [];
 
   return (
     <div className="space-y-6 pb-16">
@@ -1073,7 +1100,7 @@ export default function UserManagementPage() {
                             {/* Permissions */}
                             <td className="py-3 px-3">
                               <span className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                                Default permissions
+                                {capabilitiesForRole(r.name).length} capabilities
                               </span>
                             </td>
 
@@ -1115,11 +1142,10 @@ export default function UserManagementPage() {
             </div>
           </div>
 
-          {/* Right Column: Role Detail & Permission Manager (5 Cols) */}
-          <div className="lg:col-span-5">
+          {/* Right Column: what a role grants, and what a person can do */}
+          <div className="lg:col-span-5 space-y-6">
             {activeSelectedRole ? (
-              <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a]/60 shadow-sm space-y-5 sticky top-6">
-                {/* Header */}
+              <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a]/60 shadow-sm space-y-5">
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700/60 flex items-center justify-center shrink-0">
                     <Shield className="w-5 h-5 text-blue-400" />
@@ -1133,121 +1159,138 @@ export default function UserManagementPage() {
                 </div>
 
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  {activeSelectedRole.description ||
-                    'Controls system access and operational capabilities across department modules.'}
+                  {activeSelectedRole.description || 'Controls what people with this role can do.'}
                 </p>
 
-                {/* Permissions Groups */}
-                <div className="space-y-4 pt-2">
-                  {/* Category: Finance */}
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Finance</p>
-                    <div className="space-y-2.5">
-                      {[
-                        { key: 'view_transactions', label: 'View transactions' },
-                        { key: 'verify_payments', label: 'Verify payments' },
-                        { key: 'manage_defaulters', label: 'Manage defaulters' },
-                        { key: 'create_dues', label: 'Create dues' },
-                      ].map((perm) => (
-                        <div
-                          key={perm.key}
-                          className="flex items-center justify-between text-xs sm:text-sm text-slate-800 dark:text-slate-200"
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                    What this role can do
+                  </p>
+                  {roleCapabilities.length === 0 ? (
+                    <p className="text-xs text-slate-400">This role has no capabilities in the system.</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {roleCapabilities.map((c) => (
+                        <li
+                          key={c.key}
+                          className="flex items-center gap-2 text-xs sm:text-sm text-slate-800 dark:text-slate-200"
                         >
-                          <span>{perm.label}</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const rKey = activeSelectedRole.name;
-                              setRolePermissions((prev) => ({
-                                ...prev,
-                                [rKey]: {
-                                  ...prev[rKey],
-                                  [perm.key]: !prev[rKey]?.[perm.key],
-                                },
-                              }));
-                            }}
-                            className={`w-11 h-6 rounded-full transition-colors relative focus:outline-none ${
-                              rolePermissions[activeSelectedRole.name]?.[perm.key] ? 'bg-blue-600' : 'bg-slate-700'
-                            }`}
-                          >
-                            <span
-                              className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${
-                                rolePermissions[activeSelectedRole.name]?.[perm.key] ? 'translate-x-5' : ''
-                              }`}
-                            />
-                          </button>
-                        </div>
+                          <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                          <span>{c.label}</span>
+                        </li>
                       ))}
-                    </div>
-                  </div>
-
-                  {/* Category: Students */}
-                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800/60">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Students</p>
-                    <div className="space-y-2.5">
-                      {[
-                        { key: 'view_student_list', label: 'View student list' },
-                        { key: 'edit_student_details', label: 'Edit student details' },
-                      ].map((perm) => (
-                        <div
-                          key={perm.key}
-                          className="flex items-center justify-between text-xs sm:text-sm text-slate-800 dark:text-slate-200"
-                        >
-                          <span>{perm.label}</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const rKey = activeSelectedRole.name;
-                              setRolePermissions((prev) => ({
-                                ...prev,
-                                [rKey]: {
-                                  ...prev[rKey],
-                                  [perm.key]: !prev[rKey]?.[perm.key],
-                                },
-                              }));
-                            }}
-                            className={`w-11 h-6 rounded-full transition-colors relative focus:outline-none ${
-                              rolePermissions[activeSelectedRole.name]?.[perm.key] ? 'bg-blue-600' : 'bg-slate-700'
-                            }`}
-                          >
-                            <span
-                              className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${
-                                rolePermissions[activeSelectedRole.name]?.[perm.key] ? 'translate-x-5' : ''
-                              }`}
-                            />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer Buttons */}
-                <div className="flex items-center gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => success('Permissions Saved', `Permissions for ${activeSelectedRole.name} updated`)}
-                    className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors"
-                  >
-                    <Check className="w-4 h-4 stroke-[2.5]" />
-                    <span>Save</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const rKey = activeSelectedRole.name;
-                      setRolePermissions((prev) => ({
-                        ...prev,
-                        [rKey]: {},
-                      }));
-                    }}
-                    className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs sm:text-sm font-semibold transition-colors"
-                  >
-                    Reset
-                  </button>
+                    </ul>
+                  )}
+                  <p className="text-[11px] text-slate-400 mt-3">
+                    These come with the system. Changing them needs a code change, so they are not edited here.
+                  </p>
                 </div>
               </div>
             ) : null}
+
+            <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a]/60 shadow-sm space-y-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Permissions for a person</h3>
+                <p className="text-xs text-slate-400">
+                  Find someone to see what they can do, based on all of their roles, including extra roles.
+                </p>
+              </div>
+
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="search"
+                  value={permissionSearch}
+                  onChange={(e) => setPermissionSearch(e.target.value)}
+                  placeholder="Name or email"
+                  aria-label="Search for a person"
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-transparent text-sm text-slate-900 dark:text-white"
+                />
+              </div>
+
+              {permissionSearch.trim() && (
+                <div className="rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800">
+                  {searchingPeople ? (
+                    <p className="px-3 py-3 text-xs text-slate-400">Searching…</p>
+                  ) : permissionResults.length === 0 ? (
+                    <p className="px-3 py-3 text-xs text-slate-400">No one matches that search.</p>
+                  ) : (
+                    permissionResults.map((u) => (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onClick={() => setPermissionPerson(u)}
+                        className={`w-full text-left px-3 py-2.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-800/40 ${
+                          permissionPerson?.id === u.id ? 'bg-blue-600/10' : ''
+                        }`}
+                      >
+                        <span className="block font-semibold text-slate-900 dark:text-white truncate">
+                          {u.fullName || `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email}
+                        </span>
+                        <span className="block text-xs text-slate-400 truncate">{u.email}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {permissionPerson && (
+                <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                        {permissionPerson.fullName || permissionPerson.email}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {personRoleNames.map((r) => (
+                          <span
+                            key={r}
+                            className="px-2 py-0.5 rounded-full text-[11px] font-semibold capitalize bg-blue-600/10 text-blue-400"
+                          >
+                            {r.replace(/_/g, ' ')}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPermissionPerson(null)}
+                      className="text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    >
+                      Clear
+                    </button>
+                  </div>
+
+                  {(['Finance', 'Academics', 'Class', 'Administration'] as const).map((group) => (
+                    <div key={group}>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">{group}</p>
+                      <ul className="space-y-2">
+                        {CAPABILITIES.filter((c) => c.group === group).map((c) => {
+                          const allowed = personGranted.has(c.key);
+                          return (
+                            <li
+                              key={c.key}
+                              className={`flex items-center justify-between gap-3 text-xs sm:text-sm ${
+                                allowed ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400'
+                              }`}
+                            >
+                              <span>{c.label}</span>
+                              <span
+                                className={`shrink-0 text-[11px] font-semibold ${
+                                  allowed ? 'text-emerald-500' : 'text-slate-400'
+                                }`}
+                              >
+                                {allowed ? 'Allowed' : 'Not allowed'}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
