@@ -167,7 +167,7 @@ func (server *Server) listUsers(ctx *gin.Context) {
 			MiddleName:     u.MiddleName,
 			Phone:          u.Phone,
 			Avatar:         u.AvatarUrl,
-			Roles:          []string{role},
+			Roles:          holderRoles(role, u.AllRoles),
 			ActiveRole:     role,
 			Role:           role,
 			IsApproved:     u.IsApproved,
@@ -483,4 +483,20 @@ func (server *Server) deleteUser(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"status": "user deleted"})
+}
+
+// holderRoles lists a user's roles for the directory: the primary role, then each active extra role, as display names
+// and without duplicates. The directory filters by this list, so an extra role (e.g. class_rep) must appear in it.
+func holderRoles(primary string, allRoles string) []string {
+	out := []string{primary}
+	seen := map[string]bool{primary: true}
+	for _, raw := range strings.Split(allRoles, ",") {
+		name := service.ParseRoleName(strings.TrimSpace(raw))
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		out = append(out, name)
+	}
+	return out
 }

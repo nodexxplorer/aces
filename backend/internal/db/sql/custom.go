@@ -2945,3 +2945,32 @@ func (q *Queries) CreateWaivedGraduationRequest(ctx context.Context, userID, cre
 	}
 	return g, nil
 }
+
+// RoleHolder is one user holding one role: the user's primary role, or an active extra role.
+type RoleHolder struct {
+	UserID uuid.UUID
+	Role   string
+}
+
+// ListRoleHolders returns every (user, role) pair, once each: each user's primary role, and each active extra role.
+// The role list counts users with both kinds, so it needs the extra roles as well as users.role.
+func (q *Queries) ListRoleHolders(ctx context.Context) ([]RoleHolder, error) {
+	rows, err := q.db.Query(ctx, `
+		SELECT id, role::text FROM users
+		UNION
+		SELECT user_id, role::text FROM user_role_assignments WHERE is_active = true`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []RoleHolder
+	for rows.Next() {
+		var h RoleHolder
+		if err := rows.Scan(&h.UserID, &h.Role); err != nil {
+			return nil, err
+		}
+		out = append(out, h)
+	}
+	return out, rows.Err()
+}
