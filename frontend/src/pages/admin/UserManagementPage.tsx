@@ -18,11 +18,39 @@ import {
   searchStudentsForRoles,
   assignUserRole,
   revokeUserRole,
+  getAdminPermission,
+  grantAdminPermission,
+  updateAdminPermission,
+  revokeAdminPermission,
   type Role,
+  type AdminPermission,
+  type AdminGrantFlags,
 } from '../../api/role-management';
 import type { User, UserRole, StudentForRoleManagement } from '../../types';
 import { getErrorMessage } from '../../utils/errors';
-import { CAPABILITIES, capabilitiesForRole, capabilitiesForRoles, type Capability } from '../../config/permissions';
+import {
+  ADMIN_GRANTS,
+  CAPABILITIES,
+  capabilitiesForPerson,
+  capabilitiesForRole,
+  type AdminGrant,
+  type AdminGrantKey,
+  type Capability,
+} from '../../config/permissions';
+
+/** Every grant flag, turned into the form the editor and the API use. */
+function flagsFromGrant(grant: AdminPermission | AdminGrant | null): AdminGrantFlags {
+  const flags = {} as AdminGrantFlags;
+  for (const { key } of ADMIN_GRANTS) {
+    flags[key] = grant?.[key as AdminGrantKey] === true;
+  }
+  return flags;
+}
+
+/** True for the "no grant" answer from GET /admin-permissions/:user_id. */
+function isNotFound(err: unknown): boolean {
+  return (err as { response?: { status?: number } })?.response?.status === 404;
+}
 import {
   Users,
   Shield,
@@ -172,6 +200,8 @@ export default function UserManagementPage() {
 
   const { user: currentUser } = useAuth();
   const { success, error: notifyError } = useNotification();
+  // Only the HOD sees and sets admin grants; the server enforces the same rule.
+  const isHod = currentUser?.activeRole === 'hod';
 
   // ----------------------------------------------------
   // Global State (Real Data Only)
@@ -237,6 +267,12 @@ export default function UserManagementPage() {
   const [permissionResults, setPermissionResults] = useState<User[]>([]);
   const [permissionPerson, setPermissionPerson] = useState<User | null>(null);
   const [searchingPeople, setSearchingPeople] = useState(false);
+  // The chosen person's saved grant (null when there is none) and the HOD's unsaved edits.
+  const [personGrant, setPersonGrant] = useState<AdminPermission | null>(null);
+  const [grantDraft, setGrantDraft] = useState<AdminGrantFlags>(() => flagsFromGrant(null));
+  const [grantLoading, setGrantLoading] = useState(false);
+  const [grantSaving, setGrantSaving] = useState(false);
+  const [grantLoadError, setGrantLoadError] = useState<string | null>(null);
 
   // Active action menu row id
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
@@ -296,6 +332,66 @@ export default function UserManagementPage() {
     }, 300);
     return () => clearTimeout(timer);
   }, [permissionSearch]);
+
+  // Load the chosen person's grant when the HOD picks someone.
+  const permissionPersonId = permissionPerson?.id;
+  useEffect(() => {
+    setPersonGrant(null);
+    setGrantDraft(flagsFromGrant(null));
+    setGrantLoadError(null);
+    if (!permissionPersonId || !isHod) return;
+    let cancelled = false;
+    const load = async () => {
+      setGrantLoading(true);
+      try {
+        const grant = await getAdminPermission(permissionPersonId);
+        if (cancelled || !grant?.user_id) return;
+        setPersonGrant(grant);
+        setGrantDraft(flagsFromGrant(grant));
+      } catch (err: unknown) {
+        if (!cancelled && !isNotFound(err)) setGrantLoadError(getErrorMessage(err));
+      } finally {
+        if (!cancelled) setGrantLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [permissionPersonId, isHod]);
+
+  const saveGrant = async () => {
+    if (!permissionPerson) return;
+    setGrantSaving(true);
+    try {
+      if (personGrant) {
+        await updateAdminPermission(permissionPerson.id, grantDraft);
+      } else {
+        await grantAdminPermission(permissionPerson.id, grantDraft);
+      }
+      setPersonGrant({ user_id: permissionPerson.id, ...grantDraft, is_active: true });
+      success('Admin grants saved');
+    } catch (err) {
+      notifyError(getErrorMessage(err));
+    } finally {
+      setGrantSaving(false);
+    }
+  };
+
+  const removeGrant = async () => {
+    if (!permissionPerson) return;
+    setGrantSaving(true);
+    try {
+      await revokeAdminPermission(permissionPerson.id);
+      setPersonGrant(null);
+      setGrantDraft(flagsFromGrant(null));
+      success('Admin grants removed');
+    } catch (err) {
+      notifyError(getErrorMessage(err));
+    } finally {
+      setGrantSaving(false);
+    }
+  };
 
   // Fetch assignable students when assign tab is active or search changes
   useEffect(() => {
@@ -639,7 +735,10 @@ export default function UserManagementPage() {
   const activeSelectedRole = roles[selectedRoleIndex] || roles[0];
   // Everything the chosen person can do: the union over all of their roles, including extra roles.
   const personRoleNames = permissionPerson ? rolesOfPerson(permissionPerson) : [];
-  const personGranted = new Set(capabilitiesForRoles(personRoleNames).map((c) => c.key));
+  const personHoldsAdmin = personRoleNames.some((r) => r === 'delegated_admin' || r === 'admin');
+  const personGranted = new Set(
+    capabilitiesForPerson(personRoleNames, personGrant ? flagsFromGrant(personGrant) : null).map((c) => c.key),
+  );
   const roleCapabilities: Capability[] = activeSelectedRole ? capabilitiesForRole(activeSelectedRole.name) : [];
 
   return (
@@ -1267,6 +1366,8 @@ export default function UserManagementPage() {
                       <ul className="space-y-2">
                         {CAPABILITIES.filter((c) => c.group === group).map((c) => {
                           const allowed = personGranted.has(c.key);
+                          // A non-HOD viewer cannot see the grant, so an admin area is not shown as refused.
+                          const setByHod = !isHod && personHoldsAdmin && c.grant !== undefined && !allowed;
                           return (
                             <li
                               key={c.key}
@@ -1280,7 +1381,7 @@ export default function UserManagementPage() {
                                   allowed ? 'text-emerald-500' : 'text-slate-400'
                                 }`}
                               >
-                                {allowed ? 'Allowed' : 'Not allowed'}
+                                {allowed ? 'Allowed' : setByHod ? 'Set by HOD' : 'Not allowed'}
                               </span>
                             </li>
                           );
@@ -1288,6 +1389,72 @@ export default function UserManagementPage() {
                       </ul>
                     </div>
                   ))}
+
+                  {isHod && personHoldsAdmin && (
+                    <section
+                      aria-label="Admin grants"
+                      className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800"
+                    >
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">Admin grants</h4>
+                        <p className="text-xs text-slate-400">
+                          Only the HOD sets these. A delegated admin can use an area only when it is on here. The server
+                          enforces it on every request.
+                        </p>
+                      </div>
+                      {grantLoadError && (
+                        <p role="alert" className="text-xs text-red-500">
+                          {grantLoadError}
+                        </p>
+                      )}
+                      {grantLoading ? (
+                        <p className="text-xs text-slate-400">Loading grants…</p>
+                      ) : (
+                        <>
+                          <ul className="space-y-3">
+                            {ADMIN_GRANTS.map((g) => (
+                              <li key={g.key}>
+                                <label className="flex items-start gap-3 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    className="mt-1"
+                                    checked={grantDraft[g.key]}
+                                    onChange={(e) => setGrantDraft((d) => ({ ...d, [g.key]: e.target.checked }))}
+                                  />
+                                  <span>
+                                    <span className="block text-sm font-semibold text-slate-800 dark:text-slate-200">
+                                      {g.label}
+                                    </span>
+                                    <span className="block text-xs text-slate-400">{g.description}</span>
+                                  </span>
+                                </label>
+                              </li>
+                            ))}
+                          </ul>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={saveGrant}
+                              disabled={grantSaving}
+                              className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              {grantSaving ? 'Saving…' : 'Save grants'}
+                            </button>
+                            {personGrant && (
+                              <button
+                                type="button"
+                                onClick={removeGrant}
+                                disabled={grantSaving}
+                                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
+                              >
+                                Remove all grants
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </section>
+                  )}
                 </div>
               )}
             </div>
