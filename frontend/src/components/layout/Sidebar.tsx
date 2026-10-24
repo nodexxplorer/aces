@@ -176,23 +176,6 @@ const menuItems: MenuItem[] = [
   // { label: 'Course Materials', path: '/l/materials', icon: FolderOpen, roles: ['lecturer'] },
   // { label: 'Leave Requests', path: '/l/leave', icon: FileClock, roles: ['lecturer'] },
 
-  { label: 'Class Rep Portal', path: '/rep/dashboard', icon: LayoutDashboard, roles: ['class_rep'] },
-  // { label: 'Track Attendance', path: '/rep/attendance', icon: ClipboardList, roles: ['class_rep'] },
-  { label: 'Pending Registrations', path: '/rep/pending', icon: ShieldAlert, roles: ['class_rep'] },
-  { label: 'Class List', path: '/rep/class-list', icon: Users, roles: ['class_rep'] },
-  { label: 'Notify Classmates', path: '/rep/notify', icon: Megaphone, roles: ['class_rep'] },
-
-  { label: 'Bursar Portal', path: '/bu/dashboard', icon: LayoutDashboard, roles: ['class_bursar', 'dept_bursar'] },
-  {
-    label: 'Dues Management',
-    path: '/bu/dues',
-    icon: DollarSign,
-    roles: ['class_bursar', 'dept_bursar', 'hod', 'delegated_admin'],
-  },
-  { label: 'Verify Payments', path: '/bu/verify', icon: DollarSign, roles: ['class_bursar', 'dept_bursar'] },
-  { label: 'Defaulters List', path: '/bu/defaulters', icon: ShieldAlert, roles: ['class_bursar', 'dept_bursar'] },
-  { label: 'Payment History', path: '/bu/history', icon: Clock, roles: ['class_bursar', 'dept_bursar'] },
-
   { label: 'Admin Portal', path: '/admin', icon: LayoutDashboard, roles: ['hod', 'delegated_admin', 'admin'] },
   // {
   //   label: 'Results Management',
@@ -389,31 +372,55 @@ const mobileSections: NavSection[] = [
     roles: ['hod', 'delegated_admin', 'admin'],
     items: [{ label: 'Profile', path: '/admin/profile?tab=overview', icon: FileClock }],
   },
+];
+
+/* Class rep and bursar each have their own sidebar, separate from the other roles. */
+const classRepSections: NavSection[] = [
   {
-    title: 'CLASS REP',
+    title: 'OVERVIEW',
+    icon: LayoutDashboard,
+    key: 'rep_overview',
+    roles: ['class_rep'],
+    items: [{ label: 'Class Rep Portal', path: '/rep/dashboard', icon: LayoutDashboard }],
+  },
+  {
+    title: 'CLASS',
     icon: Medal,
-    key: 'class_rep',
+    key: 'rep_class',
     roles: ['class_rep'],
     items: [
-      { label: 'Class Rep Portal', path: '/rep/dashboard', icon: LayoutDashboard },
-      // { label: 'Track Attendance', path: '/rep/attendance', icon: ClipboardList },
-      { label: 'Pending Registrations', path: '/rep/pending', icon: ShieldAlert },
       { label: 'Class List', path: '/rep/class-list', icon: Users },
+      { label: 'Pending Registrations', path: '/rep/pending', icon: ShieldAlert },
       { label: 'Notify Classmates', path: '/rep/notify', icon: Megaphone },
     ],
   },
+];
+
+const bursarSections: NavSection[] = [
   {
-    title: 'BURSAR',
+    title: 'OVERVIEW',
+    icon: LayoutDashboard,
+    key: 'bursar_overview',
+    roles: ['class_bursar', 'dept_bursar'],
+    items: [{ label: 'Bursar Portal', path: '/bu/dashboard', icon: LayoutDashboard }],
+  },
+  {
+    title: 'DUES & PAYMENTS',
     icon: Coins,
-    key: 'bursar',
+    key: 'bursar_finance',
     roles: ['class_bursar', 'dept_bursar'],
     items: [
-      { label: 'Bursar Portal', path: '/bu/dashboard', icon: LayoutDashboard },
       { label: 'Dues Management', path: '/bu/dues', icon: DollarSign },
       { label: 'Verify Payments', path: '/bu/verify', icon: DollarSign },
-      { label: 'Defaulters List', path: '/bu/defaulters', icon: ShieldAlert },
       { label: 'Payment History', path: '/bu/history', icon: Clock },
     ],
+  },
+  {
+    title: 'REPORTS',
+    icon: ShieldAlert,
+    key: 'bursar_reports',
+    roles: ['class_bursar', 'dept_bursar'],
+    items: [{ label: 'Defaulters List', path: '/bu/defaulters', icon: ShieldAlert }],
   },
 ];
 
@@ -452,11 +459,14 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
   // plain flat list below.
   const isStudentLike = ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'].includes(activeRole);
   const isAdminLike = ['hod', 'delegated_admin', 'admin'].includes(activeRole);
+  const isBursar = ['class_bursar', 'dept_bursar'].includes(activeRole);
+  const roleSections: NavSection[] | null =
+    activeRole === 'class_rep' ? classRepSections : isBursar ? bursarSections : null;
   const desktopSections = isStudentLike
     ? studentSections
     : isAdminLike
       ? mobileSections.filter((s) => s.key.startsWith('admin_'))
-      : null;
+      : roleSections;
   const roleProfilePath = useProfilePath();
   const navigate = useNavigate();
 
@@ -626,7 +636,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
           ) : (
             <>
               {/* Collapsible sections */}
-              {mobileSections.map((section) => {
+              {(roleSections ?? mobileSections).map((section) => {
                 const hasAccess = !section.roles || section.roles.some((r) => user?.roles.includes(r));
                 const isExpanded = expandedSections.includes(section.key);
                 const SectionIcon = section.icon;
@@ -811,7 +821,11 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
                         ? 'Admin'
                         : activeRole === 'lecturer'
                           ? 'Staff'
-                          : 'Student'}
+                          : activeRole === 'class_rep'
+                            ? 'Class rep'
+                            : isBursar
+                              ? 'Bursar'
+                              : 'Student'}
                   </span>
                 </div>
                 <span className="text-[10px] text-[var(--text-muted)] block truncate mt-0.5">
@@ -821,7 +835,11 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
                       ? 'Administrator'
                       : activeRole === 'lecturer'
                         ? 'Lecturer'
-                        : user?.matricNumber || 'Student'}
+                        : activeRole === 'class_rep'
+                          ? 'Class representative'
+                          : isBursar
+                            ? 'Bursar'
+                            : user?.matricNumber || 'Student'}
                 </span>
               </div>
             </div>
