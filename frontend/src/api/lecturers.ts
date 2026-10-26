@@ -19,7 +19,7 @@ export interface LecturerProfile {
   qualifications: string[];
   bio: string | null;
   office_location: string | null;
-  office_hours: string | null;
+  office_hours: Record<string, string> | string | null;
   date_joined: string | null;
   created_at: string | null;
 }
@@ -39,6 +39,8 @@ export interface LecturerAssignment {
   assigned_by: string;
   assigned_by_name: string;
   created_at: string | null;
+  enrolled_count?: number;
+  class_rep_name?: string;
 }
 
 export interface LecturerLeave {

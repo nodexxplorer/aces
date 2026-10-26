@@ -67,6 +67,7 @@ type userResponse struct {
 	Role                  string   `json:"role"`
 	IsApproved            bool     `json:"isApproved"`
 	IsActive              bool     `json:"isActive"`
+	EmailVerified         bool     `json:"emailVerified"`
 	ApprovalStatus        string   `json:"approvalStatus"`
 	OnboardingCompleted   bool     `json:"onboardingCompleted"`
 	CreatedAt             string   `json:"createdAt"`
@@ -97,7 +98,7 @@ type tokenPair struct {
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`
 	ExpiresAt    string `json:"expiresAt"`
-	
+
 	CsrfToken string `json:"csrfToken,omitempty"`
 }
 
@@ -229,6 +230,7 @@ func toUserResponse(u db.User, onboardingCompleted bool) userResponse {
 		Role:                role,
 		IsApproved:          u.IsApproved,
 		IsActive:            u.IsActive,
+		EmailVerified:       u.EmailVerified,
 		ApprovalStatus:      approvalStatus,
 		OnboardingCompleted: onboardingCompleted,
 		CreatedAt:           createdAt,
@@ -558,13 +560,13 @@ func (server *Server) getMe(ctx *gin.Context) {
 }
 
 func (server *Server) logout(ctx *gin.Context) {
-	
+
 	if q, ok := server.store.(*db.Queries); ok {
 		if rt := server.getRefreshTokenFromRequest(ctx); rt != "" {
 			if session, err := q.GetActiveSessionByToken(ctx, rt); err == nil {
 				_ = q.DeleteActiveSession(ctx, db.DeleteActiveSessionParams{ID: session.ID, UserID: session.UserID})
 			}
-			
+
 			if userID, uerr := uuid.Parse(ctx.GetString("userID")); uerr == nil {
 				if mrt, gerr := q.GetModoolsRefreshToken(ctx, userID); gerr == nil && mrt != "" {
 					go server.revokeModoolsToken(mrt)

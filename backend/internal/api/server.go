@@ -13,8 +13,8 @@ import (
 	"github.com/aces/backend/internal/config"
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/aces/backend/internal/email"
-	"github.com/aces/backend/internal/push"
 	"github.com/aces/backend/internal/middleware"
+	"github.com/aces/backend/internal/push"
 	"github.com/aces/backend/internal/service"
 	"github.com/aces/backend/internal/storage"
 	"github.com/aces/backend/internal/tenant"
@@ -160,7 +160,6 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	}
 	server.uploads = signer
 
-	
 	hub.PersistChat = func(tenantID, from, to uuid.UUID, content string) (json.RawMessage, error) {
 		ctx, cancel, err := server.socketContext(tenantID)
 		if err != nil {
@@ -273,9 +272,7 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 
 	v1.POST("/payments/webhook/paystack", server.handlePaystackWebhook)
 
-	
 	v1.GET("/calendar/feed/:token", server.getCalendarFeed)
-
 
 	v1.GET("/notifications/unsubscribe/:token", server.unsubscribeFromEmails)
 
@@ -718,7 +715,7 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		lecturers.GET("/attendance/history", requireCapability(capManageCourses, "lecturer", "hod", "admin"), server.getLecturerAttendanceHistory)
 		lecturers.GET("/attendance/overview", requireCapability(capManageCourses, "lecturer", "hod", "admin"), server.getLecturerCourseAttendanceOverview)
 		lecturers.GET("/:id", requireCapability(capManageUsers, "hod", "admin", "delegated_admin", "lecturer"), server.getLecturerProfile)
-		lecturers.PUT("/:id", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.updateLecturerProfile)
+		lecturers.PUT("/:id", requireCapability(capManageUsers, "hod", "admin", "delegated_admin", "lecturer"), server.updateLecturerProfile)
 		lecturers.POST("/assign-course", requireCapability(capManageCourses, "hod", "admin", "delegated_admin"), server.assignCourseToLecturer)
 		lecturers.GET("/:id/assignments", requireCapability(capManageCourses, "hod", "admin", "delegated_admin", "lecturer"), server.listLecturerAssignments)
 		lecturers.DELETE("/assignments/:id", requireCapability(capManageCourses, "hod", "admin", "delegated_admin"), server.removeCourseAssignment)

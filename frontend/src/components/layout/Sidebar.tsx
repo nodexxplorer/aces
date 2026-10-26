@@ -348,6 +348,37 @@ const classRepSections: NavSection[] = [
   },
 ];
 
+const lecturerSections: NavSection[] = [
+  {
+    title: 'OVERVIEW',
+    icon: LayoutDashboard,
+    key: 'lecturer_overview',
+    roles: ['lecturer'],
+    items: [{ label: 'Dashboard', path: '/l/dashboard', icon: LayoutDashboard }],
+  },
+  {
+    title: 'TEACHING',
+    icon: BookOpen,
+    key: 'lecturer_teaching',
+    roles: ['lecturer'],
+    items: [
+      { label: 'My courses', path: '/l/dashboard', icon: BookOpen },
+      { label: 'Class lists', path: '/l/class-list', icon: Users },
+      { label: 'Leave requests', path: '/l/leave', icon: Calendar },
+    ],
+  },
+  {
+    title: 'COMMUNITY',
+    icon: MessagesSquare,
+    key: 'lecturer_community',
+    roles: ['lecturer'],
+    items: [
+      { label: 'Connect', path: '/connect', icon: Users },
+      { label: 'Announcements', path: '/l/announcements', icon: Megaphone },
+    ],
+  },
+];
+
 const bursarSections: NavSection[] = [
   {
     title: 'OVERVIEW',
@@ -413,7 +444,13 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
   const isAdminLike = ['hod', 'delegated_admin', 'admin'].includes(activeRole);
   const isBursar = ['class_bursar', 'dept_bursar'].includes(activeRole);
   const roleSections: NavSection[] | null =
-    activeRole === 'class_rep' ? classRepSections : isBursar ? bursarSections : null;
+    activeRole === 'class_rep'
+      ? classRepSections
+      : isBursar
+        ? bursarSections
+        : activeRole === 'lecturer'
+          ? lecturerSections
+          : null;
   const desktopSections = isStudentLike
     ? studentSections
     : isAdminLike

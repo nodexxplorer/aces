@@ -39,6 +39,17 @@ describe('role sidebars', () => {
     expect(screen.queryAllByText('Defaulters List')).toHaveLength(0);
   });
 
+  it('lecturer sees teaching and community items', () => {
+    activeRole = 'lecturer';
+    roles = ['lecturer'];
+    renderSidebar();
+    expect(screen.getAllByText('Class lists').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Leave requests').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Announcements').length).toBeGreaterThan(0);
+    expect(screen.queryAllByText('Pending Registrations')).toHaveLength(0);
+    expect(screen.queryAllByText('Verify Payments')).toHaveLength(0);
+  });
+
   it('bursar sees bursar items only', () => {
     activeRole = 'class_bursar';
     roles = ['class_bursar'];

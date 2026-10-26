@@ -26,7 +26,7 @@ WHERE ap.user_id = $1
   )
 `
 
-// GetAdminPermissions returns the active grant for a person. A grant counts only while the person still
+// The active grant for a person. A grant counts only while the person still
 // holds the delegated admin role, so a grant left behind by a removed role
 // never works again.
 func (q *Queries) GetAdminPermissions(ctx context.Context, userID uuid.UUID) (AdminPermission, error) {
@@ -110,7 +110,7 @@ type GrantAdminPermissionsParams struct {
 	ExpiresAt              pgtype.Timestamptz `json:"expires_at"`
 }
 
-// GrantAdminPermissions creates or replaces the grant for one person. A person has at most one grant
+// Creates or replaces the grant for one person. A person has at most one grant
 // per department, so a grant that was revoked earlier is reactivated here.
 func (q *Queries) GrantAdminPermissions(ctx context.Context, arg GrantAdminPermissionsParams) (AdminPermission, error) {
 	row := q.db.QueryRow(ctx, grantAdminPermissions,
@@ -165,7 +165,6 @@ type ListAdminPermissionsParams struct {
 	Offset int32 `json:"offset"`
 }
 
-// ListAdminPermissions
 func (q *Queries) ListAdminPermissions(ctx context.Context, arg ListAdminPermissionsParams) ([]AdminPermission, error) {
 	rows, err := q.db.Query(ctx, listAdminPermissions, arg.Limit, arg.Offset)
 	if err != nil {
@@ -223,7 +222,7 @@ SET
 WHERE user_id = $1
 `
 
-// RevokeAdminPermissions turns every flag off as well as deactivating the grant, so a later grant starts
+// Turns every flag off as well as deactivating the grant, so a later grant starts
 // from a clean state.
 func (q *Queries) RevokeAdminPermissions(ctx context.Context, userID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, revokeAdminPermissions, userID)
@@ -265,7 +264,6 @@ type UpdateAdminPermissionsParams struct {
 	ExpiresAt              pgtype.Timestamptz `json:"expires_at"`
 }
 
-// UpdateAdminPermissions
 func (q *Queries) UpdateAdminPermissions(ctx context.Context, arg UpdateAdminPermissionsParams) (AdminPermission, error) {
 	row := q.db.QueryRow(ctx, updateAdminPermissions,
 		arg.UserID,
@@ -307,16 +305,16 @@ func (q *Queries) UpdateAdminPermissions(ctx context.Context, arg UpdateAdminPer
 }
 
 const userHoldsAdminRole = `-- name: UserHoldsAdminRole :one
-SELECT (
+SELECT COALESCE((
     EXISTS (SELECT 1 FROM users u WHERE u.id = $1 AND u.role = 'admin')
     OR EXISTS (
         SELECT 1 FROM user_role_assignments ura
         WHERE ura.user_id = $1 AND ura.role = 'admin' AND ura.is_active = true
     )
-) AS holds_role
+), false)::boolean AS holds_role
 `
 
-// UserHoldsAdminRole reports whether the person holds the delegated admin role, by primary role or by an
+// True when the person holds the delegated admin role, by primary role or by an
 // active extra role. Grants can only be given to such a person.
 func (q *Queries) UserHoldsAdminRole(ctx context.Context, id uuid.UUID) (bool, error) {
 	row := q.db.QueryRow(ctx, userHoldsAdminRole, id)

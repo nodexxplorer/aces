@@ -56,13 +56,13 @@ WHERE ap.user_id = $1
 -- name: UserHoldsAdminRole :one
 -- True when the person holds the delegated admin role, by primary role or by an
 -- active extra role. Grants can only be given to such a person.
-SELECT (
+SELECT COALESCE((
     EXISTS (SELECT 1 FROM users u WHERE u.id = $1 AND u.role = 'admin')
     OR EXISTS (
         SELECT 1 FROM user_role_assignments ura
         WHERE ura.user_id = $1 AND ura.role = 'admin' AND ura.is_active = true
     )
-) AS holds_role;
+), false)::boolean AS holds_role;
 
 -- name: UpdateAdminPermissions :one
 UPDATE admin_permissions

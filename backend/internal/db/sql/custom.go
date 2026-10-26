@@ -611,27 +611,27 @@ func (q *Queries) UpdateBackupStatus(ctx context.Context, id uuid.UUID, status s
 // ==================== LECTURER MANAGEMENT ====================
 
 type LecturerProfile struct {
-	ID               uuid.UUID  `json:"id"`
-	UserID           uuid.UUID  `json:"user_id"`
-	StaffID          string     `json:"staff_id"`
-	Department       string     `json:"department"`
-	Title            *string    `json:"title"`
-	FirstName        *string    `json:"first_name"`
-	LastName         *string    `json:"last_name"`
-	FullName         string     `json:"full_name"`
-	Email            string     `json:"email"`
-	Phone            *string    `json:"phone"`
-	AvatarURL        *string    `json:"avatar_url"`
-	Rank             *string    `json:"rank"`
-	Specialization   *string    `json:"specialization"`
-	EmploymentType   *string    `json:"employment_type"`
-	EmploymentStatus *string    `json:"employment_status"`
-	Qualifications   []byte     `json:"qualifications"`
-	Bio              *string    `json:"bio"`
-	OfficeLocation   *string    `json:"office_location"`
-	OfficeHours      []byte     `json:"office_hours"`
-	DateJoined       *time.Time `json:"date_joined"`
-	CreatedAt        *time.Time `json:"created_at"`
+	ID               uuid.UUID       `json:"id"`
+	UserID           uuid.UUID       `json:"user_id"`
+	StaffID          string          `json:"staff_id"`
+	Department       string          `json:"department"`
+	Title            *string         `json:"title"`
+	FirstName        *string         `json:"first_name"`
+	LastName         *string         `json:"last_name"`
+	FullName         string          `json:"full_name"`
+	Email            string          `json:"email"`
+	Phone            *string         `json:"phone"`
+	AvatarURL        *string         `json:"avatar_url"`
+	Rank             *string         `json:"rank"`
+	Specialization   *string         `json:"specialization"`
+	EmploymentType   *string         `json:"employment_type"`
+	EmploymentStatus *string         `json:"employment_status"`
+	Qualifications   []byte          `json:"qualifications"`
+	Bio              *string         `json:"bio"`
+	OfficeLocation   *string         `json:"office_location"`
+	OfficeHours      json.RawMessage `json:"office_hours"`
+	DateJoined       *time.Time      `json:"date_joined"`
+	CreatedAt        *time.Time      `json:"created_at"`
 }
 
 func (q *Queries) ListLecturers(ctx context.Context) ([]LecturerProfile, error) {
@@ -799,6 +799,7 @@ func (q *Queries) GetLecturerWorkload(ctx context.Context, lecturerID uuid.UUID,
 	`, lecturerID, sessionID).Scan(&total)
 	return total, err
 }
+
 type CreateLeaveRequestParams struct {
 	LecturerID     uuid.UUID
 	LeaveType      string
@@ -1942,7 +1943,6 @@ func (q *Queries) SetUserCalendarFeedToken(ctx context.Context, userID uuid.UUID
 	return err
 }
 
-
 func (q *Queries) GetUserCalendarFeedToken(ctx context.Context, userID uuid.UUID) (*string, error) {
 	var token *string
 	err := q.db.QueryRow(ctx, `SELECT calendar_feed_token FROM users WHERE id = $1`, userID).Scan(&token)
@@ -2059,8 +2059,6 @@ func (q *Queries) ClearStudyTaskReminder(ctx context.Context, taskID uuid.UUID) 
 	return err
 }
 
-
-
 func (q *Queries) CreateReport(ctx context.Context, title, reportType, format string, generatedBy uuid.UUID) (Report, error) {
 	var r Report
 	err := q.db.QueryRow(ctx, `
@@ -2115,7 +2113,6 @@ type RegisteredCourseDetailRow struct {
 	Unit       int32  `json:"unit"`
 }
 
-
 func (q *Queries) GetStudentRegisteredCourseDetails(ctx context.Context, studentID uuid.UUID, semesterID uuid.UUID) ([]RegisteredCourseDetailRow, error) {
 	rows, err := q.db.Query(ctx, `
 		SELECT c.code, c.title, c.unit
@@ -2141,8 +2138,7 @@ func (q *Queries) GetStudentRegisteredCourseDetails(ctx context.Context, student
 	return results, rows.Err()
 }
 
-// ─── CRF signing 
-
+// ─── CRF signing
 
 type CRFSignatureAsset struct {
 	ID         uuid.UUID `json:"id"`
@@ -2219,14 +2215,14 @@ func (q *Queries) DeleteCRFSignatureAsset(ctx context.Context, kind string) erro
 }
 
 type CRFSigningSubmission struct {
-	ID               uuid.UUID      `json:"id"`
-	UserID           uuid.UUID      `json:"user_id"`
-	SemesterID       uuid.UUID      `json:"semester_id"`
-	OriginalFilePath string         `json:"original_file_path"`
-	SignedFilePath   string         `json:"signed_file_path"`
-	Placements       CRFPlacements  `json:"placements"`
-	Status           string         `json:"status"`
-	CreatedAt        time.Time      `json:"created_at"`
+	ID               uuid.UUID     `json:"id"`
+	UserID           uuid.UUID     `json:"user_id"`
+	SemesterID       uuid.UUID     `json:"semester_id"`
+	OriginalFilePath string        `json:"original_file_path"`
+	SignedFilePath   string        `json:"signed_file_path"`
+	Placements       CRFPlacements `json:"placements"`
+	Status           string        `json:"status"`
+	CreatedAt        time.Time     `json:"created_at"`
 }
 
 // CRFPlacements maps each signer kind to where the student placed that
@@ -2642,14 +2638,14 @@ func (q *Queries) GetGroupMemberRole(ctx context.Context, groupID, userID uuid.U
 // generated files.
 
 type DMConversationRow struct {
-	ConnectionID      uuid.UUID          `json:"connection_id"`
-	OtherUserID       uuid.UUID          `json:"other_user_id"`
-	OtherFullName     string             `json:"other_full_name"`
-	OtherAvatarUrl    *string            `json:"other_avatar_url"`
-	LastMessage       *string            `json:"last_message"`
-	LastMessageAt     pgtype.Timestamptz `json:"last_message_at"`
-	LastMessageMine   bool               `json:"last_message_mine"`
-	UnreadCount       int32              `json:"unread_count"`
+	ConnectionID    uuid.UUID          `json:"connection_id"`
+	OtherUserID     uuid.UUID          `json:"other_user_id"`
+	OtherFullName   string             `json:"other_full_name"`
+	OtherAvatarUrl  *string            `json:"other_avatar_url"`
+	LastMessage     *string            `json:"last_message"`
+	LastMessageAt   pgtype.Timestamptz `json:"last_message_at"`
+	LastMessageMine bool               `json:"last_message_mine"`
+	UnreadCount     int32              `json:"unread_count"`
 }
 
 func (q *Queries) ListDMConversations(ctx context.Context, userID uuid.UUID) ([]DMConversationRow, error) {
@@ -2796,8 +2792,6 @@ func (q *Queries) UpdateGraduationFee(ctx context.Context, amount decimal.Decima
 	return f, err
 }
 
-
-
 // CreateGraduationRequest inserts the student's graduation request, or
 // returns the existing one unchanged (ON CONFLICT DO NOTHING + re-select)
 // so repeated clicks can't stack duplicate fees. The fee amount is
@@ -2893,10 +2887,10 @@ func (q *Queries) GetGraduationClearancesForUsers(ctx context.Context, userIDs [
 // the graduation path without a second lookup.
 type GraduationRequestRow struct {
 	GraduationRequest
-	FullName     string          `json:"full_name"`
-	MatricNumber string          `json:"matric_number"`
-	Level        int32           `json:"level"`
-	Email        string          `json:"email"`
+	FullName     string `json:"full_name"`
+	MatricNumber string `json:"matric_number"`
+	Level        int32  `json:"level"`
+	Email        string `json:"email"`
 }
 
 // ListGraduationRequests returns every graduation request, newest first.

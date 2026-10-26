@@ -208,9 +208,9 @@ export default function StaffNavbar({ onMenuClick }: StaffNavbarProps) {
                     <p className="text-[11px] text-blue-100 truncate mt-0.5">
                       {activeRole === 'lecturer' ? 'Academic Staff / Lecturer' : 'Staff Member'}
                     </p>
-                    <p className="text-[10px] text-blue-200 truncate mt-0.5">
-                      {department?.name || 'Dept. of Computer Eng.'}
-                    </p>
+                    {department?.name ? (
+                      <p className="text-[10px] text-blue-200 truncate mt-0.5">{department.name}</p>
+                    ) : null}
                   </div>
                 </div>
               </div>

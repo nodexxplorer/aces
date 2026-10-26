@@ -22,6 +22,10 @@ vi.mock('../../../hooks/useNotification', () => ({
 vi.mock('../../../components/profile/ChangePasswordCard', () => ({
   default: () => <div>Change password card</div>,
 }));
+vi.mock('../../../api/lecturers', () => ({
+  getLecturerProfile: vi.fn(async () => ({ profile: null, assignments: [], leaves: [] })),
+  updateLecturerProfile: vi.fn(),
+}));
 
 function renderPage() {
   return render(

@@ -112,6 +112,7 @@ const PasswordResetOTPPage = lazy(() => import('./pages/auth/PasswordResetOTPPag
 // Onboarding & Verification
 const WaitingDashboardPage = lazy(() => import('./pages/shared/WaitingDashboardPage'));
 const StudentCommunicationPage = lazy(() => import('./pages/student/StudentCommunicationPage'));
+const StudentAnnouncementsPage = lazy(() => import('./pages/shared/StudentAnnouncementsPage'));
 
 // Campus Connect (new)
 const ConnectPage = lazy(() => import('./pages/connect/ConnectPage'));
@@ -558,6 +559,7 @@ export const router = createBrowserRouter([
                   { path: 'attendance-review', element: <LecturerAttendanceReviewPage /> },
                   { path: 'materials', element: <LecturerCourseMaterialsPage /> },
                   { path: 'leave', element: <LecturerLeaveRequestsPage /> },
+                  { path: 'announcements', element: <StudentAnnouncementsPage /> },
                 ],
               },
             ],

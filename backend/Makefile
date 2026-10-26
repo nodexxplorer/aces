@@ -15,16 +15,19 @@ test:
 	go test -v -race -count=1 -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out -o coverage.html
 
+GOPATH ?= $(shell go env GOPATH)
+MIGRATE ?= $(shell which golang-migrate 2>/dev/null || echo $(GOPATH)/bin/migrate)
+
 migrate-up:
 	@if [ -z "$(DB_SOURCE)" ]; then echo "Error: DB_SOURCE must be set. See .env.example"; exit 1; fi
-	migrate -path internal/db/migrations -database "$(DB_SOURCE)" up
+	$(MIGRATE) -path internal/db/migrations -database "$(DB_SOURCE)" up
 
 migrate-down:
 	@if [ -z "$(DB_SOURCE)" ]; then echo "Error: DB_SOURCE must be set. See .env.example"; exit 1; fi
-	migrate -path internal/db/migrations -database "$(DB_SOURCE)" down 1
+	$(MIGRATE) -path internal/db/migrations -database "$(DB_SOURCE)" down 1
 
 migrate-create:
-	migrate create -ext sql -dir internal/db/migrations -seq $(name)
+	$(MIGRATE) create -ext sql -dir internal/db/migrations -seq $(name)
 
 # Creates or updates the restricted runtime role and its grants. Run it after
 # migrate-up, as the owner. APP_DB_PASSWORD sets the role's password (the command
@@ -34,8 +37,10 @@ runtime-role:
 	@if [ -z "$(APP_DB_PASSWORD)" ]; then echo "Error: APP_DB_PASSWORD must be set"; exit 1; fi
 	@psql "$(DB_SOURCE)" -v ON_ERROR_STOP=1 -v app_role="$(APP_DB_USER)" -v app_password="$(APP_DB_PASSWORD)" -f deploy/postgres/runtime-role.sql
 
+SQLC ?= $(shell which sqlc 2>/dev/null || echo $(GOPATH)/bin/sqlc)
+
 sqlc-generate:
-	sqlc generate
+	$(SQLC) generate
 
 docker-up:
 	docker-compose up -d

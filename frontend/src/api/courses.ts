@@ -94,8 +94,24 @@ export const deleteCourse = async (courseId: string) => {
 export const getCourseClassList = async (courseId: string) => {
   const res = await apiClient.get(`/courses/${courseId}/class-list`);
   const raw = unwrap<
-    | { data: Array<{ student_id?: string; matric_number: string; name: string; course_code: string; status: string }> }
-    | Array<{ student_id?: string; matric_number: string; name: string; course_code: string; status: string }>
+    | {
+        data: Array<{
+          student_id?: string;
+          matric_number: string;
+          name: string;
+          course_code: string;
+          status: string;
+          level?: number;
+        }>;
+      }
+    | Array<{
+        student_id?: string;
+        matric_number: string;
+        name: string;
+        course_code: string;
+        status: string;
+        level?: number;
+      }>
   >(res);
   return Array.isArray(raw) ? raw : (raw?.data ?? []);
 };

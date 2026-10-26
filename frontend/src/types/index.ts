@@ -89,6 +89,7 @@ export interface User extends BaseEntity {
   accountType?: AccountType;
   isApproved: boolean;
   isActive: boolean;
+  emailVerified?: boolean;
   approvalStatus: ApprovalStatus;
   lastLogin?: string;
   rejectionReason?: string;
