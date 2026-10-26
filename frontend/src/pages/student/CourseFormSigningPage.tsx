@@ -24,6 +24,7 @@ import {
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../hooks/useAuth';
 import { getErrorMessage } from '../../utils/errors';
+import { CRF_SIGNING_FEE } from '../../config/fees';
 import { formatNumber, formatTimeAgo } from '../../utils/formatters';
 import { initializeCheckout, getMyDues, checkDuePaid } from '../../api/payments';
 import { getSessions, listSessionSemesters } from '../../api/sessions';
@@ -377,9 +378,46 @@ export default function CourseFormSigningPage() {
       downloadLink.click();
       downloadLink.remove();
     } catch (err) {
-      notifyError('Signing Failed', getErrorMessage(err, 'Could not approve course form.'));
+      const feePaymentId = signingFeePaymentIdFromError(err);
+      if (feePaymentId) {
+        await redirectToSigningFeeCheckout(feePaymentId);
+      } else {
+        notifyError('Signing Failed', getErrorMessage(err, 'Could not approve course form.'));
+      }
     } finally {
       setApproving(false);
+    }
+  };
+
+  // The server answers 402 with the signing-fee payment when a regular form has
+  // not been paid for yet. Returns that payment's id, or null for any other error.
+  const signingFeePaymentIdFromError = (err: unknown): string | null => {
+    if (!err || typeof err !== 'object' || !('response' in err)) return null;
+    const response = (
+      err as { response?: { status?: number; data?: { requires_payment?: boolean; payment?: { id?: string } } } }
+    ).response;
+    if (response?.status !== 402 || !response.data?.requires_payment) return null;
+    return response.data.payment?.id ?? null;
+  };
+
+  const redirectToSigningFeeCheckout = async (paymentId: string) => {
+    if (!user?.email) {
+      notifyError('Checkout Error', 'User email is required.');
+      return;
+    }
+    try {
+      const res = await initializeCheckout(paymentId, user.email);
+      if (res?.authorization_url) {
+        success(
+          'Signing Fee Required',
+          `Forwarding to Paystack to pay the ₦${CRF_SIGNING_FEE} signing fee. Sign the form again once payment is complete.`,
+        );
+        window.location.href = res.authorization_url;
+      } else {
+        notifyError('Checkout Error', 'No redirect URL returned.');
+      }
+    } catch (err) {
+      notifyError('Payment Error', getErrorMessage(err, 'Unable to initiate payment'));
     }
   };
 
@@ -524,8 +562,9 @@ export default function CourseFormSigningPage() {
           <div className="space-y-1">
             <p className="text-xs font-bold text-[var(--text)]">No backlog form slots currently unlocked</p>
             <p className="text-xs text-[var(--text-muted)]">
-              Fee: <span className="font-bold text-[var(--text)]">₦{formatNumber(backlogPrice)}</span> per semester
-              form. You can select how many forms you want to pay for.
+              Fee: <span className="font-bold text-[var(--text)]">₦{formatNumber(backlogPrice + CRF_SIGNING_FEE)}</span>{' '}
+              per form (₦{formatNumber(backlogPrice)} backlog fee and ₦{formatNumber(CRF_SIGNING_FEE)} signing fee). You
+              can select how many forms you want to pay for.
             </p>
           </div>
 
@@ -960,6 +999,9 @@ export default function CourseFormSigningPage() {
 
             {/* Action Buttons */}
             <div className="space-y-3">
+              <p className="text-xs text-[var(--text-muted)]">
+                A ₦{formatNumber(CRF_SIGNING_FEE)} signing fee is paid before the form is signed.
+              </p>
               <button
                 disabled={!confirmedRightPlaces || approving}
                 onClick={handleSaveAndDownloadFinal}
@@ -1799,8 +1841,12 @@ export default function CourseFormSigningPage() {
           {/* Price Breakdown */}
           <div className="p-4 rounded-xl border border-blue-500/20 bg-blue-500/5 space-y-2.5">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-[var(--text-muted)]">Fee per form</span>
+              <span className="text-[var(--text-muted)]">Backlog fee per form</span>
               <span className="font-semibold text-[var(--text)]">₦{formatNumber(backlogPrice)}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-[var(--text-muted)]">Signing fee per form</span>
+              <span className="font-semibold text-[var(--text)]">₦{formatNumber(CRF_SIGNING_FEE)}</span>
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-[var(--text-muted)]">Quantity</span>
@@ -1809,7 +1855,7 @@ export default function CourseFormSigningPage() {
             <div className="pt-2 border-t border-slate-200/60 dark:border-white/10 flex items-center justify-between">
               <span className="text-xs font-bold text-[var(--text)]">Total to pay</span>
               <span className="text-base font-extrabold text-[#1d68ec] dark:text-blue-400">
-                ₦{formatNumber(backlogPrice * requestCount)}
+                ₦{formatNumber((backlogPrice + CRF_SIGNING_FEE) * requestCount)}
               </span>
             </div>
           </div>
@@ -1831,7 +1877,7 @@ export default function CourseFormSigningPage() {
               className="px-5 py-2.5 rounded-xl bg-[#1d68ec] hover:bg-[#1554c2] text-white text-xs sm:text-sm font-bold flex items-center gap-2 shadow-sm transition-all active:scale-95 disabled:opacity-50"
             >
               {requestingBacklog ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
-              <span>Proceed to Paystack (₦{formatNumber(backlogPrice * requestCount)})</span>
+              <span>Proceed to Paystack (₦{formatNumber((backlogPrice + CRF_SIGNING_FEE) * requestCount)})</span>
             </button>
           </div>
         </div>

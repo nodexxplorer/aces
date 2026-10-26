@@ -140,6 +140,8 @@ type Querier interface {
 	CreatePasswordReset(ctx context.Context, arg CreatePasswordResetParams) (PasswordReset, error)
 	// ==================== PAYMENTS ====================
 	CreatePayment(ctx context.Context, arg CreatePaymentParams) (Payment, error)
+	CreateCRFSigningFeePayment(ctx context.Context, arg CreateCRFSigningFeePaymentParams) (Payment, error)
+	GetCRFSigningFeeForSubmission(ctx context.Context, crfSubmissionID pgtype.UUID) (Payment, error)
 	// ==================== PAYMENT BATCHES ====================
 	CreatePaymentBatch(ctx context.Context, arg CreatePaymentBatchParams) (PaymentBatch, error)
 	// ==================== POST BOOKMARKS ====================

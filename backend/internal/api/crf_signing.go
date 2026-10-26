@@ -472,6 +472,10 @@ func (server *Server) approveCRF(ctx *gin.Context) {
 		}
 	}
 
+	if server.requireCRFSigningFee(ctx, queries, submission) {
+		return
+	}
+
 	pdfBytes, err := os.ReadFile(server.storage.GetFullPath(submission.OriginalFilePath))
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})

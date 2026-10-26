@@ -35,6 +35,7 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
 import { getErrorMessage } from '../../utils/errors';
+import { DUES_CHECKOUT_CHARGE } from '../../config/fees';
 import type { Payment, DuePayment, PaymentStatus, PaymentType } from '../../types';
 
 const STATUS_FILTERS: { key: PaymentStatus | 'all'; label: string }[] = [
@@ -269,9 +270,13 @@ const PaymentsPage = () => {
     return payments.filter((p) => p.status === 'completed').reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
   }, [summary, payments]);
 
-  const cartTotal = useMemo(() => {
+  const cartDuesTotal = useMemo(() => {
     return cart.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   }, [cart]);
+
+  // One processing charge per checkout, added only when there is something in the cart.
+  const cartCharge = cart.length > 0 ? DUES_CHECKOUT_CHARGE : 0;
+  const cartTotal = cartDuesTotal + cartCharge;
 
   // Filtered transactions
   const filteredPayments = useMemo(() => {
@@ -1019,7 +1024,18 @@ const PaymentsPage = () => {
                     })}
                   </div>
 
-                  <div className="border-t border-slate-100 dark:border-[#20232e] pt-4 flex items-center justify-between">
+                  <div className="border-t border-slate-100 dark:border-[#20232e] pt-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-[var(--text-muted)]">Dues</span>
+                      <span className="text-xs font-semibold text-[var(--text)]">₦{formatNumber(cartDuesTotal)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-[var(--text-muted)]">Payment processing charge</span>
+                      <span className="text-xs font-semibold text-[var(--text)]">₦{formatNumber(cartCharge)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
                     <span className="text-xs sm:text-sm font-semibold text-[var(--text-muted)]">Total</span>
                     <span className="text-xl sm:text-2xl font-black text-[var(--text)]">
                       ₦{formatNumber(cartTotal)}

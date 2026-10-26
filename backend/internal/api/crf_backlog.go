@@ -67,7 +67,7 @@ type createCRFBacklogRequestRequest struct {
 
 // createCRFBacklogRequest POST /crf-backlog/request — student declares how
 // many old/unsigned course forms they need to submit. Creates the backlog
-// batch plus a one-off payment for count * current-price; the frontend then
+// batch plus a one-off payment for count * (current price + signing fee); the frontend then
 // checks that payment out through the existing generic
 // POST /payments/:id/checkout flow, same as any other payment record.
 func (server *Server) createCRFBacklogRequest(ctx *gin.Context) {
@@ -105,7 +105,8 @@ func (server *Server) createCRFBacklogRequest(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	amount := price.AmountPerBacklog.Mul(decimal.NewFromInt32(req.Count))
+	// Each backlog form costs the backlog price plus the course form signing fee.
+	amount := price.AmountPerBacklog.Add(crfSigningFee).Mul(decimal.NewFromInt32(req.Count))
 
 	backlog, err := queries.CreateCRFBacklogRequest(ctx, userID, req.Count, amount)
 	if err != nil {

@@ -1110,3 +1110,91 @@ func (q *Queries) VerifyPayment(ctx context.Context, arg VerifyPaymentParams) (P
 	)
 	return i, err
 }
+
+const createCRFSigningFeePayment = `-- name: CreateCRFSigningFeePayment :one
+INSERT INTO payments (
+    student_id, due_id, type, item_name, amount, crf_submission_id, status
+) VALUES (
+    $1, NULL, $2, $3, $4, $5, 'pending'
+) RETURNING id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes, receipt_number, tenant_id
+`
+
+type CreateCRFSigningFeePaymentParams struct {
+	StudentID       uuid.UUID       `json:"student_id"`
+	Type            PaymentType     `json:"type"`
+	ItemName        string          `json:"item_name"`
+	Amount          decimal.Decimal `json:"amount"`
+	CrfSubmissionID pgtype.UUID     `json:"crf_submission_id"`
+}
+
+func (q *Queries) CreateCRFSigningFeePayment(ctx context.Context, arg CreateCRFSigningFeePaymentParams) (Payment, error) {
+	row := q.db.QueryRow(ctx, createCRFSigningFeePayment,
+		arg.StudentID,
+		arg.Type,
+		arg.ItemName,
+		arg.Amount,
+		arg.CrfSubmissionID,
+	)
+	var i Payment
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.BatchID,
+		&i.DueID,
+		&i.Type,
+		&i.ItemName,
+		&i.Amount,
+		&i.PaystackReference,
+		&i.Status,
+		&i.VerifiedBy,
+		&i.VerifiedAt,
+		&i.PaidAt,
+		&i.CreatedAt,
+		&i.PaymentMethod,
+		&i.BankReference,
+		&i.BankName,
+		&i.ReceiptUrl,
+		&i.RecordedBy,
+		&i.Notes,
+		&i.ReceiptNumber,
+		&i.TenantID,
+	)
+	return i, err
+}
+
+const getCRFSigningFeeForSubmission = `-- name: GetCRFSigningFeeForSubmission :one
+SELECT id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes, receipt_number, tenant_id FROM payments
+WHERE crf_submission_id = $1
+ORDER BY (status = 'completed') DESC, created_at DESC
+LIMIT 1
+`
+
+// Prefers a completed fee over a pending one, then the newest.
+func (q *Queries) GetCRFSigningFeeForSubmission(ctx context.Context, crfSubmissionID pgtype.UUID) (Payment, error) {
+	row := q.db.QueryRow(ctx, getCRFSigningFeeForSubmission, crfSubmissionID)
+	var i Payment
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.BatchID,
+		&i.DueID,
+		&i.Type,
+		&i.ItemName,
+		&i.Amount,
+		&i.PaystackReference,
+		&i.Status,
+		&i.VerifiedBy,
+		&i.VerifiedAt,
+		&i.PaidAt,
+		&i.CreatedAt,
+		&i.PaymentMethod,
+		&i.BankReference,
+		&i.BankName,
+		&i.ReceiptUrl,
+		&i.RecordedBy,
+		&i.Notes,
+		&i.ReceiptNumber,
+		&i.TenantID,
+	)
+	return i, err
+}

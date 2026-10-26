@@ -1131,10 +1131,13 @@ func (server *Server) checkoutCart(ctx *gin.Context) {
 		return
 	}
 
-	totalAmount := decimal.Zero
+	duesTotal := decimal.Zero
 	for _, item := range cartItems {
-		totalAmount = totalAmount.Add(item.Amount)
+		duesTotal = duesTotal.Add(item.Amount)
 	}
+	// The charge is part of the batch total, so the one Paystack charge and the
+	// webhook's amount check both include it.
+	totalAmount := duesTotal.Add(duesCheckoutCharge)
 
 	batch, err := server.store.CreatePaymentBatch(ctx, db.CreatePaymentBatchParams{
 		StudentID:   studentID,
@@ -1173,6 +1176,20 @@ func (server *Server) checkoutCart(ctx *gin.Context) {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
 		}
+	}
+
+	// The charge is its own payment row in the batch, sharing the batch
+	// reference, so the webhook completes it with the dues.
+	if _, err := server.store.CreatePayment(ctx, db.CreatePaymentParams{
+		StudentID:         studentID,
+		BatchID:           pgtype.UUID{Bytes: batchID, Valid: true},
+		Type:              db.PaymentTypeOther,
+		ItemName:          "Payment Processing Charge",
+		Amount:            duesCheckoutCharge,
+		PaystackReference: &reference,
+	}); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
 	}
 
 	if q, ok := server.store.(interface{ GetDB() db.DBTX }); ok {
