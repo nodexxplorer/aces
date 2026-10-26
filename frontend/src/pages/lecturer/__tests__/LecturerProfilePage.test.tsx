@@ -38,7 +38,7 @@ function renderPage() {
 describe('LecturerProfilePage', () => {
   it('shows no admin privileges or admin areas', () => {
     renderPage();
-    expect(screen.getByText('Ada Lovelace')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Ada Lovelace' })).toBeInTheDocument();
     expect(screen.queryByText('Privileges')).not.toBeInTheDocument();
     expect(screen.queryByText('Roles and permissions')).not.toBeInTheDocument();
     expect(screen.queryByText('Audit log')).not.toBeInTheDocument();
