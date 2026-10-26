@@ -1,3 +1,5 @@
 last
 .kiro
 .claude
+# Dependencies and local tool caches (never commit)
+node_modules/
