@@ -27,7 +27,14 @@ const Footer = () => {
             to="/privacy-policy"
             className="whitespace-nowrap hover:text-primary-500 hover:underline transition-colors"
           >
-            Privacy & Cookie Policy
+            Privacy Policy
+          </Link>
+          <span className="hidden sm:inline text-surface-300 dark:text-surface-700">|</span>
+          <Link
+            to="/refund-policy"
+            className="whitespace-nowrap hover:text-primary-500 hover:underline transition-colors"
+          >
+            Refund Policy
           </Link>
         </div>
       </div>

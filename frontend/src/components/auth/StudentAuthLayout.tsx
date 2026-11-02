@@ -124,9 +124,9 @@ export default function StudentAuthLayout({ topRight, children }: StudentAuthLay
   const currentYear = new Date().getFullYear();
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-3 sm:p-3 md:p-2 bg-[var(--bg)] transition-colors duration-200">
+    <div className="h-dvh w-full flex items-center justify-center p-3 sm:p-3 md:p-2 bg-[var(--bg)] transition-colors duration-200">
       {/* Outer Card Frame */}
-      <div className="relative mx-auto flex w-full max-w-sm sm:max-w-md md:max-w-full flex-col overflow-hidden rounded-[24px] sm:rounded-[32px] border border-[var(--border)] bg-white dark:bg-[#1c1e22] shadow-[0_20px_50px_rgba(0,0,0,0.08)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.55)] md:flex-row md:min-h-[670px]">
+      <div className="relative mx-auto flex w-full max-w-sm sm:max-w-md md:max-w-full max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-1.5rem)] md:max-h-[calc(100dvh-1rem)] flex-col overflow-hidden rounded-[24px] sm:rounded-[32px] border border-[var(--border)] bg-white dark:bg-[#1c1e22] shadow-[0_20px_50px_rgba(0,0,0,0.08)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.55)] md:flex-row">
         {/* Left Panel: Compact Dark Showcase (shown on desktop, hidden on mobile) */}
         <aside className="relative hidden md:flex flex-col justify-between overflow-hidden bg-[#0d0e10] p-6 sm:p-8 md:w-[35%] lg:w-[33%] shrink-0 text-white">
           {/* Subtle brand ambient glow */}
@@ -176,7 +176,7 @@ export default function StudentAuthLayout({ topRight, children }: StudentAuthLay
         </aside>
 
         {/* Right Panel: Spacious Main Area (larger than left panel) */}
-        <main className="flex flex-1 flex-col justify-between bg-white p-5 sm:p-8 lg:p-7 lg:px-12 dark:bg-[#1c1e22] transition-colors duration-200">
+        <main className="flex flex-1 flex-col justify-between bg-white p-4 sm:p-6 lg:p-5 lg:px-10 dark:bg-[#1c1e22] transition-colors duration-200 min-h-0">
           {/* Top Bar: Brand Logo & Sign Up / Sign In Switch */}
           <div className="flex items-center justify-between border-b border-[var(--border)]/40 pb-3 sm:pb-4">
             <div className="flex items-center gap-2.5">
@@ -197,17 +197,20 @@ export default function StudentAuthLayout({ topRight, children }: StudentAuthLay
           </div>
 
           {/* Center Form Content */}
-          <div className="my-auto flex flex-1 items-center justify-center py-4 sm:py-6 lg:py-8">
+          <div className="my-auto flex flex-1 items-center justify-center py-2 sm:py-3 lg:py-4 min-h-0">
             <div className="w-full max-w-md">{children}</div>
           </div>
 
           {/* Bottom Footer: Copyright, Policy & Theme Toggle */}
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)]/40 pt-4 text-xs text-[var(--text-muted)]">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)]/40 pt-3 text-xs text-[var(--text-muted)]">
             <span className="font-medium">© {currentYear} Admin Pack</span>
 
             <div className="flex items-center gap-4">
               <Link to="/privacy-policy" className="transition-colors hover:text-[var(--text)] hover:underline">
                 Privacy Policy
+              </Link>
+              <Link to="/refund-policy" className="transition-colors hover:text-[var(--text)] hover:underline">
+                Refund Policy
               </Link>
               <Link to="/support" className="transition-colors hover:text-[var(--text)] hover:underline">
                 Support

@@ -10,9 +10,16 @@ import CookieConsent from '../feedback/CookieConsent';
 import AdminMobileGuard from './AdminMobileGuard';
 import OfflineBanner from '../feedback/OfflineBanner';
 import ChatbotWidget from '../ai/ChatbotWidget';
+import CommandPalette from '../navigation/CommandPalette';
 
 const AppShell = () => {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('sidebar-collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const { pathname } = useLocation();
   const { activeRole } = useRBAC();
@@ -22,11 +29,29 @@ const AppShell = () => {
 
   return (
     <div className="h-dvh bg-[var(--bg)] text-[var(--text)] flex flex-col overflow-hidden transition-colors duration-200 print:h-auto print:block print:overflow-visible">
+      {/* Accessible skip link for keyboard navigation */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2 focus:bg-[#1d68ec] focus:text-white focus:rounded-xl focus:shadow-lg focus:text-xs focus:font-bold focus:outline-none"
+      >
+        Skip to main content
+      </a>
+
       <div className="flex-1 flex w-full min-h-0 print:block">
-        <div className="print:hidden">
+        <div className="print:hidden h-full relative">
           <Sidebar
             collapsed={sidebarCollapsed}
-            onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
+            onToggleCollapse={() =>
+              setSidebarCollapsed((c) => {
+                const next = !c;
+                try {
+                  localStorage.setItem('sidebar-collapsed', String(next));
+                } catch {
+                  /* noop */
+                }
+                return next;
+              })
+            }
             mobileOpen={mobileSidebarOpen}
             onMobileClose={() => setMobileSidebarOpen(false)}
           />
@@ -45,7 +70,11 @@ const AppShell = () => {
               only outputs <main>'s content at natural height — without this, the
               scroll container clips to viewport height and everything outside it
               (sidebar, navbar, footer) still occupies page space in the printout. */}
-          <main className="flex-1 min-w-0 p-3 sm:p-5 lg:p-7 overflow-y-auto overflow-x-hidden print:p-0 print:overflow-visible print:h-auto">
+          <main
+            id="main-content"
+            tabIndex={-1}
+            className="flex-1 min-w-0 p-3 sm:p-5 lg:p-7 overflow-y-auto overflow-x-hidden print:p-0 print:overflow-visible print:h-auto focus:outline-none"
+          >
             {isAdmin ? (
               <AdminMobileGuard>
                 <Outlet />
@@ -62,6 +91,7 @@ const AppShell = () => {
       <div className="print:hidden">
         <ChatbotWidget />
         <OfflineBanner />
+        <CommandPalette />
       </div>
     </div>
   );

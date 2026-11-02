@@ -1,4 +1,4 @@
-import { departmentShortName } from '../../components/branding/department';
+// import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -7,30 +7,24 @@ import { useDashboardPath } from '../../hooks/useDashboardPath';
 import { useNotification } from '../../hooks/useNotification';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
-import AuthVideoShell from '../../components/layout/AuthVideoShell';
-import { AdminPackMark } from '../../components/branding/AdminPackMark';
-import { Mail, Lock, User, Briefcase } from 'lucide-react';
+import { Mail, Lock, User, Check, AlertTriangle } from 'lucide-react';
 import { lecturerSignup } from '../../api/signup';
 import { useDepartments } from '../../hooks/useDepartments';
-import DepartmentSelect from '../../components/auth/DepartmentSelect';
-import { DepartmentBrand } from '../../components/branding/DepartmentBrand';
+import { departmentShortName } from '../../components/branding/department';
+import AdminPackAuthLayout from '../../components/layout/AdminPackAuthLayout';
+import FancyDepartmentSelector from '../../components/auth/FancyDepartmentSelector';
 
 const lecturerSignupSchema = z
   .object({
-    firstName: z.string().min(2, 'First name is too short'),
-    lastName: z.string().min(2, 'Last name is too short'),
-    email: z.string().email('Please enter a valid email address'),
-    staffId: z.string(),
-    // .refine(isValidStaffId, {
-    //   message: 'Invalid staff ID format',
-    // }),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
-    confirmPassword: z.string('Must match password'),
+    firstName: z.string().min(2, 'First name is required'),
+    lastName: z.string().min(2, 'Last name is required'),
+    email: z.string().email('Please enter a valid school email address'),
+    staffId: z.string().min(3, 'Staff ID is required'),
+    password: z.string().min(6, 'Password must be 6 to 72 characters').max(72),
+    confirmPassword: z.string().min(6, 'Please confirm your password'),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: 'Passwords must match',
+    message: 'Passwords do not match',
     path: ['confirmPassword'],
   });
 
@@ -46,15 +40,30 @@ const LecturerSignupPage = () => {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<LecturerSignupValues>({
     resolver: zodResolver(lecturerSignupSchema),
   });
 
+  const pwd = watch('password') || '';
+  const confirmPwd = watch('confirmPassword') || '';
+  const pwdMismatch = confirmPwd.length > 0 && pwd !== confirmPwd;
+
+  // Strength score
+  const getStrengthScore = (val: string) => {
+    let score = 0;
+    if (val.length >= 6) score++;
+    if (val.length >= 10) score++;
+    if (/[A-Z]/.test(val) && /[a-z]/.test(val)) score++;
+    if (/[0-9]/.test(val) || /[^A-Za-z0-9]/.test(val)) score++;
+    return score;
+  };
+  const strengthScore = getStrengthScore(pwd);
+  const strengthLabel = strengthScore >= 3 ? 'Strong' : strengthScore >= 2 ? 'Medium' : 'Weak';
+
   const onSubmit = async (data: LecturerSignupValues) => {
     try {
-      // The staff record's department is the department's short name, e.g.
-      // "Computer Engineering" (the name without the "Department of" prefix).
       const chosen = departments.find((d) => d.slug === selected);
       const response = await lecturerSignup({
         email: data.email,
@@ -80,83 +89,197 @@ const LecturerSignupPage = () => {
     }
   };
 
+  const currentStaffPath = import.meta.env.VITE_STAFF_PORTAL_PATH || '/portalsign';
+
   return (
-    <AuthVideoShell cardMaxWidth="max-w-lg" department={departments.find((d) => d.slug === selected)}>
-      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-        <div className="rounded-2xl border border-white/25 bg-white/10 backdrop-blur-2xl shadow-2xl px-8 py-3 pt-4">
-          <div className="flex flex-col items-center gap-1 text-center mb-3">
-            <AdminPackMark className="w-14 h-14 rounded-2xl mb-1 shadow-lg md:hidden" />
-            <h2 className="text-2xl font-bold tracking-tight text-white">Lecturer Registration</h2>
-            <p className="text-sm text-white/70">Register your staff account for department portal access</p>
+    <AdminPackAuthLayout cardMaxWidth="max-w-[500px]">
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="rounded-3xl border border-[#1e2a42] bg-[#0c1322]/95 backdrop-blur-2xl shadow-2xl p-7 sm:p-9 text-slate-100"
+      >
+        <div className="flex flex-col items-start mb-6">
+          <h2 className="text-2xl font-bold tracking-tight text-white">Lecturer registration</h2>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            Create your staff account. The HOD approves it before you can sign in.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {/* Department */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-slate-300">Department</label>
+            <FancyDepartmentSelector departments={departments} selected={selected} onSelect={select} fullWidth={true} />
           </div>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-1">
-            <div className="grid grid-cols-2 gap-4">
-              <DepartmentSelect departments={departments} value={selected} onChange={select} />
-              <div className="mt-4 md:hidden">
-                <DepartmentBrand department={departments.find((d) => d.slug === selected)} />
+
+          {/* Staff ID */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-slate-300">Staff ID</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                <User className="w-4 h-4" />
               </div>
-              <Input
-                label="Staff ID"
-                placeholder="e.g. ENG/12345"
-                leftIcon={<Briefcase className="w-3 h-3" />}
-                error={errors.staffId?.message}
+              <input
+                type="text"
                 {...register('staffId')}
+                placeholder="e.g. ENG/12345"
+                className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm rounded-xl bg-[#080d18] border border-[#1e2a42] text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#1d68ec] focus:border-transparent font-mono"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="First Name"
-                placeholder="e.g. Dr. Jane"
-                leftIcon={<User className="w-4 h-4" />}
-                error={errors.firstName?.message}
-                {...register('firstName')}
-              />
-              <Input
-                label="Last Name"
-                placeholder="e.g. Smith"
-                leftIcon={<User className="w-4 h-4" />}
-                error={errors.lastName?.message}
-                {...register('lastName')}
+            {errors.staffId && <p className="text-[11px] text-rose-400">{errors.staffId.message}</p>}
+          </div>
+
+          {/* Row 2: First Name & Last Name */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-slate-300">First name</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <User className="w-4 h-4" />
+                </div>
+                <input
+                  type="text"
+                  {...register('firstName')}
+                  placeholder="e.g. Dr. Jane"
+                  className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm rounded-xl bg-[#080d18] border border-[#1e2a42] text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#1d68ec] focus:border-transparent"
+                />
+              </div>
+              {errors.firstName && <p className="text-[11px] text-rose-400">{errors.firstName.message}</p>}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-slate-300">Last name</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <User className="w-4 h-4" />
+                </div>
+                <input
+                  type="text"
+                  {...register('lastName')}
+                  placeholder="e.g. Smith"
+                  className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm rounded-xl bg-[#080d18] border border-[#1e2a42] text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#1d68ec] focus:border-transparent"
+                />
+              </div>
+              {errors.lastName && <p className="text-[11px] text-rose-400">{errors.lastName.message}</p>}
+            </div>
+          </div>
+
+          {/* School email */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-slate-300">School email</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <Mail className="w-4 h-4" />
+              </div>
+              <input
+                type="email"
+                {...register('email')}
+                placeholder="e.g. janesmith@uniuyo.edu.ng"
+                className="w-full pl-10 pr-4 py-2 text-xs sm:text-sm rounded-xl bg-[#080d18] border border-[#1e2a42] text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#1d68ec] focus:border-transparent"
               />
             </div>
-            <Input
-              label="Email Address"
-              placeholder="e.g. janesmith@uniuyo.edu.ng"
-              leftIcon={<Mail className="w-4 h-4" />}
-              error={errors.email?.message}
-              {...register('email')}
-            />
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="Password"
-                type="password"
-                placeholder="••••••••"
-                leftIcon={<Lock className="w-4 h-4" />}
-                error={errors.password?.message}
-                {...register('password')}
-              />
-              <Input
-                label="Confirm Password"
-                type="password"
-                placeholder="••••••••"
-                leftIcon={<Lock className="w-4 h-4" />}
-                error={errors.confirmPassword?.message}
-                {...register('confirmPassword')}
-              />
+            <p className="text-[11px] text-slate-400">Use your uniuyo.edu.ng address</p>
+            {errors.email && <p className="text-[11px] text-rose-400">{errors.email.message}</p>}
+          </div>
+
+          {/* Password & Confirm password */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-slate-300">Password</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <input
+                  type="password"
+                  {...register('password')}
+                  placeholder="••••••••••"
+                  className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm rounded-xl bg-[#080d18] border border-[#1e2a42] text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#1d68ec] focus:border-transparent font-mono"
+                />
+              </div>
             </div>
-            <Button type="submit" className="w-full mt-2" isLoading={isSubmitting}>
-              Register Account
-            </Button>
-          </form>
-          <div className="mt-6 text-center text-xs text-white/60">
-            Already have an account?{' '}
-            <Link to="/login" className="text-primary-300 hover:text-primary-200 font-semibold transition-colors">
-              Sign In
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-slate-300">Confirm password</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <input
+                  type="password"
+                  {...register('confirmPassword')}
+                  placeholder="••••••••"
+                  className={`w-full pl-9 pr-3 py-2 text-xs sm:text-sm rounded-xl bg-[#080d18] border ${
+                    pwdMismatch ? 'border-rose-500/80 ring-1 ring-rose-500/40' : 'border-[#1e2a42]'
+                  } text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#1d68ec] focus:border-transparent font-mono`}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Password mismatch error feedback */}
+          {pwdMismatch && (
+            <div className="flex items-center gap-1.5 text-xs text-rose-400 font-medium pt-0.5">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span>Passwords do not match</span>
+            </div>
+          )}
+
+          {/* Strength bar */}
+          <div className="space-y-1.5 pt-1">
+            <div className="grid grid-cols-4 gap-1.5">
+              {[1, 2, 3, 4].map((step) => (
+                <div
+                  key={step}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    pwd.length === 0
+                      ? 'bg-slate-700/40'
+                      : step <= strengthScore
+                        ? strengthScore >= 3
+                          ? 'bg-emerald-400'
+                          : strengthScore >= 2
+                            ? 'bg-amber-400'
+                            : 'bg-rose-400'
+                        : 'bg-slate-700/40'
+                  }`}
+                />
+              ))}
+            </div>
+            <div className="flex justify-between items-center text-[11px] text-slate-400 font-medium">
+              <span
+                className={
+                  strengthScore >= 3 ? 'text-emerald-400' : strengthScore >= 2 ? 'text-amber-400' : 'text-slate-400'
+                }
+              >
+                {pwd.length > 0 ? strengthLabel : ''}
+              </span>
+              <span>6 to 72 characters</span>
+            </div>
+          </div>
+
+          {/* Submit button */}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full py-2.5 px-4 rounded-xl bg-[#1d68ec] hover:bg-[#195bcf] active:scale-[0.99] text-white font-medium text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-[#1d68ec]/25 transition-all disabled:opacity-50 cursor-pointer mt-3"
+          >
+            <Check className="w-4 h-4" />
+            <span>{isSubmitting ? 'Registering...' : 'Register account'}</span>
+          </button>
+
+          <div className="text-center pt-2 text-xs text-slate-400">
+            <span>Already have an account? </span>
+            <Link
+              to={`${currentStaffPath}/login`}
+              className="text-[#3b82f6] hover:text-[#60a5fa] font-semibold transition-colors"
+            >
+              Sign in
             </Link>
           </div>
-        </div>
+        </form>
       </motion.div>
-    </AuthVideoShell>
+    </AdminPackAuthLayout>
   );
 };
 

@@ -68,3 +68,8 @@ export const getStudentCGPA = async (studentId: string) => {
   const data = unwrap<{ cgpa: number; total_credits_earned: number; academic_standing: string }>(res);
   return { ...data, scale: 5.0 };
 };
+
+export const deleteMyAccount = async (payload: { password: string; reason?: string }) => {
+  const res = await apiClient.delete('/users/me', { data: payload });
+  return unwrap<{ status: string }>(res);
+};

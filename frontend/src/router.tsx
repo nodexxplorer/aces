@@ -52,6 +52,7 @@ const AssignmentUploadPage = lazy(() => import('./pages/class-rep/AssignmentUplo
 const PendingRequestsPage = lazy(() => import('./pages/class-rep/PendingRequestsPage'));
 const ClassRepClassListPage = lazy(() => import('./pages/class-rep/ClassListPage'));
 const NotifyStudentsPage = lazy(() => import('./pages/class-rep/NotifyStudentsPage'));
+const ClassRepReportsPage = lazy(() => import('./pages/class-rep/ReportsPage'));
 
 // Bursar
 const BursarDashboard = lazy(() => import('./pages/bursar/BursarDashboard'));
@@ -59,6 +60,7 @@ const DuesPage = lazy(() => import('./pages/bursar/DuesPage'));
 const PaymentVerificationPage = lazy(() => import('./pages/bursar/PaymentVerificationPage'));
 const DefaultersPage = lazy(() => import('./pages/bursar/DefaultersPage'));
 const PaymentHistoryPage = lazy(() => import('./pages/bursar/PaymentHistoryPage'));
+const RecordPaymentPage = lazy(() => import('./pages/bursar/RecordPaymentPage'));
 
 // Admin
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
@@ -85,6 +87,7 @@ const UserDetailPage = lazy(() => import('./pages/admin/UserDetailPage'));
 const EditStudentPage = lazy(() => import('./pages/admin/EditStudentPage'));
 const CourseDetailPage = lazy(() => import('./pages/admin/CourseDetailPage'));
 const LecturerManagementPage = lazy(() => import('./pages/admin/LecturerManagementPage'));
+const AdminReportsPage = lazy(() => import('./pages/admin/ReportsPage'));
 
 // AI Predictions
 const GPAHubPage = lazy(() => import('./pages/student/GPAHubPage'));
@@ -136,6 +139,7 @@ const ForbiddenPage = lazy(() => import('./pages/shared/ForbiddenPage'));
 const ServerErrorPage = lazy(() => import('./pages/shared/ServerErrorPage'));
 const ApprovalRejectedPage = lazy(() => import('./pages/shared/ApprovalRejectedPage'));
 const PrivacyPolicyPage = lazy(() => import('./pages/shared/PrivacyPolicyPage'));
+const RefundPolicyPage = lazy(() => import('./pages/shared/RefundPolicyPage'));
 const UnsubscribePage = lazy(() => import('./pages/shared/UnsubscribePage'));
 // const AIBlueprintPage = lazy(() => import('./pages/shared/AIBlueprintPage'));
 
@@ -259,6 +263,7 @@ const adminPages: { path: string; element: ReactNode }[] = [
   { path: '/admin/job-moderation', element: <AdminJobModerationPage /> },
   { path: '/admin/lecturers', element: <LecturerManagementPage /> },
   { path: '/admin/crf-signing', element: <CRFSigningSettingsPage /> },
+  { path: '/admin/reports', element: <AdminReportsPage /> },
 ];
 
 /** Sends a plain /admin address to the signed-in person's own department address (/co/admin). */
@@ -588,6 +593,7 @@ export const router = createBrowserRouter([
                   { path: 'pending', element: <PendingRequestsPage /> },
                   { path: 'class-list', element: <ClassRepClassListPage /> },
                   { path: 'notify', element: <NotifyStudentsPage /> },
+                  { path: 'reports', element: <ClassRepReportsPage /> },
                 ],
               },
             ],
@@ -613,6 +619,8 @@ export const router = createBrowserRouter([
                   { path: 'dashboard', element: <BursarDashboard /> },
                   { path: 'dues', element: <DuesPage /> },
                   { path: 'verify', element: <PaymentVerificationPage /> },
+                  { path: 'record', element: <RecordPaymentPage /> },
+                  { path: 'record-payment', element: <RoleRedirect segment="bu" to="/record" /> },
                   { path: 'defaulters', element: <DefaultersPage /> },
                   { path: 'history', element: <PaymentHistoryPage /> },
                   { path: 'revenue-forecast', element: <RoleRedirect segment="bu" to="/verify" /> },
@@ -751,6 +759,22 @@ export const router = createBrowserRouter([
     element: (
       <SuspenseWrapper>
         <PrivacyPolicyPage />
+      </SuspenseWrapper>
+    ),
+  },
+  {
+    path: '/refund-policy',
+    element: (
+      <SuspenseWrapper>
+        <RefundPolicyPage />
+      </SuspenseWrapper>
+    ),
+  },
+  {
+    path: '/unsubscribe',
+    element: (
+      <SuspenseWrapper>
+        <UnsubscribePage />
       </SuspenseWrapper>
     ),
   },

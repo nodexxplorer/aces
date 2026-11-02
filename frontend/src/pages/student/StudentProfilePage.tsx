@@ -27,16 +27,18 @@ import {
   Check,
   AlertCircle,
   Pencil,
+  ShieldAlert,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { PROFILE_SCAN_PARAM } from '../../utils/qr-scanner';
 import type { User as UserType } from '../../types';
 import { getErrorMessage } from '../../utils/errors';
 import Student3DIDCard from '../../components/profile/Student3DIDCard';
+import DeleteAccountCard from '../../components/profile/DeleteAccountCard';
 
 type ProfileUser = UserType & { entryYear?: number };
 
-type TabType = 'overview' | 'personal' | 'academic';
+type TabType = 'overview' | 'personal' | 'academic' | 'security';
 
 const extractDocuments = (raw: unknown): StudentDocument[] => {
   if (Array.isArray(raw)) return raw as StudentDocument[];
@@ -252,6 +254,18 @@ export const StudentProfilePage = () => {
           >
             <GraduationCap className="w-3.5 h-3.5" />
             <span>Academic</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('security')}
+            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+              activeTab === 'security'
+                ? 'bg-rose-600 text-white shadow-sm'
+                : 'text-[var(--text-muted)] hover:text-rose-600 dark:hover:text-rose-400'
+            }`}
+          >
+            <ShieldAlert className="w-3.5 h-3.5" />
+            <span>Danger Zone</span>
           </button>
 
           {/* <button
@@ -983,7 +997,16 @@ export const StudentProfilePage = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 4: DOCUMENTS VIEW                                                     */}
+      {/* TAB 4: DANGER ZONE VIEW                                                   */}
+      {/* ========================================================================= */}
+      {activeTab === 'security' && (
+        <div className="max-w-3xl mx-auto space-y-6">
+          <DeleteAccountCard />
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 5: DOCUMENTS VIEW                                                     */}
       {/* ========================================================================= */}
       {/* {activeTab === 'documents' && (
         <div className="space-y-6">

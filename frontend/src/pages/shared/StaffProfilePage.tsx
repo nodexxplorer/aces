@@ -8,6 +8,7 @@ import { getInitials } from '../../utils/formatters';
 import { formatDepartmentDisplayName } from '../../config/department';
 import { departmentAdminPath } from '../../config/departmentAdminPaths';
 import ChangePasswordCard from '../../components/profile/ChangePasswordCard';
+import DeleteAccountCard from '../../components/profile/DeleteAccountCard';
 import { getErrorMessage } from '../../utils/errors';
 import {
   User,
@@ -1020,6 +1021,7 @@ export const StaffProfilePage = () => {
         {activeTab === 'security' && (
           <div className="max-w-2xl mx-auto space-y-6">
             <ChangePasswordCard />
+            <DeleteAccountCard />
           </div>
         )}
 

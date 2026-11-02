@@ -329,6 +329,7 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		users.GET("", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.listUsers)
 		users.GET("/pending-approvals", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.listPendingApprovals)
 		users.PATCH("/me", server.updateMe)
+		users.DELETE("/me", server.deleteMe)
 		users.GET("/:id", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.getUser)
 		users.PUT("/:id", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.updateUser)
 		users.POST("/:id/approve", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.approveSignup)

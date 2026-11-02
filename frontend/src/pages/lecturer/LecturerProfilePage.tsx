@@ -16,6 +16,7 @@ import { getErrorMessage } from '../../utils/errors';
 import { formatDepartmentDisplayName } from '../../config/department';
 import { tenantPath } from '../../config/departmentAdminPaths';
 import ChangePasswordCard from '../../components/profile/ChangePasswordCard';
+import DeleteAccountCard from '../../components/profile/DeleteAccountCard';
 import Modal from '../../components/ui/Modal';
 
 type TabKey = 'overview' | 'teaching' | 'security' | 'activity';
@@ -474,8 +475,9 @@ export default function LecturerProfilePage() {
         )}
 
         {activeTab === 'security' && (
-          <div className="max-w-2xl">
+          <div className="max-w-2xl space-y-6">
             <ChangePasswordCard />
+            <DeleteAccountCard />
           </div>
         )}
 

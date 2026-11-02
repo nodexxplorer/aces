@@ -15,6 +15,7 @@ import { formatDepartmentDisplayName } from '../../config/department';
 import { departmentAdminPath } from '../../config/departmentAdminPaths';
 import { getInitials } from '../../utils/formatters';
 import { getErrorMessage } from '../../utils/errors';
+import DeleteAccountCard from '../../components/profile/DeleteAccountCard';
 import {
   User,
   Shield,
@@ -1483,6 +1484,7 @@ export const AdminProfilePage: React.FC = () => {
                   </button>
                 </div>
               </div> */}
+              <DeleteAccountCard />
             </div>
 
             {/* Right Column: Security Checkup Ring & Account activity */}

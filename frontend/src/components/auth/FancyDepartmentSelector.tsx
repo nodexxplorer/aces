@@ -10,6 +10,7 @@ interface FancyDepartmentSelectorProps {
   selected: string;
   onSelect: (slug: string) => void;
   className?: string;
+  triggerClassName?: string;
   fullWidth?: boolean;
 }
 
@@ -18,6 +19,7 @@ export default function FancyDepartmentSelector({
   selected,
   onSelect,
   className,
+  triggerClassName,
   fullWidth = true,
 }: FancyDepartmentSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -69,7 +71,16 @@ export default function FancyDepartmentSelector({
     );
   }, [departments, search]);
 
-  if (departments.length === 0) return null;
+  if (departments.length === 0) {
+    return (
+      <div
+        className={cn(
+          'h-[62px] w-full animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface)]/50',
+          className,
+        )}
+      />
+    );
+  }
 
   const getLogo = (dept?: Department) => {
     if (!dept) return undefined;
@@ -93,6 +104,7 @@ export default function FancyDepartmentSelector({
           'hover:border-[var(--primary)] hover:shadow-md active:scale-[0.99]',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2',
           isOpen && 'border-[var(--primary)] ring-2 ring-[var(--focus-ring)]/25',
+          triggerClassName,
         )}
       >
         <div className="flex items-center gap-3 min-w-0 flex-1">

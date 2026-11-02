@@ -74,9 +74,19 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
             placeholder="Search courses, payments, messages"
             className="w-full bg-transparent text-xs text-[var(--text)] focus:outline-none placeholder:text-[var(--text-muted)]"
           />
-          <kbd className="hidden sm:inline-block rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)] select-none">
-            Enter
-          </kbd>
+          <div className="flex items-center gap-1.5 shrink-0 ml-1">
+            <kbd className="hidden sm:inline-block rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)] select-none">
+              Enter
+            </kbd>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))}
+              title="Quick command palette (Ctrl+K or ⌘K)"
+              className="hidden lg:inline-flex items-center rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 py-0.5 text-[10px] font-mono font-bold text-[#1d68ec] dark:text-blue-400 hover:bg-slate-100 dark:hover:bg-[#1f222d] transition-colors cursor-pointer"
+            >
+              ⌘K
+            </button>
+          </div>
         </div>
       </div>
 

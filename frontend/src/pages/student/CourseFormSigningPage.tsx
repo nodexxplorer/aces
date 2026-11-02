@@ -560,11 +560,29 @@ export default function CourseFormSigningPage() {
         /* Backlog Pay Call-to-action */
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 rounded-xl border border-slate-200 dark:border-[#262833] bg-slate-50/50 dark:bg-[#13151b]">
           <div className="space-y-1">
-            <p className="text-xs font-bold text-[var(--text)]">No backlog form slots currently unlocked</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-bold text-[var(--text)]">
+                {backlog && backlog.forms_submitted > 0 && backlog.forms_submitted >= backlog.requested_count
+                  ? 'No more available slots'
+                  : 'No backlog form slots currently unlocked'}
+              </p>
+              {backlog && backlog.forms_submitted > 0 && backlog.forms_submitted >= backlog.requested_count && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                  Slots finished
+                </span>
+              )}
+            </div>
             <p className="text-xs text-[var(--text-muted)]">
-              Fee: <span className="font-bold text-[var(--text)]">₦{formatNumber(backlogPrice + CRF_SIGNING_FEE)}</span>{' '}
-              per form (₦{formatNumber(backlogPrice)} backlog fee and ₦{formatNumber(CRF_SIGNING_FEE)} signing fee). You
-              can select how many forms you want to pay for.
+              {backlog && backlog.forms_submitted > 0 && backlog.forms_submitted >= backlog.requested_count ? (
+                'You have used all the backlog slots you paid for. Unlock more slots below to sign another form.'
+              ) : (
+                <>
+                  Fee:{' '}
+                  <span className="font-bold text-[var(--text)]">₦{formatNumber(backlogPrice + CRF_SIGNING_FEE)}</span>{' '}
+                  per form (₦{formatNumber(backlogPrice)} backlog fee and ₦{formatNumber(CRF_SIGNING_FEE)} signing fee).
+                  You can select how many forms you want to pay for.
+                </>
+              )}
             </p>
           </div>
 
@@ -577,7 +595,11 @@ export default function CourseFormSigningPage() {
             className="px-5 py-2.5 rounded-xl bg-[#1d68ec] hover:bg-[#1554c2] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 whitespace-nowrap self-stretch sm:self-auto"
           >
             <CreditCard className="w-4 h-4" />
-            <span>Pay for Backlog</span>
+            <span>
+              {backlog && backlog.forms_submitted > 0 && backlog.forms_submitted >= backlog.requested_count
+                ? 'Unlock more slots'
+                : 'Pay for Backlog'}
+            </span>
           </button>
         </div>
       )}
@@ -726,9 +748,16 @@ export default function CourseFormSigningPage() {
                 <Check className="w-6 h-6 stroke-[3]" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-lg sm:text-xl font-black text-[var(--text)]">Course form signed</h3>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h3 className="text-lg sm:text-xl font-black text-[var(--text)]">Course form signed</h3>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                    <Clock className="w-3.5 h-3.5" />
+                    No more available slots
+                  </span>
+                </div>
                 <p className="text-xs sm:text-sm text-[var(--text-muted)] mt-0.5">
-                  Your signed PDF is saved in your history. To sign another course, use Sign new course.
+                  Your signed PDF is saved in your history. You have used your signing slot for this semester. To sign
+                  another course, use Sign new course.
                 </p>
               </div>
             </div>
@@ -1495,11 +1524,18 @@ export default function CourseFormSigningPage() {
                   <p className="text-xs text-[var(--text-muted)] mt-0.5">Only PDF files are accepted</p>
                 </div>
 
-                {duesCleared && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5">
-                    <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                    <span>Dues cleared</span>
+                {isCompleted ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>No more available slots</span>
                   </span>
+                ) : (
+                  duesCleared && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5">
+                      <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>Dues cleared</span>
+                    </span>
+                  )
                 )}
               </div>
 
@@ -1507,19 +1543,33 @@ export default function CourseFormSigningPage() {
               <div
                 onDragOver={(e) => {
                   e.preventDefault();
-                  if (duesCleared) setIsDragOver(true);
+                  if (duesCleared && !isCompleted) setIsDragOver(true);
                 }}
                 onDragLeave={() => setIsDragOver(false)}
-                onDrop={handleFileDrop}
+                onDrop={isCompleted ? undefined : handleFileDrop}
                 className={`relative rounded-2xl border-2 border-dashed p-10 text-center transition-all ${
-                  !duesCleared
+                  isCompleted
                     ? 'border-slate-200/60 dark:border-[#20232e] bg-slate-50/30 dark:bg-[#12141a]/40 opacity-75'
-                    : isDragOver
-                      ? 'border-[#1d68ec] bg-blue-50/30 dark:bg-blue-950/20'
-                      : 'border-slate-200 dark:border-[#282b37] bg-slate-50/40 dark:bg-[#13151b] hover:border-slate-300 dark:hover:border-[#383d4e]'
+                    : !duesCleared
+                      ? 'border-slate-200/60 dark:border-[#20232e] bg-slate-50/30 dark:bg-[#12141a]/40 opacity-75'
+                      : isDragOver
+                        ? 'border-[#1d68ec] bg-blue-50/30 dark:bg-blue-950/20'
+                        : 'border-slate-200 dark:border-[#282b37] bg-slate-50/40 dark:bg-[#13151b] hover:border-slate-300 dark:hover:border-[#383d4e]'
                 }`}
               >
-                {!duesCleared ? (
+                {isCompleted ? (
+                  <div className="space-y-3 py-4">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto">
+                      <Clock className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-[var(--text)]">No more available slots</p>
+                      <p className="text-xs text-[var(--text-muted)] mt-1">
+                        You have already signed your course form for this semester.
+                      </p>
+                    </div>
+                  </div>
+                ) : !duesCleared ? (
                   /* Locked Dropzone (Screenshots 2 & 5) */
                   <div className="space-y-3 py-4">
                     <div className="w-12 h-12 rounded-2xl bg-slate-200/70 dark:bg-[#20232e] text-slate-500 dark:text-slate-400 flex items-center justify-center mx-auto">
@@ -1599,7 +1649,7 @@ export default function CourseFormSigningPage() {
 
               {/* Continue Button */}
               <button
-                disabled={!file || !duesCleared || uploading}
+                disabled={!file || !duesCleared || uploading || isCompleted}
                 onClick={handleUpload}
                 className="w-full py-3 rounded-xl bg-[#1d68ec] hover:bg-[#1554c2] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-all disabled:opacity-40 active:scale-[0.99]"
               >
@@ -1668,21 +1718,33 @@ export default function CourseFormSigningPage() {
             {/* 2. ONE FORM PER SEMESTER WARNING CARD */}
             <div className="p-5 rounded-2xl border border-slate-200 dark:border-[#222530] bg-white dark:bg-[#161820] shadow-sm space-y-3">
               <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-[#1d68ec] flex items-center justify-center shrink-0 mt-0.5">
+                <div
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                    isCompleted ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-blue-500/10 text-[#1d68ec]'
+                  }`}
+                >
                   <AlertTriangle className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
                   <h4 className="text-xs sm:text-sm font-bold text-[var(--text)]">One form per semester</h4>
                   <p className="text-[11px] text-[var(--text-muted)] mt-0.5 leading-relaxed">
-                    You can sign one course form each semester, so check it before you save.
+                    {isCompleted
+                      ? 'You have already signed your course form for this semester. No more available slots.'
+                      : 'You can sign one course form each semester, so check it before you save.'}
                   </p>
                 </div>
               </div>
 
               <div className="pt-1">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#fef08a] dark:bg-[#ca8a04]/20 text-slate-900 dark:text-[#fef08a]">
+                <span
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                    isCompleted
+                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                      : 'bg-[#fef08a] dark:bg-[#ca8a04]/20 text-slate-900 dark:text-[#fef08a]'
+                  }`}
+                >
                   <Clock className="w-3.5 h-3.5" />
-                  <span>{isCompleted ? '0 slots available' : '1 slot available'}</span>
+                  <span>{isCompleted ? 'No more available slots' : '1 slot available'}</span>
                 </span>
               </div>
             </div>
