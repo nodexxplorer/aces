@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { departmentAdminPath } from '../../config/departmentAdminPaths';
+import { useProfilePath } from '../../hooks/useDashboardPath';
 import { useRBAC } from '../../hooks/useRBAC';
 import { useAuth } from '../../hooks/useAuth';
 import { DepartmentLogo } from '../../components/branding/DepartmentBrand';
 import { useCurrentDepartment } from '../../components/branding/department';
-import { APP_NAME } from '../../utils/constants';
 import { getMediaUrl } from '../../api/client';
+import { formatDepartmentDisplayName } from '../../config/department';
 import { cn } from '../../utils/cn';
 import {
   LayoutDashboard,
@@ -21,7 +22,6 @@ import {
   Users,
   ShieldAlert,
   Settings,
-  DollarSign,
   TrendingUp,
   ChevronLeft,
   ChevronDown,
@@ -38,8 +38,11 @@ import {
   Wallet,
   ChartColumn,
   UsersRound,
-  Medal,
   Coins,
+  AlertTriangle,
+  FileText,
+  Check,
+  PenLine,
 } from 'lucide-react';
 import type { UserRole } from '../../types';
 
@@ -87,109 +90,52 @@ const menuItems: MenuItem[] = [
 
   {
     label: 'Communication',
-    path: '/communication',
+    path: '/i/communication',
     icon: Bell,
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   },
 
   // {
   //   label: 'My Results',
-  //   path: '/results',
+  //   path: '/i/results',
   //   icon: Award,
   //   roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   // },
   {
     label: 'GPA Tools',
-    path: '/gpa',
+    path: '/i/gpa',
     icon: TrendingUp,
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   },
-  // {
-  //   label: 'Study Planner',
-  //   path: '/study-planner',
-  //   icon: ClipboardList,
-  //   roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
-  // },
   {
     label: 'Courses Registration',
-    path: '/courses',
+    path: '/i/courses',
     icon: BookMarked,
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   },
-  // {
-  //   label: 'My Attendance',
-  //   path: '/attendance',
-  //   icon: ClipboardCheck,
-  //   roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
-  // },
   {
     label: 'Complaints',
-    path: '/complaints',
+    path: '/i/complaints',
     icon: HelpCircle,
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   },
-  // {
-  //   label: 'Notice Board',
-  //   path: '/notice-board',
-  //   icon: Pin,
-  //   roles: ['student', 'lecturer', 'class_rep', 'class_bursar', 'dept_bursar', 'alumni', 'hod', 'delegated_admin'],
-  // },
 
   {
     label: 'Payments & Dues',
-    path: '/payments',
+    path: '/i/payments',
     icon: CreditCard,
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   },
   {
     label: 'Course Form Signing',
-    path: '/course-form-signing',
+    path: '/i/course-form-signing',
     icon: FileSignature,
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   },
 
   { label: 'Connect', path: '/connect', icon: Users },
-  // { label: 'Skills & Trade', path: '/skills', icon: TrendingUp },
-
-  // {
-  //   label: 'Alumni Portal',
-  //   path: '/alumni',
-  //   icon: GraduationCap,
-  //   roles: ['student', 'alumni', 'hod', 'delegated_admin'],
-  // },
-  // { label: 'Job Board', path: '/alumni/jobs', icon: Briefcase, roles: ['alumni', 'hod', 'delegated_admin'] },
-  // {
-  //   label: 'Mentorship Requests',
-  //   path: '/alumni/mentorship',
-  //   icon: Users,
-  //   roles: ['alumni', 'hod', 'delegated_admin'],
-  // },
-  // { label: 'Give Back', path: '/alumni/give-back', icon: DollarSign, roles: ['alumni', 'hod', 'delegated_admin'] },
-
-  { label: 'Lecturer Portal', path: '/lecturer', icon: LayoutDashboard, roles: ['lecturer'] },
-  // { label: 'Grade Entry', path: '/lecturer/scores', icon: ClipboardList, roles: ['lecturer'] },
-  // { label: 'Manage Assignments', path: '/lecturer/assignments', icon: ListTodo, roles: ['lecturer'] },
-  { label: 'Class List', path: '/lecturer/class-list', icon: Users, roles: ['lecturer'] },
-  // { label: 'Review Attendance', path: '/lecturer/attendance-review', icon: ClipboardCheck, roles: ['lecturer'] },
-  // { label: 'Course Materials', path: '/lecturer/materials', icon: FolderOpen, roles: ['lecturer'] },
-  // { label: 'Leave Requests', path: '/lecturer/leave', icon: FileClock, roles: ['lecturer'] },
-
-  { label: 'Class Rep Portal', path: '/class-rep', icon: LayoutDashboard, roles: ['class_rep'] },
-  // { label: 'Track Attendance', path: '/class-rep/attendance', icon: ClipboardList, roles: ['class_rep'] },
-  { label: 'Pending Registrations', path: '/class-rep/pending', icon: ShieldAlert, roles: ['class_rep'] },
-  { label: 'Class List', path: '/class-rep/class-list', icon: Users, roles: ['class_rep'] },
-  { label: 'Notify Classmates', path: '/class-rep/notify', icon: Megaphone, roles: ['class_rep'] },
-
-  { label: 'Bursar Portal', path: '/bursar', icon: LayoutDashboard, roles: ['class_bursar', 'dept_bursar'] },
-  {
-    label: 'Dues Management',
-    path: '/bursar/dues',
-    icon: DollarSign,
-    roles: ['class_bursar', 'dept_bursar', 'hod', 'delegated_admin'],
-  },
-  { label: 'Verify Payments', path: '/bursar/verify', icon: DollarSign, roles: ['class_bursar', 'dept_bursar'] },
-  { label: 'Defaulters List', path: '/bursar/defaulters', icon: ShieldAlert, roles: ['class_bursar', 'dept_bursar'] },
-  { label: 'Payment History', path: '/bursar/history', icon: Clock, roles: ['class_bursar', 'dept_bursar'] },
+  { label: 'Lecturer Portal', path: '/l/dashboard', icon: LayoutDashboard, roles: ['lecturer'] },
+  { label: 'Class List', path: '/l/class-list', icon: Users, roles: ['lecturer'] },
 
   { label: 'Admin Portal', path: '/admin', icon: LayoutDashboard, roles: ['hod', 'delegated_admin', 'admin'] },
   // {
@@ -239,11 +185,53 @@ const menuItems: MenuItem[] = [
   },
   // { label: 'Expenses', path: '/admin/expenses', icon: DollarSign, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Operations and Issues', path: '/admin/system', icon: Wrench, roles: ['hod', 'delegated_admin', 'admin'] },
-  { label: 'Settings', path: '/admin/settings', icon: Settings, roles: ['hod', 'delegated_admin', 'admin'] },
 
   // { label: 'AI Blueprint', path: '/ai-blueprint', icon: Brain, roles: ['hod', 'delegated_admin', 'admin'] },
 
-  { label: 'Profile', path: '/profile', icon: User },
+  { label: 'Profile', path: '/admin/profile', icon: User, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Profile', path: '/l/profile', icon: User, roles: ['lecturer'] },
+];
+
+const studentSections: NavSection[] = [
+  {
+    title: 'MENU',
+    icon: LayoutDashboard,
+    key: 'student_menu',
+    roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
+    items: [
+      { label: 'Dashboard', path: '/i/dashboard', icon: LayoutDashboard },
+      { label: 'Communication', path: '/i/communication', icon: Bell },
+      { label: 'Connect', path: '/connect', icon: Users },
+    ],
+  },
+  {
+    title: 'ACADEMICS',
+    icon: GraduationCap,
+    key: 'student_academics',
+    roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
+    items: [
+      { label: 'GPA Tools', path: '/i/gpa', icon: TrendingUp },
+      { label: 'Course Registration', path: '/i/courses', icon: BookMarked },
+      { label: 'Course Form Signing', path: '/i/course-form-signing', icon: FileSignature },
+    ],
+  },
+  {
+    title: 'FINANCE',
+    icon: Wallet,
+    key: 'student_finance',
+    roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
+    items: [{ label: 'Payments & Dues', path: '/i/payments', icon: CreditCard }],
+  },
+  {
+    title: 'GENERAL',
+    icon: Settings,
+    key: 'student_general',
+    roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
+    items: [
+      { label: 'Complaints', path: '/i/complaints', icon: HelpCircle },
+      { label: 'Profile', path: '/i/profile', icon: User },
+    ],
+  },
 ];
 
 const mobileSections: NavSection[] = [
@@ -253,13 +241,13 @@ const mobileSections: NavSection[] = [
     key: 'academics',
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
     items: [
-      // { label: 'My Results', path: '/results', icon: Award },
-      { label: 'GPA Tools', path: '/gpa', icon: TrendingUp },
-      // { label: 'Study Planner', path: '/study-planner', icon: ClipboardList },
-      { label: 'Courses Registration', path: '/courses', icon: BookMarked },
-      { label: 'Course Form Signing', path: '/course-form-signing', icon: FileSignature },
-      // { label: 'My Attendance', path: '/attendance', icon: ClipboardCheck },
-      { label: 'Complaints', path: '/complaints', icon: HelpCircle },
+      // { label: 'My Results', path: '/i/results', icon: Award },
+      { label: 'GPA Tools', path: '/i/gpa', icon: TrendingUp },
+      // { label: 'Study Planner', path: '/i/study-planner', icon: ClipboardList },
+      { label: 'Courses Registration', path: '/i/courses', icon: BookMarked },
+      { label: 'Course Form Signing', path: '/i/course-form-signing', icon: FileSignature },
+      // { label: 'My Attendance', path: '/i/attendance', icon: ClipboardCheck },
+      { label: 'Complaints', path: '/i/complaints', icon: HelpCircle },
     ],
   },
   {
@@ -268,10 +256,10 @@ const mobileSections: NavSection[] = [
     key: 'community',
     items: [
       { label: 'Connect', path: '/connect', icon: Users },
-      { label: 'Communication', path: '/communication', icon: Bell },
-      // { label: 'Find a Mentor', path: '/find-mentor', icon: GraduationCap },
+      { label: 'Communication', path: '/i/communication', icon: Bell },
+      // { label: 'Find a Mentor', path: '/i/find-mentor', icon: GraduationCap },
 
-      // { label: 'Notice Board', path: '/notice-board', icon: Pin },
+      // { label: 'Notice Board', path: '/i/notice-board', icon: Pin },
     ],
   },
   {
@@ -279,27 +267,14 @@ const mobileSections: NavSection[] = [
     icon: Wallet,
     key: 'finance',
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
-    items: [{ label: 'Payments & Dues', path: '/payments', icon: CreditCard }],
+    items: [{ label: 'Payments & Dues', path: '/i/payments', icon: CreditCard }],
   },
-  // {
-  //   title: 'ALUMNI',
-  //   icon: '\u{1F393}',
-  //   key: 'alumni',
-  //   locked: true,
-  //   lockMessage: 'Available for graduates (Year 5+)',
-  //   items: [{ label: 'Alumni Portal', path: '/alumni', icon: GraduationCap }],
-  // },
   {
     title: 'OVERVIEW',
     icon: ChartColumn,
     key: 'admin_overview',
     roles: ['hod', 'delegated_admin', 'admin'],
-    items: [
-      { label: 'Admin Portal', path: '/admin', icon: LayoutDashboard },
-      // { label: 'Analytics', path: '/admin/analytics', icon: BarChart3 },
-      { label: 'Revenue Forecast', path: '/admin/revenue-forecast', icon: TrendingUp },
-      // { label: 'At-Risk Students', path: '/admin/at-risk', icon: ShieldAlert },
-    ],
+    items: [{ label: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard }],
   },
   {
     title: 'ACADEMICS',
@@ -307,91 +282,164 @@ const mobileSections: NavSection[] = [
     key: 'admin_academics',
     roles: ['hod', 'delegated_admin', 'admin'],
     items: [
-      // { label: 'Academics', path: '/admin/academics', icon: GraduationCap },
-      { label: 'Sessions', path: '/admin/sessions', icon: Calendar },
-      { label: 'Course Hub', path: '/admin/course-hub', icon: BookOpen },
-      // { label: 'Results Management', path: '/admin/results/manage', icon: ClipboardList },
-      { label: 'CRF Signatures', path: '/admin/crf-signing', icon: FileSignature },
+      { label: 'Semesters & Registration', path: '/admin/sessions', icon: Calendar },
+      { label: 'Courses', path: '/admin/course-hub', icon: BookOpen },
+      { label: 'Course Forms', path: '/admin/crf-signing', icon: FileSignature },
     ],
   },
   {
-    title: 'USERS & ROLES',
+    title: 'PEOPLE & ACCESS',
     icon: UsersRound,
     key: 'admin_users',
     roles: ['hod', 'delegated_admin', 'admin'],
-    items: [
-      { label: 'User Directory', path: '/admin/users', icon: Users },
-      // { label: 'Lecturer Management', path: '/admin/lecturers', icon: FileClock },
-      { label: 'User Roles and Permissions', path: '/admin/user-roles', icon: ShieldAlert },
-    ],
+    items: [{ label: 'Users', path: '/admin/users', icon: Users }],
   },
   {
     title: 'FINANCE',
     icon: Wallet,
     key: 'admin_finance',
     roles: ['hod', 'delegated_admin', 'admin'],
-    items: [{ label: 'Dues Management', path: '/bursar/dues', icon: DollarSign }],
+    items: [{ label: 'Dues & Payments', path: '/admin/duesmanagement', icon: CreditCard }],
   },
-  // {
-  //   title: 'ALUMNI',
-  //   icon: '\u{1F393}',
-  //   key: 'admin_alumni',
-  //   roles: ['hod', 'delegated_admin', 'admin'],
-  //   items: [
-  //     { label: 'Alumni Portal', path: '/alumni', icon: GraduationCap },
-  //     { label: 'Job Board', path: '/alumni/jobs', icon: Briefcase },
-  //     { label: 'Job Moderation', path: '/admin/job-moderation', icon: Briefcase },
-  //     { label: 'Mentorship Requests', path: '/alumni/mentorship', icon: Users },
-  //     { label: 'Give Back', path: '/alumni/give-back', icon: DollarSign },
-  //     { label: 'Alumni Mgmt', path: '/admin/alumni', icon: GraduationCap },
-  //   ],
-  // },
   {
-    title: 'COMMUNICATIONS',
+    title: 'COMMUNICATE',
     icon: Megaphone,
     key: 'admin_comms',
     roles: ['hod', 'delegated_admin', 'admin'],
-    items: [{ label: 'Announcements', path: '/admin/announcements', icon: Megaphone }],
+    items: [
+      { label: 'Announcements', path: '/admin/announcements', icon: Megaphone },
+      { label: 'Support', path: '/admin/system', icon: HelpCircle },
+    ],
+  },
+  {
+    title: 'INSIGHTS',
+    icon: BarChart3,
+    key: 'admin_insights',
+    roles: ['hod', 'delegated_admin', 'admin'],
+    items: [
+      { label: 'Reports & Analytics', path: '/admin/analytics', icon: BarChart3 },
+      { label: 'Class Rep Reports', path: '/admin/reports', icon: FileText },
+    ],
   },
   {
     title: 'SYSTEM',
-    icon: Settings,
-    key: 'system',
+    icon: FileClock,
+    key: 'admin_system',
     roles: ['hod', 'delegated_admin', 'admin'],
-    items: [
-      { label: 'Operations and Issues', path: '/admin/system', icon: Wrench },
-      { label: 'Settings', path: '/admin/settings', icon: Settings },
-    ],
+    items: [{ label: 'Profile', path: '/admin/profile?tab=overview', icon: FileClock }],
   },
+];
+
+/* Class rep and bursar each have their own sidebar, matching the PDF portal designs. */
+const classRepSections: NavSection[] = [
   {
-    title: 'CLASS REP',
-    icon: Medal,
-    key: 'class_rep',
+    title: 'OVERVIEW',
+    icon: LayoutDashboard,
+    key: 'rep_overview',
     roles: ['class_rep'],
     items: [
-      { label: 'Class Rep Portal', path: '/class-rep', icon: LayoutDashboard },
-      // { label: 'Track Attendance', path: '/class-rep/attendance', icon: ClipboardList },
-      { label: 'Pending Registrations', path: '/class-rep/pending', icon: ShieldAlert },
-      { label: 'Class List', path: '/class-rep/class-list', icon: Users },
-      { label: 'Notify Classmates', path: '/class-rep/notify', icon: Megaphone },
+      { label: 'Dashboard', path: '/rep/dashboard', icon: LayoutDashboard },
+      { label: 'Connect', path: '/connect', icon: Users },
     ],
   },
   {
-    title: 'BURSAR',
-    icon: Coins,
-    key: 'bursar',
-    roles: ['class_bursar', 'dept_bursar'],
+    title: 'CLASS MANAGEMENT',
+    icon: Users,
+    key: 'rep_management',
+    roles: ['class_rep'],
     items: [
-      { label: 'Bursar Portal', path: '/bursar', icon: LayoutDashboard },
-      { label: 'Dues Management', path: '/bursar/dues', icon: DollarSign },
-      { label: 'Verify Payments', path: '/bursar/verify', icon: DollarSign },
-      { label: 'Defaulters List', path: '/bursar/defaulters', icon: ShieldAlert },
-      { label: 'Payment History', path: '/bursar/history', icon: Clock },
+      { label: 'Pending Registrations', path: '/rep/pending', icon: ShieldAlert },
+      { label: 'Attendance', path: '/rep/attendance', icon: Check },
+      { label: 'Class List', path: '/rep/class-list', icon: Users },
+      { label: 'Notify Classmates', path: '/rep/notify', icon: Megaphone },
+      { label: 'Reports', path: '/rep/reports', icon: FileText },
+    ],
+  },
+  {
+    title: 'ACCOUNT',
+    icon: User,
+    key: 'rep_account',
+    roles: ['class_rep'],
+    items: [{ label: 'Profile', path: '/i/profile', icon: User }],
+  },
+];
+
+const lecturerSections: NavSection[] = [
+  {
+    title: 'OVERVIEW',
+    icon: LayoutDashboard,
+    key: 'lecturer_overview',
+    roles: ['lecturer'],
+    items: [{ label: 'Dashboard', path: '/l/dashboard', icon: LayoutDashboard }],
+  },
+  {
+    title: 'TEACHING',
+    icon: BookOpen,
+    key: 'lecturer_teaching',
+    roles: ['lecturer'],
+    items: [
+      { label: 'My courses', path: '/l/dashboard', icon: BookOpen },
+      { label: 'Class lists', path: '/l/class-list', icon: Users },
+      { label: 'Leave requests', path: '/l/leave', icon: Calendar },
+    ],
+  },
+  {
+    title: 'COMMUNITY',
+    icon: MessagesSquare,
+    key: 'lecturer_community',
+    roles: ['lecturer'],
+    items: [
+      { label: 'Connect', path: '/connect', icon: Users },
+      { label: 'Announcements', path: '/l/announcements', icon: Megaphone },
     ],
   },
 ];
 
+const bursarSections: NavSection[] = [
+  {
+    title: 'OVERVIEW',
+    icon: LayoutDashboard,
+    key: 'bursar_overview',
+    roles: ['class_bursar', 'dept_bursar'],
+    items: [
+      { label: 'Dashboard', path: '/bu/dashboard', icon: LayoutDashboard },
+      { label: 'Connect', path: '/connect', icon: Users },
+    ],
+  },
+  {
+    title: 'FINANCE',
+    icon: Coins,
+    key: 'bursar_finance',
+    roles: ['class_bursar', 'dept_bursar'],
+    items: [
+      { label: 'Dues Management', path: '/bu/dues', icon: CreditCard },
+      { label: 'Verify Payments', path: '/bu/verify', icon: Check },
+      { label: 'Record Payment', path: '/bu/record', icon: PenLine },
+    ],
+  },
+  {
+    title: 'MONITORING',
+    icon: BarChart3,
+    key: 'bursar_monitoring',
+    roles: ['class_bursar', 'dept_bursar'],
+    items: [
+      { label: 'Defaulters List', path: '/bu/defaulters', icon: AlertTriangle },
+      { label: 'Payment History', path: '/bu/history', icon: Clock },
+    ],
+  },
+  {
+    title: 'ACCOUNT',
+    icon: User,
+    key: 'bursar_account',
+    roles: ['class_bursar', 'dept_bursar'],
+    items: [{ label: 'Profile', path: '/i/profile', icon: User }],
+  },
+];
+
 const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: SidebarProps) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const isExpanded = !collapsed || isHovered;
+  const location = useLocation();
   // Admin links carry the department's short name: /co/admin, /ee/admin, ...
   const urlCode = useAuthStore((s) => s.user?.tenant?.urlCode);
   const { activeRole } = useRBAC();
@@ -399,8 +447,15 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
   const department = useCurrentDepartment();
   // Every group starts open, so no item is hidden behind a closed group (the
   // drawer used to open with Community and Finance shut). A group can still be
-  // closed by hand.
-  const [expandedSections, setExpandedSections] = useState<string[]>(() => mobileSections.map((s) => s.key));
+  // closed by hand. We include keys from all role section arrays so every role
+  // starts fully expanded.
+  const [expandedSections, setExpandedSections] = useState<string[]>(() => [
+    ...mobileSections.map((s) => s.key),
+    ...studentSections.map((s) => s.key),
+    ...classRepSections.map((s) => s.key),
+    ...bursarSections.map((s) => s.key),
+    ...lecturerSections.map((s) => s.key),
+  ]);
 
   const isPendingApproval =
     user &&
@@ -420,38 +475,70 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
 
   const isAlumni = user?.roles.includes('alumni');
 
-  // Desktop grouping — only Student and Admin currently have enough items to
-  // warrant sections; other roles (lecturer, class_rep, bursar) keep the
-  // plain flat list below.
+  // Desktop grouping — every role now has its own section layout. The flat
+  // menuItems list is kept only as a fallback for any unrecognised role.
   const isStudentLike = ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'].includes(activeRole);
   const isAdminLike = ['hod', 'delegated_admin', 'admin'].includes(activeRole);
+  const isBursar = ['class_bursar', 'dept_bursar'].includes(activeRole);
+  const roleSections: NavSection[] | null =
+    activeRole === 'class_rep'
+      ? classRepSections
+      : isBursar
+        ? bursarSections
+        : activeRole === 'lecturer'
+          ? lecturerSections
+          : null;
   const desktopSections = isStudentLike
-    ? mobileSections.filter((s) => ['academics', 'community', 'finance', 'alumni'].includes(s.key))
+    ? studentSections
     : isAdminLike
-      ? mobileSections.filter((s) => s.key.startsWith('admin_') || s.key === 'system')
-      : null;
-  const dashboardItem = menuItems.find((i) => i.path === '/dashboard')!;
-  const profileItem = menuItems.find((i) => i.path === '/profile')!;
+      ? mobileSections.filter((s) => s.key.startsWith('admin_'))
+      : roleSections;
+  const roleProfilePath = useProfilePath();
+  const navigate = useNavigate();
+
+  const _dashboardItem: MenuItem = {
+    label: 'Dashboard',
+    path: isAdminLike ? '/admin/dashboard' : isStudentLike ? '/i/dashboard' : '/l/dashboard',
+    icon: LayoutDashboard,
+  };
+  const _profileItem: MenuItem = {
+    label: 'Profile',
+    path: roleProfilePath,
+    icon: User,
+  };
 
   const renderDesktopItem = (item: MenuItem) => {
     const Icon = item.icon;
+    const isCommunication = item.path === '/i/communication';
+    const isDuesFinanceActive =
+      item.label === 'Dues & Payments' &&
+      (location.pathname.includes('/admin/duesmanagement') ||
+        location.pathname.includes('/admin/transactions') ||
+        location.pathname.includes('/admin/revenue-forecast'));
     return (
       <NavLink
         key={item.path}
         to={departmentAdminPath(urlCode, item.path)}
         className={({ isActive }) =>
           cn(
-            'flex items-center justify-center mx-1.5 p-2.5 rounded-xl transition-all duration-150',
-            !collapsed && 'md:gap-3 md:px-3 md:py-2.5 md:mx-2 md:text-sm md:font-medium md:justify-start',
-            isActive
-              ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/20 dark:text-primary-400'
-              : 'text-surface-600 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800 hover:text-surface-900 dark:hover:text-surface-100',
+            'flex items-center justify-between mx-1.5 p-2 rounded-xl transition-all duration-150',
+            isExpanded && 'md:px-3 md:py-2 md:mx-2 md:text-xs md:font-medium',
+            isActive || isDuesFinanceActive
+              ? 'bg-white text-[var(--primary)] shadow-sm dark:bg-[#1c1e22] dark:text-[#4f9bff] font-semibold border border-[var(--border)]/40'
+              : 'text-[var(--text-muted)] hover:bg-[var(--surface)] hover:text-[var(--text)]',
           )
         }
         title={item.label}
       >
-        <Icon className="w-5 h-5 shrink-0" />
-        {!collapsed && <span className="hidden md:inline">{item.label}</span>}
+        <div className="flex items-center gap-3 min-w-0">
+          <Icon className="w-4 h-4 shrink-0" />
+          {isExpanded && <span className="hidden md:inline truncate">{item.label}</span>}
+        </div>
+        {isExpanded && isCommunication && (
+          <span className="hidden md:flex h-4 w-4 items-center justify-center rounded-full bg-[#1a66d6] text-[9px] font-bold text-white">
+            1
+          </span>
+        )}
       </NavLink>
     );
   };
@@ -460,15 +547,15 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
     const showLocked = section.locked && !isAlumni;
     return (
       <div key={section.key} className="mt-4 first:mt-0">
-        {!collapsed ? (
-          <p className="hidden md:block px-5 mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-surface-400 dark:text-surface-600">
+        {isExpanded ? (
+          <p className="hidden md:block px-5 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
             {section.title}
           </p>
         ) : (
-          <div className="mx-4 my-2 border-t border-surface-200 dark:border-surface-800" />
+          <div className="mx-4 my-2 border-t border-[var(--border)]/40" />
         )}
         {showLocked
-          ? !collapsed && (
+          ? isExpanded && (
               <p className="hidden md:block px-5 py-1 text-xs text-surface-400 dark:text-surface-500 italic">
                 {section.lockMessage}
               </p>
@@ -501,18 +588,12 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
           <div className="flex items-center gap-2 min-w-0">
             <DepartmentLogo department={department} className="w-8 h-8 shadow-md" />
             <div className="min-w-0">
-              <p className="font-bold text-base leading-tight text-surface-900 dark:text-white line-clamp-2">
-                {department?.name ?? APP_NAME}
+              <p className="font-bold text-sm leading-tight text-[var(--text)] line-clamp-1">
+                {formatDepartmentDisplayName(department?.name) || 'Department'}
               </p>
-              {department?.description && (
-                <p
-                  className="mt-0.5 text-[11px] leading-snug text-surface-500 dark:text-surface-400 line-clamp-2"
-                  title={department.description}
-                >
-                  {department.description}
-                </p>
-              )}
-              <p className="text-[10px] uppercase tracking-wider text-surface-400">{APP_NAME}</p>
+              <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-muted)] line-clamp-1">
+                {department?.institution || 'Institution'}
+              </p>
             </div>
           </div>
           <button
@@ -581,7 +662,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
           ) : (
             <>
               {/* Collapsible sections */}
-              {mobileSections.map((section) => {
+              {(roleSections ?? mobileSections).map((section) => {
                 const hasAccess = !section.roles || section.roles.some((r) => user?.roles.includes(r));
                 const isExpanded = expandedSections.includes(section.key);
                 const SectionIcon = section.icon;
@@ -631,7 +712,11 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
                               className={({ isActive }) =>
                                 cn(
                                   'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors',
-                                  isActive
+                                  isActive ||
+                                    (item.label === 'Dues & Payments' &&
+                                      (location.pathname.includes('/admin/duesmanagement') ||
+                                        location.pathname.includes('/admin/transactions') ||
+                                        location.pathname.includes('/admin/revenue-forecast')))
                                     ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/20 dark:text-primary-400'
                                     : 'text-surface-600 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800 hover:text-surface-800 dark:hover:text-surface-200',
                                 )
@@ -667,7 +752,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
         {/* Mobile footer */}
         <div className="border-t border-surface-200 dark:border-surface-800 px-4 py-3 space-y-1">
           <NavLink
-            to="/profile"
+            to={roleProfilePath}
             onClick={onMobileClose}
             className={({ isActive }) =>
               cn(
@@ -678,8 +763,8 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
               )
             }
           >
-            <Settings className="w-5 h-5 shrink-0" />
-            Settings
+            <User className="w-5 h-5 shrink-0" />
+            Profile
           </NavLink>
           <button
             onClick={() => {
@@ -694,77 +779,146 @@ const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onMobileClose }: Sid
         </div>
       </aside>
 
-      {/* ─── Desktop sidebar (in-flow) ─── */}
-      <aside
+      {/* ─── Desktop sidebar wrapper ─── */}
+      <div
         className={cn(
-          'hidden md:flex flex-col bg-white/95 dark:bg-surface-900/95 backdrop-blur-xl border-r border-surface-200 dark:border-surface-800 transition-all duration-300 ease-out shadow-2xl',
-          'relative h-full',
-          'w-16',
-          !collapsed && 'md:w-72',
+          'hidden md:block shrink-0 h-full relative transition-[width] duration-300 ease-out',
+          collapsed ? 'w-16' : 'w-72',
         )}
       >
-        <div
+        <aside
+          onMouseEnter={() => {
+            if (collapsed) setIsHovered(true);
+          }}
+          onMouseLeave={() => {
+            if (collapsed) setIsHovered(false);
+          }}
           className={cn(
-            'min-h-[4rem] py-3 flex items-center justify-center border-b border-surface-200 dark:border-surface-800',
-            !collapsed && 'md:justify-start md:px-6',
+            'hidden md:flex flex-col bg-white/95 dark:bg-surface-900/95 backdrop-blur-xl border-r border-surface-200 dark:border-surface-800 transition-all duration-300 ease-out h-full overflow-hidden',
+            collapsed && !isHovered ? 'w-16 shadow-none' : 'w-72 shadow-2xl',
+            collapsed && isHovered
+              ? 'absolute top-0 left-0 bottom-0 z-40 shadow-2xl ring-1 ring-black/10 dark:ring-white/10'
+              : 'relative',
           )}
         >
-          <div className={cn('flex items-center', !collapsed ? 'md:gap-2' : 'flex-col')}>
-            <DepartmentLogo department={department} className="w-8 h-8 shadow-md" />
-            {!collapsed && (
-              <div className="hidden md:block min-w-0">
-                <p className="font-bold text-base leading-tight text-surface-900 dark:text-white line-clamp-2">
-                  {department?.name ?? APP_NAME}
-                </p>
-                {department?.description && (
-                  <p
-                    className="mt-0.5 text-[11px] leading-snug text-surface-500 dark:text-surface-400 line-clamp-2"
-                    title={department.description}
-                  >
-                    {department.description}
+          <div
+            className={cn(
+              'min-h-[4rem] py-3 flex items-center justify-center border-b border-surface-200 dark:border-surface-800',
+              isExpanded && 'md:justify-start md:px-6',
+            )}
+          >
+            <div className={cn('flex items-center', isExpanded ? 'md:gap-2' : 'flex-col')}>
+              <DepartmentLogo department={department} className="w-8 h-8 shadow-md" />
+              {isExpanded && (
+                <div className="hidden md:block min-w-0">
+                  <p className="font-bold text-sm leading-tight text-[var(--text)] line-clamp-1">
+                    {formatDepartmentDisplayName(department?.name) || 'Department'}
                   </p>
-                )}
-                <p className="text-[10px] uppercase tracking-wider text-surface-400">{APP_NAME}</p>
+                  <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-muted)] line-clamp-1">
+                    {department?.institution || 'Institution'}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+          <nav className="flex-1 overflow-y-auto py-3 space-y-1 scrollbar-thin">
+            {desktopSections ? (
+              <>{desktopSections.map((section) => renderDesktopSection(section))}</>
+            ) : (
+              filteredItems.map((item) => renderDesktopItem(item))
+            )}
+          </nav>
+
+          <div className={cn('border-t border-[var(--border)]/70', 'p-1.5', isExpanded && 'md:p-3')}>
+            {isExpanded && (
+              <div
+                onClick={() => navigate(roleProfilePath)}
+                role="button"
+                tabIndex={0}
+                className="hidden md:flex items-center gap-3 p-2.5 rounded-2xl bg-[var(--surface)] border border-[var(--border)]/70 mb-2 cursor-pointer hover:border-[#1a66d6] transition-all"
+              >
+                <div className="w-9 h-9 rounded-full bg-[#1a66d6] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+                  {user?.avatar ? (
+                    <img
+                      src={getMediaUrl(user.avatar) ?? undefined}
+                      alt=""
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  ) : (
+                    `${(user?.firstName || 'A').charAt(0).toUpperCase()}${(user?.lastName || '').charAt(0).toUpperCase()}`
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="font-bold text-xs text-[var(--text)] truncate">
+                      {user?.fullName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'User'}
+                    </span>
+                    <span className="rounded-full bg-blue-100 text-[#1a66d6] dark:bg-blue-950/60 dark:text-[#4f9bff] px-2 py-0.5 text-[9px] font-bold uppercase">
+                      {activeRole === 'hod'
+                        ? 'HOD'
+                        : activeRole === 'delegated_admin' || activeRole === 'admin'
+                          ? 'Admin'
+                          : activeRole === 'lecturer'
+                            ? 'Staff'
+                            : activeRole === 'class_rep'
+                              ? 'Class rep'
+                              : isBursar
+                                ? 'Bursar'
+                                : 'Student'}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-[var(--text-muted)] block truncate mt-0.5">
+                    {activeRole === 'hod'
+                      ? 'Head of Department'
+                      : activeRole === 'delegated_admin' || activeRole === 'admin'
+                        ? 'Administrator'
+                        : activeRole === 'lecturer'
+                          ? 'Lecturer'
+                          : activeRole === 'class_rep'
+                            ? 'Class representative'
+                            : isBursar
+                              ? 'Bursar'
+                              : user?.matricNumber || 'Student'}
+                  </span>
+                </div>
               </div>
             )}
+
+            <div className={cn('hidden md:flex items-center gap-1.5', !isExpanded && 'flex-col')}>
+              <button
+                onClick={() => {
+                  setIsHovered(false);
+                  onToggleCollapse();
+                }}
+                className={cn(
+                  'flex items-center justify-center p-2 rounded-xl transition-all duration-150 text-[var(--text-muted)] hover:bg-[var(--surface)] hover:text-[var(--text)]',
+                  isExpanded ? 'flex-1 gap-2 px-3 py-2 text-xs font-semibold' : 'w-full',
+                )}
+                title={collapsed ? (isHovered ? 'Pin sidebar open' : 'Expand') : 'Collapse'}
+              >
+                <ChevronLeft
+                  className={cn(
+                    'w-4 h-4 shrink-0 transition-transform duration-200',
+                    collapsed && !isHovered && 'rotate-180',
+                  )}
+                />
+                {isExpanded && <span>{collapsed ? 'Pin open' : 'Collapse'}</span>}
+              </button>
+              <button
+                onClick={() => logout()}
+                className={cn(
+                  'flex items-center justify-center p-2 rounded-xl transition-all duration-150 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/20',
+                  isExpanded ? 'flex-1 gap-2 px-3 py-2 text-xs font-semibold' : 'w-full',
+                )}
+                title="Logout"
+              >
+                <LogOut className="w-4 h-4 shrink-0" />
+                {isExpanded && <span>Logout</span>}
+              </button>
+            </div>
           </div>
-        </div>
-        <nav className="flex-1 overflow-y-auto py-4 space-y-1 scrollbar-thin">
-          {desktopSections ? (
-            <>
-              {isStudentLike && renderDesktopItem(dashboardItem)}
-              {desktopSections.map((section) => renderDesktopSection(section))}
-              {renderDesktopItem(profileItem)}
-            </>
-          ) : (
-            filteredItems.map((item) => renderDesktopItem(item))
-          )}
-        </nav>
-        <div className={cn('border-t border-surface-200 dark:border-surface-800', 'p-1.5', !collapsed && 'md:p-4')}>
-          <button
-            onClick={onToggleCollapse}
-            className={cn(
-              'hidden md:flex items-center w-full justify-center p-2.5 rounded-xl transition-all duration-150 mb-1 text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800',
-              !collapsed && 'md:gap-3 md:px-3 md:py-2.5 md:text-sm md:font-medium',
-            )}
-            title={collapsed ? 'Expand' : 'Collapse'}
-          >
-            <ChevronLeft className={cn('w-4 h-4 shrink-0 transition-transform', collapsed && 'rotate-180')} />
-            {!collapsed && <span className="hidden md:inline">Collapse</span>}
-          </button>
-          <button
-            onClick={() => logout()}
-            className={cn(
-              'flex items-center w-full justify-center p-2.5 rounded-xl transition-all duration-150 text-danger-600 hover:bg-danger-50 dark:text-danger-400 dark:hover:bg-danger-950/20',
-              !collapsed && 'md:gap-3 md:px-3 md:py-2.5 md:text-sm md:font-medium',
-            )}
-            title="Logout"
-          >
-            <LogOut className="w-4 h-4 shrink-0" />
-            {!collapsed && <span className="hidden md:inline">Logout</span>}
-          </button>
-        </div>
-      </aside>
+        </aside>
+      </div>
     </>
   );
 };

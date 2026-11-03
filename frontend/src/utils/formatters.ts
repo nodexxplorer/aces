@@ -1,26 +1,28 @@
 import { format, formatDistanceToNow, parseISO, isValid } from 'date-fns';
 
-export const formatDate = (date: string | Date, fmt = 'MMM d, yyyy'): string => {
+export const formatDate = (date?: string | Date | null, fmt = 'MMM d, yyyy'): string => {
+  if (!date) return '';
   const d = typeof date === 'string' ? parseISO(date) : date;
   return isValid(d) ? format(d, fmt) : 'Invalid date';
 };
 
-export const formatDateTime = (date: string | Date): string =>
-  formatDate(date, 'MMM d, yyyy · h:mm a');
+export const formatDateTime = (date?: string | Date | null): string =>
+  date ? formatDate(date, 'MMM d, yyyy · h:mm a') : '';
 
-export const formatTimeAgo = (date: string | Date): string => {
+export const formatTimeAgo = (date?: string | Date | null): string => {
+  if (!date) return '';
   const d = typeof date === 'string' ? parseISO(date) : date;
   return isValid(d) ? formatDistanceToNow(d, { addSuffix: true }) : '';
 };
 
 export const formatCurrency = (amount: number | string | null | undefined, currency = 'NGN'): string => {
-  if (amount === null || amount === undefined) return new Intl.NumberFormat('en-NG', { style: 'currency', currency, minimumFractionDigits: 0 }).format(0);
+  if (amount === null || amount === undefined)
+    return new Intl.NumberFormat('en-NG', { style: 'currency', currency, minimumFractionDigits: 0 }).format(0);
   const num = typeof amount === 'string' ? parseFloat(amount) || 0 : amount;
   return new Intl.NumberFormat('en-NG', { style: 'currency', currency, minimumFractionDigits: 0 }).format(num);
 };
 
-export const formatNumber = (num: number): string =>
-  new Intl.NumberFormat('en-NG').format(num);
+export const formatNumber = (num: number): string => new Intl.NumberFormat('en-NG').format(num);
 
 export const formatCompactNumber = (num: number): string => {
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
@@ -40,10 +42,12 @@ export const truncateText = (text: string, maxLength: number): string =>
   text.length <= maxLength ? text : `${text.slice(0, maxLength)}…`;
 
 export const slugify = (text: string): string =>
-  text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
 
-export const capitalize = (text: string): string =>
-  text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+export const capitalize = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
 
 export const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return '0 B';

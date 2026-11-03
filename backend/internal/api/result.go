@@ -50,7 +50,7 @@ func (server *Server) createResult(ctx *gin.Context) {
 
 	// Lecturer-course assignment check
 	if claimsVal, exists := ctx.Get("claims"); exists {
-		if c, ok := claimsVal.(*auth.Claims); ok && c.HasRole("lecturer") && !c.HasAnyRole([]string{"hod", "admin", "delegated_admin"}) {
+		if c, ok := claimsVal.(*auth.Claims); ok && c.HasRole("lecturer") && !staffAccess(ctx, capManageResults, "hod", "admin", "delegated_admin") {
 			courseID, err := uuid.Parse(req.CourseID)
 			if err != nil {
 				ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid course_id"})
@@ -134,10 +134,10 @@ func (server *Server) getResult(ctx *gin.Context) {
 	}
 
 	if result.StudentID.Valid {
-		if !requireOwnershipOrStaff(ctx, server.store, result.StudentID.Bytes) {
+		if !requireOwnershipOrStaff(ctx, server.store, result.StudentID.Bytes, capManageResults) {
 			return
 		}
-	} else if !isStaffCaller(ctx) {
+	} else if !isStaffCaller(ctx, capManageResults) {
 		// No student to compare ownership against — fail closed rather than
 		// let any authenticated caller through.
 		ctx.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
@@ -155,8 +155,8 @@ func (server *Server) listStudentResults(ctx *gin.Context) {
 	}
 
 	// If caller is a student, they can only see their own results
-	if !isStaffCaller(ctx) {
-		callerStudentID, ok := requireOwnershipOrStaffByStudentIDParam(ctx, server.store)
+	if !isStaffCaller(ctx, capManageResults) {
+		callerStudentID, ok := requireOwnershipOrStaffByStudentIDParam(ctx, server.store, capManageResults)
 		if !ok {
 			return
 		}
@@ -194,7 +194,7 @@ func (server *Server) listCourseResults(ctx *gin.Context) {
 		return
 	}
 
-	if !isStaffCaller(ctx) {
+	if !isStaffCaller(ctx, capManageResults) {
 		ctx.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		return
 	}
@@ -258,7 +258,7 @@ func (server *Server) updateResult(ctx *gin.Context) {
 
 	// Lecturer-course assignment check
 	if claimsVal, exists := ctx.Get("claims"); exists {
-		if c, ok := claimsVal.(*auth.Claims); ok && c.HasRole("lecturer") && !c.HasAnyRole([]string{"hod", "admin", "delegated_admin"}) {
+		if c, ok := claimsVal.(*auth.Claims); ok && c.HasRole("lecturer") && !staffAccess(ctx, capManageResults, "hod", "admin", "delegated_admin") {
 			assigned, err := server.store.IsLecturerAssignedToCourse(ctx, db.IsLecturerAssignedToCourseParams{
 				LecturerID: getUserID(ctx),
 				CourseID:   existing.CourseID,

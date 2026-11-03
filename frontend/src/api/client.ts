@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { useAuthStore } from '../stores/authStore';
+import { cacheData, getCachedData, invalidateCache, saveOfflineAction } from '../db/offlineDb';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const API_PREFIX = '/api/v1';
@@ -38,11 +39,58 @@ const apiClient = axios.create({
 // sidesteps that entirely.
 let csrfToken: string | null = null;
 
+// Promise that coalesces concurrent proactive CSRF fetches so only one
+// /auth/refresh call is made, even if multiple mutating requests fire at once.
+let csrfAcquirePromise: Promise<void> | null = null;
+
 export function setCsrfToken(token: string | null | undefined) {
   csrfToken = token ?? null;
 }
 
-apiClient.interceptors.request.use((config) => {
+/**
+ * Proactively acquire a CSRF token via /auth/refresh when the in-memory token
+ * is null (e.g. after a page reload). Mutating methods (POST/PUT/DELETE) call
+ * this before the request fires, so the first mutation after reload no longer
+ * 403s and then has to race a slow refresh.
+ */
+function ensureCsrfToken(): Promise<void> {
+  if (csrfToken) return Promise.resolve();
+  // Only attempt if the persisted auth store says the user is logged in —
+  // avoid needless refresh calls on public/guest pages.
+  try {
+    const stored = JSON.parse(localStorage.getItem('aces-auth') || '{}');
+    if (!stored?.state?.isAuthenticated) return Promise.resolve();
+  } catch {
+    return Promise.resolve();
+  }
+  if (!csrfAcquirePromise) {
+    csrfAcquirePromise = axios
+      .post(`${API_BASE_URL}${API_PREFIX}/auth/refresh`, {}, { withCredentials: true })
+      .then((response) => {
+        setCsrfToken(response.data?.data?.csrfToken);
+      })
+      .catch(() => {
+        // Silently fail — the existing response interceptor will handle 403s.
+      })
+      .finally(() => {
+        csrfAcquirePromise = null;
+      });
+  }
+  return csrfAcquirePromise;
+}
+
+apiClient.interceptors.request.use(async (config) => {
+  // For mutating methods, proactively acquire the CSRF token if missing.
+  const method = config.method?.toLowerCase();
+  if (method && method !== 'get' && method !== 'head' && method !== 'options') {
+    // Skip proactive fetch for auth endpoints (login/signup/refresh) which
+    // are CSRF-exempt on the backend.
+    const url = config.url || '';
+    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/signup') || url.includes('/auth/refresh');
+    if (!isAuthEndpoint) {
+      await ensureCsrfToken();
+    }
+  }
   if (csrfToken) {
     config.headers['X-CSRF-Token'] = csrfToken;
   }
@@ -96,24 +144,58 @@ function refreshAccessToken(): Promise<void> {
 }
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const method = response.config?.method?.toLowerCase();
+    const url = response.config?.url || '';
+    if (method === 'get' && response.status === 200) {
+      const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/auth/me');
+      if (!isAuthEndpoint) {
+        const cacheKey = `${url}?${JSON.stringify(response.config?.params || {})}`;
+        cacheData(cacheKey, response.data).catch(() => {});
+      }
+    } else if (method && method !== 'get' && method !== 'head' && method !== 'options') {
+      invalidateCache().catch(() => {});
+    }
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
 
-    // The backend's connection to its database has shown highly variable
-    // latency in practice — some requests take 15-45+ seconds even though
-    // they eventually complete successfully server-side, well past this
-    // client's 15s timeout. A user then sees "no data" for something that
-    // was never actually missing, just slow. GETs are safe to retry
-    // (idempotent), so give a timed-out/network-failed GET up to two more
-    // tries before surfacing an error — each retry opens a fresh
-    // connection, which often lands outside whatever caused the stall.
+    // Check for offline / network timeout fallback to cached data
     const isTimeoutOrNetworkError =
-      !error.response && (error.code === 'ECONNABORTED' || error.message === 'Network Error');
+      !error.response &&
+      (error.code === 'ECONNABORTED' ||
+        error.message === 'Network Error' ||
+        (typeof navigator !== 'undefined' && !navigator.onLine));
+
     if (isTimeoutOrNetworkError && originalRequest?.method?.toLowerCase() === 'get') {
+      const url = originalRequest.url || '';
+      const cacheKey = `${url}?${JSON.stringify(originalRequest.params || {})}`;
+      try {
+        const cached = await getCachedData(cacheKey);
+        if (cached !== null && cached !== undefined) {
+          return {
+            data: cached,
+            status: 200,
+            statusText: 'OK (Offline Cache)',
+            headers: {},
+            config: originalRequest,
+          };
+        }
+      } catch {
+        // Fallback to retry
+      }
       originalRequest._timeoutRetryCount = (originalRequest._timeoutRetryCount ?? 0) + 1;
-      if (originalRequest._timeoutRetryCount <= 2) {
+      if (originalRequest._timeoutRetryCount <= 2 && (typeof navigator === 'undefined' || navigator.onLine)) {
         return apiClient(originalRequest);
+      }
+    }
+
+    if (isTimeoutOrNetworkError && originalRequest && originalRequest.method?.toLowerCase() !== 'get') {
+      try {
+        await saveOfflineAction(originalRequest.url || '', originalRequest.data);
+      } catch {
+        // ignored
       }
     }
 
@@ -136,6 +218,12 @@ apiClient.interceptors.response.use(
         originalRequest._retry = true;
         try {
           await refreshAccessToken();
+          // Ensure the retried request carries the freshly acquired CSRF
+          // token — delete any stale header so the request interceptor
+          // re-applies the current value.
+          if (csrfToken && originalRequest.headers) {
+            originalRequest.headers['X-CSRF-Token'] = csrfToken;
+          }
           return apiClient(originalRequest);
         } catch {
           // Clear the persisted "isAuthenticated" state before navigating —

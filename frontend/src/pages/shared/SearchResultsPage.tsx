@@ -68,7 +68,7 @@ export default function SearchResultsPage() {
   const handleNavigate = (result: SearchResult) => {
     if (result.result_type === 'course') navigate(`/admin/courses/${result.id}`);
     else if (result.result_type === 'student') navigate(`/admin/students/${result.id}`);
-    else if (result.result_type === 'announcement') navigate('/announcements');
+    else if (result.result_type === 'announcement') navigate('/i/communication');
   };
 
   const grouped = results.reduce<Record<string, SearchResult[]>>((acc, r) => {

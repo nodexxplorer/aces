@@ -110,10 +110,21 @@ The server starts on `http://localhost:8080` by default.
 
 `docker-compose up -d` starts PostgreSQL, applies the migrations as the owner, creates the runtime role (`aces_app`, password from `APP_DB_PASSWORD`), and starts the API as that role. The default password is for local development only.
 
+## Redis (rate limits)
+
+Redis is optional. When it answers at startup, the rate limits (per IP: all requests, sign-up, sign-in and password reset, and the wallpaper generator) are counted in Redis, so they hold across every server instance. Without it, each instance counts on its own.
+
+- Set `REDIS_ADDRESS` (default `localhost:6379`) and `REDIS_PASSWORD` if the server has one. Start Redis first, then the server. The startup log says which mode is in use: `rate limits shared through Redis at ...`, or `Redis at ... is not reachable`.
+- `docker compose up -d redis` starts Redis on `127.0.0.1:6379` only. Its default has no password, so do not publish it on other interfaces.
+- The client does not support TLS, so a provider that requires TLS needs a change first.
+- Windows are fixed. A counter starts with a client's first request in the window and expires when the window ends. Each limit has its own counter, under keys such as `rl:auth:<ip>`. To see them, run `redis-cli KEYS 'rl:*'`.
+- If Redis stops answering after startup, requests are let through and the error is logged with `[rate limit]`. Limits apply again once Redis is back.
+- Requests from `127.0.0.1` and `::1` are not limited, as without Redis.
+
 ## Tests
 
 ```bash
 DB_SOURCE='postgresql://<role that may create databases and roles>@localhost:5432/<any db>?sslmode=disable' go test -race ./...
 ```
 
-Without `DB_SOURCE`, the database integration tests are skipped and the rest run.
+Without `DB_SOURCE`, the database integration tests are skipped and the rest run. The Redis rate-limit tests run only with a Redis to use: `REDIS_TEST_ADDRESS=127.0.0.1:6379 go test ./internal/cache ./internal/middleware`.

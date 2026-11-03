@@ -89,7 +89,7 @@ func (server *Server) calculateCgpa(ctx *gin.Context) {
 	// type: try it as students.id first, fall back to treating it as
 	// users.id and looking up the real students.id from that.
 	studentID := pathID
-	if isStaffCaller(ctx) {
+	if isStaffCaller(ctx, capManageResults) {
 		if _, err := server.store.GetStudent(ctx, pathID); err != nil {
 			if student, serr := server.store.GetStudentByUserId(ctx, pathID); serr == nil {
 				studentID = student.ID
@@ -97,7 +97,7 @@ func (server *Server) calculateCgpa(ctx *gin.Context) {
 		}
 	}
 
-	if !requireOwnershipOrStaff(ctx, server.store, studentID) {
+	if !requireOwnershipOrStaff(ctx, server.store, studentID, capManageResults) {
 		return
 	}
 

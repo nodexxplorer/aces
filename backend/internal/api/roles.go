@@ -101,6 +101,10 @@ func (server *Server) revokeUserRole(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
 		return
 	}
+	if err := server.dropGrantIfNoAdminRole(ctx, req.UserID); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
 
 	ctx.JSON(http.StatusOK, assignment)
 }
@@ -383,6 +387,10 @@ func (server *Server) promoteUser(ctx *gin.Context) {
 
 	promotion, err := server.roles.PromoteUser(ctx, req.UserID, fromRole, toRole, promotedBy, req.Reason, &ipAddress, &userAgent)
 	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	if err := server.dropGrantIfNoAdminRole(ctx, req.UserID); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}

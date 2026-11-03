@@ -30,7 +30,7 @@ func decimalToNumeric(d decimal.Decimal) pgtype.Numeric {
 // not; also returns false (with the response already written) if the
 // assignment doesn't exist.
 func (server *Server) requireAssignmentCourseAccess(ctx *gin.Context, assignmentID uuid.UUID) bool {
-	if isStaffCaller(ctx) {
+	if isStaffCaller(ctx, capManageResults) {
 		return true
 	}
 	assignment, err := server.store.GetAssignment(ctx, assignmentID)
@@ -78,7 +78,7 @@ func (server *Server) createAssignment(ctx *gin.Context) {
 	// identity field must record who actually authenticated the request.
 	createdBy := getUserID(ctx)
 
-	if !isStaffCaller(ctx) {
+	if !isStaffCaller(ctx, capManageResults) {
 		assigned, aerr := server.store.IsLecturerAssignedToCourse(ctx, db.IsLecturerAssignedToCourseParams{
 			LecturerID: createdBy,
 			CourseID:   courseID,
@@ -267,7 +267,7 @@ func (server *Server) createAssignmentGrade(ctx *gin.Context) {
 		return
 	}
 
-	if !isStaffCaller(ctx) {
+	if !isStaffCaller(ctx, capManageResults) {
 		assigned, aerr := server.store.IsLecturerAssignedToCourse(ctx, db.IsLecturerAssignedToCourseParams{
 			LecturerID: gradedBy,
 			CourseID:   assignment.CourseID,
@@ -311,8 +311,8 @@ func (server *Server) getAssignmentGrade(ctx *gin.Context) {
 	}
 
 	// If caller is a student, they can only view their own grade
-	if !isStaffCaller(ctx) {
-		callerStudentID, ok := requireOwnershipOrStaffByStudentIDParam(ctx, server.store)
+	if !isStaffCaller(ctx, capManageResults) {
+		callerStudentID, ok := requireOwnershipOrStaffByStudentIDParam(ctx, server.store, capManageResults)
 		if !ok {
 			return
 		}
@@ -356,8 +356,8 @@ func (server *Server) listStudentAssignmentGrades(ctx *gin.Context) {
 		return
 	}
 
-	if !isStaffCaller(ctx) {
-		callerStudentID, ok := requireOwnershipOrStaffByStudentIDParam(ctx, server.store)
+	if !isStaffCaller(ctx, capManageResults) {
+		callerStudentID, ok := requireOwnershipOrStaffByStudentIDParam(ctx, server.store, capManageResults)
 		if !ok {
 			return
 		}
@@ -378,7 +378,7 @@ func (server *Server) listStudentAssignmentGrades(ctx *gin.Context) {
 // assigned to teach the parent assignment's course. Writes the response and
 // returns false if not, or if the grade doesn't exist.
 func (server *Server) requireAssignmentGradeCourseAccess(ctx *gin.Context, gradeID uuid.UUID) bool {
-	if isStaffCaller(ctx) {
+	if isStaffCaller(ctx, capManageResults) {
 		return true
 	}
 	queries, ok := server.store.(*db.Queries)

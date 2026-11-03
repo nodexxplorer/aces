@@ -18,7 +18,7 @@ export type UserRole =
   | 'admin';
 export type AccountType = 'staff' | 'student' | 'graduate';
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
-export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded';
+export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'success' | 'verified';
 export type PaymentMethod = 'paystack' | 'manual';
 export type ComplaintStatus = 'open' | 'in_review' | 'resolved' | 'rejected';
 export type ComplaintPriority = 'low' | 'medium' | 'high' | 'critical';
@@ -40,6 +40,8 @@ export interface BaseEntity {
   id: string;
   createdAt?: string;
   updatedAt?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // ───── Auth ─────
@@ -87,6 +89,7 @@ export interface User extends BaseEntity {
   accountType?: AccountType;
   isApproved: boolean;
   isActive: boolean;
+  emailVerified?: boolean;
   approvalStatus: ApprovalStatus;
   lastLogin?: string;
   rejectionReason?: string;

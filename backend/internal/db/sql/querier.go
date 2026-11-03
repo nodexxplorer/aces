@@ -140,6 +140,8 @@ type Querier interface {
 	CreatePasswordReset(ctx context.Context, arg CreatePasswordResetParams) (PasswordReset, error)
 	// ==================== PAYMENTS ====================
 	CreatePayment(ctx context.Context, arg CreatePaymentParams) (Payment, error)
+	CreateCRFSigningFeePayment(ctx context.Context, arg CreateCRFSigningFeePaymentParams) (Payment, error)
+	GetCRFSigningFeeForSubmission(ctx context.Context, crfSubmissionID pgtype.UUID) (Payment, error)
 	// ==================== PAYMENT BATCHES ====================
 	CreatePaymentBatch(ctx context.Context, arg CreatePaymentBatchParams) (PaymentBatch, error)
 	// ==================== POST BOOKMARKS ====================
@@ -438,6 +440,7 @@ type Querier interface {
 	ListPendingAlumniVerifications(ctx context.Context) ([]ListPendingAlumniVerificationsRow, error)
 	ListPendingAppeals(ctx context.Context, status AppealStatus) ([]ListPendingAppealsRow, error)
 	ListPendingConnectionRequests(ctx context.Context, receiverID uuid.UUID) ([]ListPendingConnectionRequestsRow, error)
+	ListSentPendingConnectionRequests(ctx context.Context, requesterID uuid.UUID) ([]ListSentPendingConnectionRequestsRow, error)
 	ListPendingCourseRegistrationsByLevel(ctx context.Context, level int32) ([]ListPendingCourseRegistrationsByLevelRow, error)
 	ListPendingModerations(ctx context.Context, limit int32) ([]ContentModerationLog, error)
 	ListPendingProfileUpdateRequests(ctx context.Context, arg ListPendingProfileUpdateRequestsParams) ([]ProfileUpdateRequest, error)
@@ -610,6 +613,7 @@ type Querier interface {
 	// ==================== CAMPUS PROFILES ====================
 	UpsertCampusProfile(ctx context.Context, arg UpsertCampusProfileParams) (CampusProfile, error)
 	UsePasswordReset(ctx context.Context, id uuid.UUID) error
+	UserHoldsAdminRole(ctx context.Context, id uuid.UUID) (bool, error)
 	VerifyAlumni(ctx context.Context, arg VerifyAlumniParams) (AlumniStatus, error)
 	VerifyPayment(ctx context.Context, arg VerifyPaymentParams) (Payment, error)
 	VerifyStudentDocument(ctx context.Context, arg VerifyStudentDocumentParams) (StudentDocument, error)
@@ -640,8 +644,9 @@ type Querier interface {
 	GetStudentRegisteredCourseDetails(ctx context.Context, studentID uuid.UUID, semesterID uuid.UUID) ([]RegisteredCourseDetailRow, error)
 	GetUserByCalendarFeedToken(ctx context.Context, token string) (CalendarFeedUserRow, error)
 	GetUserCalendarFeedToken(ctx context.Context, userID uuid.UUID) (*string, error)
-	GetUserIDByUnsubscribeToken(ctx context.Context, token string) (uuid.UUID, error)
 	ListCRFDraftsForUser(ctx context.Context, userID uuid.UUID) ([]CRFSigningSubmission, error)
+	ListCRFSubmissionsForUser(ctx context.Context, userID uuid.UUID) ([]CRFSigningSubmission, error)
+	ListAllCRFSubmissions(ctx context.Context) ([]CRFAdminSubmissionRow, error)
 	ListCRFSignatureAssets(ctx context.Context) ([]CRFSignatureAsset, error)
 	ListDMConversations(ctx context.Context, userID uuid.UUID) ([]DMConversationRow, error)
 	ListDueStudyTaskReminders(ctx context.Context) ([]DueStudyTaskReminderRow, error)

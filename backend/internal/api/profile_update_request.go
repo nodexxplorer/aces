@@ -68,7 +68,7 @@ func (server *Server) getProfileUpdateRequest(ctx *gin.Context) {
 		return
 	}
 
-	if !requireOwnershipOrStaff(ctx, server.store, request.StudentID) {
+	if !requireOwnershipOrStaff(ctx, server.store, request.StudentID, capManageUsers) {
 		return
 	}
 
@@ -82,7 +82,7 @@ func (server *Server) listStudentProfileUpdateRequests(ctx *gin.Context) {
 		return
 	}
 
-	if !requireOwnershipOrStaff(ctx, server.store, studentID) {
+	if !requireOwnershipOrStaff(ctx, server.store, studentID, capManageUsers) {
 		return
 	}
 

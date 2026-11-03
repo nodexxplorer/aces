@@ -2176,6 +2176,10 @@ type AdminPermission struct {
 	ExpiresAt              pgtype.Timestamptz `json:"expires_at"`
 	IsActive               bool               `json:"is_active"`
 	TenantID               uuid.UUID          `json:"tenant_id"`
+	CanManageComplaints    bool               `json:"can_manage_complaints"`
+	CanManageAlumni        bool               `json:"can_manage_alumni"`
+	CanManageCourseForms   bool               `json:"can_manage_course_forms"`
+	CanManageSettings      bool               `json:"can_manage_settings"`
 }
 
 type AiInteraction struct {
@@ -3708,19 +3712,23 @@ type SubcategoryAssignment struct {
 }
 
 type Tenant struct {
-	ID          uuid.UUID          `json:"id"`
-	Slug        string             `json:"slug"`
-	Name        string             `json:"name"`
-	Institution *string            `json:"institution"`
-	Faculty     *string            `json:"faculty"`
-	IsActive    bool               `json:"is_active"`
-	Settings    json.RawMessage    `json:"settings"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	MatricCode  *string            `json:"matric_code"`
-	Description *string            `json:"description"`
-	Logo        []byte             `json:"logo"`
-	LogoType    *string            `json:"logo_type"`
+	ID            uuid.UUID          `json:"id"`
+	Slug          string             `json:"slug"`
+	Name          string             `json:"name"`
+	Institution   *string            `json:"institution"`
+	Faculty       *string            `json:"faculty"`
+	IsActive      bool               `json:"is_active"`
+	Settings      json.RawMessage    `json:"settings"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	MatricCode    *string            `json:"matric_code"`
+	Description   *string            `json:"description"`
+	Logo          []byte             `json:"logo"`
+	LogoType      *string            `json:"logo_type"`
+	ContactEmail  *string            `json:"contact_email"`
+	ApprovalEmail *string            `json:"approval_email"`
+	AccentColor   *string            `json:"accent_color"`
+	UrlCode       *string            `json:"url_code"`
 }
 
 type TenantCounter struct {

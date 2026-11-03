@@ -225,7 +225,62 @@ func (s *SemesterService) GetByID(ctx context.Context, id uuid.UUID) (db.Semeste
 }
 
 func (s *SemesterService) GetActive(ctx context.Context) (db.Semester, error) {
-	return s.store.GetActiveSemester(ctx)
+	sem, err := s.store.GetActiveSemester(ctx)
+	if err == nil {
+		return sem, nil
+	}
+
+	// Fallback: resolve from active or latest session
+	var targetSessionID uuid.UUID
+	if activeSession, err := s.store.GetActiveSession(ctx); err == nil {
+		targetSessionID = activeSession.ID
+	} else {
+		sessions, err := s.store.ListSessions(ctx, db.ListSessionsParams{Limit: 5, Offset: 0})
+		if err == nil && len(sessions) > 0 {
+			targetSessionID = sessions[0].ID
+			_, _ = s.store.UpdateSession(ctx, db.UpdateSessionParams{
+				ID:         sessions[0].ID,
+				Name:       sessions[0].Name,
+				StartDate:  sessions[0].StartDate,
+				EndDate:    sessions[0].EndDate,
+				IsActive:   true,
+				IsArchived: sessions[0].IsArchived,
+			})
+		}
+	}
+
+	if targetSessionID != uuid.Nil {
+		sems, err := s.store.ListSessionSemesters(ctx, targetSessionID)
+		if err == nil && len(sems) > 0 {
+			now := time.Now()
+			chosen := sems[0]
+			for _, item := range sems {
+				if item.StartDate.Valid && item.EndDate.Valid {
+					if !now.Before(item.StartDate.Time) && !now.After(item.EndDate.Time) {
+						chosen = item
+						break
+					}
+				}
+			}
+
+			_ = s.store.DeactivateAllSemesters(ctx)
+			updated, err := s.store.UpdateSemester(ctx, db.UpdateSemesterParams{
+				ID:                   chosen.ID,
+				SessionID:            chosen.SessionID,
+				Name:                 chosen.Name,
+				StartDate:            chosen.StartDate,
+				EndDate:              chosen.EndDate,
+				RegistrationDeadline: chosen.RegistrationDeadline,
+				IsActive:             true,
+			})
+			if err == nil {
+				return updated, nil
+			}
+			return chosen, nil
+		}
+	}
+
+	return db.Semester{}, err
 }
 
 func (s *SemesterService) ListBySession(ctx context.Context, sessionID uuid.UUID) ([]db.Semester, error) {
@@ -234,7 +289,7 @@ func (s *SemesterService) ListBySession(ctx context.Context, sessionID uuid.UUID
 
 func (s *SemesterService) GetByIDOrActive(ctx context.Context, idOrActive string) (db.Semester, error) {
 	if idOrActive == "active" {
-		semester, err := s.store.GetActiveSemester(ctx)
+		semester, err := s.GetActive(ctx)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return db.Semester{}, errors.New("no active semester found")

@@ -1,10 +1,8 @@
-/* Design tokens: font, neutral surface ramp and the primary (accent) colour ramp.
-   The primary ramp is stored as RGB triplets because the primary-* Tailwind colours
-   read these variables (see tailwind.config.js). A department's accent replaces them
-   at runtime (src/theme/accent.ts). The values here are the platform blue. */
+/* ACES Zone Palette v5 Design Tokens */
 :root {
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
 
+  /* Legacy surface ramp compatibility */
   --color-surface-50: #f8fafc;
   --color-surface-100: #f1f5f9;
   --color-surface-200: #e2e8f0;
@@ -17,16 +15,120 @@
   --color-surface-900: #0f172a;
   --color-surface-950: #020617;
 
+  /* Legacy primary RGB ramp compatibility */
   --primary-50: 230 240 255;
   --primary-100: 179 209 255;
   --primary-200: 128 179 255;
   --primary-300: 77 148 255;
   --primary-400: 26 117 255;
-  --primary-500: 0 102 204;
-  --primary-600: 0 82 163;
-  --primary-700: 0 61 122;
-  --primary-800: 0 41 82;
-  --primary-900: 0 51 102;
-  --primary-950: 0 26 51;
-  --color-primary-500: rgb(var(--primary-500));
+  --primary-500: 26 102 214;
+  --primary-600: 19 79 168;
+  --primary-700: 23 91 192;
+  --primary-800: 14 27 51;
+  --primary-900: 14 27 51;
+  --primary-950: 7 14 26;
+  --color-primary-500: #1a66d6;
+
+  /* ACES Zone v5: Light mode */
+  --bg: #e8eef6;
+  --surface: #f3f7fc;
+  --sidebar: #dce6f2;
+  --border: #b4c4da;
+  --text: #0e1b33;
+  --text-muted: #445d7a;
+  --primary: #1a66d6;
+  --primary-text: #175bc0;
+  --primary-hover: #134fa8;
+  --success: #1f7a45;
+  --success-text: #186a3c;
+  --error: #b42318;
+  --highlight: #f9e028;
+  --input-outline: #627a99;
+  --focus-ring: #1a66d6;
+
+  /* Button text contrast: White on light primary */
+  --btn-primary-text: #ffffff;
+  --btn-primary-bg: #1a66d6;
+  --btn-primary-hover: #134fa8;
+
+  /* Chart series & ink (Light mode) */
+  --chart-1: #2a78d6;
+  --chart-2: #eb6834;
+  --chart-3: #1baf7a;
+  --chart-4: #eda100;
+  --chart-5: #e87ba4;
+  --chart-6: #008300;
+  --chart-7: #6250d6;
+  --chart-8: #e34948;
+  --chart-ink: #0e1b33;
+  --chart-ink-2: #445d7a;
+  --chart-axis-label: #5b6f8a;
+  --chart-grid: #d5dfec;
+  --chart-baseline: #9fb0c7;
+  --qr-tile: #f3f7fc;
+  --qr-modules: #0e1b33;
+}
+
+:root[data-theme='dark'],
+.dark {
+  /* ACES Zone v5: Dark mode (neutral charcoal) */
+  --bg: #121316;
+  --surface: #1c1e22;
+  --sidebar: #0d0e10;
+  --border: #2e3238;
+  --text: #e8eaed;
+  --text-muted: #a0a6b0;
+  --primary: #4f9bff;
+  --primary-text: #4f9bff;
+  --primary-hover: #7db6ff;
+  --success: #4cc38a;
+  --success-text: #4cc38a;
+  --error: #f87171;
+  --highlight: #f9e028;
+  --input-outline: #707886;
+  --focus-ring: #7db6ff;
+
+  /* Button text contrast rule: Dark text on dark-mode primary */
+  --btn-primary-text: #121316;
+  --btn-primary-bg: #4f9bff;
+  --btn-primary-hover: #7db6ff;
+
+  /* Chart series & ink (Dark mode) */
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+  --chart-3: #199e70;
+  --chart-4: #c98500;
+  --chart-5: #d55181;
+  --chart-6: #008300;
+  --chart-7: #9085e9;
+  --chart-8: #e66767;
+  --chart-ink: #e8eaed;
+  --chart-ink-2: #a0a6b0;
+  --chart-axis-label: #8a919c;
+  --chart-grid: #2a2d33;
+  --chart-baseline: #3b3f47;
+  /* QR stays light tile in dark mode */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']):not(.light) {
+    --bg: #121316;
+    --surface: #1c1e22;
+    --sidebar: #0d0e10;
+    --border: #2e3238;
+    --text: #e8eaed;
+    --text-muted: #a0a6b0;
+    --primary: #4f9bff;
+    --primary-text: #4f9bff;
+    --primary-hover: #7db6ff;
+    --success: #4cc38a;
+    --success-text: #4cc38a;
+    --error: #f87171;
+    --highlight: #f9e028;
+    --input-outline: #707886;
+    --focus-ring: #7db6ff;
+    --btn-primary-text: #121316;
+    --btn-primary-bg: #4f9bff;
+    --btn-primary-hover: #7db6ff;
+  }
 }

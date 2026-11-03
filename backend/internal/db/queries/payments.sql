@@ -196,3 +196,17 @@ WHERE d.is_active = true
 GROUP BY s.id, u.full_name, s.matric_number, s.level
 HAVING COUNT(d.id) > 0
 ORDER BY total_outstanding DESC;
+
+-- name: CreateCRFSigningFeePayment :one
+INSERT INTO payments (
+    student_id, due_id, type, item_name, amount, crf_submission_id, status
+) VALUES (
+    $1, NULL, $2, $3, $4, $5, 'pending'
+) RETURNING id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes, receipt_number, tenant_id;
+
+-- name: GetCRFSigningFeeForSubmission :one
+-- Prefers a completed fee over a pending one, then the newest.
+SELECT id, student_id, batch_id, due_id, type, item_name, amount, paystack_reference, status, verified_by, verified_at, paid_at, created_at, payment_method, bank_reference, bank_name, receipt_url, recorded_by, notes, receipt_number, tenant_id FROM payments
+WHERE crf_submission_id = $1
+ORDER BY (status = 'completed') DESC, created_at DESC
+LIMIT 1;

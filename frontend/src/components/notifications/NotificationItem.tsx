@@ -15,60 +15,78 @@ const NotificationItem = ({ notification, onClick, showDelete = false }: Notific
   const config = getCategoryConfig(notification.category);
   const Icon = config.icon;
 
+  const isProfileSetup =
+    notification.action_label?.toLowerCase().includes('profile') ||
+    notification.title.toLowerCase().includes('welcome') ||
+    notification.message.toLowerCase().includes('finish setting up your profile');
+
   return (
     <div
       onClick={onClick}
       className={cn(
-        'flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-surface-50 dark:hover:bg-surface-700/50 group',
-        !notification.is_read && 'bg-primary-500/5'
+        'group relative flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-[#1f222a]',
+        !notification.is_read ? 'bg-slate-50/50 dark:bg-[#1a1d24]/50' : '',
       )}
     >
-      <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5', config.bg)}>
+      {/* Category Icon Container */}
+      <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5', config.bg)}>
         <Icon className={cn('w-4 h-4', config.color)} />
       </div>
 
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <p className={cn(
-            'text-sm truncate',
-            !notification.is_read
-              ? 'font-semibold text-surface-900 dark:text-surface-100'
-              : 'font-medium text-surface-700 dark:text-surface-300'
-          )}>
+      {/* Content Area */}
+      <div className="flex-1 min-w-0 pr-1">
+        {/* Title + Timestamp row */}
+        <div className="flex items-start justify-between gap-2">
+          <p
+            className={cn(
+              'text-xs leading-snug',
+              !notification.is_read
+                ? 'font-bold text-slate-900 dark:text-white'
+                : 'font-semibold text-slate-700 dark:text-slate-300',
+            )}
+          >
             {notification.title}
           </p>
-        </div>
-        <p className="text-xs text-surface-500 dark:text-surface-400 truncate mt-0.5">
-          {notification.message}
-        </p>
-        <div className="flex items-center gap-2 mt-1.5">
-          <span className="text-[10px] text-surface-400 dark:text-surface-500">
-            {timeAgo(notification.created_at)}
-          </span>
-          {notification.priority === 'high' || notification.priority === 'critical' ? (
-            <span className="text-[10px] font-medium text-danger-500 uppercase">
-              {notification.priority}
+          <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+            <span className="text-[11px] text-slate-400 dark:text-slate-500 font-normal whitespace-nowrap">
+              {timeAgo(notification.created_at)}
             </span>
-          ) : null}
+            {!notification.is_read && <span className="w-2 h-2 rounded-full bg-[#1d68ec] shrink-0" />}
+          </div>
         </div>
+
+        {/* Message body */}
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">{notification.message}</p>
+
+        {/* Action Button if specified (e.g. Finish profile) */}
+        {(notification.action_label || isProfileSetup) && (
+          <div className="mt-2.5">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onClick();
+              }}
+              className="inline-flex items-center justify-center px-3.5 py-1.5 rounded-lg bg-[#1d68ec] hover:bg-[#1656c4] text-white text-xs font-semibold shadow-sm transition-all active:scale-95"
+            >
+              {notification.action_label || 'Finish profile'}
+            </button>
+          </div>
+        )}
       </div>
 
-      <div className="flex items-center gap-2 shrink-0">
-        {showDelete && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              deleteNotification(notification.id);
-            }}
-            className="p-1 rounded text-surface-400 hover:text-danger-500 hover:bg-danger-50 dark:hover:bg-danger-950/20 opacity-0 group-hover:opacity-100 transition-all"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        )}
-        {!notification.is_read && (
-          <div className="w-2 h-2 rounded-full bg-primary-500 shrink-0 mt-1.5" />
-        )}
-      </div>
+      {/* Delete button (optional, visible on hover) */}
+      {showDelete && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            deleteNotification(notification.id);
+          }}
+          className="absolute right-2 bottom-2 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 opacity-0 group-hover:opacity-100 transition-all"
+          title="Delete notification"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      )}
     </div>
   );
 };

@@ -1,13 +1,18 @@
 import apiClient, { unwrap } from './client';
-import type { UserRole, RoleAssignmentLog, StudentForRoleManagement, User } from '../types';
+import type { UserRole, RoleAssignmentLog, StudentForRoleManagement } from '../types';
+import type { AdminGrantKey } from '../config/permissions';
 
-export interface AdminPermission {
-  userId?: string;
-  user_id?: string;
-  canApproveResults?: boolean;
-  canManageComplaints?: boolean;
-  canViewAnalytics?: boolean;
-  canManageUsers?: boolean;
+/** The grant flags, named as the API names them (see internal/api/admin_grants.go). */
+export type AdminGrantFlags = Record<AdminGrantKey, boolean>;
+
+/** A person's grant as the API returns it. */
+export interface AdminPermission extends Partial<AdminGrantFlags> {
+  id?: string;
+  user_id: string;
+  is_active?: boolean;
+  granted_at?: string | null;
+  expires_at?: string | null;
+  granted_by_hod_id?: string;
 }
 
 export interface Role {
@@ -20,9 +25,11 @@ export interface Role {
 }
 
 // ==================== ADMIN PERMISSIONS ====================
+// Grants are HOD-only on the server. A 404 from getAdminPermission means the person has no
+// active grant. The server refuses a grant to anyone who does not hold the admin role.
 
-export const getAdminPermissions = async () => {
-  const res = await apiClient.get('/admin-permissions');
+export const getAdminPermissions = async (pageId = 1, pageSize = 50) => {
+  const res = await apiClient.get('/admin-permissions', { params: { page_id: pageId, page_size: pageSize } });
   return unwrap<AdminPermission[]>(res);
 };
 
@@ -31,30 +38,15 @@ export const getAdminPermission = async (userId: string) => {
   return unwrap<AdminPermission>(res);
 };
 
-export const grantAdminPermission = async (
-  userId: string,
-  permissions: {
-    canApproveResults?: boolean;
-    canManageComplaints?: boolean;
-    canViewAnalytics?: boolean;
-    canManageUsers?: boolean;
-  },
-) => {
-  const res = await apiClient.post('/admin-permissions', { userId, ...permissions });
-  return unwrap<User>(res);
+export const grantAdminPermission = async (userId: string, flags: AdminGrantFlags) => {
+  const res = await apiClient.post('/admin-permissions', { user_id: userId, ...flags });
+  return unwrap<AdminPermission>(res);
 };
 
-export const updateAdminPermission = async (
-  userId: string,
-  permissions: {
-    canApproveResults?: boolean;
-    canManageComplaints?: boolean;
-    canViewAnalytics?: boolean;
-    canManageUsers?: boolean;
-  },
-) => {
-  const res = await apiClient.put(`/admin-permissions/${userId}`, permissions);
-  return unwrap<User>(res);
+/** Sets every flag. The server reads all of them, so send the full set. */
+export const updateAdminPermission = async (userId: string, flags: AdminGrantFlags) => {
+  const res = await apiClient.put(`/admin-permissions/${userId}`, flags);
+  return unwrap<AdminPermission>(res);
 };
 
 export const revokeAdminPermission = async (userId: string) => {

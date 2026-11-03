@@ -23,6 +23,7 @@ type SignatureStamp struct {
 	X, Y         float64
 	Width        float64
 	MaxHeight    float64
+	Opacity      float64
 	ShowDate     bool
 	DateX, DateY float64
 	DateFontSize float64
@@ -59,9 +60,13 @@ func StampSignatures(pdfBytes []byte, stamps []SignatureStamp) ([]byte, error) {
 			}
 		}
 
-		
-		desc := fmt.Sprintf("position:bl, offset:%.2f %.2f, scalefactor:%.6f abs, opacity:1, rotation:0", s.X, s.Y, scale)
+		opacity := s.Opacity
+		if opacity <= 0 {
+			opacity = 1.0
+		}
+		desc := fmt.Sprintf("position:bl, offset:%.2f %.2f, scalefactor:%.6f abs, opacity:%.2f, rotation:0", s.X, s.Y, scale, opacity)
 		wm, err := api.ImageWatermarkForReader(bytes.NewReader(imgBytes), desc, true, false, types.POINTS)
+
 		if err != nil {
 			return nil, fmt.Errorf("build watermark for %s: %w", s.ImagePath, err)
 		}

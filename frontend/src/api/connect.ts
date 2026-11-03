@@ -47,6 +47,11 @@ export const getPendingRequests = async () => {
   return unwrap<Connection[]>(res);
 };
 
+export const getSentPendingRequests = async () => {
+  const res = await apiClient.get('/campus-connect/connections/sent');
+  return unwrap<Connection[]>(res);
+};
+
 export const sendConnectionRequest = async (receiverId: string, message?: string) => {
   const res = await apiClient.post('/campus-connect/connections', {
     receiver_id: receiverId,

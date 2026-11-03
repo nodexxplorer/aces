@@ -47,10 +47,12 @@ func TestDefaultURLCodeComesFromTheMatricCode(t *testing.T) {
 	}
 }
 
-// routerSegment matches a quoted route path in frontend/src/router.tsx and
-// captures its first segment: '/login', 'lecturer/signup', and the staff
-// portal's '/portalsign' inside its expression.
-var routerSegment = regexp.MustCompile(`'/?([a-z][a-z0-9-]*)[/']`)
+// routerSegment matches a top-level route path in frontend/src/router.tsx and
+// captures its first segment: '/login', '/lecturer/signup', and the staff
+// portal's '/portalsign' inside its expression. Child routes such as
+// path: 'verify' inside a role area have no leading slash: they live under the
+// department's code (/co/bu/verify), so they cannot shadow it, and are not matched.
+var routerSegment = regexp.MustCompile(`'/([a-z][a-z0-9-]*)[/']`)
 
 // TestReservedURLCodesCoverTheWebRouter fails when the web app gains a page
 // whose first segment could be a department's web address code but is not

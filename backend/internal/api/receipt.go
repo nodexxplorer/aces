@@ -113,7 +113,7 @@ func (server *Server) getDuesPaymentReceipt(ctx *gin.Context) {
 		return
 	}
 
-	if !isStaffRole(ctx) {
+	if !isStaffRole(ctx, capManageFinance) {
 		studentID, err := server.getStudentIDFromUser(ctx)
 		if err != nil || payment.StudentID != studentID {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "payment not found"})

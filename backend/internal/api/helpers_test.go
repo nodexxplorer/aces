@@ -18,8 +18,9 @@ func TestIsStaffCaller_Admin(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Set("claims", &auth.Claims{Role: "admin"})
+	withGrant(c, capManageCourses)
 
-	if !isStaffCaller(c) {
+	if !isStaffCaller(c, capManageCourses) {
 		t.Error("admin should be staff")
 	}
 }
@@ -30,7 +31,7 @@ func TestIsStaffCaller_Hod(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Set("claims", &auth.Claims{Role: "hod"})
 
-	if !isStaffCaller(c) {
+	if !isStaffCaller(c, capManageCourses) {
 		t.Error("hod should be staff")
 	}
 }
@@ -40,8 +41,9 @@ func TestIsStaffCaller_DelegatedAdmin(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Set("claims", &auth.Claims{Role: "delegated_admin"})
+	withGrant(c, capManageCourses)
 
-	if !isStaffCaller(c) {
+	if !isStaffCaller(c, capManageCourses) {
 		t.Error("delegated_admin should be staff")
 	}
 }
@@ -51,8 +53,9 @@ func TestIsStaffCaller_DelegatedAdminViaAdditionalRoles(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Set("claims", &auth.Claims{Role: "student", Roles: "delegated_admin"})
+	withGrant(c, capManageCourses)
 
-	if !isStaffCaller(c) {
+	if !isStaffCaller(c, capManageCourses) {
 		t.Error("delegated_admin in additional roles should be staff")
 	}
 }
@@ -63,7 +66,7 @@ func TestIsStaffCaller_Student(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Set("claims", &auth.Claims{Role: "student"})
 
-	if isStaffCaller(c) {
+	if isStaffCaller(c, capManageCourses) {
 		t.Error("student should not be staff")
 	}
 }
@@ -74,7 +77,7 @@ func TestIsStaffCaller_Lecturer(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Set("claims", &auth.Claims{Role: "lecturer"})
 
-	if isStaffCaller(c) {
+	if isStaffCaller(c, capManageCourses) {
 		t.Error("lecturer should not be staff")
 	}
 }
@@ -85,7 +88,7 @@ func TestIsStaffCaller_ClassRep(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Set("claims", &auth.Claims{Role: "class_rep"})
 
-	if isStaffCaller(c) {
+	if isStaffCaller(c, capManageCourses) {
 		t.Error("class_rep should not be staff")
 	}
 }
@@ -95,7 +98,7 @@ func TestIsStaffCaller_NoClaims(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 
-	if isStaffCaller(c) {
+	if isStaffCaller(c, capManageCourses) {
 		t.Error("no claims should not be staff")
 	}
 }
@@ -106,7 +109,7 @@ func TestIsStaffCaller_NilClaimsType(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Set("claims", "not-a-claims-object")
 
-	if isStaffCaller(c) {
+	if isStaffCaller(c, capManageCourses) {
 		t.Error("non-Claims value should not be staff")
 	}
 }
@@ -258,7 +261,7 @@ func TestGetUserID_BursarDept(t *testing.T) {
 	c.Set("claims", &auth.Claims{Role: "bursar_dept"})
 
 	// bursar_dept is NOT staff for the new isStaffCaller
-	if isStaffCaller(c) {
+	if isStaffCaller(c, capManageCourses) {
 		t.Error("bursar_dept should not be staff")
 	}
 }
@@ -269,7 +272,7 @@ func TestGetUserID_BursarClass(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Set("claims", &auth.Claims{Role: "bursar_class"})
 
-	if isStaffCaller(c) {
+	if isStaffCaller(c, capManageCourses) {
 		t.Error("bursar_class should not be staff")
 	}
 }
@@ -281,11 +284,12 @@ func TestRequireOwnershipOrStaff_StaffCallerBypassesOwnership(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Set("claims", &auth.Claims{Role: "admin"})
+	withGrant(c, capManageCourses)
 	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
 
 	// Staff caller should always pass, regardless of recordStudentID
 	recordStudentID := uuid.New()
-	result := requireOwnershipOrStaff(c, nil, recordStudentID)
+	result := requireOwnershipOrStaff(c, nil, recordStudentID, capManageCourses)
 	if !result {
 		t.Error("staff caller should bypass ownership check")
 	}
@@ -300,7 +304,7 @@ func TestRequireOwnershipOrStaff_StudentNoUserIDFails(t *testing.T) {
 
 	// Student with no userID set should fail
 	recordStudentID := uuid.New()
-	result := requireOwnershipOrStaff(c, nil, recordStudentID)
+	result := requireOwnershipOrStaff(c, nil, recordStudentID, capManageCourses)
 	if result {
 		t.Error("student without userID should fail ownership check")
 	}

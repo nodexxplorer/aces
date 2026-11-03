@@ -5,18 +5,26 @@ export const useDarkMode = () => {
   const { mode, setMode, toggle, isDark } = useThemeStore();
 
   useEffect(() => {
-    const resolved = mode === 'system'
-      ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-      : mode;
-    document.documentElement.classList.toggle('dark', resolved === 'dark');
+    const hasMatchMedia = typeof window !== 'undefined' && typeof window.matchMedia === 'function';
+    const resolved =
+      mode === 'system'
+        ? hasMatchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? 'dark'
+          : 'light'
+        : mode;
+    const isDark = resolved === 'dark';
+    document.documentElement.classList.toggle('dark', isDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
 
-    if (mode === 'system') {
+    if (mode === 'system' && hasMatchMedia) {
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
       const handler = (e: MediaQueryListEvent) => {
-        document.documentElement.classList.toggle('dark', e.matches);
+        const sysDark = e.matches;
+        document.documentElement.classList.toggle('dark', sysDark);
+        document.documentElement.setAttribute('data-theme', sysDark ? 'dark' : 'light');
       };
-      mediaQuery.addEventListener('change', handler);
-      return () => mediaQuery.removeEventListener('change', handler);
+      mediaQuery.addEventListener?.('change', handler);
+      return () => mediaQuery.removeEventListener?.('change', handler);
     }
   }, [mode]);
 

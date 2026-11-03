@@ -18,13 +18,17 @@ export const useThemeStore = create<ThemeState>()(
       mode: 'system',
       setMode: (mode) => {
         const resolved = mode === 'system' ? getSystemTheme() : mode;
-        document.documentElement.classList.toggle('dark', resolved === 'dark');
+        const isDark = resolved === 'dark';
+        document.documentElement.classList.toggle('dark', isDark);
+        document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
         set({ mode });
       },
       toggle: () => {
         const current = get().mode;
         const next = current === 'dark' ? 'light' : 'dark';
-        document.documentElement.classList.toggle('dark', next === 'dark');
+        const isDark = next === 'dark';
+        document.documentElement.classList.toggle('dark', isDark);
+        document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
         set({ mode: next });
       },
       isDark: () => {
@@ -32,6 +36,6 @@ export const useThemeStore = create<ThemeState>()(
         return m === 'dark' || (m === 'system' && getSystemTheme() === 'dark');
       },
     }),
-    { name: 'aces-theme' }
-  )
+    { name: 'aces-theme' },
+  ),
 );

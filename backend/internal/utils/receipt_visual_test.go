@@ -91,6 +91,15 @@ func TestVisualOutput(t *testing.T) {
 		paths = append(paths, stampPath)
 	}
 
+	// Student Anti-fraud Watermark Badge
+	wmPNG, err := GenerateCRFStudentWatermarkPNG("OFFIONG, FORTUNE DIVINEWILL", "20/EG/CO/1477", "TEST-SUBMISSION-ID")
+	if err == nil {
+		wmPath := filepath.Join(outDir, "crf_watermark_badge.png")
+		if err := os.WriteFile(wmPath, wmPNG, 0o644); err == nil {
+			paths = append(paths, wmPath)
+		}
+	}
+
 	fmt.Println("\nVisual samples written:")
 	for _, p := range paths {
 		abs, _ := filepath.Abs(p)

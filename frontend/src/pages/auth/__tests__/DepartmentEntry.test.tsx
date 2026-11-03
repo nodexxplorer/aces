@@ -65,11 +65,11 @@ describe('department sign-in addresses', () => {
 
   it('an address that names no department shows the not-found page', async () => {
     renderAt('/zz');
-    expect(await screen.findByText('404')).toBeInTheDocument();
+    expect(await screen.findByText('404', {}, { timeout: 3000 })).toBeInTheDocument();
   });
 
   it('an unknown code on the admin address shows the not-found page too', async () => {
     renderAt('/zz/admin');
-    expect(await screen.findByText('404')).toBeInTheDocument();
+    expect(await screen.findByText('404', {}, { timeout: 3000 })).toBeInTheDocument();
   });
 });

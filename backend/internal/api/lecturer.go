@@ -76,6 +76,13 @@ func (server *Server) updateLecturerProfile(ctx *gin.Context) {
 		return
 	}
 
+	actorID := getUserID(ctx)
+	canManageOthers := staffAccess(ctx, capManageUsers, "hod", "admin", "delegated_admin")
+	if !canManageOthers && actorID != lecturerID {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "insufficient permissions"})
+		return
+	}
+
 	var req updateLecturerRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
@@ -226,13 +233,13 @@ func (server *Server) listLecturerAssignments(ctx *gin.Context) {
 	// Fallback 2: If assignments table has no records, fetch courses directly assigned to this lecturer/user
 	if len(assignments) == 0 {
 		type courseFallback struct {
-			ID          uuid.UUID `db:"id"`
-			Code        string    `db:"code"`
-			Title       string    `db:"title"`
-			Unit        int32     `db:"unit"`
-			Level       int32     `db:"level"`
-			SessionID   uuid.UUID `db:"session_id"`
-			Semester    string    `db:"semester"`
+			ID        uuid.UUID `db:"id"`
+			Code      string    `db:"code"`
+			Title     string    `db:"title"`
+			Unit      int32     `db:"unit"`
+			Level     int32     `db:"level"`
+			SessionID uuid.UUID `db:"session_id"`
+			Semester  string    `db:"semester"`
 		}
 		rows, errFB := queries.GetDB().Query(ctx, `
 			SELECT c.id, c.code, c.title, c.unit, c.level,
@@ -424,22 +431,39 @@ func (server *Server) getLecturerDashboardStats(ctx *gin.Context) {
 
 	assignments, _ := queries.ListLecturerAssignments(ctx, lecturerID)
 
+	type assignmentStat struct {
+		db.LecturerCourseAssignmentRow
+		EnrolledCount int    `json:"enrolled_count"`
+		ClassRepName  string `json:"class_rep_name,omitempty"`
+	}
+
+	stats := make([]assignmentStat, 0, len(assignments))
 	totalStudents := 0
 	for _, a := range assignments {
-		var count int
+		item := assignmentStat{LecturerCourseAssignmentRow: a}
 		_ = queries.GetDB().QueryRow(ctx, `
-			SELECT COUNT(*)::int FROM registered_courses rc
-			JOIN registered_courses rc2 ON rc2.registration_id = rc.registration_id
+			SELECT COUNT(DISTINCT s.id)::int
+			FROM registered_courses rc
 			JOIN course_registrations cr ON cr.id = rc.registration_id
-			WHERE rc.course_id = $1 AND cr.status IN ('submitted', 'approved')
-		`, a.CourseID).Scan(&count)
-		totalStudents += count
+			JOIN students s ON s.id = cr.student_id
+			WHERE rc.course_id = $1
+		`, a.CourseID).Scan(&item.EnrolledCount)
+		totalStudents += item.EnrolledCount
+		_ = queries.GetDB().QueryRow(ctx, `
+			SELECT u.full_name
+			FROM class_rep_assignments cra
+			JOIN users u ON u.id = cra.class_rep_id
+			WHERE cra.is_active = true AND cra.level = $1
+			ORDER BY cra.start_date DESC
+			LIMIT 1
+		`, a.Level).Scan(&item.ClassRepName)
+		stats = append(stats, item)
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"courses_assigned":  len(assignments),
-		"total_students":    totalStudents,
-		"assignments":       assignments,
+		"courses_assigned": len(assignments),
+		"total_students":   totalStudents,
+		"assignments":      stats,
 	})
 }
 
@@ -464,10 +488,10 @@ func (server *Server) getBursarDashboardStats(ctx *gin.Context) {
 	dues, _ := queries.ListDues(ctx, db.ListDuesParams{Limit: 100, Offset: 0})
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"stats":           stats,
+		"stats":            stats,
 		"pending_payments": pendingPayments,
-		"recent_payments": recentPayments,
-		"active_dues":     len(dues),
+		"recent_payments":  recentPayments,
+		"active_dues":      len(dues),
 	})
 }
 

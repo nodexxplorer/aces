@@ -64,9 +64,14 @@ export function useDepartments(urlCode?: string) {
     applyDepartmentAccent(accentColor);
   }, [accentColor]);
 
+  // True once the person has named a department: by the address, by an earlier
+  // choice on this device, or by picking one. The fallback default does not count.
+  const picked = Boolean(fromAddress) || departments.some((d) => d.slug === chosen);
+
   return {
     departments,
     selected,
+    picked,
     select,
     isLoading: query.isLoading,
     isError: query.isError,

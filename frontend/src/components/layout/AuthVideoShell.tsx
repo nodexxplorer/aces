@@ -1,5 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import { Settings } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { APP_NAME } from '../../utils/constants';
 import { motion } from 'framer-motion';
 import CookieConsent from '../feedback/CookieConsent';
@@ -7,7 +6,6 @@ import { DepartmentLogo } from '../branding/DepartmentBrand';
 import type { TenantInfo } from '../../types';
 import { dimOpacity, resolveLoginTemplate } from '../../config/signInLook';
 import { useSignInLook, type SignInLookControls } from '../../hooks/useSignInLook';
-import { SignInLookPicker } from '../auth/SignInLookPicker';
 import { DEFAULT_DEPARTMENTS, formatDepartmentDisplayName } from '../../config/department';
 
 interface AuthVideoShellProps {
@@ -112,26 +110,6 @@ const CenteredShell = ({ children, cardMaxWidth, imageSrc, dim, department }: Te
   </div>
 );
 
-/**
- * Fixed gear button at the bottom right. It shows or hides the sign-in look
- * panel, so the page is clean by default and the panel does not make the
- * sign-in form scroll. It sits outside the shell, so no transformed ancestor
- * can move it.
- */
-const LookSettingsToggle = ({ open, onToggle }: { open: boolean; onToggle: () => void }) => (
-  <button
-    type="button"
-    onClick={onToggle}
-    aria-expanded={open}
-    aria-controls="sign-in-look-panel"
-    aria-label={open ? 'Hide sign-in look settings' : 'Show sign-in look settings'}
-    title="Sign-in look"
-    className="fixed bottom-4 right-4 z-30 flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-lg backdrop-blur transition-colors hover:bg-black/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-  >
-    <Settings size={18} aria-hidden="true" />
-  </button>
-);
-
 // Shared full-bleed shell for every public auth page (login, signup, password
 // reset). The look is chosen on the page itself (the picker above the form) and
 // kept on this device: classic (the video background, with the animated logo on
@@ -189,45 +167,9 @@ const AuthVideoShellBody = ({
   );
 };
 
-/**
- * The look picker, as a popup over the page. It does not take up space in the
- * layout, so the sign-in form never scrolls because of it. A click outside it,
- * the settings button again, or Escape closes it.
- */
-const LookPopup = ({ controls, onClose }: { controls: SignInLookControls; onClose: () => void }) => (
-  <>
-    <div className="fixed inset-0 z-20" aria-hidden="true" onClick={onClose} />
-    <div
-      id="sign-in-look-panel"
-      role="dialog"
-      aria-label="Sign-in look"
-      className="fixed bottom-16 right-4 z-30 max-h-[70vh] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto"
-    >
-      <SignInLookPicker controls={controls} />
-    </div>
-  </>
-);
-
 const AuthVideoShell = (props: AuthVideoShellProps) => {
   const controls = useSignInLook(props.department?.slug);
-  const [lookOpen, setLookOpen] = useState(false);
-
-  useEffect(() => {
-    if (!lookOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setLookOpen(false);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [lookOpen]);
-
-  return (
-    <>
-      <AuthVideoShellBody {...props} controls={controls} />
-      {lookOpen && <LookPopup controls={controls} onClose={() => setLookOpen(false)} />}
-      <LookSettingsToggle open={lookOpen} onToggle={() => setLookOpen((open) => !open)} />
-    </>
-  );
+  return <AuthVideoShellBody {...props} controls={controls} />;
 };
 
 export default AuthVideoShell;

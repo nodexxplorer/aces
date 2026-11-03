@@ -362,6 +362,7 @@ func (server *Server) getCourseClassList(ctx *gin.Context) {
 		Name         string `json:"name"`
 		CourseCode   string `json:"course_code"`
 		Status       string `json:"status"`
+		Level        int32  `json:"level"`
 	}
 
 	rows, err := queries.GetDB().Query(ctx, `
@@ -370,7 +371,8 @@ func (server *Server) getCourseClassList(ctx *gin.Context) {
 			COALESCE(s.matric_number, '—') AS matric_number,
 			COALESCE(u.full_name, u.email, 'Student') AS name,
 			COALESCE(c.code, '') AS course_code,
-			COALESCE(r.status::text, rc.status, cr.status, 'enrolled') AS status
+			COALESCE(r.status::text, rc.status, cr.status, 'enrolled') AS status,
+			COALESCE(s.level, 0) AS level
 		FROM registered_courses rc
 		JOIN course_registrations cr ON cr.id = rc.registration_id
 		JOIN students s ON s.id = cr.student_id
@@ -390,7 +392,8 @@ func (server *Server) getCourseClassList(ctx *gin.Context) {
 			COALESCE(res.matric_number, st.matric_number, '—') AS matric_number,
 			COALESCE(us.full_name, us.email, 'Student') AS name,
 			COALESCE(c.code, '') AS course_code,
-			res.status::text AS status
+			res.status::text AS status,
+			COALESCE(st.level, 0) AS level
 		FROM results res
 		JOIN courses c ON c.id = res.course_id
 		LEFT JOIN students st ON st.id = res.student_id
@@ -413,7 +416,7 @@ func (server *Server) getCourseClassList(ctx *gin.Context) {
 	var result []ClassListStudent
 	for rows.Next() {
 		var item ClassListStudent
-		if err := rows.Scan(&item.StudentID, &item.MatricNumber, &item.Name, &item.CourseCode, &item.Status); err == nil {
+		if err := rows.Scan(&item.StudentID, &item.MatricNumber, &item.Name, &item.CourseCode, &item.Status, &item.Level); err == nil {
 			result = append(result, item)
 		}
 	}

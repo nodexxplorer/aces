@@ -42,6 +42,10 @@ type paymentSummary struct {
 	AmountPending   float64 `json:"amount_pending"`
 	AmountPaid      float64 `json:"amount_paid"`
 	DuesOutstanding int     `json:"dues_outstanding"`
+	// SemesterDuesTotal is the sum of the active semester's dues for the
+	// student's level; SemesterAmountPaid is what has been paid against them.
+	SemesterDuesTotal  float64 `json:"semester_dues_total"`
+	SemesterAmountPaid float64 `json:"semester_amount_paid"`
 }
 
 type announcementItem struct {
@@ -122,7 +126,7 @@ func (server *Server) getStudentDashboard(ctx *gin.Context) {
 	// writer, createAttendanceSheet, is registered but never called from any
 	// frontend page), so the summary always showed 0/0 no matter how many
 	// times a student actually checked in.
-	if activeSem, err := queries.GetActiveSemester(ctx); err == nil {
+	if activeSem, err := server.getOrResolveActiveSemester(ctx); err == nil {
 		summary, err := queries.GetStudentAttendanceSummary(
 			ctx, student.ID, userID, activeSem.ID, activeSem.StartDate.Time, activeSem.EndDate.Time,
 		)
@@ -149,6 +153,15 @@ func (server *Server) getStudentDashboard(ctx *gin.Context) {
 		resp.Payments = &paymentSummary{
 			AmountPending: paySummary.AmountPending.InexactFloat64(),
 			AmountPaid:    paySummary.AmountPaid.InexactFloat64(),
+		}
+	}
+
+	// 3b. Semester dues total and the amount paid against them, for the gauge.
+	if activeSem, err := server.getOrResolveActiveSemester(ctx); err == nil && resp.Payments != nil {
+		semDues, err := queries.GetStudentSemesterDuesSummary(ctx, student.ID, level, activeSem.ID)
+		if err == nil {
+			resp.Payments.SemesterDuesTotal = semDues.TotalDues.InexactFloat64()
+			resp.Payments.SemesterAmountPaid = semDues.PaidTowardDues.InexactFloat64()
 		}
 	}
 
@@ -540,7 +553,7 @@ func (server *Server) updateClassRepReportStatus(ctx *gin.Context) {
 // attendance session id — staff always may; a class rep only for a session
 // they themselves created. Writes the response and returns false if not.
 func requireAttendanceSessionOwnership(ctx *gin.Context, queries *db.Queries, id uuid.UUID) bool {
-	if isStaffCaller(ctx) {
+	if isStaffCaller(ctx, capManageCourses) {
 		return true
 	}
 	session, err := queries.GetAttendanceSession(ctx, id)
@@ -584,7 +597,7 @@ func (server *Server) createAttendanceSession(ctx *gin.Context) {
 		return
 	}
 
-	if !isStaffCaller(ctx) {
+	if !isStaffCaller(ctx, capManageCourses) {
 		course, cerr := queries.GetCourse(ctx, courseID)
 		if cerr != nil {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "course not found"})
@@ -728,7 +741,7 @@ func (server *Server) checkInStudent(ctx *gin.Context) {
 	if claimsVal, exists := ctx.Get("claims"); exists {
 		if claims, ok := claimsVal.(*auth.Claims); ok &&
 			claims.HasRole("student") &&
-			!claims.HasAnyRole([]string{"class_rep", "hod", "admin", "delegated_admin"}) {
+			!staffAccess(ctx, capManageCourses, "class_rep", "hod", "admin", "delegated_admin") {
 			isSelfCheckIn = true
 			studentRecordID, serr := server.getStudentIDFromUser(ctx)
 			if serr != nil {

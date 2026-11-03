@@ -223,11 +223,17 @@ type SystemRoleInfo struct {
 	IsActive    bool   `json:"isActive"`
 }
 
+// roleHolderLister is implemented by the generated Queries. The role list needs every user's extra roles, which
+// the generated Querier interface does not expose.
+type roleHolderLister interface {
+	ListRoleHolders(ctx context.Context) ([]db.RoleHolder, error)
+}
+
 func (s *RoleService) ListAllSystemRoles(ctx context.Context) ([]SystemRoleInfo, error) {
+	// "admin" is not listed: its users display as delegated_admin (see ParseRoleName), so that row would always be 0.
 	roles := []SystemRoleInfo{
 		{Name: "hod", Description: "Head of Department", IsActive: true},
 		{Name: "delegated_admin", Description: "Delegated Administrator", IsActive: true},
-		{Name: "admin", Description: "System Administrator", IsActive: true},
 		{Name: "lecturer", Description: "Lecturer", IsActive: true},
 		{Name: "class_rep", Description: "Class Representative", IsActive: true},
 		{Name: "student", Description: "Student", IsActive: true},
@@ -239,19 +245,27 @@ func (s *RoleService) ListAllSystemRoles(ctx context.Context) ([]SystemRoleInfo,
 		{Name: "alumni", Description: "Alumni", IsActive: true},
 	}
 
-	allUsers, err := s.store.ListUsers(ctx, db.ListUsersParams{Limit: 10000, Offset: 0})
+	lister, ok := s.store.(roleHolderLister)
+	if !ok {
+		return roles, nil
+	}
+	holders, err := lister.ListRoleHolders(ctx)
 	if err != nil {
 		return roles, nil
 	}
 
-	counts := map[string]int{}
-	for _, u := range allUsers {
-		role := string(u.Role)
-		counts[role]++
+	// A user counts once for each role they hold, whether it is their primary role or an extra one.
+	// Names are mapped to display names first (bursar_class -> class_bursar), so the counts match the rows.
+	holdersByRole := map[string]map[uuid.UUID]bool{}
+	for _, h := range holders {
+		name := ParseRoleName(h.Role)
+		if holdersByRole[name] == nil {
+			holdersByRole[name] = map[uuid.UUID]bool{}
+		}
+		holdersByRole[name][h.UserID] = true
 	}
-
 	for i := range roles {
-		roles[i].UserCount = counts[roles[i].Name]
+		roles[i].UserCount = len(holdersByRole[roles[i].Name])
 	}
 
 	return roles, nil

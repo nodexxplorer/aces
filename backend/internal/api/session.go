@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/aces/backend/internal/service"
 	"github.com/gin-gonic/gin"
@@ -39,7 +40,11 @@ func (server *Server) createSession(ctx *gin.Context) {
 
 	session, err := server.sessions.Create(ctx, req.Name, startDate, endDate)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
+		msg := err.Error()
+		if strings.Contains(msg, "duplicate key") || strings.Contains(msg, "unique constraint") {
+			msg = "A session with the name '" + req.Name + "' already exists."
+		}
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": msg})
 		return
 	}
 

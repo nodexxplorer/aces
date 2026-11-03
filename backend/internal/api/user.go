@@ -7,6 +7,7 @@ import (
 
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/aces/backend/internal/service"
+	"github.com/aces/backend/internal/util"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -167,7 +168,7 @@ func (server *Server) listUsers(ctx *gin.Context) {
 			MiddleName:     u.MiddleName,
 			Phone:          u.Phone,
 			Avatar:         u.AvatarUrl,
-			Roles:          []string{role},
+			Roles:          holderRoles(role, u.AllRoles),
 			ActiveRole:     role,
 			Role:           role,
 			IsApproved:     u.IsApproved,
@@ -315,6 +316,12 @@ func (server *Server) updateUser(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
+	}
+	if req.Role != nil {
+		if err := server.dropGrantIfNoAdminRole(ctx, id); err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
 	}
 
 	queries, ok := server.store.(*db.Queries)
@@ -483,4 +490,70 @@ func (server *Server) deleteUser(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"status": "user deleted"})
+}
+
+type deleteMeRequest struct {
+	Password string  `json:"password" binding:"required"`
+	Reason   *string `json:"reason"`
+}
+
+// deleteMe DELETE /users/me — self-service account deletion.
+// Requires confirmation of current password to prevent accidental or malicious deletion.
+func (server *Server) deleteMe(ctx *gin.Context) {
+	callerID := getUserID(ctx)
+	if callerID == uuid.Nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var req deleteMeRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "password is required to delete your account"})
+		return
+	}
+
+	target, err := server.store.GetUser(ctx, callerID)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+
+	if target.Role == "hod" {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "HOD accounts cannot be self-deleted. Transfer the HOD role first."})
+		return
+	}
+
+	if err := util.CheckPassword(req.Password, target.PasswordHash); err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "incorrect password"})
+		return
+	}
+
+	queries, ok := server.store.(*db.Queries)
+	if ok {
+		err = queries.DeleteUserHard(ctx, callerID)
+	} else {
+		err = server.users.Delete(ctx, callerID)
+	}
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete account"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"status": "account deleted"})
+}
+
+// holderRoles lists a user's roles for the directory: the primary role, then each active extra role, as display names
+// and without duplicates. The directory filters by this list, so an extra role (e.g. class_rep) must appear in it.
+func holderRoles(primary string, allRoles string) []string {
+	out := []string{primary}
+	seen := map[string]bool{primary: true}
+	for _, raw := range strings.Split(allRoles, ",") {
+		name := service.ParseRoleName(strings.TrimSpace(raw))
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		out = append(out, name)
+	}
+	return out
 }

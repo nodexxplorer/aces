@@ -14,8 +14,9 @@ func TestIsStaffRole_Admin(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Set("claims", &auth.Claims{Role: "admin", Roles: ""})
+	withGrant(c, capManageFinance)
 
-	if !isStaffRole(c) {
+	if !isStaffRole(c, capManageFinance) {
 		t.Error("admin should be staff")
 	}
 }
@@ -26,7 +27,7 @@ func TestIsStaffRole_Student(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Set("claims", &auth.Claims{Role: "student", Roles: ""})
 
-	if isStaffRole(c) {
+	if isStaffRole(c, capManageFinance) {
 		t.Error("student should not be staff")
 	}
 }
@@ -37,7 +38,7 @@ func TestIsStaffRole_Hod(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Set("claims", &auth.Claims{Role: "hod", Roles: ""})
 
-	if !isStaffRole(c) {
+	if !isStaffRole(c, capManageFinance) {
 		t.Error("hod should be staff")
 	}
 }
@@ -47,8 +48,9 @@ func TestIsStaffRole_DelegatedAdminViaAdditionalRoles(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Set("claims", &auth.Claims{Role: "student", Roles: "delegated_admin"})
+	withGrant(c, capManageFinance)
 
-	if !isStaffRole(c) {
+	if !isStaffRole(c, capManageFinance) {
 		t.Error("delegated_admin in additional roles should be staff")
 	}
 }
@@ -61,7 +63,7 @@ func TestIsStaffRole_BursarDept(t *testing.T) {
 	// is only a display-layer alias and never appears here.
 	c.Set("claims", &auth.Claims{Role: "bursar_dept", Roles: ""})
 
-	if !isStaffRole(c) {
+	if !isStaffRole(c, capManageFinance) {
 		t.Error("bursar_dept should be staff")
 	}
 }
@@ -71,7 +73,7 @@ func TestIsStaffRole_NoClaims(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 
-	if isStaffRole(c) {
+	if isStaffRole(c, capManageFinance) {
 		t.Error("no claims should not be staff")
 	}
 }
@@ -82,7 +84,7 @@ func TestIsStaffRole_NilClaimsType(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Set("claims", "not-a-claims-object")
 
-	if isStaffRole(c) {
+	if isStaffRole(c, capManageFinance) {
 		t.Error("non-Claims value should not be staff")
 	}
 }

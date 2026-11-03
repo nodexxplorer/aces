@@ -153,6 +153,32 @@ func (q *Queries) GetStudentAttendanceSummary(ctx context.Context, studentID, us
 	return i, err
 }
 
+// StudentSemesterDuesSummary is what a student owes for one semester's dues,
+// and how much of that has been paid against those dues.
+type StudentSemesterDuesSummary struct {
+	TotalDues      decimal.Decimal
+	PaidTowardDues decimal.Decimal
+}
+
+// GetStudentSemesterDuesSummary totals the active dues for a student's level
+// that belong to the given semester, and the completed payments made against
+// those dues. Dues with no semester are not counted.
+func (q *Queries) GetStudentSemesterDuesSummary(ctx context.Context, studentID uuid.UUID, level int32, semesterID uuid.UUID) (StudentSemesterDuesSummary, error) {
+	var i StudentSemesterDuesSummary
+	err := q.db.QueryRow(ctx, `
+		WITH semester_dues AS (
+			SELECT id, amount FROM dues
+			WHERE is_active = true AND semester_id = $2 AND (level IS NULL OR level = $3)
+		)
+		SELECT
+			COALESCE((SELECT SUM(amount) FROM semester_dues), 0)::DECIMAL(10,2),
+			COALESCE((SELECT SUM(p.amount) FROM payments p
+				WHERE p.student_id = $1 AND p.status = 'completed'
+				AND p.due_id IN (SELECT id FROM semester_dues)), 0)::DECIMAL(10,2)
+	`, studentID, semesterID, level).Scan(&i.TotalDues, &i.PaidTowardDues)
+	return i, err
+}
+
 // UpdateUserEmailAndRole updates email and role fields of a user.
 func (q *Queries) UpdateUserEmailAndRole(ctx context.Context, id uuid.UUID, email string, role UserRole) (User, error) {
 	var i User
@@ -585,27 +611,27 @@ func (q *Queries) UpdateBackupStatus(ctx context.Context, id uuid.UUID, status s
 // ==================== LECTURER MANAGEMENT ====================
 
 type LecturerProfile struct {
-	ID               uuid.UUID  `json:"id"`
-	UserID           uuid.UUID  `json:"user_id"`
-	StaffID          string     `json:"staff_id"`
-	Department       string     `json:"department"`
-	Title            *string    `json:"title"`
-	FirstName        *string    `json:"first_name"`
-	LastName         *string    `json:"last_name"`
-	FullName         string     `json:"full_name"`
-	Email            string     `json:"email"`
-	Phone            *string    `json:"phone"`
-	AvatarURL        *string    `json:"avatar_url"`
-	Rank             *string    `json:"rank"`
-	Specialization   *string    `json:"specialization"`
-	EmploymentType   *string    `json:"employment_type"`
-	EmploymentStatus *string    `json:"employment_status"`
-	Qualifications   []byte     `json:"qualifications"`
-	Bio              *string    `json:"bio"`
-	OfficeLocation   *string    `json:"office_location"`
-	OfficeHours      []byte     `json:"office_hours"`
-	DateJoined       *time.Time `json:"date_joined"`
-	CreatedAt        *time.Time `json:"created_at"`
+	ID               uuid.UUID       `json:"id"`
+	UserID           uuid.UUID       `json:"user_id"`
+	StaffID          string          `json:"staff_id"`
+	Department       string          `json:"department"`
+	Title            *string         `json:"title"`
+	FirstName        *string         `json:"first_name"`
+	LastName         *string         `json:"last_name"`
+	FullName         string          `json:"full_name"`
+	Email            string          `json:"email"`
+	Phone            *string         `json:"phone"`
+	AvatarURL        *string         `json:"avatar_url"`
+	Rank             *string         `json:"rank"`
+	Specialization   *string         `json:"specialization"`
+	EmploymentType   *string         `json:"employment_type"`
+	EmploymentStatus *string         `json:"employment_status"`
+	Qualifications   []byte          `json:"qualifications"`
+	Bio              *string         `json:"bio"`
+	OfficeLocation   *string         `json:"office_location"`
+	OfficeHours      json.RawMessage `json:"office_hours"`
+	DateJoined       *time.Time      `json:"date_joined"`
+	CreatedAt        *time.Time      `json:"created_at"`
 }
 
 func (q *Queries) ListLecturers(ctx context.Context) ([]LecturerProfile, error) {
@@ -773,6 +799,7 @@ func (q *Queries) GetLecturerWorkload(ctx context.Context, lecturerID uuid.UUID,
 	`, lecturerID, sessionID).Scan(&total)
 	return total, err
 }
+
 type CreateLeaveRequestParams struct {
 	LecturerID     uuid.UUID
 	LeaveType      string
@@ -1916,7 +1943,6 @@ func (q *Queries) SetUserCalendarFeedToken(ctx context.Context, userID uuid.UUID
 	return err
 }
 
-
 func (q *Queries) GetUserCalendarFeedToken(ctx context.Context, userID uuid.UUID) (*string, error) {
 	var token *string
 	err := q.db.QueryRow(ctx, `SELECT calendar_feed_token FROM users WHERE id = $1`, userID).Scan(&token)
@@ -2033,8 +2059,6 @@ func (q *Queries) ClearStudyTaskReminder(ctx context.Context, taskID uuid.UUID) 
 	return err
 }
 
-
-
 func (q *Queries) CreateReport(ctx context.Context, title, reportType, format string, generatedBy uuid.UUID) (Report, error) {
 	var r Report
 	err := q.db.QueryRow(ctx, `
@@ -2089,7 +2113,6 @@ type RegisteredCourseDetailRow struct {
 	Unit       int32  `json:"unit"`
 }
 
-
 func (q *Queries) GetStudentRegisteredCourseDetails(ctx context.Context, studentID uuid.UUID, semesterID uuid.UUID) ([]RegisteredCourseDetailRow, error) {
 	rows, err := q.db.Query(ctx, `
 		SELECT c.code, c.title, c.unit
@@ -2115,8 +2138,7 @@ func (q *Queries) GetStudentRegisteredCourseDetails(ctx context.Context, student
 	return results, rows.Err()
 }
 
-// ─── CRF signing 
-
+// ─── CRF signing
 
 type CRFSignatureAsset struct {
 	ID         uuid.UUID `json:"id"`
@@ -2193,14 +2215,14 @@ func (q *Queries) DeleteCRFSignatureAsset(ctx context.Context, kind string) erro
 }
 
 type CRFSigningSubmission struct {
-	ID               uuid.UUID      `json:"id"`
-	UserID           uuid.UUID      `json:"user_id"`
-	SemesterID       uuid.UUID      `json:"semester_id"`
-	OriginalFilePath string         `json:"original_file_path"`
-	SignedFilePath   string         `json:"signed_file_path"`
-	Placements       CRFPlacements  `json:"placements"`
-	Status           string         `json:"status"`
-	CreatedAt        time.Time      `json:"created_at"`
+	ID               uuid.UUID     `json:"id"`
+	UserID           uuid.UUID     `json:"user_id"`
+	SemesterID       uuid.UUID     `json:"semester_id"`
+	OriginalFilePath string        `json:"original_file_path"`
+	SignedFilePath   string        `json:"signed_file_path"`
+	Placements       CRFPlacements `json:"placements"`
+	Status           string        `json:"status"`
+	CreatedAt        time.Time     `json:"created_at"`
 }
 
 // CRFPlacements maps each signer kind to where the student placed that
@@ -2346,6 +2368,104 @@ func (q *Queries) GetCRFSigningSubmission(ctx context.Context, id uuid.UUID) (CR
 	return scanCRFSigningSubmission(row)
 }
 
+// ListCRFSubmissionsForUser returns all submissions (draft and completed) for a user, newest first.
+func (q *Queries) ListCRFSubmissionsForUser(ctx context.Context, userID uuid.UUID) ([]CRFSigningSubmission, error) {
+	rows, err := q.db.Query(ctx, `
+		SELECT `+crfSubmissionColumns+`
+		FROM crf_signing_submissions
+		WHERE user_id = $1
+		ORDER BY created_at DESC
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := []CRFSigningSubmission{}
+	for rows.Next() {
+		s, err := scanCRFSigningSubmission(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, s)
+	}
+	return items, rows.Err()
+}
+
+type CRFAdminSubmissionRow struct {
+	ID               uuid.UUID     `json:"id"`
+	UserID           uuid.UUID     `json:"user_id"`
+	SemesterID       uuid.UUID     `json:"semester_id"`
+	OriginalFilePath string        `json:"original_file_path"`
+	SignedFilePath   string        `json:"signed_file_path"`
+	Placements       CRFPlacements `json:"placements"`
+	Status           string        `json:"status"`
+	CreatedAt        time.Time     `json:"created_at"`
+	StudentName      string        `json:"student_name"`
+	MatricNumber     string        `json:"matric_number"`
+	Level            int32         `json:"level"`
+	SemesterName     string        `json:"semester_name"`
+	SessionID        uuid.UUID     `json:"session_id"`
+	SessionName      string        `json:"session_name"`
+}
+
+// ListAllCRFSubmissions returns all course form submissions across all students with details.
+func (q *Queries) ListAllCRFSubmissions(ctx context.Context) ([]CRFAdminSubmissionRow, error) {
+	rows, err := q.db.Query(ctx, `
+		SELECT
+			c.id, c.user_id, c.semester_id, c.original_file_path, c.signed_file_path,
+			c.placements, c.status, c.created_at,
+			COALESCE(u.full_name, COALESCE(u.first_name || ' ' || u.last_name, '')) as student_name,
+			COALESCE(st.matric_number, '') as matric_number,
+			COALESCE(st.level, 0) as level,
+			COALESCE(sem.name::text, '') as semester_name,
+			COALESCE(sess.id, '00000000-0000-0000-0000-000000000000'::uuid) as session_id,
+			COALESCE(sess.name, '') as session_name
+		FROM crf_signing_submissions c
+		LEFT JOIN users u ON u.id = c.user_id
+		LEFT JOIN students st ON st.user_id = c.user_id
+		LEFT JOIN semesters sem ON sem.id = c.semester_id
+		LEFT JOIN sessions sess ON sess.id = sem.session_id
+		ORDER BY c.created_at DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []CRFAdminSubmissionRow
+	for rows.Next() {
+		var item CRFAdminSubmissionRow
+		var placementsRaw []byte
+		if err := rows.Scan(
+			&item.ID,
+			&item.UserID,
+			&item.SemesterID,
+			&item.OriginalFilePath,
+			&item.SignedFilePath,
+			&placementsRaw,
+			&item.Status,
+			&item.CreatedAt,
+			&item.StudentName,
+			&item.MatricNumber,
+			&item.Level,
+			&item.SemesterName,
+			&item.SessionID,
+			&item.SessionName,
+		); err != nil {
+			return nil, err
+		}
+		if len(placementsRaw) > 0 {
+			_ = json.Unmarshal(placementsRaw, &item.Placements)
+		}
+		if item.Placements == nil {
+			item.Placements = CRFPlacements{}
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
 // ─── CRF backlog (old/unsigned course forms from past semesters) ───
 
 type CRFBacklogPrice struct {
@@ -2410,6 +2530,11 @@ func (q *Queries) SetCRFBacklogRequestPayment(ctx context.Context, id, paymentID
 		id, paymentID,
 	)
 	return scanCRFBacklogRequest(row)
+}
+
+func (q *Queries) DeletePendingCRFBacklogRequest(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, `DELETE FROM crf_backlog_requests WHERE id = $1 AND status = 'pending_payment'`, id)
+	return err
 }
 
 // GetLatestCRFBacklogRequest returns pgx.ErrNoRows when the student has never
@@ -2513,14 +2638,14 @@ func (q *Queries) GetGroupMemberRole(ctx context.Context, groupID, userID uuid.U
 // generated files.
 
 type DMConversationRow struct {
-	ConnectionID      uuid.UUID          `json:"connection_id"`
-	OtherUserID       uuid.UUID          `json:"other_user_id"`
-	OtherFullName     string             `json:"other_full_name"`
-	OtherAvatarUrl    *string            `json:"other_avatar_url"`
-	LastMessage       *string            `json:"last_message"`
-	LastMessageAt     pgtype.Timestamptz `json:"last_message_at"`
-	LastMessageMine   bool               `json:"last_message_mine"`
-	UnreadCount       int32              `json:"unread_count"`
+	ConnectionID    uuid.UUID          `json:"connection_id"`
+	OtherUserID     uuid.UUID          `json:"other_user_id"`
+	OtherFullName   string             `json:"other_full_name"`
+	OtherAvatarUrl  *string            `json:"other_avatar_url"`
+	LastMessage     *string            `json:"last_message"`
+	LastMessageAt   pgtype.Timestamptz `json:"last_message_at"`
+	LastMessageMine bool               `json:"last_message_mine"`
+	UnreadCount     int32              `json:"unread_count"`
 }
 
 func (q *Queries) ListDMConversations(ctx context.Context, userID uuid.UUID) ([]DMConversationRow, error) {
@@ -2667,8 +2792,6 @@ func (q *Queries) UpdateGraduationFee(ctx context.Context, amount decimal.Decima
 	return f, err
 }
 
-
-
 // CreateGraduationRequest inserts the student's graduation request, or
 // returns the existing one unchanged (ON CONFLICT DO NOTHING + re-select)
 // so repeated clicks can't stack duplicate fees. The fee amount is
@@ -2764,10 +2887,10 @@ func (q *Queries) GetGraduationClearancesForUsers(ctx context.Context, userIDs [
 // the graduation path without a second lookup.
 type GraduationRequestRow struct {
 	GraduationRequest
-	FullName     string          `json:"full_name"`
-	MatricNumber string          `json:"matric_number"`
-	Level        int32           `json:"level"`
-	Email        string          `json:"email"`
+	FullName     string `json:"full_name"`
+	MatricNumber string `json:"matric_number"`
+	Level        int32  `json:"level"`
+	Email        string `json:"email"`
 }
 
 // ListGraduationRequests returns every graduation request, newest first.
@@ -2815,4 +2938,33 @@ func (q *Queries) CreateWaivedGraduationRequest(ctx context.Context, userID, cre
 		return GraduationRequest{}, err
 	}
 	return g, nil
+}
+
+// RoleHolder is one user holding one role: the user's primary role, or an active extra role.
+type RoleHolder struct {
+	UserID uuid.UUID
+	Role   string
+}
+
+// ListRoleHolders returns every (user, role) pair, once each: each user's primary role, and each active extra role.
+// The role list counts users with both kinds, so it needs the extra roles as well as users.role.
+func (q *Queries) ListRoleHolders(ctx context.Context) ([]RoleHolder, error) {
+	rows, err := q.db.Query(ctx, `
+		SELECT id, role::text FROM users
+		UNION
+		SELECT user_id, role::text FROM user_role_assignments WHERE is_active = true`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []RoleHolder
+	for rows.Next() {
+		var h RoleHolder
+		if err := rows.Scan(&h.UserID, &h.Role); err != nil {
+			return nil, err
+		}
+		out = append(out, h)
+	}
+	return out, rows.Err()
 }

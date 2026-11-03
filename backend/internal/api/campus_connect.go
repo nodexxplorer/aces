@@ -56,23 +56,30 @@ func (server *Server) respondToConnection(ctx *gin.Context) {
 
 	userID := getUserID(ctx)
 
-	// Only the receiver may accept/reject a connection request.
+	var req respondConnectionReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	// The receiver may accept/reject; the requester may cancel (reject) their own request.
 	if q, ok := server.store.(*db.Queries); ok {
 		conn, err := q.GetConnection(ctx, id)
 		if err != nil {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "connection not found"})
 			return
 		}
-		if conn.ReceiverID != userID {
-			ctx.JSON(http.StatusForbidden, gin.H{"error": "only the receiver can respond to this connection"})
+		isReceiver := conn.ReceiverID == userID
+		isRequester := conn.RequesterID == userID
+		if !isReceiver && !isRequester {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "you are not part of this connection"})
 			return
 		}
-	}
-
-	var req respondConnectionReq
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
-		return
+		// Requester can only cancel (reject), not accept on behalf of the receiver.
+		if isRequester && !isReceiver && req.Status != "rejected" {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "only the receiver can accept this connection"})
+			return
+		}
 	}
 
 	connection, err := server.campusConnect.RespondToConnection(ctx, id, req.Status)
@@ -109,6 +116,21 @@ func (server *Server) listPendingRequests(ctx *gin.Context) {
 	}
 	if requests == nil {
 		requests = []db.ListPendingConnectionRequestsRow{}
+	}
+
+	ctx.JSON(http.StatusOK, requests)
+}
+
+func (server *Server) listSentPendingRequests(ctx *gin.Context) {
+	userID := getUserID(ctx)
+
+	requests, err := server.campusConnect.ListSentPendingRequests(ctx, userID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	if requests == nil {
+		requests = []db.ListSentPendingConnectionRequestsRow{}
 	}
 
 	ctx.JSON(http.StatusOK, requests)

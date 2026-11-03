@@ -129,7 +129,7 @@ func (server *Server) downloadAttendancePDF(ctx *gin.Context) {
 	userID := getUserID(ctx)
 	isClassRep := session.ClassRepID == userID
 	isLecturer := session.LecturerID != nil && *session.LecturerID == userID
-	if !isStaffRole(ctx) && !isClassRep && !isLecturer {
+	if !isStaffRole(ctx, capManageCourses) && !isClassRep && !isLecturer {
 		ctx.JSON(http.StatusForbidden, gin.H{"error": "not authorized to download this attendance sheet"})
 		return
 	}
@@ -233,7 +233,7 @@ func (server *Server) reviewAttendanceSession(ctx *gin.Context) {
 		return
 	}
 
-	if !isStaffCaller(ctx) {
+	if !isStaffCaller(ctx, capManageCourses) {
 		queries, ok := server.store.(*db.Queries)
 		if !ok {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database not available"})

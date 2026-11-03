@@ -51,6 +51,10 @@ func (s *CampusConnectService) ListPendingRequests(ctx context.Context, userID u
 	return s.store.ListPendingConnectionRequests(ctx, userID)
 }
 
+func (s *CampusConnectService) ListSentPendingRequests(ctx context.Context, userID uuid.UUID) ([]db.ListSentPendingConnectionRequestsRow, error) {
+	return s.store.ListSentPendingConnectionRequests(ctx, userID)
+}
+
 // Messages
 func (s *CampusConnectService) SendMessage(ctx context.Context, senderID, receiverID uuid.UUID, content string) (db.Message, error) {
 	return s.store.CreateMessage(ctx, db.CreateMessageParams{SenderID: senderID, ReceiverID: receiverID, Content: content})
