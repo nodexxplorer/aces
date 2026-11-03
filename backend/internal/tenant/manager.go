@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,6 +43,8 @@ type Options struct {
 	MaxConnsSystem int32
 	// CacheTTL bounds how long a tenant looked up by ID is trusted. Default 1m.
 	CacheTTL time.Duration
+	// MaxConnIdleTime bounds how long idle connections are kept. Default 10s.
+	MaxConnIdleTime time.Duration
 }
 
 // Manager owns the connection pools and the tenant registry.
@@ -77,14 +81,15 @@ func NewManager(ctx context.Context, dsn string, opts Options) (*Manager, error)
 	if opts.CacheTTL <= 0 {
 		opts.CacheTTL = time.Minute
 	}
+	if opts.MaxConnIdleTime <= 0 {
+		opts.MaxConnIdleTime = 10 * time.Second
+	}
 
 	cfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
 		return nil, fmt.Errorf("tenant: parse database url: %w", err)
 	}
-	cfg.MaxConns = opts.MaxConnsSystem
-	cfg.MaxConnIdleTime = 30 * time.Second
-	cfg.MaxConnLifetime = 5 * time.Minute
+	configurePoolConfig(cfg, opts.MaxConnsSystem, opts.MaxConnIdleTime)
 	cfg.AfterConnect = roleHook(opts.RuntimeRole)
 
 	system, err := pgxpool.NewWithConfig(ctx, cfg)
@@ -287,9 +292,7 @@ func (m *Manager) poolFor(id uuid.UUID) (*pgxpool.Pool, error) {
 	if err != nil {
 		return nil, fmt.Errorf("tenant: parse database url: %w", err)
 	}
-	cfg.MaxConns = m.opts.MaxConnsPerTenant
-	cfg.MaxConnIdleTime = 30 * time.Second
-	cfg.MaxConnLifetime = 5 * time.Minute
+	configurePoolConfig(cfg, m.opts.MaxConnsPerTenant, m.opts.MaxConnIdleTime)
 	role := roleHook(m.opts.RuntimeRole)
 	cfg.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
 		// Bind once, when the physical connection opens. The value is never
@@ -318,6 +321,47 @@ func roleHook(role string) func(context.Context, *pgx.Conn) error {
 	return func(ctx context.Context, conn *pgx.Conn) error {
 		_, err := conn.Exec(ctx, "SET ROLE "+pgx.Identifier{role}.Sanitize())
 		return err
+	}
+}
+
+func configurePoolConfig(cfg *pgxpool.Config, maxConns int32, idleTime time.Duration) {
+	cfg.MinConns = 0
+	cfg.MaxConns = maxConns
+	cfg.MaxConnIdleTime = idleTime
+	cfg.MaxConnLifetime = 5 * time.Minute
+	cfg.ConnConfig.ConnectTimeout = 25 * time.Second
+	cfg.ConnConfig.DialFunc = serverlessDialer()
+}
+
+func serverlessDialer() func(ctx context.Context, network, addr string) (net.Conn, error) {
+	var dialer net.Dialer
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		var lastErr error
+		backoff := 250 * time.Millisecond
+		for attempt := 0; attempt < 8; attempt++ {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			dialCtx, cancel := context.WithTimeout(ctx, 4*time.Second)
+			conn, err := dialer.DialContext(dialCtx, network, addr)
+			cancel()
+			if err == nil {
+				return conn, nil
+			}
+			lastErr = err
+
+			jitter := time.Duration(rand.Intn(150)) * time.Millisecond
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(backoff + jitter):
+			}
+			backoff *= 2
+			if backoff > 3*time.Second {
+				backoff = 3 * time.Second
+			}
+		}
+		return nil, fmt.Errorf("serverless dialer: connection failed after retries: %w", lastErr)
 	}
 }
 

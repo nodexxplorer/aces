@@ -190,7 +190,7 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	var rc *cache.RedisCache
 	if cfg.RedisAddress != "" {
 		rc = cache.NewRedisCache(cfg.RedisAddress, cfg.RedisPassword)
-		pingCtx, cancelPing := context.WithTimeout(context.Background(), 2*time.Second)
+		pingCtx, cancelPing := context.WithTimeout(context.Background(), 6*time.Second)
 		err := rc.Ping(pingCtx)
 		cancelPing()
 		if err == nil {
@@ -235,6 +235,13 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	router.GET("/health", server.healthCheck)
 
 	v1 := router.Group("/api/v1")
+
+	internalCron := v1.Group("/internal/cron")
+	{
+		internalCron.POST("/reminders", server.triggerRemindersCron)
+		internalCron.POST("/birthdays", server.triggerBirthdaysCron)
+		internalCron.POST("/all", server.triggerAllCron)
+	}
 
 	authProtected := v1.Group("/auth")
 	authProtected.Use(middleware.JWTAuth(tm), middleware.TenantScope(tenants))
@@ -1058,4 +1065,62 @@ func (server *Server) healthCheck(c *gin.Context) {
 			},
 		},
 	})
+}
+
+// Close releases resources held by the server.
+func (server *Server) Close() {
+	if server.redisCache != nil {
+		_ = server.redisCache.Close()
+	}
+}
+
+func (server *Server) verifyInternalSecret(c *gin.Context) bool {
+	if server.config.InternalCronSecret == "" {
+		return true
+	}
+	secret := c.GetHeader("X-Internal-Secret")
+	if secret == "" {
+		auth := c.GetHeader("Authorization")
+		if strings.HasPrefix(auth, "Bearer ") {
+			secret = strings.TrimPrefix(auth, "Bearer ")
+		}
+	}
+	return secret == server.config.InternalCronSecret
+}
+
+func (server *Server) triggerRemindersCron(c *gin.Context) {
+	if !server.verifyInternalSecret(c) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or missing cron secret"})
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	server.TriggerStudyTaskReminders(ctx)
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "job": "study_task_reminders"})
+}
+
+func (server *Server) triggerBirthdaysCron(c *gin.Context) {
+	if !server.verifyInternalSecret(c) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or missing cron secret"})
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	server.TriggerBirthdayGreetings(ctx)
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "job": "birthdays"})
+}
+
+func (server *Server) triggerAllCron(c *gin.Context) {
+	if !server.verifyInternalSecret(c) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or missing cron secret"})
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+
+	server.TriggerStudyTaskReminders(ctx)
+	server.TriggerBirthdayGreetings(ctx)
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "job": "all"})
 }

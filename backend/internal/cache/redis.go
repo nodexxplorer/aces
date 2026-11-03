@@ -21,12 +21,14 @@ const (
 
 func NewRedisCache(address, password string) *RedisCache {
 	rdb := redis.NewClient(&redis.Options{
-		Addr:         address,
-		Password:     password,
-		DB:           0, // Use default DB
-		DialTimeout:  redisDialTimeout,
-		ReadTimeout:  redisIOTimeout,
-		WriteTimeout: redisIOTimeout,
+		Addr:            address,
+		Password:        password,
+		DB:              0, // Use default DB
+		DialTimeout:     redisDialTimeout,
+		ReadTimeout:     redisIOTimeout,
+		WriteTimeout:    redisIOTimeout,
+		MinIdleConns:    0,
+		ConnMaxIdleTime: 10 * time.Second,
 		// No retries, neither for a command nor for a dial: a failed check is
 		// allowed through at once (see middleware.RedisRateLimit), so waiting
 		// on retries would only slow every request while Redis is down.
@@ -35,6 +37,11 @@ func NewRedisCache(address, password string) *RedisCache {
 	})
 
 	return &RedisCache{client: rdb}
+}
+
+// Close closes the Redis client connection pool.
+func (c *RedisCache) Close() error {
+	return c.client.Close()
 }
 
 // Ping checks if Redis is responsive

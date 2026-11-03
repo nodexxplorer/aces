@@ -6,16 +6,18 @@ import (
 	"time"
 )
 
+// TriggerStudyTaskReminders executes one pass of due study task reminders across active tenants.
+func (server *Server) TriggerStudyTaskReminders(ctx context.Context) {
+	server.forEachActiveTenant(ctx, "study-task-reminder", server.sendDueStudyTaskReminders)
+}
+
 // RunStudyTaskReminderScheduler checks once immediately (covering a server
 // restart that missed a reminder's exact moment) and then on a 5-minute
 // tick for study tasks whose reminder_at has arrived, notifying the owning
 // student via the existing notifyUser pipeline. Stops when ctx is
-// cancelled (server shutdown). A 5-minute tick (vs. the birthday
-// scheduler's hourly one) because a reminder is tied to a specific time of
-// day, not just a date — the same free-tier caveat from RunBirthdayScheduler
-// applies here too.
+// cancelled (server shutdown).
 func (server *Server) RunStudyTaskReminderScheduler(ctx context.Context) {
-	server.forEachActiveTenant(ctx, "study-task-reminder", server.sendDueStudyTaskReminders)
+	server.TriggerStudyTaskReminders(ctx)
 
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
@@ -25,7 +27,7 @@ func (server *Server) RunStudyTaskReminderScheduler(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			server.forEachActiveTenant(ctx, "study-task-reminder", server.sendDueStudyTaskReminders)
+			server.TriggerStudyTaskReminders(ctx)
 		}
 	}
 }

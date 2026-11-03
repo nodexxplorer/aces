@@ -26,6 +26,7 @@ func main() {
 		DefaultSlug:       cfg.DefaultTenantSlug,
 		MaxConnsPerTenant: cfg.DBMaxConnsPerTenant,
 		MaxConnsSystem:    cfg.DBMaxConnsSystem,
+		MaxConnIdleTime:   cfg.DBMaxConnIdleTime,
 	})
 	if err != nil {
 		log.Fatalf("cannot connect to db: %v", err)
@@ -59,8 +60,13 @@ func main() {
 
 	server := api.NewServer(store, tenants, cfg)
 
-	go server.RunBirthdayScheduler(ctx)
-	go server.RunStudyTaskReminderScheduler(ctx)
+	if cfg.EnableInAppSchedulers {
+		log.Println("Starting in-app background schedulers (birthday, study task reminders)...")
+		go server.RunBirthdayScheduler(ctx)
+		go server.RunStudyTaskReminderScheduler(ctx)
+	} else {
+		log.Println("In-app schedulers disabled for serverless scale-to-zero. Trigger via external cron endpoints.")
+	}
 
 	srv := &http.Server{
 		Addr:         cfg.ServerAddress,
@@ -89,6 +95,7 @@ func main() {
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Printf("server forced shutdown: %v", err)
 	}
+	server.Close()
 
 	log.Println("Server stopped")
 }
