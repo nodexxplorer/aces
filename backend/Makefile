@@ -3,7 +3,7 @@
 # Owner-level targets (migrate, runtime-role) take the migration owner's
 # connection string in DB_SOURCE for that command only. The server and
 # seed-admin use the restricted runtime role, so keep that DSN in .env.
-APP_DB_USER ?= aces_app
+APP_DB_USER ?= admin_pack
 
 build:
 	go build -o bin/api ./cmd/server
