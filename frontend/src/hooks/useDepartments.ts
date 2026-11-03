@@ -10,13 +10,6 @@ import {
 } from '../config/department';
 import { applyDepartmentAccent } from '../theme/accent';
 
-// Resolves which department a sign-in or sign-up form should use.
-//
-// A department named by the address (/co, or /co/admin) wins, because the
-// address is what the person was given. Otherwise the remembered choice wins
-// while it is still an active department. If it is not (never chosen, or since
-// deactivated), the server's default department is used. An empty slug is sent
-// when the list has not loaded yet, which the server also treats as the default.
 export function useDepartments(urlCode?: string) {
   const query = useQuery({
     queryKey: ['departments'],
@@ -25,7 +18,10 @@ export function useDepartments(urlCode?: string) {
     placeholderData: DEFAULT_DEPARTMENTS,
   });
 
-  const rawDepartments: Department[] = useMemo(() => query.data ?? DEFAULT_DEPARTMENTS, [query.data]);
+  const rawDepartments: Department[] = useMemo(
+    () => (Array.isArray(query.data) && query.data.length ? query.data : DEFAULT_DEPARTMENTS),
+    [query.data],
+  );
 
   // Format all names so 'Department of' is always 'Dept of'
   const departments: Department[] = useMemo(() => {
