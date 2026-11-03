@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -185,20 +186,11 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		return json.Marshal(msg)
 	}
 
-	// Redis shares the rate-limit counts between server instances. It is used
-	// only if it answers now; otherwise each instance limits on its own.
-	var rc *cache.RedisCache
+	// Redis shares the rate-limit counts between server instances. Connections
+	// are opened lazily on demand when requests arrive.
 	if cfg.RedisAddress != "" {
-		rc = cache.NewRedisCache(cfg.RedisAddress, cfg.RedisPassword)
-		pingCtx, cancelPing := context.WithTimeout(context.Background(), 6*time.Second)
-		err := rc.Ping(pingCtx)
-		cancelPing()
-		if err == nil {
-			server.redisCache = rc
-			log.Printf("[startup] rate limits shared through Redis at %s", cfg.RedisAddress)
-		} else {
-			log.Printf("[startup] Redis at %s is not reachable (%v): rate limits are kept per server instance", cfg.RedisAddress, err)
-		}
+		server.redisCache = cache.NewRedisCache(cfg.RedisAddress, cfg.RedisPassword)
+		log.Printf("[startup] rate limits configured with Redis at %s", cfg.RedisAddress)
 	}
 
 	router := newEngine()
@@ -208,7 +200,7 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	router.Use(middleware.SignUploadLinks(signer))
 	router.Use(middleware.RequestLogger())
 	router.Use(corsMiddleware(cfg.AllowedOrigins))
-	if rc != nil && server.redisCache != nil {
+	if server.redisCache != nil {
 		router.Use(middleware.RedisRateLimit(server.redisCache, "global", 100, time.Minute))
 	} else {
 		router.Use(middleware.RateLimit(100, time.Minute))
@@ -237,6 +229,7 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	v1 := router.Group("/api/v1")
 
 	internalCron := v1.Group("/internal/cron")
+	internalCron.Use(server.requireInternalCronAuth())
 	{
 		internalCron.POST("/reminders", server.triggerRemindersCron)
 		internalCron.POST("/birthdays", server.triggerBirthdaysCron)
@@ -1074,25 +1067,28 @@ func (server *Server) Close() {
 	}
 }
 
-func (server *Server) verifyInternalSecret(c *gin.Context) bool {
-	if server.config.InternalCronSecret == "" {
-		return true
-	}
-	secret := c.GetHeader("X-Internal-Secret")
-	if secret == "" {
-		auth := c.GetHeader("Authorization")
-		if strings.HasPrefix(auth, "Bearer ") {
-			secret = strings.TrimPrefix(auth, "Bearer ")
+func (server *Server) requireInternalCronAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if server.config.InternalCronSecret == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "cron secret not configured"})
+			return
 		}
+		secret := c.GetHeader("X-Internal-Secret")
+		if secret == "" {
+			auth := c.GetHeader("Authorization")
+			if strings.HasPrefix(auth, "Bearer ") {
+				secret = strings.TrimPrefix(auth, "Bearer ")
+			}
+		}
+		if subtle.ConstantTimeCompare([]byte(secret), []byte(server.config.InternalCronSecret)) != 1 {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid or missing cron secret"})
+			return
+		}
+		c.Next()
 	}
-	return secret == server.config.InternalCronSecret
 }
 
 func (server *Server) triggerRemindersCron(c *gin.Context) {
-	if !server.verifyInternalSecret(c) {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or missing cron secret"})
-		return
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
@@ -1101,10 +1097,6 @@ func (server *Server) triggerRemindersCron(c *gin.Context) {
 }
 
 func (server *Server) triggerBirthdaysCron(c *gin.Context) {
-	if !server.verifyInternalSecret(c) {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or missing cron secret"})
-		return
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
@@ -1113,10 +1105,6 @@ func (server *Server) triggerBirthdaysCron(c *gin.Context) {
 }
 
 func (server *Server) triggerAllCron(c *gin.Context) {
-	if !server.verifyInternalSecret(c) {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or missing cron secret"})
-		return
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 

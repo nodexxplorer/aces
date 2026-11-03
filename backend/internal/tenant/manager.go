@@ -350,6 +350,10 @@ func serverlessDialer() func(ctx context.Context, network, addr string) (net.Con
 			}
 			lastErr = err
 
+			if attempt == 7 {
+				break
+			}
+
 			jitter := time.Duration(rand.Intn(150)) * time.Millisecond
 			select {
 			case <-ctx.Done():

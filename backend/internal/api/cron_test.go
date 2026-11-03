@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func TestVerifyInternalSecret(t *testing.T) {
+func TestRequireInternalCronAuth(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
@@ -17,49 +17,49 @@ func TestVerifyInternalSecret(t *testing.T) {
 		configured string
 		headerKey  string
 		headerVal  string
-		want       bool
+		wantStatus int
 	}{
 		{
-			name:       "empty secret allows all",
+			name:       "empty secret fails closed",
 			configured: "",
 			headerKey:  "",
 			headerVal:  "",
-			want:       true,
+			wantStatus: http.StatusUnauthorized,
 		},
 		{
 			name:       "valid X-Internal-Secret",
 			configured: "secret-123",
 			headerKey:  "X-Internal-Secret",
 			headerVal:  "secret-123",
-			want:       true,
+			wantStatus: http.StatusOK,
 		},
 		{
 			name:       "invalid X-Internal-Secret",
 			configured: "secret-123",
 			headerKey:  "X-Internal-Secret",
 			headerVal:  "wrong-secret",
-			want:       false,
+			wantStatus: http.StatusUnauthorized,
 		},
 		{
 			name:       "missing secret when required",
 			configured: "secret-123",
 			headerKey:  "",
 			headerVal:  "",
-			want:       false,
+			wantStatus: http.StatusUnauthorized,
 		},
 		{
 			name:       "valid Bearer auth",
 			configured: "secret-123",
 			headerKey:  "Authorization",
 			headerVal:  "Bearer secret-123",
-			want:       true,
+			wantStatus: http.StatusOK,
 		},
 		{
 			name:       "invalid Bearer auth",
 			configured: "secret-123",
 			headerKey:  "Authorization",
 			headerVal:  "Bearer wrong-secret",
-			want:       false,
+			wantStatus: http.StatusUnauthorized,
 		},
 	}
 
@@ -72,16 +72,19 @@ func TestVerifyInternalSecret(t *testing.T) {
 			}
 
 			w := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(w)
-			req := httptest.NewRequest(http.MethodPost, "/api/v1/internal/cron/all", nil)
+			_, r := gin.CreateTestContext(w)
+			r.POST("/cron", s.requireInternalCronAuth(), func(ctx *gin.Context) {
+				ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/cron", nil)
 			if tt.headerKey != "" {
 				req.Header.Set(tt.headerKey, tt.headerVal)
 			}
-			c.Request = req
+			r.ServeHTTP(w, req)
 
-			got := s.verifyInternalSecret(c)
-			if got != tt.want {
-				t.Errorf("verifyInternalSecret() = %v, want %v", got, tt.want)
+			if w.Code != tt.wantStatus {
+				t.Errorf("status = %d, want %d", w.Code, tt.wantStatus)
 			}
 		})
 	}
