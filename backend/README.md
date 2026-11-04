@@ -22,6 +22,9 @@ Copy `.env.example` to `.env` and adjust the values. The variables that matter m
 | `API_PUBLIC_URL` | Where the API is reachable from outside, for logo links in emails. | `FRONTEND_PUBLIC_URL` |
 | `DB_MAX_CONNS_PER_TENANT` | Connections each department's pool may hold | `4` |
 | `DB_ALLOW_RLS_BYPASS` | Development only. Lets the server run as a role that bypasses row-level security, which turns department isolation off. | `false` |
+| `DB_MAX_CONN_IDLE_SECONDS` | Seconds to keep an idle database connection before closing | `10` |
+| `ENABLE_IN_APP_SCHEDULERS` | Set to true to run in-app background tickers instead of scale-to-zero | `false` |
+| `INTERNAL_CRON_SECRET` | Secret key required to trigger internal cron webhooks on demand | none (required for webhooks) |
 
 The full list, with comments, is in `.env.example`.
 

@@ -115,12 +115,18 @@ Railway will detect the [Dockerfile](file:///home/nodexxplorer/Desktop/Aces%20he
 In the API service → **"Variables"** tab, add these:
 
 ```env
-# Database — use the RUNTIME role, not the owner
-DB_SOURCE=postgresql://aces_app:<APP_DB_PASSWORD>@<PGHOST>:<PGPORT>/railway?sslmode=require
+# Database, use the RUNTIME role, not the owner
+# On Railway, prefer private networking (postgres.railway.internal:5432) so TCP keep-alives do not prevent scale-to-zero
+DB_SOURCE=postgresql://aces_app:<APP_DB_PASSWORD>@postgres.railway.internal:5432/railway?sslmode=disable
 DB_ALLOW_RLS_BYPASS=false
 DB_MAX_CONNS_PER_TENANT=2
 DB_MAX_CONNS_SYSTEM=2
 DEFAULT_TENANT_SLUG=uniuyo-ce
+DB_MAX_CONN_IDLE_SECONDS=10
+
+# Serverless scale-to-zero settings
+ENABLE_IN_APP_SCHEDULERS=false
+INTERNAL_CRON_SECRET=<generate with: openssl rand -base64 32>
 
 # Server
 SERVER_ADDRESS=0.0.0.0:$PORT
@@ -244,6 +250,21 @@ graph LR
     API -->|Paystack API| PS["Paystack"]
     API -->|SMTP| MAIL["Email Provider"]
 ```
+
+---
+
+## Serverless Scale-to-Zero Configuration
+
+To allow the API container and PostgreSQL database to scale down to zero when idle:
+
+1. In the Railway dashboard for the API service, navigate to **Settings** -> **Deploy**.
+2. Under **Serverless / App Sleeping**, toggle sleeping on.
+3. Remove any custom **Healthcheck Path** setting. Railway healthchecks ping the service continuously and will prevent scale to zero.
+4. To trigger background jobs (due study task reminders and birthday greetings) on a schedule without keeping the server perpetually awake, configure an external cron job or a Railway cron service hitting:
+   ```bash
+   curl -X POST https://your-api.up.railway.app/api/v1/internal/cron/all \
+     -H "X-Internal-Secret: $INTERNAL_CRON_SECRET"
+   ```
 
 ---
 

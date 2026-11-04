@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"testing"
+	"time"
 )
 
 func TestLoad_Success(t *testing.T) {
@@ -27,6 +28,12 @@ func TestLoad_Success(t *testing.T) {
 	}
 	if !cfg.SMTPMock {
 		t.Error("SMTPMock should be true")
+	}
+	if cfg.EnableInAppSchedulers {
+		t.Error("expected EnableInAppSchedulers to default to false")
+	}
+	if cfg.DBMaxConnIdleTime <= 0 {
+		t.Error("expected positive DBMaxConnIdleTime default")
 	}
 }
 
@@ -96,5 +103,17 @@ func TestGetInt(t *testing.T) {
 	}
 	if val := getInt("NONEXISTENT_INT", 10); val != 10 {
 		t.Errorf("expected default 10, got %d", val)
+	}
+}
+
+func TestGetDurationSeconds(t *testing.T) {
+	os.Setenv("TEST_DURATION_SEC_KEY", "25")
+	defer os.Unsetenv("TEST_DURATION_SEC_KEY")
+
+	if val := getDurationSeconds("TEST_DURATION_SEC_KEY", 10); val != 25*time.Second {
+		t.Errorf("expected 25s, got %v", val)
+	}
+	if val := getDurationSeconds("NONEXISTENT_DURATION_SEC", 15); val != 15*time.Second {
+		t.Errorf("expected 15s, got %v", val)
 	}
 }

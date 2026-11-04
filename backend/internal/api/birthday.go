@@ -16,20 +16,18 @@ var birthdayMessages = []string{
 	"On behalf of everyone in your department, happy birthday! Take today to celebrate how far you've come — we're glad to have you with us. 🥳",
 }
 
+// TriggerBirthdayGreetings executes one pass of birthday greetings across active tenants.
+func (server *Server) TriggerBirthdayGreetings(ctx context.Context) {
+	server.forEachActiveTenant(ctx, "birthday", server.sendTodaysBirthdayGreetings)
+}
+
 // RunBirthdayScheduler checks once immediately (covering a server restart
 // that missed the exact moment) and then on an hourly tick for students
 // whose birthday is today, sending each a one-time notification+email via
 // the existing notifyUser pipeline. Stops when ctx is cancelled (server
 // shutdown).
-//
-// Caveat: this only fires while the process is actually running. A
-// Render free-tier instance that's spun down from inactivity (see the
-// dashboard warning surfaced earlier this session) won't wake itself up
-// just to send a birthday greeting — an external cron hitting a protected
-// endpoint, or Render's own Cron Jobs product, would be needed for that to
-// be reliable on the free tier.
 func (server *Server) RunBirthdayScheduler(ctx context.Context) {
-	server.forEachActiveTenant(ctx, "birthday", server.sendTodaysBirthdayGreetings)
+	server.TriggerBirthdayGreetings(ctx)
 
 	ticker := time.NewTicker(1 * time.Hour)
 	defer ticker.Stop()
@@ -39,7 +37,7 @@ func (server *Server) RunBirthdayScheduler(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			server.forEachActiveTenant(ctx, "birthday", server.sendTodaysBirthdayGreetings)
+			server.TriggerBirthdayGreetings(ctx)
 		}
 	}
 }

@@ -23,7 +23,8 @@ var reservedURLCodes = map[string]bool{
 	"materials": true, "notices": true, "onboarding": true, "payments": true,
 	"portalsign": true, "profile": true, "results": true, "scan": true,
 	"search": true, "signup": true, "static": true, "student": true,
-	"students": true, "support": true, "uploads": true, "waiting": true,
+	"students": true, "support": true, "unsubscribe": true, "uploads": true,
+	"waiting": true,
 }
 
 // ValidURLCode returns nil when code can name a department in web addresses:
