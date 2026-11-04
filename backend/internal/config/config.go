@@ -87,6 +87,15 @@ type Config struct {
 	// security (a superuser, BYPASSRLS, or a table owner). Local development
 	// only: with it set, departments are not isolated from one another.
 	DBAllowRLSBypass bool
+
+	// EnableInAppSchedulers runs background tickers (birthday, study task reminders)
+	// inside the application process. Disabled by default in serverless deployments
+	// so the service can scale to zero when idle.
+	EnableInAppSchedulers bool
+	// InternalCronSecret guards webhook endpoints that trigger background jobs on demand.
+	InternalCronSecret string
+	// DBMaxConnIdleTime bounds how long idle connections are kept in database pools.
+	DBMaxConnIdleTime time.Duration
 }
 
 func (c *Config) IsProduction() bool {
@@ -149,6 +158,10 @@ func Load() *Config {
 		DBMaxConnsPerTenant: int32(getInt("DB_MAX_CONNS_PER_TENANT", 4)),
 		DBMaxConnsSystem:    int32(getInt("DB_MAX_CONNS_SYSTEM", 4)),
 		DBAllowRLSBypass:    getBool("DB_ALLOW_RLS_BYPASS", false),
+
+		EnableInAppSchedulers: getBool("ENABLE_IN_APP_SCHEDULERS", false),
+		InternalCronSecret:    getEnv("INTERNAL_CRON_SECRET", ""),
+		DBMaxConnIdleTime:     getDurationSeconds("DB_MAX_CONN_IDLE_SECONDS", 10),
 	}
 }
 
@@ -166,6 +179,15 @@ func getDuration(key string, defaultMinutes int) time.Duration {
 		}
 	}
 	return time.Duration(defaultMinutes) * time.Minute
+}
+
+func getDurationSeconds(key string, defaultSeconds int) time.Duration {
+	if val := os.Getenv(key); val != "" {
+		if secs, err := strconv.Atoi(val); err == nil {
+			return time.Duration(secs) * time.Second
+		}
+	}
+	return time.Duration(defaultSeconds) * time.Second
 }
 
 // getFirstEnv reads a single-URL config value, defensively taking only the
