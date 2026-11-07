@@ -3,8 +3,20 @@ import Button from '../ui/Button';
 import Input from '../ui/Input';
 
 interface ProfileUpdateFormProps {
-  initialValues: { firstName: string; lastName: string; phone?: string; emergencyContactName?: string; emergencyContactPhone?: string };
-  onSubmit: (data: { firstName: string; lastName: string; phone?: string; emergencyContactName?: string; emergencyContactPhone?: string }) => void;
+  initialValues: {
+    firstName: string;
+    lastName: string;
+    phone?: string;
+    emergencyContactName?: string;
+    emergencyContactPhone?: string;
+  };
+  onSubmit: (data: {
+    firstName: string;
+    lastName: string;
+    phone?: string;
+    emergencyContactName?: string;
+    emergencyContactPhone?: string;
+  }) => void;
   isLoading?: boolean;
 }
 
@@ -23,24 +35,10 @@ const ProfileUpdateForm = ({ initialValues, onSubmit, isLoading }: ProfileUpdate
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        <Input
-          label="First Name"
-          value={firstName}
-          onChange={(e) => setFirstName(e.target.value)}
-          required
-        />
-        <Input
-          label="Last Name"
-          value={lastName}
-          onChange={(e) => setLastName(e.target.value)}
-          required
-        />
+        <Input label="First Name" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+        <Input label="Last Name" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
       </div>
-      <Input
-        label="Phone Number"
-        value={phone}
-        onChange={(e) => setPhone(e.target.value)}
-      />
+      <Input label="Phone Number" value={phone} onChange={(e) => setPhone(e.target.value)} />
       <div className="border-t border-surface-200 dark:border-surface-800 pt-4 mt-2">
         <h4 className="text-sm font-semibold text-surface-900 dark:text-white mb-2">Emergency Contact</h4>
         <div className="grid grid-cols-2 gap-4">

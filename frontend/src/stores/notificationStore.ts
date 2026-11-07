@@ -114,9 +114,7 @@ export const useNotificationStore = create<NotificationState>()((set, get) => ({
     try {
       await notificationsApi.markAsRead(id);
       set((state) => ({
-        notifications: state.notifications.map((n) =>
-          n.id === id ? { ...n, is_read: true } : n
-        ),
+        notifications: state.notifications.map((n) => (n.id === id ? { ...n, is_read: true } : n)),
         unreadCount: Math.max(0, state.unreadCount - 1),
       }));
     } catch {
@@ -144,9 +142,7 @@ export const useNotificationStore = create<NotificationState>()((set, get) => ({
         const target = state.notifications.find((n) => n.id === id);
         return {
           notifications: state.notifications.filter((n) => n.id !== id),
-          unreadCount: target && !target.is_read
-            ? Math.max(0, state.unreadCount - 1)
-            : state.unreadCount,
+          unreadCount: target && !target.is_read ? Math.max(0, state.unreadCount - 1) : state.unreadCount,
           total: Math.max(0, state.total - 1),
         };
       });

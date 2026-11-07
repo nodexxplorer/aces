@@ -67,7 +67,10 @@ const PrivacyPolicyPage = () => {
 
             <div className="space-y-6 pt-4">
               {sections.map((sec, idx) => (
-                <div key={idx} className="flex gap-4 p-4 rounded-xl hover:bg-surface-100/50 dark:hover:bg-surface-800/30 transition-all border border-transparent hover:border-surface-200/50 dark:hover:border-surface-800">
+                <div
+                  key={idx}
+                  className="flex gap-4 p-4 rounded-xl hover:bg-surface-100/50 dark:hover:bg-surface-800/30 transition-all border border-transparent hover:border-surface-200/50 dark:hover:border-surface-800"
+                >
                   <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-surface-100 dark:bg-surface-800 flex items-center justify-center">
                     {sec.icon}
                   </div>
@@ -75,9 +78,7 @@ const PrivacyPolicyPage = () => {
                     <h3 className="font-semibold text-sm text-surface-900 dark:text-white flex items-center gap-1">
                       {sec.title}
                     </h3>
-                    <p className="text-xs text-surface-500 dark:text-surface-400 leading-relaxed">
-                      {sec.desc}
-                    </p>
+                    <p className="text-xs text-surface-500 dark:text-surface-400 leading-relaxed">{sec.desc}</p>
                   </div>
                 </div>
               ))}

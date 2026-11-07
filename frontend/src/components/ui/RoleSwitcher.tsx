@@ -10,18 +10,30 @@ const RoleSwitcher = () => {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
   if (!hasMultipleRoles) {
-    return <span className={cn('px-2.5 py-1 text-xs font-medium rounded-full', ROLE_COLORS[activeRole])}>{ROLE_LABELS[activeRole]}</span>;
+    return (
+      <span className={cn('px-2.5 py-1 text-xs font-medium rounded-full', ROLE_COLORS[activeRole])}>
+        {ROLE_LABELS[activeRole]}
+      </span>
+    );
   }
 
   return (
     <div ref={ref} className="relative">
-      <button onClick={() => setOpen(!open)} className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-all', ROLE_COLORS[activeRole])}>
+      <button
+        onClick={() => setOpen(!open)}
+        className={cn(
+          'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-all',
+          ROLE_COLORS[activeRole],
+        )}
+      >
         {ROLE_LABELS[activeRole]}
         <ChevronDown className={cn('w-3 h-3 transition-transform', open && 'rotate-180')} />
       </button>
@@ -31,13 +43,23 @@ const RoleSwitcher = () => {
           {availableRoles.map((role) => (
             <button
               key={role}
-              onClick={() => { switchRole(role); setOpen(false); }}
+              onClick={() => {
+                switchRole(role);
+                setOpen(false);
+              }}
               className={cn(
                 'w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors',
-                role === activeRole ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400' : 'text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700'
+                role === activeRole
+                  ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                  : 'text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700',
               )}
             >
-              <span className={cn('w-2 h-2 rounded-full', role === activeRole ? 'bg-primary-500' : 'bg-surface-300 dark:bg-surface-600')} />
+              <span
+                className={cn(
+                  'w-2 h-2 rounded-full',
+                  role === activeRole ? 'bg-primary-500' : 'bg-surface-300 dark:bg-surface-600',
+                )}
+              />
               {ROLE_LABELS[role]}
             </button>
           ))}

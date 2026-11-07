@@ -75,20 +75,22 @@ Register your departments using `cmd/tenant`:
 
 ```bash
 DB_SOURCE="postgresql://postgres:xxxx@autorack.proxy.rlwy.net:12345/railway?sslmode=require" \
-go run ./cmd/tenant -import deploy/departments.json
+go run ./cmd/tenant ensure -file deploy/departments.json
 ```
 
-### 6. Seed Admin
+### 6. Invite the first HOD
+
+Configure real SMTP (`SMTP_MOCK=false`) and the HTTPS `FRONTEND_PUBLIC_URL`.
+Using the trusted operator/owner DSN, run:
 
 ```bash
-# Use the RUNTIME role's connection string this time
-DB_SOURCE="postgresql://aces_app:$APP_DB_PASSWORD@autorack.proxy.rlwy.net:12345/railway?sslmode=require" \
-ADMIN_EMAIL=admin@aces.zone \
-go run ./cmd/seed_admin -tenant uniuyo-ce
+DB_SOURCE="postgresql://postgres:xxxx@autorack.proxy.rlwy.net:12345/railway?sslmode=require" \
+go run ./cmd/tenant invite-hod -slug uniuyo-ce -email hod@example.edu -name "Jane Doe"
 ```
 
-> [!CAUTION]
-> The password is printed **once** — save it immediately!
+The HOD receives an expiring setup link and chooses their own password. They can
+then invite lecturers and delegated admins through **People & Access → Invitations**.
+See [the invitation workflow](admin-roles.md#email-invitations-implemented).
 
 ### 7. Deploy the API Service
 

@@ -12,7 +12,9 @@ const LoginCelebrationPage = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { isDark, toggle } = useDarkMode();
-  const dashboardPath = useDashboardPath();
+  const defaultDashboardPath = useDashboardPath();
+  const dashboardPath =
+    sessionStorage.getItem('aces-invitation-return') === 'true' ? '/accept-invitation' : defaultDashboardPath;
   const [countdown, setCountdown] = useState(TOTAL_COUNTDOWN);
 
   useEffect(() => {

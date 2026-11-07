@@ -50,7 +50,9 @@ describe('useDepartments with a department address', () => {
 
   it('applies the accent of the chosen department, and the platform colour when it has none', async () => {
     const { result } = renderHook(() => useDepartments('ee'), { wrapper: makeWrapper() });
-    await waitFor(() => expect(result.current.selected).toBe('dept-ee'));
+    await waitFor(() => expect(result.current.departments).toHaveLength(2));
+    await waitFor(() => expect(document.documentElement.style.getPropertyValue('--primary-500')).toBe('27 101 167'));
+    expect(result.current.selected).toBe('dept-ee');
     expect(document.documentElement.style.getPropertyValue('--primary-500')).toBe('27 101 167');
 
     const { result: other } = renderHook(() => useDepartments('co'), { wrapper: makeWrapper() });

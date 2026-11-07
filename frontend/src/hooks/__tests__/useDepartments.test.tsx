@@ -58,9 +58,10 @@ describe('useDepartments', () => {
     expect(localStorage.getItem('aces_department')).toBe('uniuyo-ee');
   });
 
-  it('sends an empty selection while the list is still loading', () => {
+  it('shows the fallback department while the list is loading without treating it as a choice', () => {
     vi.mocked(listDepartments).mockReturnValue(new Promise(() => {}));
     const { result } = renderHook(() => useDepartments(), { wrapper: makeWrapper() });
-    expect(result.current.selected).toBe('');
+    expect(result.current.selected).toBe('uniuyo-ce');
+    expect(result.current.picked).toBe(false);
   });
 });

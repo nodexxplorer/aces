@@ -22,26 +22,10 @@ const StudentSignupForm = ({ onSubmit, isLoading }: StudentSignupFormProps) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        <Input
-          label="First Name"
-          value={firstName}
-          onChange={(e) => setFirstName(e.target.value)}
-          required
-        />
-        <Input
-          label="Last Name"
-          value={lastName}
-          onChange={(e) => setLastName(e.target.value)}
-          required
-        />
+        <Input label="First Name" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+        <Input label="Last Name" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
       </div>
-      <Input
-        label="Email Address"
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-      />
+      <Input label="Email Address" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
       <div className="grid grid-cols-2 gap-4">
         <Input
           label="Matric Number"

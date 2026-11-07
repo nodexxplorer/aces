@@ -59,7 +59,9 @@ const StaffPortalLoginPage = ({ urlCode }: { urlCode?: string } = {}) => {
       });
       sessionStorage.setItem('just_logged_in', 'true');
       login(userData, tokens);
-      navigate('/login/celebration');
+      navigate(
+        sessionStorage.getItem('aces-invitation-return') === 'true' ? '/accept-invitation' : '/login/celebration',
+      );
     } catch (err) {
       const msg = getErrorMessage(err, 'Please verify your credentials and try again.');
       setAuthError(msg);

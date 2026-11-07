@@ -73,7 +73,7 @@ export const flipRollOverStudent = async (
   sessionId: string,
   promotionId: string,
   status: 'promote' | 'carryover' | 'held_back',
-  reason?: string
+  reason?: string,
 ) => {
   const res = await apiClient.patch(`/session-rollover/${sessionId}/promotions/${promotionId}`, {
     status,

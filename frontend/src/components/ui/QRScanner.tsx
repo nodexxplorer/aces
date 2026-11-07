@@ -9,7 +9,7 @@ const QRScanner = ({ onScan }: { onScan: (data: string) => void }) => {
     const scanner = initQRScanner(
       elementId,
       (decodedText) => onScan(decodedText),
-      () => {}
+      () => {},
     );
     scannerRef.current = scanner;
     scanner.start();

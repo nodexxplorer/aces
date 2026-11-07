@@ -1,22 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
-import { getPendingActions, saveOfflineAction } from '../db/offlineDb';
-
-interface QueuedAction {
-  action: string;
-  data: unknown;
-}
+import { useState, useEffect } from 'react';
+import { clearPendingActions } from '../db/offlineDb';
 
 export const useOfflineSync = () => {
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [isSlowConnection, setIsSlowConnection] = useState(false);
-  const [pendingSync, setPendingSync] = useState(0);
-  const queueRef = useRef<QueuedAction[]>([]);
 
   useEffect(() => {
-    // Check pending count
-    getPendingActions().then((actions) => {
-      setPendingSync(actions.length);
-    });
+    // Older versions queued writes without a replay mechanism. Discard them;
+    // replaying them now could duplicate operations already committed remotely.
+    void clearPendingActions();
 
     const checkConnectionSpeed = () => {
       const conn = (
@@ -37,7 +29,6 @@ export const useOfflineSync = () => {
     const handleOnline = () => {
       setIsOnline(true);
       checkConnectionSpeed();
-      getPendingActions().then((actions) => setPendingSync(actions.length));
     };
 
     const handleOffline = () => {
@@ -62,11 +53,5 @@ export const useOfflineSync = () => {
     };
   }, []);
 
-  const queueAction = async (action: string, data: unknown) => {
-    queueRef.current.push({ action, data });
-    await saveOfflineAction(action, data);
-    setPendingSync((prev) => prev + 1);
-  };
-
-  return { isOnline, isSlowConnection, pendingSync, queueAction };
+  return { isOnline, isSlowConnection };
 };

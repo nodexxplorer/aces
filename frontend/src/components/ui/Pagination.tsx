@@ -37,7 +37,9 @@ const Pagination = ({ currentPage, totalPages, onPageChange, className }: Pagina
       </button>
       {getPages().map((p, i) =>
         typeof p === 'string' ? (
-          <span key={`e-${i}`} className="px-2 text-surface-400">…</span>
+          <span key={`e-${i}`} className="px-2 text-surface-400">
+            …
+          </span>
         ) : (
           <button
             key={p}
@@ -46,12 +48,12 @@ const Pagination = ({ currentPage, totalPages, onPageChange, className }: Pagina
               'min-w-[36px] h-9 rounded-lg text-sm font-medium transition-colors',
               p === currentPage
                 ? 'bg-primary-500 text-white shadow-sm'
-                : 'text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800'
+                : 'text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800',
             )}
           >
             {p}
           </button>
-        )
+        ),
       )}
       <button
         onClick={() => onPageChange(currentPage + 1)}

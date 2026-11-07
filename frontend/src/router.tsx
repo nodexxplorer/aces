@@ -12,6 +12,8 @@ import {
 import type { UserRole } from './types';
 
 /* ── Lazy-loaded pages ───────────────────────── */
+const AcceptInvitationPage = lazy(() => import('./pages/auth/AcceptInvitationPage'));
+const InvitationsPage = lazy(() => import('./pages/admin/InvitationsPage'));
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
 const StaffPortalLoginPage = lazy(() => import('./pages/auth/StaffPortalLoginPage'));
 const DepartmentEntry = lazy(() => import('./pages/auth/DepartmentEntry'));
@@ -67,7 +69,6 @@ const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const ResultApprovalPage = lazy(() => import('./pages/admin/ResultApprovalPage'));
 const UserManagementPage = lazy(() => import('./pages/admin/UserManagementPage'));
 const UserRolesPage = lazy(() => import('./pages/admin/UserRolesPage'));
-const DelegateAdminPage = lazy(() => import('./pages/admin/DelegateAdminPage'));
 const AnalyticsPage = lazy(() => import('./pages/admin/AnalyticsPage'));
 const SessionManagementPage = lazy(() => import('./pages/admin/SessionManagementPage'));
 const CourseHubPage = lazy(() => import('./pages/admin/CourseHubPage'));
@@ -204,6 +205,12 @@ const PublicOnlyRoute = () => {
   if (!hasHydrated) return <PageLoader />;
 
   if (isAuthenticated) {
+    if (
+      sessionStorage.getItem('aces-invitation-return') === 'true' &&
+      sessionStorage.getItem('aces-access-invitation')
+    ) {
+      return <Navigate to="/accept-invitation" replace />;
+    }
     if (user && user.onboardingCompleted === false) {
       return <Navigate to="/onboarding" replace />;
     }
@@ -237,8 +244,9 @@ const adminPages: { path: string; element: ReactNode }[] = [
   { path: '/admin/results', element: <ResultApprovalPage /> },
   { path: '/admin/results/manage', element: <ResultsManagementPage /> },
   { path: '/admin/users', element: <UserManagementPage /> },
+  { path: '/admin/invitations', element: <InvitationsPage /> },
   { path: '/admin/user-roles', element: <UserRolesPage /> },
-  { path: '/admin/delegate', element: <DelegateAdminPage /> },
+  { path: '/admin/delegate', element: <InvitationsPage /> },
   { path: '/admin/analytics', element: <AnalyticsPage /> },
   { path: '/admin/sessions', element: <SessionManagementPage /> },
   { path: '/admin/course-hub', element: <CourseHubPage /> },
@@ -423,6 +431,14 @@ const LecturerProfileRoute = () => {
 
 /* ── Router ──────────────────────────────────── */
 export const router = createBrowserRouter([
+  {
+    path: '/accept-invitation',
+    element: (
+      <SuspenseWrapper>
+        <AcceptInvitationPage />
+      </SuspenseWrapper>
+    ),
+  },
   {
     element: <PublicOnlyRoute />,
     children: [

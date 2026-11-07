@@ -292,7 +292,10 @@ const mobileSections: NavSection[] = [
     icon: UsersRound,
     key: 'admin_users',
     roles: ['hod', 'delegated_admin', 'admin'],
-    items: [{ label: 'Users', path: '/admin/users', icon: Users }],
+    items: [
+      { label: 'Users', path: '/admin/users', icon: Users },
+      { label: 'Invitations', path: '/admin/invitations', icon: UsersRound },
+    ],
   },
   {
     title: 'FINANCE',

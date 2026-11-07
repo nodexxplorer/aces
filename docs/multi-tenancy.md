@@ -178,7 +178,7 @@ From `backend/`, `docker-compose up -d` runs these steps in order:
 3. `roles` runs `runtime-role.sql`. The runtime role's password comes from `APP_DB_PASSWORD`. The default, `aces_app_pass`, is for local development only, so set your own anywhere else.
 4. `api` starts as the runtime role (`APP_DB_USER`, default `aces_app`).
 
-Then create the first admin for each department (see [Day-to-day operations](#day-to-day-operations)).
+Then invite the first HOD for each department (see [Day-to-day operations](#day-to-day-operations)).
 
 ### New database
 
@@ -187,9 +187,9 @@ Run these steps in order, substituting your own connection strings.
 1. **Migrate as the owner.** `DB_SOURCE=<owner DSN> make migrate-up`
 2. **Create the runtime role.** `DB_SOURCE=<owner DSN> APP_DB_USER=aces_app APP_DB_PASSWORD=<secret> make runtime-role`
 3. **Create departments as the owner.** `DB_SOURCE=<owner DSN> go run ./cmd/tenant create -slug uniuyo-ce -name "Department of Computer Engineering" -matric-code EG/CO -institution "University of Lagos" -faculty "Faculty of Engineering"`. A department created without `-matric-code` cannot onboard or sign up students until you set one (see [Matric numbers](#matric-numbers)). To open a whole faculty at once, use [`tenant ensure`](#adding-several-departments-at-once) with `deploy/departments.json`.
-4. **Create each department's first admin as the runtime role.** `DB_SOURCE=<runtime DSN> ADMIN_EMAIL=<email> go run ./cmd/seed_admin -tenant uniuyo-ce`. seed_admin generates the password and prints it once, so store it then. Each department gets a different password, and setting `ADMIN_PASSWORD` is an error.
+4. **Invite each department's first HOD as the trusted operator.** Configure SMTP and `FRONTEND_PUBLIC_URL`, then run `DB_SOURCE=<owner DSN> go run ./cmd/tenant invite-hod -slug uniuyo-ce -email hod@example.edu -name "Jane Doe"`. The recipient activates their own account through a single-use email link. See [access invitations](admin-roles.md#email-invitations-implemented).
 
-   **Lost password.** Run the same command with `-reset-password` (and the same `ADMIN_EMAIL`). It only changes the account in that department, prints a new password once, signs it out of every session, and unlocks the account if it is locked. The refresh token stops working at once; an access token already issued lasts until it expires (`JWT_ACCESS_MINUTES`, 60 by default). It refuses an account that is not an admin (or, with `-role lecturer`, not a lecturer).
+   **Legacy seeded-admin password recovery.** Run `cmd/seed_admin -tenant <slug>` with `-reset-password` (and the same `ADMIN_EMAIL`). It only changes the account in that department, prints a new password once, signs it out of every session, and unlocks the account if it is locked. The refresh token stops working at once; an access token already issued lasts until it expires (`JWT_ACCESS_MINUTES`, 60 by default). It refuses an account that is not an admin (or, with `-role lecturer`, not a lecturer).
 5. **Run the server as the runtime role.** Set `DB_SOURCE` to the runtime DSN and set `DEFAULT_TENANT_SLUG`.
 
 Pass the owner's DSN on the command line for owner-level steps. Keep only the runtime DSN in `.env`.
@@ -247,13 +247,13 @@ Each line of the file is one department:
 What it does:
 
 - A department whose slug is already there is **left exactly as it is**, and the run says `keep`. Running it twice changes nothing the second time, so it is safe against a database that already holds some of the departments.
-- A department that is missing is created, with the next step printed after it: `seed_admin -tenant <slug>`.
+- A department that is missing is created, with the next step printed after it: `tenant invite-hod -slug <slug> -email HOD_EMAIL -name HOD_NAME`.
 - A matric code that another department already uses is refused, naming that department. A matric number maps to one department, so the code cannot be shared.
 - The whole file is checked before anything is written, so a typo stops the run instead of leaving half the departments behind. `-dry-run` shows what would happen without writing.
 
 Afterwards, for each new department:
 
-1. Seed its first admin: `DB_SOURCE=<runtime DSN> ADMIN_EMAIL=<email> go run ./cmd/seed_admin -tenant <slug>`. It prints the generated password once.
+1. Invite its first HOD: `DB_SOURCE=<owner DSN> go run ./cmd/tenant invite-hod -slug <slug> -email hod@example.edu -name "Jane Doe"` (SMTP and `FRONTEND_PUBLIC_URL` required).
 2. Drop its logo into `branding/department-logos/` as `EG-ME.png` and apply the folder: `DB_SOURCE=<owner DSN> go run ./cmd/tenant logos -dir ../branding/department-logos` (see [Branding](#branding)).
 
 A department with no admin and no logo still works: it appears on the sign-in page and in `GET /api/v1/tenants` straight away, with the neutral badge instead of a logo.
@@ -267,7 +267,7 @@ The lock is per department, because accounts are per department. Migration `0000
 ## Day-to-day operations
 
 - **List departments.** `go run ./cmd/tenant list`. It shows each department's matric code.
-- **Add a department.** Create it with `cmd/tenant create -matric-code EG/XX` (owner connection), then seed its first admin with `cmd/seed_admin -tenant <slug>` (runtime connection). Seed a lecturer the same way with `-role lecturer`, setting `LECTURER_EMAIL` and `LECTURER_STAFF_ID`. Its password is generated and printed once, as for admins. Both accounts are approved and belong to that department only. It appears in `GET /api/v1/tenants` straight away. See [Adding several departments at once](#adding-several-departments-at-once) for the bulk form.
+- **Add a department.** Create it with `cmd/tenant create -matric-code EG/XX` (owner connection), optionally supplying `-hod-email` and `-hod-name`. Or invite the first HOD afterwards with `cmd/tenant invite-hod -slug <slug> -email ... -name ...`. The HOD then uses the web Invitations page to invite staff and administrators. See [Adding several departments at once](#adding-several-departments-at-once) for the bulk form and [access invitations](admin-roles.md#email-invitations-implemented) for approval rules.
 - **Reset a lost admin password.** `cmd/seed_admin -tenant <slug> -reset-password` (runtime connection), as in step 4. See the lost-password note there.
 - **Sign-in addresses.** Each admin sees the department's addresses on the Settings page, under the Department tab: `/<code>` for students and `/<code>/admin` for staff, built on the address the admin is using. The code is set with `cmd/tenant update -url-code`.
 - **Set or change a matric code.** `go run ./cmd/tenant update -slug <slug> -matric-code EG/EE` (owner connection). The code is the faculty and department pair, such as `EG/EE`, not `EE`. `-matric-code ""` clears it, and the department then refuses matric-based sign-up and onboarding. The change takes effect within about a minute.

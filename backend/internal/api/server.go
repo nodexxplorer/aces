@@ -268,6 +268,8 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		authPublic.POST("/request-otp", authRL, server.requestPasswordReset)
 		authPublic.POST("/verify-otp", authRL, server.verifyPasswordResetOTP)
 		authPublic.POST("/reset-with-otp", authRL, server.resetPasswordWithOTP)
+		authPublic.POST("/invitations/inspect", rl, server.inspectAccessInvitation)
+		authPublic.POST("/invitations/accept", rl, server.acceptAccessInvitation)
 	}
 
 	v1.POST("/payments/webhook/paystack", server.handlePaystackWebhook)
@@ -283,6 +285,12 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	api.Use(server.loadAdminGrant)
 
 	api.Use(server.RequireStudentOnboarded)
+
+	// The service rechecks live role/grant authority for every invitation action.
+	api.GET("/invitations", server.listAccessInvitations)
+	api.POST("/invitations", rl, server.createAccessInvitation)
+	api.POST("/invitations/:id/:action", rl, server.actOnAccessInvitation)
+	api.GET("/invitations/:id/events", server.accessInvitationHistory)
 
 	api.GET("/ws", server.handleWebSocket)
 

@@ -131,13 +131,47 @@ const AlumniProfilePage = () => {
           </CardHeader>
           <div className="space-y-4 p-4 pt-0">
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Industry" placeholder="e.g. Tech, Finance" value={industry} onChange={(e) => setIndustry(e.target.value)} leftIcon={<Briefcase className="w-4 h-4" />} />
-              <Input label="Job Title" placeholder="e.g. Software Engineer" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} />
+              <Input
+                label="Industry"
+                placeholder="e.g. Tech, Finance"
+                value={industry}
+                onChange={(e) => setIndustry(e.target.value)}
+                leftIcon={<Briefcase className="w-4 h-4" />}
+              />
+              <Input
+                label="Job Title"
+                placeholder="e.g. Software Engineer"
+                value={jobTitle}
+                onChange={(e) => setJobTitle(e.target.value)}
+              />
             </div>
-            <Input label="Current Company" placeholder="e.g. Google" value={company} onChange={(e) => setCompany(e.target.value)} />
-            <Input label="Location" placeholder="e.g. Lagos, Nigeria" value={location} onChange={(e) => setLocation(e.target.value)} leftIcon={<MapPin className="w-4 h-4" />} />
-            <Input label="LinkedIn URL" placeholder="https://linkedin.com/in/..." value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} leftIcon={<FaLinkedin className="w-4 h-4" />} />
-            <Input label="Portfolio URL" placeholder="https://..." value={portfolioUrl} onChange={(e) => setPortfolioUrl(e.target.value)} leftIcon={<Globe className="w-4 h-4" />} />
+            <Input
+              label="Current Company"
+              placeholder="e.g. Google"
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
+            />
+            <Input
+              label="Location"
+              placeholder="e.g. Lagos, Nigeria"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              leftIcon={<MapPin className="w-4 h-4" />}
+            />
+            <Input
+              label="LinkedIn URL"
+              placeholder="https://linkedin.com/in/..."
+              value={linkedinUrl}
+              onChange={(e) => setLinkedinUrl(e.target.value)}
+              leftIcon={<FaLinkedin className="w-4 h-4" />}
+            />
+            <Input
+              label="Portfolio URL"
+              placeholder="https://..."
+              value={portfolioUrl}
+              onChange={(e) => setPortfolioUrl(e.target.value)}
+              leftIcon={<Globe className="w-4 h-4" />}
+            />
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Bio</label>
               <textarea
@@ -168,8 +202,18 @@ const AlumniProfilePage = () => {
                   Available as Mentor
                 </label>
               </div>
-              <Input label="Mentorship Topics" placeholder="e.g. Career guidance, Technical skills" value={mentorTopics} onChange={(e) => setMentorTopics(e.target.value)} />
-              <Input label="Skills" placeholder="e.g. React, Python, DevOps" value={skills} onChange={(e) => setSkills(e.target.value)} />
+              <Input
+                label="Mentorship Topics"
+                placeholder="e.g. Career guidance, Technical skills"
+                value={mentorTopics}
+                onChange={(e) => setMentorTopics(e.target.value)}
+              />
+              <Input
+                label="Skills"
+                placeholder="e.g. React, Python, DevOps"
+                value={skills}
+                onChange={(e) => setSkills(e.target.value)}
+              />
             </div>
           </Card>
 

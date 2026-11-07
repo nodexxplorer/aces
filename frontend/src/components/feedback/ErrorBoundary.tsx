@@ -1,8 +1,14 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
-interface Props { children: ReactNode; fallback?: ReactNode }
-interface State { hasError: boolean; error: Error | null }
+interface Props {
+  children: ReactNode;
+  fallback?: ReactNode;
+}
+interface State {
+  hasError: boolean;
+  error: Error | null;
+}
 
 class ErrorBoundary extends Component<Props, State> {
   state: State = { hasError: false, error: null };

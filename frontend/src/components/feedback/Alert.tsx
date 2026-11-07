@@ -50,7 +50,7 @@ const Alert = ({ type = 'info', title, children, onClose, className }: AlertProp
       className={cn(
         'flex gap-3 p-4 rounded-xl border transition-all duration-200 animate-slide-in',
         currentStyle.container,
-        className
+        className,
       )}
       role="alert"
     >
@@ -64,7 +64,7 @@ const Alert = ({ type = 'info', title, children, onClose, className }: AlertProp
           onClick={onClose}
           className={cn(
             'shrink-0 p-1 rounded-lg hover:bg-surface-900/5 dark:hover:bg-white/5 transition-colors self-start',
-            currentStyle.icon
+            currentStyle.icon,
           )}
           aria-label="Dismiss alert"
         >

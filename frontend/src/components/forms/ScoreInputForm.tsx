@@ -26,18 +26,8 @@ const ScoreInputForm = ({ onSubmit, initialValues, isLoading }: ScoreInputFormPr
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <Input
-        label="Student ID / Matric"
-        value={studentId}
-        onChange={(e) => setStudentId(e.target.value)}
-        required
-      />
-      <Input
-        label="Course ID"
-        value={courseId}
-        onChange={(e) => setCourseId(e.target.value)}
-        required
-      />
+      <Input label="Student ID / Matric" value={studentId} onChange={(e) => setStudentId(e.target.value)} required />
+      <Input label="Course ID" value={courseId} onChange={(e) => setCourseId(e.target.value)} required />
       <div className="grid grid-cols-2 gap-4">
         <Input
           label="CA Score (max 30)"

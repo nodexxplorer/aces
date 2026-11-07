@@ -17,6 +17,6 @@ export const useRoleStore = create<RoleState>()(
       hasRole: (role) => get().availableRoles.includes(role),
       hasAnyRole: (roles) => roles.some((r) => get().availableRoles.includes(r)),
     }),
-    { name: 'aces-roles' }
-  )
+    { name: 'aces-roles' },
+  ),
 );

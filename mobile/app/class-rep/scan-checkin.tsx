@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
   permTitle: { fontFamily: fontFamily.bold, fontSize: fontSize.lg, marginTop: spacing.sm },
   permBody: { fontFamily: fontFamily.regular, fontSize: fontSize.sm, textAlign: 'center', marginBottom: spacing.md },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
   },
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   resultBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center',
     justifyContent: 'center',

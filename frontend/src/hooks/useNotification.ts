@@ -4,9 +4,12 @@ import { useNotificationStore } from '../stores/notificationStore';
 export const useNotification = () => {
   const { addToast, removeToast, toasts, unreadCount } = useNotificationStore();
 
-  const toast = useCallback((title: string, message = '', type = 'info') => {
-    addToast({ type, title, message });
-  }, [addToast]);
+  const toast = useCallback(
+    (title: string, message = '', type = 'info') => {
+      addToast({ type, title, message });
+    },
+    [addToast],
+  );
 
   const success = useCallback((title: string, message = '') => toast(title, message, 'success'), [toast]);
   const error = useCallback((title: string, message = '') => toast(title, message, 'error'), [toast]);

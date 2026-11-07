@@ -12,9 +12,7 @@ const CourseRegistrationForm = ({ availableCourses, onSubmit, isLoading }: Cours
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const handleToggle = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
   const handleSubmit = (e: React.FormEvent) => {

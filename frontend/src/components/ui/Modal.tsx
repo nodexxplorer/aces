@@ -24,7 +24,9 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md', className }: Mod
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
     if (isOpen) {
       document.addEventListener('keydown', handleEsc);
       document.body.style.overflow = 'hidden';
@@ -51,7 +53,7 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md', className }: Mod
             className={cn(
               'relative w-full bg-white dark:bg-surface-800 rounded-2xl shadow-modal overflow-hidden',
               sizeClasses[size],
-              className
+              className,
             )}
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}

@@ -7,6 +7,20 @@ export default defineConfig({
     // '.e2b.app' is the sandbox preview domain (any subdomain), so the live preview loads.
     allowedHosts: ['props-swipe-chaffing.ngrok-free.dev', '.e2b.app'],
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Keep large optional features out of the app's entry chunk.
+        manualChunks(id) {
+          if (!id.includes('/node_modules/')) return;
+          if (id.includes('/pdfjs-dist/')) return 'pdf-viewer';
+          if (id.includes('/jspdf/')) return 'pdf-export';
+          if (/\/(framer-motion|motion-dom|motion-utils)\//.test(id)) return 'motion';
+          if (/\/(react|react-dom|scheduler)\//.test(id)) return 'react-vendor';
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({

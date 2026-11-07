@@ -47,10 +47,11 @@ DB_SOURCE='postgresql://aces_user:…@localhost:5432/aces_zone?sslmode=disable' 
   go run ./cmd/tenant create -slug uniuyo-ce -name "Department of Computer Engineering" \
   -matric-code EG/CO -institution "University of Lagos" -faculty "Faculty of Engineering"
 
-# 4. Create that department's first admin, as the runtime role. seed_admin
-#    prints a generated password for it once; each department gets its own.
-DB_SOURCE='postgresql://aces_app:…@localhost:5432/aces_zone?sslmode=disable' \
-  ADMIN_EMAIL=admin@example.edu make seed-admin ARGS="-tenant uniuyo-ce"
+# 4. Invite that department's first HOD, as the trusted operator.
+# Configure FRONTEND_PUBLIC_URL and SMTP first. No password is emailed/printed.
+DB_SOURCE='postgresql://aces_user:…@localhost:5432/aces_zone?sslmode=disable' \
+  go run ./cmd/tenant invite-hod -slug uniuyo-ce \
+  -email hod@example.edu -name "Jane Doe"
 ```
 
 If an admin loses the password, give that account a new one. The command below works the same way: it prints the new password once and signs it out of every session. Access tokens already issued last until they expire (`JWT_ACCESS_MINUTES`, 60 by default).
@@ -73,7 +74,7 @@ DB_SOURCE='postgresql://aces_user:…@localhost:5432/aces_zone?sslmode=disable' 
   go run ./cmd/tenant ensure -file deploy/departments.json
 ```
 
-Each new department then needs an admin (step 4 above, once per department) and, when you have it, a logo (`cmd/tenant logos -dir ../branding/department-logos`). The full field list is in `docs/multi-tenancy.md`, under [Adding several departments at once](../../docs/multi-tenancy.md#adding-several-departments-at-once).
+Each new department then needs a HOD invitation (step 4 above, once per department) and, when you have it, a logo (`cmd/tenant logos -dir ../branding/department-logos`). The full field list is in `docs/multi-tenancy.md`, under [Adding several departments at once](../../docs/multi-tenancy.md#adding-several-departments-at-once).
 
 `cmd/tenant` also supports `list`, `logos`, `activate` and `deactivate`. `update` changes only the flags you pass:
 
@@ -131,3 +132,14 @@ DB_SOURCE='postgresql://<role that may create databases and roles>@localhost:543
 ```
 
 Without `DB_SOURCE`, the database integration tests are skipped and the rest run. The Redis rate-limit tests run only with a Redis to use: `REDIS_TEST_ADDRESS=127.0.0.1:6379 go test ./internal/cache ./internal/middleware`.
+
+## Staff access invitations
+
+Use `tenant create -hod-email ... -hod-name ...` during creation, or
+`tenant invite-hod` afterwards, to bootstrap the first HOD. Existing HODs and
+user-management delegates use **People & Access → Invitations** in the web app.
+Delegates can directly invite lecturers; admin/HOD requests require HOD approval.
+See [the complete workflow and operator commands](../docs/admin-roles.md#email-invitations-implemented).
+
+After migration 000017, rerun `make runtime-role` as the migration owner.
+Real email requires SMTP configuration and `SMTP_MOCK=false`.

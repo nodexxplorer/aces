@@ -17,9 +17,7 @@ const DonationConfirmationPage = () => {
         <p className="text-surface-500 dark:text-surface-400 mb-4">
           Your generous contribution helps support our department and its students.
         </p>
-        {reference && (
-          <p className="text-surface-400 dark:text-surface-500 text-sm mb-6">Reference: {reference}</p>
-        )}
+        {reference && <p className="text-surface-400 dark:text-surface-500 text-sm mb-6">Reference: {reference}</p>}
         <div className="flex flex-col gap-3">
           <Link to="/alumni/give-back">
             <Button className="w-full">

@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   photoScrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   centeredContent: {
     flexGrow: 1,

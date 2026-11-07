@@ -15,7 +15,7 @@ export const useAlumniStatus = () => {
   const eligibility = checkAlumniEligibility(
     status?.graduation_year ? 5 : 3,
     status?.has_carryover ?? false,
-    status?.dues_cleared ?? false
+    status?.dues_cleared ?? false,
   );
 
   const isAlumni = user?.roles.includes('alumni') ?? false;

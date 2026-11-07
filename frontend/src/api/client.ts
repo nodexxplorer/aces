@@ -1,8 +1,16 @@
 import axios from 'axios';
-import { useAuthStore } from '../stores/authStore';
-import { cacheData, getCachedData, invalidateCache, saveOfflineAction } from '../db/offlineDb';
+import { cacheOwner, getSessionRevision, useAuthStore } from '../stores/authStore';
+import { cacheData, getCachedData, invalidateCache } from '../db/offlineDb';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
+
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    _cacheOwner?: string | null;
+    _sessionRevision?: number;
+  }
+}
+
 const API_PREFIX = '/api/v1';
 
 // The backend stores/returns upload paths as server-relative
@@ -38,6 +46,7 @@ const apiClient = axios.create({
 // would always come up empty. Holding the value from the response body
 // sidesteps that entirely.
 let csrfToken: string | null = null;
+let csrfRevision: number | null = null;
 
 // Promise that coalesces concurrent proactive CSRF fetches so only one
 // /auth/refresh call is made, even if multiple mutating requests fire at once.
@@ -45,6 +54,7 @@ let csrfAcquirePromise: Promise<void> | null = null;
 
 export function setCsrfToken(token: string | null | undefined) {
   csrfToken = token ?? null;
+  csrfRevision = getSessionRevision();
 }
 
 /**
@@ -64,9 +74,11 @@ function ensureCsrfToken(): Promise<void> {
     return Promise.resolve();
   }
   if (!csrfAcquirePromise) {
+    const revision = getSessionRevision();
     csrfAcquirePromise = axios
       .post(`${API_BASE_URL}${API_PREFIX}/auth/refresh`, {}, { withCredentials: true })
       .then((response) => {
+        if (revision !== getSessionRevision()) throw new Error('Session changed');
         setCsrfToken(response.data?.data?.csrfToken);
       })
       .catch(() => {
@@ -80,6 +92,11 @@ function ensureCsrfToken(): Promise<void> {
 }
 
 apiClient.interceptors.request.use(async (config) => {
+  config._cacheOwner = cacheOwner(useAuthStore.getState().user);
+  config._sessionRevision = getSessionRevision();
+  if (csrfRevision !== config._sessionRevision) {
+    setCsrfToken(useAuthStore.getState().tokens?.csrfToken);
+  }
   // For mutating methods, proactively acquire the CSRF token if missing.
   const method = config.method?.toLowerCase();
   if (method && method !== 'get' && method !== 'head' && method !== 'options') {
@@ -91,6 +108,7 @@ apiClient.interceptors.request.use(async (config) => {
       await ensureCsrfToken();
     }
   }
+  if (config._sessionRevision !== getSessionRevision()) throw new Error('Session changed');
   if (csrfToken) {
     config.headers['X-CSRF-Token'] = csrfToken;
   }
@@ -131,9 +149,11 @@ let refreshPromise: Promise<void> | null = null;
 
 function refreshAccessToken(): Promise<void> {
   if (!refreshPromise) {
+    const revision = getSessionRevision();
     refreshPromise = axios
       .post(`${API_BASE_URL}${API_PREFIX}/auth/refresh`, {}, { withCredentials: true })
       .then((response) => {
+        if (revision !== getSessionRevision()) throw new Error('Session changed');
         setCsrfToken(response.data?.data?.csrfToken);
       })
       .finally(() => {
@@ -147,10 +167,12 @@ apiClient.interceptors.response.use(
   (response) => {
     const method = response.config?.method?.toLowerCase();
     const url = response.config?.url || '';
-    if (method === 'get' && response.status === 200) {
+    const currentSession = response.config._sessionRevision === getSessionRevision();
+    if (!currentSession) return Promise.reject(new Error('Session changed. Please try again.'));
+    if (method === 'get' && response.status === 200 && response.config._cacheOwner) {
       const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/auth/me');
-      if (!isAuthEndpoint) {
-        const cacheKey = `${url}?${JSON.stringify(response.config?.params || {})}`;
+      if (!isAuthEndpoint && !String(response.headers['cache-control'] ?? '').includes('no-store')) {
+        const cacheKey = `${response.config._cacheOwner}:${url}?${JSON.stringify(response.config?.params || {})}`;
         cacheData(cacheKey, response.data).catch(() => {});
       }
     } else if (method && method !== 'get' && method !== 'head' && method !== 'options') {
@@ -160,6 +182,9 @@ apiClient.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
+    if (!originalRequest || originalRequest._sessionRevision !== getSessionRevision()) {
+      return Promise.reject(error);
+    }
 
     // Check for offline / network timeout fallback to cached data
     const isTimeoutOrNetworkError =
@@ -170,9 +195,10 @@ apiClient.interceptors.response.use(
 
     if (isTimeoutOrNetworkError && originalRequest?.method?.toLowerCase() === 'get') {
       const url = originalRequest.url || '';
-      const cacheKey = `${url}?${JSON.stringify(originalRequest.params || {})}`;
+      const cacheKey = `${originalRequest._cacheOwner}:${url}?${JSON.stringify(originalRequest.params || {})}`;
       try {
-        const cached = await getCachedData(cacheKey);
+        const cached = originalRequest._cacheOwner ? await getCachedData(cacheKey) : null;
+        if (originalRequest._sessionRevision !== getSessionRevision()) return Promise.reject(error);
         if (cached !== null && cached !== undefined) {
           return {
             data: cached,
@@ -191,13 +217,8 @@ apiClient.interceptors.response.use(
       }
     }
 
-    if (isTimeoutOrNetworkError && originalRequest && originalRequest.method?.toLowerCase() !== 'get') {
-      try {
-        await saveOfflineAction(originalRequest.url || '', originalRequest.data);
-      } catch {
-        // ignored
-      }
-    }
+    // Never auto-replay failed writes: a timed-out payment or mutation may
+    // already have committed. The caller must reconcile and retry explicitly.
 
     // The in-memory CSRF token (see setCsrfToken above) doesn't survive a
     // page reload — only `user`/`isAuthenticated` are persisted, not
@@ -218,6 +239,7 @@ apiClient.interceptors.response.use(
         originalRequest._retry = true;
         try {
           await refreshAccessToken();
+          if (originalRequest._sessionRevision !== getSessionRevision()) return Promise.reject(error);
           // Ensure the retried request carries the freshly acquired CSRF
           // token — delete any stale header so the request interceptor
           // re-applies the current value.
@@ -226,6 +248,7 @@ apiClient.interceptors.response.use(
           }
           return apiClient(originalRequest);
         } catch {
+          if (originalRequest._sessionRevision !== getSessionRevision()) return Promise.reject(error);
           // Clear the persisted "isAuthenticated" state before navigating —
           // otherwise PublicOnlyRoute sees isAuthenticated still true on
           // /login and immediately bounces back to /dashboard, which fires

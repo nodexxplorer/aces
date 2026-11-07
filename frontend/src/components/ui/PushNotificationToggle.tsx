@@ -4,7 +4,9 @@ const PushNotificationToggle = () => {
     <div className="flex items-center justify-between p-4 bg-surface-50 dark:bg-surface-800 rounded-lg">
       <div>
         <p className="text-sm font-medium text-surface-900 dark:text-surface-100">Push Notifications</p>
-        <p className="text-xs text-surface-500">{supported ? 'Enable browser push notifications' : 'Not supported in this browser'}</p>
+        <p className="text-xs text-surface-500">
+          {supported ? 'Enable browser push notifications' : 'Not supported in this browser'}
+        </p>
       </div>
       <button
         disabled={!supported}

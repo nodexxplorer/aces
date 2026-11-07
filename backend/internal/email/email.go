@@ -83,8 +83,8 @@ func (s *SMTPSender) SendEmailFrom(fromName string, to []string, subject, body s
 	// Since ports like 465 require implicit TLS:
 	if s.port == 465 {
 		tlsConfig := &tls.Config{
-			InsecureSkipVerify: true,
-			ServerName:         s.host,
+			MinVersion: tls.VersionTLS12,
+			ServerName: s.host,
 		}
 		conn, err := tls.Dial("tcp", addr, tlsConfig)
 		if err != nil {
