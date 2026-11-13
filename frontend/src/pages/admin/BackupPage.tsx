@@ -53,9 +53,7 @@ const BackupPage = () => {
       }
       if (s.status === 'fulfilled') setSummary(s.value);
       if (b.status === 'rejected' && s.status === 'rejected') {
-        setLoadError(
-          getErrorMessage(b.reason, getErrorMessage(s.reason, 'Failed to load backups'))
-        );
+        setLoadError(getErrorMessage(b.reason, getErrorMessage(s.reason, 'Failed to load backups')));
       }
     } catch (err: unknown) {
       setLoadError(getErrorMessage(err, 'Failed to load backups'));
@@ -128,9 +126,7 @@ const BackupPage = () => {
               <div className="flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-danger-600 shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-danger-800 dark:text-danger-300">
-                    Could not load backups
-                  </p>
+                  <p className="text-sm font-medium text-danger-800 dark:text-danger-300">Could not load backups</p>
                   <p className="text-[10px] text-danger-600 dark:text-danger-400">{loadError}</p>
                 </div>
               </div>
