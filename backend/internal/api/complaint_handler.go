@@ -61,6 +61,8 @@ func (server *Server) createComplaint(ctx *gin.Context) {
 		return
 	}
 
+	kind := "complaint"
+	server.notifyUser(ctx, userID, "general", "system", "normal", "Complaint submitted", "Your complaint has been received.", "/complaints", "View complaints", &kind, &complaint.ID)
 	ctx.JSON(http.StatusCreated, gin.H{"data": complaint})
 }
 
@@ -174,6 +176,11 @@ func (server *Server) assignComplaint(ctx *gin.Context) {
 		return
 	}
 
+	kind := "complaint"
+	server.notifyUser(ctx, assignedTo, "general", "system", "high", "Complaint assigned", "A complaint has been assigned to you for review.", "/notifications", "View notification", &kind, &complaint.ID)
+	if student, e := server.store.GetStudent(ctx, complaint.StudentID); e == nil {
+		server.notifyUser(ctx, student.UserID, "general", "system", "normal", "Complaint assigned", "Your complaint has been assigned for review.", "/complaints", "View complaints", &kind, &complaint.ID)
+	}
 	ctx.JSON(http.StatusOK, gin.H{"data": complaint})
 }
 

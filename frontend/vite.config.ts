@@ -25,6 +25,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: { importScripts: ['/push-events.js'] },
       includeAssets: ['favicon.ico', 'aces-logo.png'],
       manifest: {
         name: 'Admin Pack',

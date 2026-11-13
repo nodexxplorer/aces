@@ -1,3 +1,5 @@
+import PushNotificationToggle from '../../components/ui/PushNotificationToggle';
+import { queueNotificationTest, notificationTestReport } from '../../api/notification-delivery';
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -61,8 +63,8 @@ const TOPICS = [
   },
   {
     key: 'results',
-    label: 'Results',
-    desc: 'When new results are published',
+    label: 'Academic updates',
+    desc: 'Results, course registration and course-form signing',
     icon: Award,
   },
   {
@@ -92,7 +94,7 @@ const TOPICS = [
   {
     key: 'system',
     label: 'System',
-    desc: 'Maintenance and portal updates',
+    desc: 'Complaints, reminders and portal updates',
     icon: Sparkles,
   },
 ] as const;
@@ -107,18 +109,18 @@ const DEFAULT_PREFS = {
   email_results: true,
   email_dues: true,
   email_messages: true,
-  email_connect: true,
+  email_connect: false,
   email_skills: false,
-  email_alumni: false,
+  email_alumni: true,
   email_system: true,
   push_auth: true,
   push_results: true,
   push_dues: true,
-  push_messages: false,
-  push_connect: false,
-  push_skills: false,
-  push_alumni: false,
-  push_system: true,
+  push_messages: true,
+  push_connect: true,
+  push_skills: true,
+  push_alumni: true,
+  push_system: false,
   quiet_hours_start: '22:00',
   quiet_hours_end: '07:00',
   updated_at: new Date().toISOString(),
@@ -147,6 +149,7 @@ export default function NotificationSettingsPage() {
 
   const [saving, setSaving] = useState(false);
   const [testingNotification, setTestingNotification] = useState(false);
+  const [testResult, setTestResult] = useState('');
   const [savedPrefs, setSavedPrefs] = useState(DEFAULT_PREFS);
   const [localPrefs, setLocalPrefs] = useState(DEFAULT_PREFS);
   const [quietHoursEnabled, setQuietHoursEnabled] = useState(true);
@@ -230,16 +233,16 @@ export default function NotificationSettingsPage() {
       email_results: true,
       email_dues: true,
       email_messages: true,
-      email_connect: true,
-      email_alumni: false,
+      email_connect: false,
+      email_alumni: true,
       email_system: true,
       push_auth: true,
       push_results: true,
       push_dues: true,
-      push_messages: false,
-      push_connect: false,
-      push_alumni: false,
-      push_system: true,
+      push_messages: true,
+      push_connect: true,
+      push_alumni: true,
+      push_system: false,
     }));
   };
 
@@ -249,7 +252,10 @@ export default function NotificationSettingsPage() {
   };
 
   const handleSave = async () => {
-    if (!localPrefs) return;
+    if (!preferences) {
+      notifyError('Settings unavailable', 'Load your saved preferences before saving changes.');
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -272,13 +278,42 @@ export default function NotificationSettingsPage() {
     }
   };
 
-  const handleSendTestNotification = () => {
+  const handleSendTestNotification = async () => {
     setTestingNotification(true);
-    setTimeout(() => {
+    setTestResult('');
+    try {
+      const id = crypto.randomUUID();
+      await queueNotificationTest(id);
+      setTestResult('Test queued using saved settings. Checking actual channel jobs…');
+      const report = await notificationTestReport(id);
+      setTestResult(
+        report.channels.length
+          ? report.channels.map((c) => `${c.channel}: ${c.status}${c.detail ? ` (${c.detail})` : ''}`).join(' · ') +
+              '. Refresh status shortly for worker results. Accepted means provider acceptance, not confirmed delivery.'
+          : 'No channels queued: check saved System topic/channel preferences and registered devices.',
+      );
+      setTestId(id);
+    } catch {
+      setTestResult('Could not queue the test. No delivery is confirmed.');
+    } finally {
       setTestingNotification(false);
-      success('Test Notification Sent', 'Your notification preview was sent to active channels.');
-    }, 800);
+    }
   };
+  const [testId, setTestId] = useState('');
+  async function refreshTest() {
+    if (!testId) return;
+    try {
+      const r = await notificationTestReport(testId);
+      setTestResult(
+        r.channels.length
+          ? r.channels.map((c) => `${c.channel}: ${c.status}${c.detail ? ` (${c.detail})` : ''}`).join(' · ') +
+              '. Accepted = provider acceptance, not confirmed delivery. Simulated = no external send.'
+          : 'No channel jobs: saved settings disabled them or no push device is registered.',
+      );
+    } catch {
+      setTestResult('Could not refresh test status.');
+    }
+  }
 
   // Counts for "Your setup" summary card
   const emailTopicsActive = useMemo(() => {
@@ -410,7 +445,7 @@ export default function NotificationSettingsPage() {
                 <div>
                   <h3 className="text-xs sm:text-sm font-bold text-surface-900 dark:text-surface-100">Email</h3>
                   <p className="text-[11px] text-surface-500 dark:text-surface-400 mt-0.5 truncate">
-                    Sent to {user?.email || 'royaldlvinewill24@gmail.com'}
+                    Sent to {user?.email || 'your account email'}
                   </p>
                   <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 mt-2 flex items-center gap-1">
                     {localPrefs.email_enabled ? (
@@ -450,6 +485,7 @@ export default function NotificationSettingsPage() {
               </div>
             </div>
 
+            <PushNotificationToggle />
             {/* Main Table Card: What should we notify you about? */}
             <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/90 dark:border-surface-800 shadow-sm overflow-hidden">
               <div className="p-5 sm:p-6 border-b border-surface-100 dark:border-surface-800">
@@ -542,7 +578,8 @@ export default function NotificationSettingsPage() {
                   <div>
                     <h3 className="text-sm font-bold text-surface-900 dark:text-surface-100">Quiet hours</h3>
                     <p className="text-[11px] text-surface-500 dark:text-surface-400 mt-0.5">
-                      No notifications during these hours. Urgent security alerts still come through.
+                      Email and push wait until quiet hours end (Africa/Lagos, UTC+1). In-app history remains available.
+                      Authentication alerts bypass quiet hours, not your channel switches.
                     </p>
                   </div>
                 </div>
@@ -739,13 +776,26 @@ export default function NotificationSettingsPage() {
 
               <button
                 type="button"
-                onClick={handleSendTestNotification}
-                disabled={testingNotification}
+                onClick={() => void handleSendTestNotification()}
+                disabled={testingNotification || diffSummary.hasChanges || !preferences}
                 className="w-full py-2.5 px-4 rounded-xl border border-primary-200 dark:border-primary-800 hover:bg-primary-50 dark:hover:bg-primary-950/30 text-primary-600 dark:text-primary-400 font-semibold text-xs flex items-center justify-center gap-2 transition-colors"
               >
                 {testingNotification ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bell className="w-4 h-4" />}
                 Send a test notification
               </button>
+              <p className="text-xs text-surface-500">
+                Save changes first. This tests the System topic and respects quiet hours.
+              </p>
+              {!!testResult && (
+                <p role="status" className="text-xs">
+                  {testResult}
+                </p>
+              )}
+              {!!testId && (
+                <button type="button" className="text-xs underline" onClick={() => void refreshTest()}>
+                  Refresh test status
+                </button>
+              )}
             </div>
           </div>
         </div>

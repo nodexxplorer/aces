@@ -3,6 +3,7 @@ module github.com/aces/backend
 go 1.26.3
 
 require (
+	github.com/SherClockHolmes/webpush-go v1.4.0
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/fogleman/gg v1.3.0
 	github.com/gin-gonic/gin v1.12.0

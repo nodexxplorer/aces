@@ -10,6 +10,7 @@ import (
 
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/aces/backend/internal/email"
+	"github.com/aces/backend/internal/notify"
 	"github.com/aces/backend/internal/push"
 	"github.com/aces/backend/internal/tenant"
 	"github.com/aces/backend/internal/ws"
@@ -21,6 +22,7 @@ type NotificationServiceFull struct {
 	wsHub       *ws.Hub
 	emailSender email.EmailSender
 	pushSender  push.PushSender
+	webPush     *push.WebSender
 	frontendURL string
 	// tenants finds a recipient's department, for its name and logo in emails.
 	tenants TenantDirectory
@@ -52,93 +54,18 @@ func (s *NotificationServiceFull) CreateAndPush(
 	senderID *uuid.UUID, entityType *string, entityID *uuid.UUID,
 	metadata map[string]interface{},
 ) (db.NotificationFull, error) {
-	prefs, prefsErr := s.queries.GetNotificationPreferences(ctx, userID)
-	hasPrefs := prefsErr == nil
-	inAppAllowed := !hasPrefs || prefs.InAppEnabled
-
-	// Respecting "In-App Notifications: off" means never creating the row in
-	// the first place — ListUserNotificationsFull reads straight from this
-	// table with no preference filtering of its own, so a row that exists
-	// here will show up in the user's notification list regardless of what
-	// their toggle says. Previously this only gated the live WebSocket push,
-	// so turning the toggle off didn't actually stop anything; the
-	// notification just silently reappeared the next time they opened the
-	// list. Email/push remain independently gated below either way.
-	var notif db.NotificationFull
-	if inAppAllowed {
-		var err error
-		notif, err = s.queries.CreateNotificationFull(ctx, db.CreateNotificationFullParams{
-			UserID:      userID,
-			Type:        notifType,
-			Title:       title,
-			Message:     message,
-			Category:    category,
-			Priority:    priority,
-			SenderID:    senderID,
-			EntityType:  entityType,
-			EntityID:    entityID,
-			ActionLabel: &actionLabel,
-			Metadata:    metadata,
-		})
-		if err != nil {
-			return db.NotificationFull{}, err
-		}
-
-		if actionURL != "" {
-			notif.ActionUrl = &actionURL
-		}
-		if actionLabel != "" {
-			notif.ActionLabel = &actionLabel
-		}
-
-		if s.wsHub != nil {
-			s.wsHub.SendToUser(userID, ws.TypeNotification, notif)
-		}
+	pool, ok := s.queries.GetDB().(notify.Beginner)
+	if !ok {
+		return db.NotificationFull{}, fmt.Errorf("notification storage cannot begin transaction")
 	}
-
-	if s.emailSender != nil && (!hasPrefs || (prefs.EmailEnabled && categoryEmailAllowed(prefs, category))) {
-		bgCtx, cancel := tenant.Detach(ctx, 10*time.Second)
-		go func(uID uuid.UUID, notifTitle, notifMsg, notifActionURL, notifActionLabel string) {
-			defer cancel()
-
-			user, err := s.queries.GetUser(bgCtx, uID)
-			if err != nil || user.Email == "" {
-				return
-			}
-
-			unsubscribeToken, err := s.queries.GetOrCreateNotificationUnsubscribeToken(bgCtx, uID)
-			if err != nil {
-				log.Printf("[email-notif] failed to get unsubscribe token for %s: %v", user.Email, err)
-			}
-			unsubscribeURL := ""
-			if unsubscribeToken != "" {
-				unsubscribeURL = s.frontendURL + "/notifications/unsubscribe/" + unsubscribeToken
-			}
-
-			// The email speaks for the recipient's department.
-			brand := s.brandFor(bgCtx, user.TenantID)
-			body := s.buildNotificationEmailHTML(brand, notifTitle, notifMsg, notifActionURL, notifActionLabel, unsubscribeURL)
-
-			if err := s.emailSender.SendEmailFrom(brand.Name, []string{user.Email}, notifTitle, body, true); err != nil {
-				log.Printf("[email-notif] failed to send email to %s: %v", user.Email, err)
-			}
-		}(userID, title, message, actionURL, actionLabel)
+	key := ""
+	if metadata != nil {
+		key, _ = metadata["event_key"].(string)
 	}
-
-	if s.pushSender != nil && hasPrefs && prefs.PushEnabled && categoryPushAllowed(prefs, category) && prefs.PushToken != nil && *prefs.PushToken != "" {
-		go func(token, notifTitle, notifMsg, notifActionURL string) {
-			var data map[string]interface{}
-			if notifActionURL != "" {
-				data = map[string]interface{}{"action_url": notifActionURL}
-			}
-			if err := s.pushSender.SendPush(token, notifTitle, notifMsg, data); err != nil {
-				log.Printf("[push-notif] failed to send push: %v", err)
-			}
-		}(*prefs.PushToken, title, message, actionURL)
-	}
-
-	return notif, nil
+	return notify.Enqueue(ctx, pool, notify.Event{UserID: userID, Key: key, Type: notifType, Category: category, Priority: priority, Title: title, Message: message, ActionURL: actionURL, ActionLabel: actionLabel, SenderID: senderID, EntityType: entityType, EntityID: entityID, Metadata: metadata})
 }
+func (s *NotificationServiceFull) SetWebPush(sender *push.WebSender) { s.webPush = sender }
+
 // brandFor returns the brand of a department, or the platform brand when the
 // department cannot be found.
 func (s *NotificationServiceFull) brandFor(ctx context.Context, tenantID uuid.UUID) tenant.Brand {
@@ -252,53 +179,6 @@ func (s *NotificationServiceFull) buildNotificationEmailHTML(brand tenant.Brand,
 		</td>
 	</tr>
 </table>`, headerCell, nameEsc, subtitleEsc, html.EscapeString(title), html.EscapeString(message), ctaBlock, nameEsc, year, footerLine, unsubscribeBlock)
-}
-
-
-func categoryEmailAllowed(prefs db.NotificationPreferenceView, category string) bool {
-	switch category {
-	case "auth":
-		return prefs.EmailAuth
-	case "results":
-		return prefs.EmailResults
-	case "dues":
-		return prefs.EmailDues
-	case "messages":
-		return prefs.EmailMessages
-	case "connect":
-		return prefs.EmailConnect
-	case "skills":
-		return prefs.EmailSkills
-	case "alumni":
-		return prefs.EmailAlumni
-	case "system":
-		return prefs.EmailSystem
-	default:
-		return true
-	}
-}
-
-func categoryPushAllowed(prefs db.NotificationPreferenceView, category string) bool {
-	switch category {
-	case "auth":
-		return prefs.PushAuth
-	case "results":
-		return prefs.PushResults
-	case "dues":
-		return prefs.PushDues
-	case "messages":
-		return prefs.PushMessages
-	case "connect":
-		return prefs.PushConnect
-	case "skills":
-		return prefs.PushSkills
-	case "alumni":
-		return prefs.PushAlumni
-	case "system":
-		return prefs.PushSystem
-	default:
-		return true
-	}
 }
 
 func (s *NotificationServiceFull) List(ctx context.Context, userID uuid.UUID, category, status string, limit, offset int32) ([]db.NotificationFull, error) {

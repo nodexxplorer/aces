@@ -143,3 +143,27 @@ See [the complete workflow and operator commands](../docs/admin-roles.md#email-i
 
 After migration 000017, rerun `make runtime-role` as the migration owner.
 Real email requires SMTP configuration and `SMTP_MOCK=false`.
+
+## Verified attendance pilot
+
+The new lecturer-finalized attendance workflow is isolated from legacy sheets.
+Apply migration `000018` and refresh runtime-role grants before using it. The
+React Attendance screens and updated mobile scanner use `/verified-attendance`;
+75% eligibility snapshots are versioned pilot reports, not automatic exam bans.
+See [deployment, policy and operational limits](../docs/verified-attendance.md).
+
+## Connect private media
+
+Connect supports automatically compressed images and microphone-recorded voice
+notes in private chats and groups. Video and existing-audio file attachments are
+disabled. Apply migration `000019`, refresh runtime-role grants, deploy ffmpeg
+and durable private storage, and rebuild native clients before release.
+See [limits, privacy, testing and cleanup](../docs/connect-media.md).
+
+## Notification delivery
+
+Activity notifications now use tenant-scoped durable channel jobs and a delivery
+worker. Apply migration `000020` and refresh runtime-role grants before release.
+See [event coverage, truthful test controls and Railway setup](../docs/notifications.md).
+Real SMTP/Expo/browser delivery still requires production credentials and device
+verification; mock mode reports simulation, not delivery. Backup remains on hold.

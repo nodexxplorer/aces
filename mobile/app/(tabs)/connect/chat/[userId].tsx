@@ -1,50 +1,64 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import ConnectComposer from "../../../../src/components/ConnectComposer";
+import ConnectAttachments from "../../../../src/components/ConnectAttachments";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
-  TextInput,
   FlatList,
   Pressable,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-} from 'react-native';
-import Text from '../../../../src/components/ui/Text';
-import EmptyState from '../../../../src/components/ui/EmptyState';
-import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../../../src/theme/ThemeProvider';
-import { fontFamily, fontSize, radius, spacing } from '../../../../src/theme/typography';
-import { haptics } from '../../../../src/utils/haptics';
-import { useAuthStore } from '../../../../src/store/authStore';
-import { useUnreadStore } from '../../../../src/store/unreadStore';
-import { useWebSocket, getChatSocketUrl } from '../../../../src/hooks/useWebSocket';
-import { getConversation, sendChatMessage, markMessageRead, type ChatMessage } from '../../../../src/api/connect';
+} from "react-native";
+import Text from "../../../../src/components/ui/Text";
+import EmptyState from "../../../../src/components/ui/EmptyState";
+import { useLocalSearchParams, useRouter, useNavigation } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "../../../../src/theme/ThemeProvider";
+import {
+  fontFamily,
+  fontSize,
+  radius,
+  spacing,
+} from "../../../../src/theme/typography";
+import { useAuthStore } from "../../../../src/store/authStore";
+import { useUnreadStore } from "../../../../src/store/unreadStore";
+import {
+  useWebSocket,
+  getChatSocketUrl,
+} from "../../../../src/hooks/useWebSocket";
+import {
+  getConversation,
+  markMessageRead,
+  type ChatMessage,
+} from "../../../../src/api/connect";
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/);
-  return `${parts[0]?.[0] ?? ''}${parts[1]?.[0] ?? ''}`.toUpperCase() || '?';
+  return `${parts[0]?.[0] ?? ""}${parts[1]?.[0] ?? ""}`.toUpperCase() || "?";
 }
 
 export default function ChatScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { userId, name } = useLocalSearchParams<{ userId: string; name?: string }>();
+  const { userId, name } = useLocalSearchParams<{
+    userId: string;
+    name?: string;
+  }>();
   const myId = useAuthStore((s) => s.user?.id);
-  const otherName = name ?? 'Chat';
+  const otherName = name ?? "Chat";
   const navigation = useNavigation();
 
   useEffect(() => {
     const parent = navigation.getParent();
-    parent?.setOptions({ tabBarStyle: { display: 'none' } });
+    parent?.setOptions({ tabBarStyle: { display: "none" } });
     return () => parent?.setOptions({ tabBarStyle: undefined });
   }, [navigation]);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [text, setText] = useState('');
+  const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
   const listRef = useRef<FlatList>(null);
 
   const { lastMessage } = useWebSocket(myId ? getChatSocketUrl() : undefined);
@@ -54,7 +68,9 @@ export default function ChatScreen() {
     try {
       const data = await getConversation(userId);
       setMessages(data);
-      const unreadFromThem = data.filter((msg) => !msg.is_read && msg.sender_id === userId);
+      const unreadFromThem = data.filter(
+        (msg) => !msg.is_read && msg.sender_id === userId,
+      );
       for (const msg of unreadFromThem) {
         markMessageRead(msg.id).catch(() => {});
       }
@@ -75,9 +91,16 @@ export default function ChatScreen() {
   useEffect(() => {
     if (!lastMessage) return;
     try {
-      const frame = JSON.parse(lastMessage) as { type: string; payload: ChatMessage };
-      if (frame.type === 'chat' && frame.payload.sender_id === userId) {
-        setMessages((prev) => (prev.some((m) => m.id === frame.payload.id) ? prev : [...prev, frame.payload]));
+      const frame = JSON.parse(lastMessage) as {
+        type: string;
+        payload: ChatMessage;
+      };
+      if (frame.type === "chat" && frame.payload.sender_id === userId) {
+        setMessages((prev) =>
+          prev.some((m) => m.id === frame.payload.id)
+            ? prev
+            : [...prev, frame.payload],
+        );
         markMessageRead(frame.payload.id).catch(() => {});
       }
     } catch {
@@ -91,38 +114,35 @@ export default function ChatScreen() {
     }
   }, [messages.length]);
 
-  const handleSend = async () => {
-    if (!text.trim() || sending || !userId) return;
-    const content = text.trim();
-    setText('');
-    setSending(true);
-    haptics.tap();
-    try {
-      const msg = await sendChatMessage(userId, content);
-      setMessages((prev) => [...prev, msg]);
-    } catch {
-      haptics.error();
-      setText(content);
-    } finally {
-      setSending(false);
-    }
-  };
-
   return (
     <KeyboardAvoidingView
       style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={insets.top}
     >
       <View style={[styles.flex, { backgroundColor: theme.background }]}>
-        <View style={[styles.header, { paddingTop: insets.top + spacing.sm, borderColor: theme.divider }]}>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backButton}>
+        <View
+          style={[
+            styles.header,
+            { paddingTop: insets.top + spacing.sm, borderColor: theme.divider },
+          ]}
+        >
+          <Pressable
+            onPress={() => router.back()}
+            hitSlop={12}
+            style={styles.backButton}
+          >
             <Ionicons name="chevron-back" size={20} color={theme.text} />
           </Pressable>
-          <View style={[styles.avatarFallback, { backgroundColor: theme.primary }]}>
+          <View
+            style={[styles.avatarFallback, { backgroundColor: theme.primary }]}
+          >
             <Text style={styles.avatarText}>{initials(otherName)}</Text>
           </View>
-          <Text style={[styles.headerName, { color: theme.text }]} numberOfLines={1}>
+          <Text
+            style={[styles.headerName, { color: theme.text }]}
+            numberOfLines={1}
+          >
             {otherName}
           </Text>
         </View>
@@ -133,21 +153,42 @@ export default function ChatScreen() {
           keyExtractor={(m) => m.id}
           contentContainerStyle={styles.messagesContent}
           ListEmptyComponent={
-            !loading ? <EmptyState title="No messages yet" description="Say hello!" /> : null
+            !loading ? (
+              <EmptyState title="No messages yet" description="Say hello!" />
+            ) : null
           }
           renderItem={({ item }) => {
             const isMine = item.sender_id === myId;
             return (
-              <View style={[styles.bubbleRow, isMine ? styles.bubbleRowMine : styles.bubbleRowTheirs]}>
+              <View
+                style={[
+                  styles.bubbleRow,
+                  isMine ? styles.bubbleRowMine : styles.bubbleRowTheirs,
+                ]}
+              >
                 <View
                   style={[
                     styles.bubble,
                     isMine
-                      ? { backgroundColor: theme.primary, borderBottomRightRadius: radius.sm }
-                      : { backgroundColor: theme.card, borderBottomLeftRadius: radius.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.cardBorder },
+                      ? {
+                          backgroundColor: theme.primary,
+                          borderBottomRightRadius: radius.sm,
+                        }
+                      : {
+                          backgroundColor: theme.card,
+                          borderBottomLeftRadius: radius.sm,
+                          borderWidth: StyleSheet.hairlineWidth,
+                          borderColor: theme.cardBorder,
+                        },
                   ]}
                 >
-                  <Text style={[styles.bubbleText, { color: isMine ? theme.onPrimary : theme.text }]}>
+                  <ConnectAttachments items={item.attachments} />
+                  <Text
+                    style={[
+                      styles.bubbleText,
+                      { color: isMine ? theme.onPrimary : theme.text },
+                    ]}
+                  >
                     {item.content}
                   </Text>
                 </View>
@@ -156,31 +197,20 @@ export default function ChatScreen() {
           }}
         />
 
-        <View
-          style={[
-            styles.inputRow,
-            {
-              paddingBottom: insets.bottom + spacing.sm,
-              backgroundColor: theme.background,
-              borderColor: theme.divider,
-            },
-          ]}
-        >
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            placeholder="Type a message..."
-            placeholderTextColor={theme.textFaint}
-            style={[styles.input, { backgroundColor: theme.card, borderColor: theme.cardBorder, color: theme.text }]}
-            multiline
+        <View style={{ paddingBottom: insets.bottom }}>
+          <ConnectComposer
+            key={`${myId}:dm:${userId}`}
+            target={{ kind: "dm", id: userId }}
+            text={text}
+            onText={setText}
+            onSent={(m) =>
+              setMessages((prev) =>
+                prev.some((old) => old.id === m.id)
+                  ? prev
+                  : [...prev, m as ChatMessage],
+              )
+            }
           />
-          <Pressable
-            onPress={handleSend}
-            disabled={!text.trim() || sending}
-            style={[styles.sendButton, { backgroundColor: theme.primary, opacity: !text.trim() || sending ? 0.5 : 1 }]}
-          >
-            <Ionicons name="send" size={18} color={theme.onPrimary} />
-          </Pressable>
         </View>
       </View>
     </KeyboardAvoidingView>
@@ -190,8 +220,8 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
@@ -205,13 +235,13 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   avatarText: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.xs,
-    color: '#fff',
+    color: "#fff",
   },
   headerName: {
     fontFamily: fontFamily.semibold,
@@ -224,22 +254,22 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   emptyText: {
-    textAlign: 'center',
-    marginTop: spacing['3xl'],
+    textAlign: "center",
+    marginTop: spacing["3xl"],
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
   },
   bubbleRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   bubbleRowMine: {
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
   },
   bubbleRowTheirs: {
-    justifyContent: 'flex-start',
+    justifyContent: "flex-start",
   },
   bubble: {
-    maxWidth: '78%',
+    maxWidth: "78%",
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.lg,
@@ -250,8 +280,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
+    flexDirection: "row",
+    alignItems: "flex-end",
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
@@ -271,7 +301,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

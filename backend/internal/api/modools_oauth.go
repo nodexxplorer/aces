@@ -451,7 +451,7 @@ func (server *Server) modoolsCallback(ctx *gin.Context) {
 		ctx,
 		created.ID,
 		"general",
-		"system",
+		"auth",
 		"normal",
 		"Welcome to "+brandName(ctx)+"!",
 		"Your account was created via Modools. Finish setting up your profile to continue.",
@@ -479,6 +479,7 @@ func hasStaffRole(roleNames []string) bool {
 // app (modoolsHandOff). A web sign-in ends with the session in the fragment of
 // the website's own sign-in page, as before.
 func (server *Server) modoolsFinish(ctx *gin.Context, user db.User, oauthToken *oauth2.Token, challenge string) {
+
 	if oauthToken != nil && oauthToken.RefreshToken != "" {
 		if q, ok := server.store.(*db.Queries); ok {
 			_ = q.UpdateModoolsRefreshToken(ctx, user.ID, strPtr(oauthToken.RefreshToken))
@@ -505,6 +506,7 @@ func (server *Server) modoolsWebSession(ctx *gin.Context, user db.User) {
 		server.modoolsBack(ctx, false, "error="+modoolsCallbackError)
 		return
 	}
+	server.notifyUser(ctx, user.ID, "general", "auth", "low", "Login Successful", "You have signed in using Modools.", "/dashboard", "Go to dashboard", nil, nil)
 	resp.Tokens.CsrfToken = server.setTokenCookies(ctx, &resp.Tokens)
 	payload, err := json.Marshal(gin.H{"user": resp.User, "tokens": resp.Tokens})
 	if err != nil {

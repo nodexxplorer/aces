@@ -5,26 +5,22 @@ import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'ex
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { useTheme } from '../src/theme/ThemeProvider';
 import { fontFamily, fontSize, radius, spacing } from '../src/theme/typography';
 import Button from '../src/components/ui/Button';
-import { selfCheckIn } from '../src/api/attendance';
+import { Alert } from 'react-native';
+import { verifiedCheckIn, parseVerifiedAttendanceQR } from '../src/api/verified-attendance';
 import { haptics } from '../src/utils/haptics';
 import { PROFILE_SCAN_PARAM } from '../src/config';
-
-// Attendance check-in QR codes encode a plain URL (.../attendance/checkin?session=<id>) —
-// any stock camera app can open them.
-function extractAttendanceSessionId(data: string): string | null {
-  if (!data.startsWith('http')) return null;
-  try {
-    const url = new URL(data);
-    if (!url.pathname.includes('/attendance/checkin')) return null;
-    return url.searchParams.get('session');
-  } catch {
-    return null;
-  }
-}
 
 // A student's profile QR (see Profile screen) encodes .../connect?scan=<userId>
 // — same URL shape the web app's class-rep scanner and Connect page already
@@ -51,10 +47,7 @@ export default function ScanScreen() {
   const lastScan = useRef<string | null>(null);
 
   useState(() => {
-    lineY.value = withRepeat(
-      withSequence(withTiming(1, { duration: 1400 }), withTiming(0, { duration: 1400 })),
-      -1,
-    );
+    lineY.value = withRepeat(withSequence(withTiming(1, { duration: 1400 }), withTiming(0, { duration: 1400 })), -1);
   });
 
   const scanLineStyle = useAnimatedStyle(() => ({
@@ -68,7 +61,7 @@ export default function ScanScreen() {
     setLocked(true);
     haptics.tap();
 
-    const sessionId = extractAttendanceSessionId(scan.data);
+    const attendance = parseVerifiedAttendanceQR(scan.data);
     const scannedUserId = extractProfileScanUserId(scan.data);
 
     if (scannedUserId) {
@@ -77,16 +70,45 @@ export default function ScanScreen() {
       return;
     }
 
-    if (!sessionId) {
+    if (!attendance) {
       haptics.error();
-      setResult({ ok: false, text: 'Not a recognized attendance or profile QR code.' });
+      setResult({
+        ok: false,
+        text: 'Scan a current verified-attendance or profile QR code. Legacy attendance codes are not accepted here.',
+      });
       return;
     }
 
     try {
-      await selfCheckIn(sessionId);
+      const consent = await new Promise<boolean>((resolve) =>
+        Alert.alert(
+          'Submit lecture attendance?',
+          'This uses a registered app credential and, with permission, one location reading. Missing location or an unverified device is sent to the lecturer for review. No face recognition is used.',
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Confirm presence', onPress: () => resolve(true) },
+          ],
+          { cancelable: true, onDismiss: () => resolve(false) },
+        ),
+      );
+      if (!consent) {
+        setResult({
+          ok: false,
+          text: 'Attendance not submitted. Scan the current code when ready.',
+        });
+        return;
+      }
+      const record = await verifiedCheckIn(attendance.id, attendance.challenge);
       haptics.success();
-      setResult({ ok: true, text: 'You have been marked present.' });
+      setResult({
+        ok: true,
+        text:
+          record.verification === 'rejected' || record.outcome === 'absent'
+            ? 'Your existing attendance was reviewed as absent. View the decision or submit a dispute from Attendance.'
+            : record.verification === 'flagged' || record.verification === 'pending'
+              ? 'Received for lecturer review — not an automatic absence. Track the decision from Attendance.'
+              : 'Attendance recorded. The lecturer must finalize the session before this is official.',
+      });
     } catch (err: unknown) {
       haptics.error();
       const message =
@@ -112,9 +134,7 @@ export default function ScanScreen() {
       <View style={[styles.flex, styles.center, { backgroundColor: theme.background, padding: spacing.xl }]}>
         <Ionicons name="camera-outline" size={48} color={theme.textFaint} />
         <Text style={[styles.permTitle, { color: theme.text }]}>Camera access needed</Text>
-        <Text style={[styles.permBody, { color: theme.textMuted }]}>
-          Scan attendance or student profile QR codes.
-        </Text>
+        <Text style={[styles.permBody, { color: theme.textMuted }]}>Scan attendance or student profile QR codes.</Text>
         <Button label="Grant Permission" onPress={requestPermission} size="lg" />
         <Pressable onPress={() => router.back()} style={{ marginTop: spacing.lg }}>
           <Text style={{ color: theme.textMuted, fontFamily: fontFamily.medium }}>Cancel</Text>
@@ -155,7 +175,9 @@ export default function ScanScreen() {
             <View
               style={[
                 styles.resultIconWrap,
-                { backgroundColor: result.ok ? theme.successMuted : theme.dangerMuted },
+                {
+                  backgroundColor: result.ok ? theme.successMuted : theme.dangerMuted,
+                },
               ]}
             >
               <Ionicons
@@ -184,8 +206,17 @@ export default function ScanScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { alignItems: 'center', justifyContent: 'center', gap: spacing.md },
-  permTitle: { fontFamily: fontFamily.bold, fontSize: fontSize.lg, marginTop: spacing.sm },
-  permBody: { fontFamily: fontFamily.regular, fontSize: fontSize.sm, textAlign: 'center', marginBottom: spacing.md },
+  permTitle: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
+    marginTop: spacing.sm,
+  },
+  permBody: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
   overlay: {
     ...StyleSheet.absoluteFill,
     alignItems: 'center',

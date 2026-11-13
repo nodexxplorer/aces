@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"log"
@@ -155,7 +156,6 @@ func unpaidRequiredDues(ctx context.Context, store db.Querier, studentID uuid.UU
 	return unpaid, nil
 }
 
-
 func (server *Server) blockOnUnpaidDues(ctx *gin.Context, student db.Student, action string) bool {
 	if unpaid, err := unpaidRequiredDues(ctx, server.store, student.ID, student.Level); err == nil && len(unpaid) > 0 {
 		ctx.JSON(http.StatusForbidden, gin.H{
@@ -296,25 +296,27 @@ func (server *Server) notifyUser(
 		return
 	}
 	bgCtx, cancel := tenant.Detach(ctx, 5*time.Second)
-	go func() {
-		defer cancel()
-		_, err := server.notificationsFull.CreateAndPush(
-			bgCtx,
-			userID,
-			notifType,
-			category,
-			priority,
-			title,
-			message,
-			actionURL,
-			actionLabel,
-			nil,
-			entityType,
-			entityID,
-			nil,
-		)
-		if err != nil {
-			log.Printf("[notification] failed to send notification (type=%s, user=%s): %v", notifType, userID, err)
-		}
-	}()
+	defer cancel()
+	var metadata map[string]interface{}
+	if entityID != nil {
+		metadata = map[string]interface{}{"event_key": fmt.Sprintf("entity:%s:%x", entityID.String(), sha256.Sum256([]byte(category+":"+title+":"+message)))}
+	}
+	_, err := server.notificationsFull.CreateAndPush(
+		bgCtx,
+		userID,
+		notifType,
+		category,
+		priority,
+		title,
+		message,
+		actionURL,
+		actionLabel,
+		nil,
+		entityType,
+		entityID,
+		metadata,
+	)
+	if err != nil {
+		log.Printf("[notification] failed to send notification (type=%s, user=%s): %v", notifType, userID, err)
+	}
 }

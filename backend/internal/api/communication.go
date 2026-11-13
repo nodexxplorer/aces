@@ -1,7 +1,10 @@
 package api
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
+	"time"
 
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/gin-gonic/gin"
@@ -193,10 +196,39 @@ type updateNotificationPreferencesRequest struct {
 func (server *Server) updateMyNotificationPreferences(ctx *gin.Context) {
 	userID := getUserID(ctx)
 
-	var req updateNotificationPreferencesRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
+	ctx.Request.Body = http.MaxBytesReader(ctx.Writer, ctx.Request.Body, 16<<10)
+	raw, err := io.ReadAll(ctx.Request.Body)
+	if err != nil {
+		ctx.JSON(400, gin.H{"error": "invalid preferences"})
 		return
+	}
+	var req updateNotificationPreferencesRequest
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(raw, &req) != nil || json.Unmarshal(raw, &fields) != nil || fields == nil {
+		ctx.JSON(400, gin.H{"error": "invalid preferences"})
+		return
+	}
+	_, hasStart := fields["quiet_hours_start"]
+	_, hasEnd := fields["quiet_hours_end"]
+	if hasStart != hasEnd {
+		ctx.JSON(400, gin.H{"error": "provide both quiet-hour values or null for both"})
+		return
+	}
+	if hasStart {
+		if (req.QuietHoursStart == nil) != (req.QuietHoursEnd == nil) {
+			ctx.JSON(400, gin.H{"error": "provide both quiet-hour values or null for both"})
+			return
+		}
+		for _, v := range []*string{req.QuietHoursStart, req.QuietHoursEnd} {
+			if v != nil {
+				if _, err := time.Parse("15:04", *v); err != nil {
+					if _, err = time.Parse("15:04:05", *v); err != nil {
+						ctx.JSON(400, gin.H{"error": "quiet hours must be HH:MM"})
+						return
+					}
+				}
+			}
+		}
 	}
 
 	prefs, err := server.notificationsFull.UpdatePreferences(ctx, db.UpsertNotificationPreferencesParams{
@@ -222,6 +254,7 @@ func (server *Server) updateMyNotificationPreferences(ctx *gin.Context) {
 		PushSystem:      req.PushSystem,
 		QuietHoursStart: req.QuietHoursStart,
 		QuietHoursEnd:   req.QuietHoursEnd,
+		QuietHoursSet:   hasStart,
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -251,13 +284,24 @@ func (server *Server) updateMyPushToken(ctx *gin.Context) {
 		return
 	}
 
-	prefs, err := queries.SetUserPushToken(ctx, userID, req.PushToken)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+	if !validExpoToken(req.PushToken) {
+		ctx.JSON(400, gin.H{"error": "invalid Expo push token"})
 		return
 	}
+	if err := server.saveNotificationDevice(ctx, "expo", req.PushToken, nil); err != nil {
+		ctx.JSON(500, gin.H{"error": "could not register push device"})
+		return
+	}
+	prefs, err := queries.GetNotificationPreferences(ctx, userID)
+	if err != nil {
+		prefs, err = queries.UpsertNotificationPreferences(ctx, db.UpsertNotificationPreferencesParams{UserID: userID})
+	}
+	if err != nil {
+		ctx.JSON(500, gin.H{"error": "could not load preferences"})
+		return
+	}
+	ctx.JSON(200, prefs)
 
-	ctx.JSON(http.StatusOK, prefs)
 }
 
 // unsubscribeFromEmails GET /notifications/unsubscribe/:token
@@ -283,11 +327,8 @@ func (server *Server) unsubscribeFromEmails(ctx *gin.Context) {
 		return
 	}
 
-	// UpsertNotificationPreferences treats every nil field as "reset to
-	// default", not "leave unchanged" — so the user's other saved
-	// preferences (push categories, quiet hours, etc.) have to be carried
-	// forward explicitly here rather than just flipping email_enabled alone,
-	// or this would silently wipe out the rest of their settings.
+	// Preserve the recipient's existing settings; the dispatcher also supports
+	// partial preference updates without resetting unrelated fields.
 	params := db.UpsertNotificationPreferencesParams{UserID: userID}
 	if existing, prefErr := server.notificationsFull.GetPreferences(ctx, userID); prefErr == nil {
 		params = notificationPreferencesToUpsertParams(existing)
@@ -305,26 +346,25 @@ func (server *Server) unsubscribeFromEmails(ctx *gin.Context) {
 
 func notificationPreferencesToUpsertParams(p db.NotificationPreferenceView) db.UpsertNotificationPreferencesParams {
 	return db.UpsertNotificationPreferencesParams{
-		UserID:          p.UserID,
-		EmailEnabled:    &p.EmailEnabled,
-		PushEnabled:     &p.PushEnabled,
-		InAppEnabled:    &p.InAppEnabled,
-		EmailAuth:       &p.EmailAuth,
-		EmailResults:    &p.EmailResults,
-		EmailDues:       &p.EmailDues,
-		EmailMessages:   &p.EmailMessages,
-		EmailConnect:    &p.EmailConnect,
-		EmailSkills:     &p.EmailSkills,
-		EmailAlumni:     &p.EmailAlumni,
-		EmailSystem:     &p.EmailSystem,
-		PushAuth:        &p.PushAuth,
-		PushResults:     &p.PushResults,
-		PushDues:        &p.PushDues,
-		PushMessages:    &p.PushMessages,
-		PushConnect:     &p.PushConnect,
-		PushSkills:      &p.PushSkills,
-		PushAlumni:      &p.PushAlumni,
-		PushSystem:      &p.PushSystem,
+		UserID:        p.UserID,
+		EmailEnabled:  &p.EmailEnabled,
+		PushEnabled:   &p.PushEnabled,
+		InAppEnabled:  &p.InAppEnabled,
+		EmailAuth:     &p.EmailAuth,
+		EmailResults:  &p.EmailResults,
+		EmailDues:     &p.EmailDues,
+		EmailMessages: &p.EmailMessages,
+		EmailConnect:  &p.EmailConnect,
+		EmailSkills:   &p.EmailSkills,
+		EmailAlumni:   &p.EmailAlumni,
+		EmailSystem:   &p.EmailSystem,
+		PushAuth:      &p.PushAuth,
+		PushResults:   &p.PushResults,
+		PushDues:      &p.PushDues,
+		PushMessages:  &p.PushMessages,
+		PushConnect:   &p.PushConnect,
+		PushSkills:    &p.PushSkills,
+		PushAlumni:    &p.PushAlumni,
+		PushSystem:    &p.PushSystem,
 	}
 }
-

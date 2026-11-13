@@ -196,6 +196,7 @@ func (server *Server) acceptAccessInvitation(ctx *gin.Context) {
 		invitationError(ctx, err)
 		return
 	}
+	server.notifyUser(ctx, user.ID, "general", "auth", "normal", "Account ready", "Your invitation has been accepted and your account is ready.", "/dashboard", "Go to dashboard", nil, nil)
 	resp.Tokens.CsrfToken = server.setTokenCookies(ctx, &resp.Tokens)
 	ctx.JSON(http.StatusOK, gin.H{"data": resp})
 }

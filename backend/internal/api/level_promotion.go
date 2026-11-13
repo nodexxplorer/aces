@@ -1,16 +1,14 @@
 package api
 
 import (
-	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
 	db "github.com/aces/backend/internal/db/sql"
-	"github.com/aces/backend/internal/tenant"
+	"github.com/aces/backend/internal/notify"
 )
 
 // ── Session roll-over: HOD/admin-confirmed batch level promotion ──
@@ -200,47 +198,25 @@ func (server *Server) confirmLevelPromotion(ctx *gin.Context) {
 		return
 	}
 
+	sessionName, e := txQueries.GetSessionName(ctx, sessionID)
+	if e != nil {
+		sessionName = "the new session"
+	}
+	kind := "level_promotion"
+	for _, uid := range promotedUserIDs {
+		if _, e = notify.EnqueueTx(ctx, tx, notify.Event{UserID: uid, Key: "promotion:" + sessionID.String(), Type: "general", Category: "results", Priority: "normal", Title: "Level Promotion", Message: fmt.Sprintf("Congratulations! You have been promoted to the next level for %s.", sessionName), ActionURL: "/notifications", ActionLabel: "View notifications", EntityType: &kind, EntityID: &sessionID}); e != nil {
+			ctx.JSON(500, gin.H{"error": "could not queue promotion notifications"})
+			return
+		}
+	}
 	if err := tx.Commit(ctx); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-
-	// Fire-and-forget notifications (outside the tx; failure is non-fatal).
-	// The detached context is taken now, while the request still holds the
-	// department; the goroutine must not read it from the gin context later.
-	bgCtx, cancel := tenant.Detach(ctx, 30*time.Second)
-	go func() {
-		defer cancel()
-		server.notifyPromotions(bgCtx, promotedUserIDs, sessionID)
-	}()
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"promoted": promoted,
 		"rolled":   rolled,
 		"notified": len(promotedUserIDs),
 	})
-}
-
-// notifyPromotions tells each promoted student their new level.
-func (server *Server) notifyPromotions(ctx context.Context, userIDs []uuid.UUID, sessionID uuid.UUID) {
-	queries, ok := server.store.(*db.Queries)
-	if !ok {
-		return
-	}
-	sessionName, err := queries.GetSessionName(ctx, sessionID)
-	if err != nil {
-		sessionName = "the new session"
-	}
-
-	for _, uid := range userIDs {
-		_, _ = queries.CreateNotificationFull(ctx, db.CreateNotificationFullParams{
-			UserID:    uid,
-			Type:      "system",
-			Title:     "Level Promotion",
-			Message:   fmt.Sprintf("Congratulations! You have been promoted to the next level for %s.", sessionName),
-			Category:  "academic",
-			Priority:  "normal",
-			EmailSent: false,
-		})
-	}
 }

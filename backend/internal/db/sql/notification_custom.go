@@ -47,32 +47,32 @@ type CategoryCount struct {
 // notification_preferences rows, it will emit the generated model — keep
 // the two distinct.
 type NotificationPreferenceView struct {
-	ID             uuid.UUID          `json:"id"`
-	UserID         uuid.UUID          `json:"user_id"`
-	EmailEnabled   bool               `json:"email_enabled"`
-	PushEnabled    bool               `json:"push_enabled"`
-	InAppEnabled   bool               `json:"in_app_enabled"`
-	EmailAuth      bool               `json:"email_auth"`
-	EmailResults   bool               `json:"email_results"`
-	EmailDues      bool               `json:"email_dues"`
-	EmailMessages  bool               `json:"email_messages"`
-	EmailConnect   bool               `json:"email_connect"`
-	EmailSkills    bool               `json:"email_skills"`
-	EmailAlumni    bool               `json:"email_alumni"`
-	EmailSystem    bool               `json:"email_system"`
-	PushAuth       bool               `json:"push_auth"`
-	PushResults    bool               `json:"push_results"`
-	PushDues       bool               `json:"push_dues"`
-	PushMessages   bool               `json:"push_messages"`
-	PushConnect    bool               `json:"push_connect"`
-	PushSkills     bool               `json:"push_skills"`
-	PushAlumni     bool               `json:"push_alumni"`
-	PushSystem     bool               `json:"push_system"`
-	QuietHoursStart *string           `json:"quiet_hours_start"`
-	QuietHoursEnd   *string           `json:"quiet_hours_end"`
-	PushToken      *string            `json:"-"`
-	WebPushSubscription *string       `json:"-"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	ID                  uuid.UUID          `json:"id"`
+	UserID              uuid.UUID          `json:"user_id"`
+	EmailEnabled        bool               `json:"email_enabled"`
+	PushEnabled         bool               `json:"push_enabled"`
+	InAppEnabled        bool               `json:"in_app_enabled"`
+	EmailAuth           bool               `json:"email_auth"`
+	EmailResults        bool               `json:"email_results"`
+	EmailDues           bool               `json:"email_dues"`
+	EmailMessages       bool               `json:"email_messages"`
+	EmailConnect        bool               `json:"email_connect"`
+	EmailSkills         bool               `json:"email_skills"`
+	EmailAlumni         bool               `json:"email_alumni"`
+	EmailSystem         bool               `json:"email_system"`
+	PushAuth            bool               `json:"push_auth"`
+	PushResults         bool               `json:"push_results"`
+	PushDues            bool               `json:"push_dues"`
+	PushMessages        bool               `json:"push_messages"`
+	PushConnect         bool               `json:"push_connect"`
+	PushSkills          bool               `json:"push_skills"`
+	PushAlumni          bool               `json:"push_alumni"`
+	PushSystem          bool               `json:"push_system"`
+	QuietHoursStart     *string            `json:"quiet_hours_start"`
+	QuietHoursEnd       *string            `json:"quiet_hours_end"`
+	PushToken           *string            `json:"-"`
+	WebPushSubscription *string            `json:"-"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 }
 
 type CreateNotificationFullParams struct {
@@ -94,28 +94,29 @@ type CreateNotificationFullParams struct {
 }
 
 type UpsertNotificationPreferencesParams struct {
-	UserID         uuid.UUID
-	EmailEnabled   *bool
-	PushEnabled    *bool
-	InAppEnabled   *bool
-	EmailAuth      *bool
-	EmailResults   *bool
-	EmailDues      *bool
-	EmailMessages  *bool
-	EmailConnect   *bool
-	EmailSkills    *bool
-	EmailAlumni    *bool
-	EmailSystem    *bool
-	PushAuth       *bool
-	PushResults    *bool
-	PushDues       *bool
-	PushMessages   *bool
-	PushConnect    *bool
-	PushSkills     *bool
-	PushAlumni     *bool
-	PushSystem     *bool
+	UserID          uuid.UUID
+	EmailEnabled    *bool
+	PushEnabled     *bool
+	InAppEnabled    *bool
+	EmailAuth       *bool
+	EmailResults    *bool
+	EmailDues       *bool
+	EmailMessages   *bool
+	EmailConnect    *bool
+	EmailSkills     *bool
+	EmailAlumni     *bool
+	EmailSystem     *bool
+	PushAuth        *bool
+	PushResults     *bool
+	PushDues        *bool
+	PushMessages    *bool
+	PushConnect     *bool
+	PushSkills      *bool
+	PushAlumni      *bool
+	PushSystem      *bool
 	QuietHoursStart *string
 	QuietHoursEnd   *string
+	QuietHoursSet   bool
 }
 
 // ─── Full column list used in SELECTs ───────────────────────────────────────
@@ -376,146 +377,12 @@ func (q *Queries) SetUserPushToken(ctx context.Context, userID uuid.UUID, token 
 }
 
 func (q *Queries) UpsertNotificationPreferences(ctx context.Context, arg UpsertNotificationPreferencesParams) (NotificationPreferenceView, error) {
-	emailEnabled := true
-	if arg.EmailEnabled != nil {
-		emailEnabled = *arg.EmailEnabled
-	}
-	pushEnabled := true
-	if arg.PushEnabled != nil {
-		pushEnabled = *arg.PushEnabled
-	}
-	inAppEnabled := true
-	if arg.InAppEnabled != nil {
-		inAppEnabled = *arg.InAppEnabled
-	}
-	emailAuth := true
-	if arg.EmailAuth != nil {
-		emailAuth = *arg.EmailAuth
-	}
-	emailResults := true
-	if arg.EmailResults != nil {
-		emailResults = *arg.EmailResults
-	}
-	emailDues := true
-	if arg.EmailDues != nil {
-		emailDues = *arg.EmailDues
-	}
-	emailMessages := true
-	if arg.EmailMessages != nil {
-		emailMessages = *arg.EmailMessages
-	}
-	emailConnect := false
-	if arg.EmailConnect != nil {
-		emailConnect = *arg.EmailConnect
-	}
-	emailSkills := false
-	if arg.EmailSkills != nil {
-		emailSkills = *arg.EmailSkills
-	}
-	emailAlumni := true
-	if arg.EmailAlumni != nil {
-		emailAlumni = *arg.EmailAlumni
-	}
-	emailSystem := true
-	if arg.EmailSystem != nil {
-		emailSystem = *arg.EmailSystem
-	}
-	pushAuth := true
-	if arg.PushAuth != nil {
-		pushAuth = *arg.PushAuth
-	}
-	pushResults := true
-	if arg.PushResults != nil {
-		pushResults = *arg.PushResults
-	}
-	pushDues := true
-	if arg.PushDues != nil {
-		pushDues = *arg.PushDues
-	}
-	pushMessages := true
-	if arg.PushMessages != nil {
-		pushMessages = *arg.PushMessages
-	}
-	pushConnect := true
-	if arg.PushConnect != nil {
-		pushConnect = *arg.PushConnect
-	}
-	pushSkills := true
-	if arg.PushSkills != nil {
-		pushSkills = *arg.PushSkills
-	}
-	pushAlumni := true
-	if arg.PushAlumni != nil {
-		pushAlumni = *arg.PushAlumni
-	}
-	pushSystem := false
-	if arg.PushSystem != nil {
-		pushSystem = *arg.PushSystem
-	}
-
-	query := `INSERT INTO notification_preferences (
-		user_id, email_enabled, push_enabled, in_app_enabled,
-		email_auth, email_results, email_dues, email_messages, email_connect,
-		email_skills, email_alumni, email_system,
-		push_auth, push_results, push_dues, push_messages, push_connect,
-		push_skills, push_alumni, push_system,
-		quiet_hours_start, quiet_hours_end
-	) VALUES (
-		$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-		$13, $14, $15, $16, $17, $18, $19, $20, $21, $22
-	)
-	ON CONFLICT (tenant_id, user_id) DO UPDATE SET
-		email_enabled = COALESCE(EXCLUDED.email_enabled, notification_preferences.email_enabled),
-		push_enabled = COALESCE(EXCLUDED.push_enabled, notification_preferences.push_enabled),
-		in_app_enabled = COALESCE(EXCLUDED.in_app_enabled, notification_preferences.in_app_enabled),
-		email_auth = COALESCE(EXCLUDED.email_auth, notification_preferences.email_auth),
-		email_results = COALESCE(EXCLUDED.email_results, notification_preferences.email_results),
-		email_dues = COALESCE(EXCLUDED.email_dues, notification_preferences.email_dues),
-		email_messages = COALESCE(EXCLUDED.email_messages, notification_preferences.email_messages),
-		email_connect = COALESCE(EXCLUDED.email_connect, notification_preferences.email_connect),
-		email_skills = COALESCE(EXCLUDED.email_skills, notification_preferences.email_skills),
-		email_alumni = COALESCE(EXCLUDED.email_alumni, notification_preferences.email_alumni),
-		email_system = COALESCE(EXCLUDED.email_system, notification_preferences.email_system),
-		push_auth = COALESCE(EXCLUDED.push_auth, notification_preferences.push_auth),
-		push_results = COALESCE(EXCLUDED.push_results, notification_preferences.push_results),
-		push_dues = COALESCE(EXCLUDED.push_dues, notification_preferences.push_dues),
-		push_messages = COALESCE(EXCLUDED.push_messages, notification_preferences.push_messages),
-		push_connect = COALESCE(EXCLUDED.push_connect, notification_preferences.push_connect),
-		push_skills = COALESCE(EXCLUDED.push_skills, notification_preferences.push_skills),
-		push_alumni = COALESCE(EXCLUDED.push_alumni, notification_preferences.push_alumni),
-		push_system = COALESCE(EXCLUDED.push_system, notification_preferences.push_system),
-		quiet_hours_start = COALESCE(EXCLUDED.quiet_hours_start, notification_preferences.quiet_hours_start),
-		quiet_hours_end = COALESCE(EXCLUDED.quiet_hours_end, notification_preferences.quiet_hours_end),
-		updated_at = NOW()
-	RETURNING id, user_id, email_enabled, push_enabled, in_app_enabled,
-		email_auth, email_results, email_dues, email_messages, email_connect,
-		email_skills, email_alumni, email_system,
-		push_auth, push_results, push_dues, push_messages, push_connect,
-		push_skills, push_alumni, push_system,
-		quiet_hours_start::text, quiet_hours_end::text, push_token, updated_at`
-
-	row := q.db.QueryRow(ctx, query,
-		arg.UserID, emailEnabled, pushEnabled, inAppEnabled,
-		emailAuth, emailResults, emailDues, emailMessages, emailConnect,
-		emailSkills, emailAlumni, emailSystem,
-		pushAuth, pushResults, pushDues, pushMessages, pushConnect,
-		pushSkills, pushAlumni, pushSystem,
-		arg.QuietHoursStart, arg.QuietHoursEnd,
-	)
-
+	row := q.db.QueryRow(ctx, `INSERT INTO notification_preferences(user_id,email_enabled,push_enabled,in_app_enabled,email_auth,email_results,email_dues,email_messages,email_connect,email_skills,email_alumni,email_system,push_auth,push_results,push_dues,push_messages,push_connect,push_skills,push_alumni,push_system,quiet_hours_start,quiet_hours_end)VALUES($1,COALESCE($2,true),COALESCE($3,true),COALESCE($4,true),COALESCE($5,true),COALESCE($6,true),COALESCE($7,true),COALESCE($8,true),COALESCE($9,false),COALESCE($10,false),COALESCE($11,true),COALESCE($12,true),COALESCE($13,true),COALESCE($14,true),COALESCE($15,true),COALESCE($16,true),COALESCE($17,true),COALESCE($18,true),COALESCE($19,true),COALESCE($20,false),$21::time,$22::time) ON CONFLICT(tenant_id,user_id)DO UPDATE SET email_enabled=COALESCE($2,notification_preferences.email_enabled),push_enabled=COALESCE($3,notification_preferences.push_enabled),in_app_enabled=COALESCE($4,notification_preferences.in_app_enabled),email_auth=COALESCE($5,notification_preferences.email_auth),email_results=COALESCE($6,notification_preferences.email_results),email_dues=COALESCE($7,notification_preferences.email_dues),email_messages=COALESCE($8,notification_preferences.email_messages),email_connect=COALESCE($9,notification_preferences.email_connect),email_skills=COALESCE($10,notification_preferences.email_skills),email_alumni=COALESCE($11,notification_preferences.email_alumni),email_system=COALESCE($12,notification_preferences.email_system),push_auth=COALESCE($13,notification_preferences.push_auth),push_results=COALESCE($14,notification_preferences.push_results),push_dues=COALESCE($15,notification_preferences.push_dues),push_messages=COALESCE($16,notification_preferences.push_messages),push_connect=COALESCE($17,notification_preferences.push_connect),push_skills=COALESCE($18,notification_preferences.push_skills),push_alumni=COALESCE($19,notification_preferences.push_alumni),push_system=COALESCE($20,notification_preferences.push_system),quiet_hours_start=CASE WHEN $23::boolean THEN $21::time ELSE notification_preferences.quiet_hours_start END,quiet_hours_end=CASE WHEN $23::boolean THEN $22::time ELSE notification_preferences.quiet_hours_end END,updated_at=now() RETURNING id,user_id,email_enabled,push_enabled,in_app_enabled,email_auth,email_results,email_dues,email_messages,email_connect,email_skills,email_alumni,email_system,push_auth,push_results,push_dues,push_messages,push_connect,push_skills,push_alumni,push_system,quiet_hours_start::text,quiet_hours_end::text,push_token,updated_at`, arg.UserID, arg.EmailEnabled, arg.PushEnabled, arg.InAppEnabled, arg.EmailAuth, arg.EmailResults, arg.EmailDues, arg.EmailMessages, arg.EmailConnect, arg.EmailSkills, arg.EmailAlumni, arg.EmailSystem, arg.PushAuth, arg.PushResults, arg.PushDues, arg.PushMessages, arg.PushConnect, arg.PushSkills, arg.PushAlumni, arg.PushSystem, arg.QuietHoursStart, arg.QuietHoursEnd, arg.QuietHoursSet)
 	var p NotificationPreferenceView
-	err := row.Scan(
-		&p.ID, &p.UserID, &p.EmailEnabled, &p.PushEnabled, &p.InAppEnabled,
-		&p.EmailAuth, &p.EmailResults, &p.EmailDues, &p.EmailMessages, &p.EmailConnect,
-		&p.EmailSkills, &p.EmailAlumni, &p.EmailSystem,
-		&p.PushAuth, &p.PushResults, &p.PushDues, &p.PushMessages, &p.PushConnect,
-		&p.PushSkills, &p.PushAlumni, &p.PushSystem,
-		&p.QuietHoursStart, &p.QuietHoursEnd, &p.PushToken, &p.UpdatedAt,
-	)
+	err := row.Scan(&p.ID, &p.UserID, &p.EmailEnabled, &p.PushEnabled, &p.InAppEnabled, &p.EmailAuth, &p.EmailResults, &p.EmailDues, &p.EmailMessages, &p.EmailConnect, &p.EmailSkills, &p.EmailAlumni, &p.EmailSystem, &p.PushAuth, &p.PushResults, &p.PushDues, &p.PushMessages, &p.PushConnect, &p.PushSkills, &p.PushAlumni, &p.PushSystem, &p.QuietHoursStart, &p.QuietHoursEnd, &p.PushToken, &p.UpdatedAt)
 	return p, err
 }
 
-// ListUsersByRole returns user IDs for a set of roles.
 func (q *Queries) ListUsersByRole(ctx context.Context, roles []string) ([]uuid.UUID, error) {
 	if len(roles) == 0 {
 		return nil, nil
@@ -636,7 +503,6 @@ func (q *Queries) ListAlumniUserIDs(ctx context.Context) ([]uuid.UUID, error) {
 	return ids, rows.Err()
 }
 
-
 func (q *Queries) ListLecturerUserIDs(ctx context.Context, departments []string) ([]uuid.UUID, error) {
 	query := `SELECT st.user_id FROM staff st
 		 JOIN users u ON u.id = st.user_id
@@ -663,7 +529,6 @@ func (q *Queries) ListLecturerUserIDs(ctx context.Context, departments []string)
 	}
 	return ids, rows.Err()
 }
-
 
 func (q *Queries) ResolveAnnouncementTargetUserIDs(ctx context.Context, targetAudience []string, targetLevels []int32, targetDepartments []string) ([]uuid.UUID, error) {
 	seen := make(map[uuid.UUID]struct{})

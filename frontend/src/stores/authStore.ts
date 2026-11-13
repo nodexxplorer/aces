@@ -8,6 +8,10 @@ let sessionRevision = 0;
 export const getSessionRevision = () => sessionRevision;
 
 function resetPrivateSession() {
+  // Queue worker-side owner clearing before a forced logout navigation can
+  // unload React and prevent its effects from running.
+  if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator)
+    navigator.serviceWorker.controller?.postMessage({ type: 'NOTIFICATION_OWNER', owner: null });
   sessionRevision += 1;
   // Clear synchronously as well as cancelling in-flight query work.
   void queryClient.cancelQueries();

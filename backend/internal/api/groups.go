@@ -50,8 +50,12 @@ func (server *Server) createGroup(ctx *gin.Context) {
 		if memberID == userID {
 			continue
 		}
-		if _, err := server.campusConnect.AddMember(ctx, group.ID, memberID); err == nil && server.wsHub != nil {
-			server.wsHub.JoinGroup(group.ID, memberID)
+		if _, err := server.campusConnect.AddMember(ctx, group.ID, memberID); err == nil {
+			if server.wsHub != nil {
+				server.wsHub.JoinGroup(group.ID, memberID)
+			}
+			kind := "group"
+			server.notifyUser(ctx, memberID, "general", "connect", "normal", "Added to a group", "You have been added to a Connect group.", "/connect", "Open Connect", &kind, &group.ID)
 		}
 	}
 
@@ -112,6 +116,8 @@ func (server *Server) addGroupMember(ctx *gin.Context) {
 		server.wsHub.JoinGroup(groupID, req.UserID)
 	}
 
+	kind := "group"
+	server.notifyUser(ctx, req.UserID, "general", "connect", "normal", "Added to a group", "You have been added to a Connect group.", "/connect", "Open Connect", &kind, &groupID)
 	ctx.JSON(http.StatusOK, gin.H{"data": member})
 }
 

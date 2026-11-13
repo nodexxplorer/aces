@@ -37,7 +37,7 @@ type GroupChatPersister func(tenantID, fromUserID, groupID uuid.UUID, content st
 // Hub maintains the set of active clients and broadcasts messages
 type Hub struct {
 	mu         sync.RWMutex
-	clients    map[uuid.UUID]*Client       // userID -> client
+	clients    map[uuid.UUID]*Client            // userID -> client
 	groups     map[uuid.UUID]map[uuid.UUID]bool // groupID -> set of userIDs
 	register   chan *Client
 	unregister chan *Client
@@ -48,6 +48,8 @@ type Hub struct {
 	// messages sent via the raw socket (rather than the REST sendMessage
 	// endpoint) are delivered live but never saved, so they vanish for any
 	// offline recipient or on reload.
+	// Resolve live group recipients rather than trusting stale socket rooms.
+	GroupRecipients  func(tenantID, groupID uuid.UUID) ([]uuid.UUID, error)
 	PersistChat      ChatPersister
 	PersistGroupChat GroupChatPersister
 }
@@ -70,6 +72,7 @@ func NewHub() *Hub {
 		broadcast:  make(chan *BroadcastMessage, 256),
 	}
 }
+
 // Register adds a client to the hub's registration channel
 func (h *Hub) Register(client *Client) {
 	h.register <- client

@@ -189,7 +189,17 @@ func (c *Client) handleGroupChat(payload json.RawMessage) {
 			"sent_at":  time.Now(),
 		})
 	}
-	c.hub.SendToGroup(groupMsg.GroupID, TypeGroupChat, outPayload)
+	if c.hub.GroupRecipients != nil {
+		ids, err := c.hub.GroupRecipients(c.TenantID, groupMsg.GroupID)
+		if err != nil {
+			return
+		}
+		for _, id := range ids {
+			c.hub.SendToUser(id, TypeGroupChat, outPayload)
+		}
+	} else {
+		c.hub.SendToGroup(groupMsg.GroupID, TypeGroupChat, outPayload)
+	}
 }
 
 func (c *Client) handleTyping(payload json.RawMessage) {

@@ -197,7 +197,8 @@ apiClient.interceptors.response.use(
       const url = originalRequest.url || '';
       const cacheKey = `${originalRequest._cacheOwner}:${url}?${JSON.stringify(originalRequest.params || {})}`;
       try {
-        const cached = originalRequest._cacheOwner ? await getCachedData(cacheKey) : null;
+        const cached =
+          originalRequest._cacheOwner && !url.includes('/notifications') ? await getCachedData(cacheKey) : null;
         if (originalRequest._sessionRevision !== getSessionRevision()) return Promise.reject(error);
         if (cached !== null && cached !== undefined) {
           return {

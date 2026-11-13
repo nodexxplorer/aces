@@ -1,5 +1,6 @@
-import { create } from 'zustand';
-import { getItem, setItem, deleteItem } from '../utils/secureStorage';
+import { unregisterNativePush } from "../utils/pushNotifications";
+import { create } from "zustand";
+import { getItem, setItem, deleteItem } from "../utils/secureStorage";
 
 // Mirrors the web app's User/AuthTokens shape (frontend/src/types) closely
 // enough to share mental model, trimmed to what the mobile v1 screens use.
@@ -11,6 +12,7 @@ export interface AuthTokens {
 
 /** The department a user belongs to, as the API returns it in auth responses. */
 export interface AuthTenant {
+  urlCode?: string;
   slug: string;
   name: string;
   institution?: string;
@@ -46,9 +48,9 @@ export interface AuthUser {
   isActive?: boolean;
 }
 
-const ACCESS_TOKEN_KEY = 'aces_access_token';
-const REFRESH_TOKEN_KEY = 'aces_refresh_token';
-const USER_KEY = 'aces_user';
+const ACCESS_TOKEN_KEY = "aces_access_token";
+const REFRESH_TOKEN_KEY = "aces_refresh_token";
+const USER_KEY = "aces_user";
 
 interface AuthState {
   user: AuthUser | null;
@@ -107,6 +109,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
+    await unregisterNativePush();
     await Promise.all([
       deleteItem(ACCESS_TOKEN_KEY),
       deleteItem(REFRESH_TOKEN_KEY),
@@ -125,7 +128,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (accessToken && refreshToken && userJson) {
         set({
           user: JSON.parse(userJson),
-          tokens: { accessToken, refreshToken, expiresAt: '' },
+          tokens: { accessToken, refreshToken, expiresAt: "" },
           isAuthenticated: true,
         });
       }

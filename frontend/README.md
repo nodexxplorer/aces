@@ -48,3 +48,26 @@ npm run build
 
 See [administrator roles](../docs/admin-roles.md) for role names, responsibilities
 and the HOD-controlled permission-grant process.
+
+## Verified attendance pilot
+
+The new lecturer-finalized attendance workflow is isolated from legacy sheets.
+Apply migration `000018` and refresh runtime-role grants before using it. The
+React Attendance screens and updated mobile scanner use `/verified-attendance`;
+75% eligibility snapshots are versioned pilot reports, not automatic exam bans.
+See [deployment, policy and operational limits](../docs/verified-attendance.md).
+
+## Connect private media
+
+Connect supports automatically compressed images and microphone-recorded voice
+notes in private chats and groups. Video and existing-audio file attachments are
+disabled. Apply migration `000019`, refresh runtime-role grants, deploy ffmpeg
+and durable private storage, and rebuild native clients before release.
+See [limits, privacy, testing and cleanup](../docs/connect-media.md).
+
+## Notification settings
+
+Saved channel/topic switches, quiet hours and real test/status controls use the
+notification API. Browser push also requires device permission/subscription and
+the production service worker; permission alone is not registration.
+See [notification rollout and limits](../docs/notifications.md).

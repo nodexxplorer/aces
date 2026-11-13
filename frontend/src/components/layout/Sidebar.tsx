@@ -135,6 +135,7 @@ const menuItems: MenuItem[] = [
 
   { label: 'Connect', path: '/connect', icon: Users },
   { label: 'Lecturer Portal', path: '/l/dashboard', icon: LayoutDashboard, roles: ['lecturer'] },
+  { label: 'Attendance', path: '/l/attendance', icon: Check, roles: ['lecturer'] },
   { label: 'Class List', path: '/l/class-list', icon: Users, roles: ['lecturer'] },
 
   { label: 'Admin Portal', path: '/admin', icon: LayoutDashboard, roles: ['hod', 'delegated_admin', 'admin'] },
@@ -246,7 +247,7 @@ const mobileSections: NavSection[] = [
       // { label: 'Study Planner', path: '/i/study-planner', icon: ClipboardList },
       { label: 'Courses Registration', path: '/i/courses', icon: BookMarked },
       { label: 'Course Form Signing', path: '/i/course-form-signing', icon: FileSignature },
-      // { label: 'My Attendance', path: '/i/attendance', icon: ClipboardCheck },
+      { label: 'My Attendance', path: '/i/attendance', icon: Check },
       { label: 'Complaints', path: '/i/complaints', icon: HelpCircle },
     ],
   },
@@ -284,6 +285,7 @@ const mobileSections: NavSection[] = [
     items: [
       { label: 'Semesters & Registration', path: '/admin/sessions', icon: Calendar },
       { label: 'Courses', path: '/admin/course-hub', icon: BookOpen },
+      { label: 'Attendance', path: '/admin/attendance', icon: Check },
       { label: 'Course Forms', path: '/admin/crf-signing', icon: FileSignature },
     ],
   },
@@ -383,6 +385,7 @@ const lecturerSections: NavSection[] = [
     items: [
       { label: 'My courses', path: '/l/dashboard', icon: BookOpen },
       { label: 'Class lists', path: '/l/class-list', icon: Users },
+      { label: 'Attendance', path: '/l/attendance', icon: Check },
       { label: 'Leave requests', path: '/l/leave', icon: Calendar },
     ],
   },

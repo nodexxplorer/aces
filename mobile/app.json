@@ -49,7 +49,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow $(PRODUCT_NAME) to choose a picture for your sign-in screen. It is kept on this device only."
+          "photosPermission": "Allow choosing profile pictures or images you explicitly send in Connect."
         }
       ],
       [
@@ -61,7 +61,23 @@
       ],
       "expo-web-browser",
       "expo-sharing",
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow a one-time location check when you submit lecture attendance. Missing location can be reviewed by your lecturer.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow recording voice notes that you can preview and explicitly send in Connect.",
+          "enableBackgroundRecording": false,
+          "enableBackgroundPlayback": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

@@ -494,9 +494,11 @@ func (server *Server) submitRegistration(ctx *gin.Context) {
 		registeredCourses = append(registeredCourses, rc)
 	}
 
+	kind := "course_registration"
+	server.notifyUser(ctx, userID, "general", "results", "normal", "Course registration submitted", "Your course registration has been submitted for review.", "/course-registration", "View registration", &kind, &registration.ID)
 	if server.notificationsFull != nil {
 		bgCtx, cancel := tenant.Detach(ctx, 10*time.Second)
-		go func(studentUserID uuid.UUID, level int32, regID uuid.UUID) {
+		func(studentUserID uuid.UUID, level int32, regID uuid.UUID) {
 			defer cancel()
 
 			reps, err := server.store.ListActiveClassRepAssignments(bgCtx)
@@ -534,7 +536,7 @@ func (server *Server) submitRegistration(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusCreated, gin.H{
-		"registration":     registration,
+		"registration":       registration,
 		"registered_courses": registeredCourses,
 	})
 }
@@ -553,4 +555,3 @@ func (server *Server) deleteCourseRegistration(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "course registration deleted successfully"})
 }
-

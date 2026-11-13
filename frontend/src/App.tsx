@@ -1,3 +1,4 @@
+import BrowserPushSession from './components/BrowserPushSession';
 import { RouterProvider } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './query/client';
@@ -15,6 +16,7 @@ function App() {
         <QueryClientProvider client={queryClient}>
           <ModoolsSessionHydrator />
           <DepartmentAccent />
+          <BrowserPushSession />
           <RouterProvider router={router} />
           {/* Rendered once at the app root — any route lacking AppShell/
               PublicLayout (onboarding, login/celebration, etc.) previously

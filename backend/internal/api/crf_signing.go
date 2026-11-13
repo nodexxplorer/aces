@@ -213,6 +213,8 @@ func (server *Server) uploadCRF(ctx *gin.Context) {
 		return
 	}
 
+	kind := "crf_signing"
+	server.notifyUser(ctx, userID, "general", "results", "normal", "Course form uploaded", "Your course form draft has been uploaded. Complete the signing steps to obtain the signed copy.", "/notifications", "View notifications", &kind, &submission.ID)
 	server.signSubmissionLinks(&submission)
 	ctx.JSON(http.StatusCreated, submission)
 }
@@ -506,6 +508,8 @@ func (server *Server) approveCRF(ctx *gin.Context) {
 		return
 	}
 
+	kind := "crf_signing"
+	server.notifyUser(ctx, submission.UserID, "general", "results", "high", "Course form signed", "Your signed course form is ready. Sign in to download it.", "/notifications", "View notifications", &kind, &final.ID)
 	server.signSubmissionLinks(&final)
 	ctx.JSON(http.StatusOK, final)
 }
