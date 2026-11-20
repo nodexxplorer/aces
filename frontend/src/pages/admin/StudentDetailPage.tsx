@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -20,9 +19,8 @@ import {
   Award,
   Loader2,
 } from 'lucide-react';
-import type { User as UserType } from '../../types';
-
-interface StudentResultRow {
+import { useQuery } from '@tanstack/react-query';
+interface _StudentResultRow {
   id: string;
   courseCode?: string;
   course?: { code?: string };
@@ -35,33 +33,36 @@ interface StudentResultRow {
 const StudentDetailPage = () => {
   const { id } = useParams();
   const { error: notifyError } = useNotification();
-  const [studentUser, setStudentUser] = useState<UserType | null>(null);
-  const [cgpa, setCgpa] = useState<{ cgpa: number; scale: number } | null>(null);
-  const [results, setResults] = useState<StudentResultRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [resultsLoading, setResultsLoading] = useState(true);
 
-  useEffect(() => {
-    if (!id) return;
-    setLoading(true);
-    getUser(id)
-      .then((user) => {
-        setStudentUser(user);
-        // CGPA comes embedded in the user record (a users.id, not a
-        // students.id) — getStudentResults needs the real students.id, which
-        // this page doesn't have, so it relies on the backend's own
-        // user-id-to-student-id fallback.
-        if (typeof user.cgpa === 'number') setCgpa({ cgpa: user.cgpa, scale: 5.0 });
-        return getStudentResults(id).catch(() => []);
-      })
-      .then((studentResults) => setResults(studentResults || []))
-      .catch(() => notifyError('Error', 'Failed to load student details'))
-      .finally(() => {
-        setLoading(false);
-        setResultsLoading(false);
-      });
-  }, [id]);
-
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['student-detail', id],
+    queryFn: async () => {
+      const _r: any = { studentUser: null, cgpa: null, results: [], resultsLoading: true };
+      if (!id) return;
+      getUser(id)
+        .then((user) => {
+          _r.studentUser = user;
+          // CGPA comes embedded in the user record (a users.id, not a
+          // students.id) — getStudentResults needs the real students.id, which
+          // this page doesn't have, so it relies on the backend's own
+          // user-id-to-student-id fallback.
+          if (typeof user.cgpa === 'number') _r.cgpa = { cgpa: user.cgpa, scale: 5.0 };
+          return getStudentResults(id).catch(() => []);
+        })
+        .then((studentResults) => (_r.results = studentResults || []))
+        .catch(() => notifyError('Error', 'Failed to load student details'))
+        .finally(() => {
+          _r.resultsLoading = false;
+        });
+      return _r;
+    },
+    staleTime: 60_000,
+    enabled: !!id,
+  });
+  const studentUser = _qd?.studentUser ?? null;
+  const cgpa = _qd?.cgpa ?? null;
+  const results = _qd?.results ?? [];
+  const resultsLoading = _qd?.resultsLoading ?? true;
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">

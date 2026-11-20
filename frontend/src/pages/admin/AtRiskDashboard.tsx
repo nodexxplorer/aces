@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import Card from '../../components/ui/Card';
 import EmptyState from '../../components/ui/EmptyState';
 import KpiCard from '../../components/data-display/KpiCard';
@@ -15,20 +16,16 @@ const riskColors: Record<string, string> = {
 };
 
 const AtRiskDashboard = () => {
-  const [students, setStudents] = useState<AtRiskStudent[]>([]);
-  const [stats, setStats] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
 
-  useEffect(() => {
-    getAtRiskStudents(50)
-      .then((data) => {
-        setStudents(data.students || []);
-        setStats(data.stats || {});
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['at-risk-students', 50],
+    queryFn: () => getAtRiskStudents(50),
+    staleTime: 30_000,
+  });
+
+  const students: AtRiskStudent[] = data?.students || [];
+  const stats: Record<string, number> = data?.stats || {};
 
   const filtered = filter === 'all' ? students : students.filter((s) => s.risk_level === filter);
 

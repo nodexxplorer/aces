@@ -1,15 +1,16 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
-import { getRevenueForecast, type RevenueForecast } from '../../api/predictions';
+import { getRevenueForecast } from '../../api/predictions';
 import { getAllDues, getAllPayments, getDefaulters } from '../../api/payments';
 import { getStudents } from '../../api/users';
-import type { DuePayment, Payment, Defaulter, User } from '../../types';
+
 import { departmentAdminPath } from '../../config/departmentAdminPaths';
 import { DuesNavHeader } from '../../components/finance/DuesNavHeader';
 import { CreditCard, TrendingUp, BarChart3, Target, Sparkles, Download, Plus, Check, AlertCircle } from 'lucide-react';
 
+import { useQuery } from '@tanstack/react-query';
 const formatNaira = (v: number) => {
   return `₦${Number(v || 0).toLocaleString()}`;
 };
@@ -21,53 +22,59 @@ export const RevenueForecastPage: React.FC = () => {
   const { user } = useAuth();
   const { success } = useNotification();
   const urlCode = user?.tenant?.urlCode;
-
-  const [, setLoading] = useState(true);
-  const [forecast, setForecast] = useState<RevenueForecast | null>(null);
-  const [dues, setDues] = useState<DuePayment[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [students, setStudents] = useState<User[]>([]);
-  const [defaulters, setDefaulters] = useState<Defaulter[]>([]);
   const [scenario, setScenario] = useState<ScenarioType>('expected');
 
-  useEffect(() => {
-    let isMounted = true;
-    setLoading(true);
+  const { data: _qd, isLoading: _loading } = useQuery({
+    queryKey: ['revenue-forecast'],
 
-    Promise.allSettled([
-      getRevenueForecast(),
-      getAllDues({ limit: 100 }),
-      getAllPayments({ limit: 500 }),
-      getStudents({ perPage: 100 }),
-      getDefaulters(),
-    ])
-      .then(([forecastRes, duesRes, paymentsRes, studentsRes, defaultersRes]) => {
-        if (!isMounted) return;
-        if (forecastRes.status === 'fulfilled') {
-          setForecast(forecastRes.value);
-        }
-        if (duesRes.status === 'fulfilled') {
-          setDues(Array.isArray(duesRes.value) ? duesRes.value : []);
-        }
-        if (paymentsRes.status === 'fulfilled') {
-          setPayments(Array.isArray(paymentsRes.value) ? paymentsRes.value : []);
-        }
-        if (studentsRes.status === 'fulfilled') {
-          setStudents(Array.isArray(studentsRes.value) ? studentsRes.value : []);
-        }
-        if (defaultersRes.status === 'fulfilled') {
-          setDefaulters(Array.isArray(defaultersRes.value) ? defaultersRes.value : []);
-        }
-      })
-      .finally(() => {
-        if (isMounted) setLoading(false);
-      });
+    queryFn: async () => {
+      const _r: any = { forecast: null, dues: [], payments: [], students: [], defaulters: [] };
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+      Promise.allSettled([
+        getRevenueForecast(),
+        getAllDues({ limit: 100 }),
+        getAllPayments({ limit: 500 }),
+        getStudents({ perPage: 100 }),
+        getDefaulters(),
+      ])
+        .then(([forecastRes, duesRes, paymentsRes, studentsRes, defaultersRes]) => {
+          if (forecastRes.status === 'fulfilled') {
+            _r.forecast = forecastRes.value;
+          }
+          if (duesRes.status === 'fulfilled') {
+            _r.dues = Array.isArray(duesRes.value) ? duesRes.value : [];
+          }
+          if (paymentsRes.status === 'fulfilled') {
+            _r.payments = Array.isArray(paymentsRes.value) ? paymentsRes.value : [];
+          }
+          if (studentsRes.status === 'fulfilled') {
+            _r.students = Array.isArray(studentsRes.value) ? studentsRes.value : [];
+          }
+          if (defaultersRes.status === 'fulfilled') {
+            _r.defaulters = Array.isArray(defaultersRes.value) ? defaultersRes.value : [];
+          }
+        })
+        .finally(() => {});
 
+      return () => {
+        isMounted = false;
+      };
+
+      return _r;
+    },
+
+    staleTime: 60_000,
+  });
+
+  const forecast = _qd?.forecast ?? null;
+
+  const dues = _qd?.dues ?? [];
+
+  const payments = _qd?.payments ?? [];
+
+  const students = _qd?.students ?? [];
+
+  const defaulters = _qd?.defaulters ?? [];
   // Filter completed/successful payments
   const completedPayments = useMemo(() => {
     return payments.filter((p) => p.status === 'completed' || p.status === 'success' || p.status === 'verified');

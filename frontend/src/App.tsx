@@ -1,21 +1,13 @@
+import BrowserPushSession from './components/BrowserPushSession';
 import { RouterProvider } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from './query/client';
 import { router } from './router';
 import ThemeInitializer from './components/ThemeInitializer';
 import ErrorBoundary from './components/feedback/ErrorBoundary';
 import { ToastContainer } from './components/feedback/Toast';
 import ModoolsSessionHydrator from './auth/ModoolsSessionHydrator';
 import DepartmentAccent from './theme/DepartmentAccent';
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000,
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
 
 function App() {
   return (
@@ -24,6 +16,7 @@ function App() {
         <QueryClientProvider client={queryClient}>
           <ModoolsSessionHydrator />
           <DepartmentAccent />
+          <BrowserPushSession />
           <RouterProvider router={router} />
           {/* Rendered once at the app root — any route lacking AppShell/
               PublicLayout (onboarding, login/celebration, etc.) previously

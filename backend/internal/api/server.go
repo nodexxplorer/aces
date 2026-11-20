@@ -12,6 +12,7 @@ import (
 	"github.com/aces/backend/internal/auth"
 	"github.com/aces/backend/internal/cache"
 	"github.com/aces/backend/internal/config"
+	"github.com/aces/backend/internal/connectmedia"
 	db "github.com/aces/backend/internal/db/sql"
 	"github.com/aces/backend/internal/email"
 	"github.com/aces/backend/internal/middleware"
@@ -21,6 +22,7 @@ import (
 	"github.com/aces/backend/internal/tenant"
 	"github.com/aces/backend/internal/uploads"
 	"github.com/aces/backend/internal/ws"
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -150,6 +152,7 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		emailSender:       emailSender,
 	}
 
+	server.notificationsFull.SetWebPush(&push.WebSender{PublicKey: cfg.VAPIDPublicKey, PrivateKey: cfg.VAPIDPrivateKey, Subject: cfg.VAPIDSubject, Mock: cfg.PushMock})
 	// Initialize local storage
 	ls, _ := storage.NewLocalStorage(cfg.StorageLocalPath)
 	server.storage = ls
@@ -167,11 +170,8 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 			return nil, err
 		}
 		defer cancel()
-		msg, err := server.campusConnect.SendMessage(ctx, from, to, content)
-		if err != nil {
-			return nil, err
-		}
-		return json.Marshal(msg)
+		data, _, err := server.connectMedia().Send(ctx, from, connectmedia.Target{Kind: "dm", ID: to}, connectmedia.SendRequest{Content: content})
+		return data, err
 	}
 	hub.PersistGroupChat = func(tenantID, from, groupID uuid.UUID, content string) (json.RawMessage, error) {
 		ctx, cancel, err := server.socketContext(tenantID)
@@ -179,13 +179,18 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 			return nil, err
 		}
 		defer cancel()
-		msg, err := server.campusConnect.SendGroupMessage(ctx, groupID, from, content)
+		data, _, err := server.connectMedia().Send(ctx, from, connectmedia.Target{Kind: "group", ID: groupID}, connectmedia.SendRequest{Content: content})
+		return data, err
+	}
+
+	hub.GroupRecipients = func(tenantID, groupID uuid.UUID) ([]uuid.UUID, error) {
+		ctx, cancel, err := server.socketContext(tenantID)
 		if err != nil {
 			return nil, err
 		}
-		return json.Marshal(msg)
+		defer cancel()
+		return server.currentConnectMembers(ctx, groupID)
 	}
-
 	// Redis shares the rate-limit counts between server instances. Connections
 	// are opened lazily on demand when requests arrive.
 	if cfg.RedisAddress != "" {
@@ -195,16 +200,27 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 
 	router := newEngine()
 	router.Use(gin.Recovery())
+	router.Use(gzip.Gzip(gzip.DefaultCompression))
 	router.Use(middleware.RequestID())
 	router.Use(middleware.ResponseNormalizer())
 	router.Use(middleware.SignUploadLinks(signer))
 	router.Use(middleware.RequestLogger())
 	router.Use(corsMiddleware(cfg.AllowedOrigins))
+	var globalLimit, classroomLimit gin.HandlerFunc
 	if server.redisCache != nil {
-		router.Use(middleware.RedisRateLimit(server.redisCache, "global", 100, time.Minute))
+		globalLimit = middleware.RedisRateLimit(server.redisCache, "global", 100, time.Minute)
+		classroomLimit = middleware.RedisRateLimit(server.redisCache, "attendance-network", 3000, time.Minute)
 	} else {
-		router.Use(middleware.RateLimit(100, time.Minute))
+		globalLimit = middleware.RateLimit(100, time.Minute)
+		classroomLimit = middleware.RateLimit(3000, time.Minute)
 	}
+	router.Use(func(ctx *gin.Context) {
+		if strings.HasPrefix(ctx.Request.URL.Path, "/api/v1/verified-attendance/") {
+			classroomLimit(ctx)
+		} else {
+			globalLimit(ctx)
+		}
+	})
 	router.Use(middleware.BodySizeLimit(10 << 20))
 	router.Use(middleware.CSRFProtect())
 	router.MaxMultipartMemory = 32 << 20
@@ -234,6 +250,7 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		internalCron.POST("/reminders", server.triggerRemindersCron)
 		internalCron.POST("/birthdays", server.triggerBirthdaysCron)
 		internalCron.POST("/all", server.triggerAllCron)
+		internalCron.POST("/notifications", server.triggerNotificationDelivery)
 	}
 
 	authProtected := v1.Group("/auth")
@@ -268,6 +285,8 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		authPublic.POST("/request-otp", authRL, server.requestPasswordReset)
 		authPublic.POST("/verify-otp", authRL, server.verifyPasswordResetOTP)
 		authPublic.POST("/reset-with-otp", authRL, server.resetPasswordWithOTP)
+		authPublic.POST("/invitations/inspect", rl, server.inspectAccessInvitation)
+		authPublic.POST("/invitations/accept", rl, server.acceptAccessInvitation)
 	}
 
 	v1.POST("/payments/webhook/paystack", server.handlePaystackWebhook)
@@ -283,6 +302,12 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	api.Use(server.loadAdminGrant)
 
 	api.Use(server.RequireStudentOnboarded)
+
+	// The service rechecks live role/grant authority for every invitation action.
+	api.GET("/invitations", server.listAccessInvitations)
+	api.POST("/invitations", rl, server.createAccessInvitation)
+	api.POST("/invitations/:id/:action", rl, server.actOnAccessInvitation)
+	api.GET("/invitations/:id/events", server.accessInvitationHistory)
 
 	api.GET("/ws", server.handleWebSocket)
 
@@ -394,6 +419,36 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		calendarSync.POST("/token/regenerate", server.regenerateCalendarToken)
 	}
 
+	// V2 is isolated from legacy attendance; service authorization is live and
+	// course-scoped, not based on the active-role selection in a client.
+	verified := api.Group("/verified-attendance")
+	verified.Use(func(ctx *gin.Context) { ctx.Header("Cache-Control", "no-store"); ctx.Next() })
+	actorKey := func(ctx *gin.Context) string {
+		t, ok := tenant.IDFrom(ctx.Request.Context())
+		if !ok || getUserID(ctx) == uuid.Nil {
+			return ""
+		}
+		return t.String() + ":" + getUserID(ctx).String()
+	}
+	attendanceReadLimit := middleware.KeyedRateLimit(server.redisCache, "attendance-read", 120, time.Minute, actorKey)
+	attendanceWriteLimit := middleware.KeyedRateLimit(server.redisCache, "attendance-write", 30, time.Minute, actorKey)
+	verified.Use(func(ctx *gin.Context) {
+		if ctx.Request.Method == http.MethodGet {
+			attendanceReadLimit(ctx)
+		} else {
+			attendanceWriteLimit(ctx)
+		}
+	})
+
+	verified.GET("/catalog", middleware.CacheControl(60*time.Second), server.attendanceCatalogV2)
+	verified.GET("/sessions", middleware.CacheControl(15*time.Second), server.attendanceSessionsV2)
+	verified.POST("/sessions", server.attendanceCreateV2)
+	verified.GET("/sessions/:id", server.attendanceDetailV2)
+	verified.GET("/sessions/:id/code", server.attendanceCodeV2)
+	verified.POST("/sessions/:id/:action", server.attendanceActionV2)
+	verified.GET("/courses/:course/:semester/:report", server.attendanceEligibilityV2)
+	verified.POST("/courses/:course/:semester/snapshots", server.attendanceEligibilityV2)
+
 	attendance := api.Group("/attendance")
 	{
 		attendance.POST("", requireCapability(capManageCourses, "class_rep", "hod", "delegated_admin"), server.createAttendanceSheet)
@@ -404,8 +459,8 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		attendance.GET("/course", requireCapability(capManageCourses, "lecturer", "hod", "admin", "delegated_admin", "class_rep"), server.listCourseAttendanceSheets)
 		attendance.GET("/student", server.listStudentAttendance)
 		attendance.GET("/summary", server.getAttendanceSummary)
-		attendance.GET("/my-overview", middleware.RequireRoles("student"), server.getStudentAttendanceOverview)
-		attendance.GET("/my-courses/:course_id", middleware.RequireRoles("student"), server.getStudentCourseAttendanceDetail)
+		attendance.GET("/my-overview", middleware.RequireRoles("student"), middleware.CacheControl(30*time.Second), server.getStudentAttendanceOverview)
+		attendance.GET("/my-courses/:course_id", middleware.RequireRoles("student"), middleware.CacheControl(30*time.Second), server.getStudentCourseAttendanceDetail)
 		attendance.GET("/:id", server.getAttendanceSheet)
 		attendance.PUT("/:id", requireCapability(capManageCourses, "class_rep", "hod", "delegated_admin"), server.updateAttendanceSheet)
 		attendance.POST("/:id/finalize", requireCapability(capManageCourses, "class_rep", "hod", "delegated_admin"), server.finalizeAttendanceSheet)
@@ -479,6 +534,7 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	}
 
 	notifications := api.Group("/notifications")
+	notifications.Use(func(c *gin.Context) { c.Header("Cache-Control", "no-store"); c.Next() })
 	{
 		notifications.GET("/unread-count", server.getMyUnreadCount)
 		notifications.GET("/unread-by-category", server.getMyUnreadByCategory)
@@ -487,6 +543,11 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		notifications.POST("/read-all", server.markAllAsRead)
 		notifications.DELETE("/:id", server.deleteNotification)
 		notifications.GET("/preferences", server.getMyNotificationPreferences)
+		notifications.GET("/delivery-status", server.notificationDeliveryStatus)
+		notifications.PUT("/devices", server.registerNotificationDevice)
+		notifications.DELETE("/devices", server.unregisterNotificationDevice)
+		notifications.POST("/test", server.testNotification)
+		notifications.GET("/test/:id", server.notificationTestStatus)
 		notifications.PUT("/preferences", server.updateMyNotificationPreferences)
 		notifications.PUT("/push-token", server.updateMyPushToken)
 		notifications.POST("", requireCapability(capManageAnnouncements, "hod", "admin", "delegated_admin", "class_rep"), server.createNotification)
@@ -590,6 +651,20 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	}
 
 	// ── Campus Connect ──
+	connectPrivate := api.Group("/campus-connect/media")
+	connectPrivate.Use(func(c *gin.Context) { c.Header("Cache-Control", "no-store"); c.Next() })
+	connectPrivate.Use(middleware.KeyedRateLimit(server.redisCache, "connect-media", 120, time.Minute, func(c *gin.Context) string {
+		t, ok := tenant.IDFrom(c.Request.Context())
+		if !ok || getUserID(c) == uuid.Nil {
+			return ""
+		}
+		return t.String() + ":" + getUserID(c).String()
+	}))
+	connectPrivate.POST("/recording-intents", server.connectRecordingIntent)
+	connectPrivate.POST("", server.uploadConnectMedia)
+	connectPrivate.GET("/:id", server.getConnectMedia)
+	connectPrivate.GET("/:id/:action", server.getConnectMedia)
+	connectPrivate.DELETE("/:id", server.deleteConnectMedia)
 	connect := api.Group("/campus-connect")
 	{
 		connect.POST("/connections", server.sendConnectionRequest)
@@ -599,8 +674,8 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		connect.GET("/connections/sent", server.listSentPendingRequests)
 		connect.GET("/connections/user-ids", server.getAllConnectionUserIds)
 		connect.GET("/messages/unread", server.getUnreadCounts)
-		connect.POST("/messages", server.sendMessage)
-		connect.GET("/messages/:id", server.listConversation)
+		connect.POST("/messages", server.sendConnectMessage)
+		connect.GET("/messages/:id", server.listConnectMessages)
 		connect.PUT("/messages/:id/read", server.markMessageRead)
 		connect.GET("/directory", server.getStudentDirectory)
 		connect.GET("/conversations", server.listMyDMConversations)
@@ -619,8 +694,8 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		groupsRoute.POST("/:id/leave", server.leaveGroup)
 		groupsRoute.GET("/:id/members", server.listGroupMembers)
 		groupsRoute.POST("/:id/members", server.addGroupMember)
-		groupsRoute.POST("/:id/messages", server.sendGroupMessage)
-		groupsRoute.GET("/:id/messages", server.listGroupMessages)
+		groupsRoute.POST("/:id/messages", server.sendConnectMessage)
+		groupsRoute.GET("/:id/messages", server.listConnectMessages)
 	}
 
 	// ── Backups ──
@@ -673,7 +748,8 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	}
 
 	// ── Student Dashboard ──
-	api.GET("/dashboard/student", middleware.RequireRoles("student"), server.getStudentDashboard)
+	shortCache := middleware.CacheControl(30 * time.Second)
+	api.GET("/dashboard/student", middleware.RequireRoles("student"), shortCache, server.getStudentDashboard)
 
 	// ── Class Representative Management ──
 	classRep := api.Group("/class-rep")
@@ -728,7 +804,7 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		lecturers.PUT("/leave/:id/status", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.updateLeaveStatusHandler)
 
 		// Dashboard
-		lecturers.GET("/dashboard/stats", middleware.RequireRoles("lecturer"), server.getLecturerDashboardStats)
+		lecturers.GET("/dashboard/stats", middleware.RequireRoles("lecturer"), shortCache, server.getLecturerDashboardStats)
 	}
 
 	// ── Bursar Dashboard ──

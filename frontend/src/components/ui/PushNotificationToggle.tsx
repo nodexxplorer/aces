@@ -1,20 +1,75 @@
-const PushNotificationToggle = () => {
-  const supported = 'Notification' in window;
+import { useEffect, useState } from 'react';
+import { browserPushSupported, enableBrowserPush, disableBrowserPush } from '../../hooks/browserPush';
+import { deliverySetup, type DeliverySetup } from '../../api/notification-delivery';
+export default function PushNotificationToggle() {
+  const [setup, setSetup] = useState<DeliverySetup | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  useEffect(() => {
+    let active = true;
+    deliverySetup()
+      .then((s) => {
+        if (active) setSetup(s);
+      })
+      .catch(() => {
+        if (active) setMessage('Could not load notification service status.');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+  async function change(enable: boolean) {
+    setBusy(true);
+    setMessage('');
+    try {
+      if (enable) {
+        await enableBrowserPush();
+        setMessage('This browser is registered. Saved push and topic preferences still control delivery.');
+      } else {
+        await disableBrowserPush();
+        setMessage('Notifications disabled for this browser. Other devices are unchanged.');
+      }
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Could not update this browser.');
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
-    <div className="flex items-center justify-between p-4 bg-surface-50 dark:bg-surface-800 rounded-lg">
-      <div>
-        <p className="text-sm font-medium text-surface-900 dark:text-surface-100">Push Notifications</p>
-        <p className="text-xs text-surface-500">{supported ? 'Enable browser push notifications' : 'Not supported in this browser'}</p>
+    <div className="rounded-lg border p-4 space-y-2">
+      <p className="font-semibold text-sm">Browser notification permission</p>
+      <p className="text-xs">
+        Email service: {setup?.email_mode || 'checking'} · Push service: {setup?.push_mode || 'checking'}. Permission
+        alone is not a subscription.
+      </p>
+      <div className="flex gap-3">
+        <button
+          type="button"
+          className="text-sm underline"
+          disabled={busy || !browserPushSupported()}
+          onClick={() => void change(true)}
+        >
+          Enable this browser
+        </button>
+        <button
+          type="button"
+          className="text-sm underline"
+          disabled={busy || !browserPushSupported()}
+          onClick={() => void change(false)}
+        >
+          Disable this browser
+        </button>
       </div>
-      <button
-        disabled={!supported}
-        onClick={() => supported && Notification.requestPermission()}
-        className="px-3 py-1.5 text-xs font-medium bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 transition-colors"
-      >
-        Enable
-      </button>
+      {!browserPushSupported() && (
+        <p className="text-xs">
+          Push is unavailable here. HTTPS, a supported browser and a production service worker are required.
+        </p>
+      )}
+      {!!message && (
+        <p role="status" className="text-xs">
+          {message}
+        </p>
+      )}
     </div>
   );
-};
-
-export default PushNotificationToggle;
+}

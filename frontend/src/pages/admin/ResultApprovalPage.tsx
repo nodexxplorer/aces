@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import DataTable from '../../components/data-display/DataTable';
@@ -9,6 +9,7 @@ import { getAllResults, approveResult } from '../../api/results';
 import type { Result } from '../../types';
 import { getErrorMessage } from '../../utils/errors';
 
+import { useQuery } from '@tanstack/react-query';
 interface PendingResult extends Result {
   courseCode?: string;
   courseTitle?: string;
@@ -20,28 +21,25 @@ interface PendingResult extends Result {
 
 const ResultApprovalPage = () => {
   const { success, error, warning } = useNotification();
-  const [results, setResults] = useState<PendingResult[]>([]);
-  const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchResults();
-  }, []);
-
-  const fetchResults = async () => {
-    try {
-      setLoading(true);
-      const result = await getAllResults({ limit: 200, offset: 0 });
-      const items: PendingResult[] = Array.isArray(result) ? result : [];
-      const pending = items.filter((r) => r.status === 'pending');
-      setResults(pending);
-    } catch (err) {
-      error('Load Failed', getErrorMessage(err, 'Could not load results'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['result-approval'],
+    queryFn: async () => {
+      const _r: any = { results: [] };
+      try {
+        const result = await getAllResults({ limit: 200, offset: 0 });
+        const items: PendingResult[] = Array.isArray(result) ? result : [];
+        const pending = items.filter((r) => r.status === 'pending');
+        _r.results = pending;
+      } catch (err) {
+        error('Load Failed', getErrorMessage(err, 'Could not load results'));
+      }
+      return _r;
+    },
+    staleTime: 60_000,
+  });
+  const results = _qd?.results ?? [];
   const handleApprove = async (id: string, code: string) => {
     try {
       setActionId(id);

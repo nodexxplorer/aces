@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import StatusBadge from '../../components/data-display/StatusBadge';
@@ -15,69 +16,85 @@ import {
   HardDrive,
   Clock,
 } from 'lucide-react';
-import {
-  getBackups,
-  createBackup,
-  restoreBackup,
-  getBackupSummary,
-  type BackupRecord,
-  type BackupSummary,
-} from '../../api/backups';
+import { getBackups, createBackup, restoreBackup, getBackupSummary, type BackupRecord } from '../../api/backups';
 import { getErrorMessage } from '../../utils/errors';
 
 const BackupPage = () => {
+  const queryClient = useQueryClient();
   const { success, warning, error: notifyError } = useNotification();
-  const [backups, setBackups] = useState<BackupRecord[]>([]);
-  const [summary, setSummary] = useState<BackupSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [backing, setBacking] = useState(false);
-  const [restoring, setRestoring] = useState(false);
   const [selectedBackup, setSelectedBackup] = useState<string>('');
   const [restoreConfirm, setRestoreConfirm] = useState(false);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const {
+    data: backupsData,
+    isLoading: backupsLoading,
+    error: backupsError,
+    refetch: refetchBackups,
+  } = useQuery({
+    queryKey: ['backups'],
+    queryFn: getBackups,
+    staleTime: 60_000,
+  });
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      setLoadError(null);
-      const [b, s] = await Promise.allSettled([getBackups(), getBackupSummary()]);
-      if (b.status === 'fulfilled') {
-        const items = Array.isArray(b.value)
-          ? b.value
-          : (b.value as unknown as { items?: BackupRecord[] })?.items || [];
-        setBackups(items);
-      }
-      if (s.status === 'fulfilled') setSummary(s.value);
-      if (b.status === 'rejected' && s.status === 'rejected') {
-        setLoadError(
-          getErrorMessage(b.reason, getErrorMessage(s.reason, 'Failed to load backups'))
-        );
-      }
-    } catch (err: unknown) {
-      setLoadError(getErrorMessage(err, 'Failed to load backups'));
-    } finally {
-      setLoading(false);
-    }
+  const {
+    data: summary,
+    isLoading: summaryLoading,
+    error: summaryError,
+    refetch: refetchSummary,
+  } = useQuery({
+    queryKey: ['backups', 'summary'],
+    queryFn: getBackupSummary,
+    staleTime: 60_000,
+  });
+
+  const backups: BackupRecord[] = useMemo(() => {
+    if (!backupsData) return [];
+    if (Array.isArray(backupsData)) return backupsData;
+    return (backupsData as unknown as { items?: BackupRecord[] })?.items || [];
+  }, [backupsData]);
+
+  const loading = backupsLoading || summaryLoading;
+
+  const loadError = backupsError
+    ? getErrorMessage(backupsError, 'Failed to load backups')
+    : summaryError
+      ? getErrorMessage(summaryError, 'Failed to load backups')
+      : null;
+
+  const refetch = () => {
+    refetchBackups();
+    refetchSummary();
   };
 
-  const handleBackup = async () => {
-    try {
-      setBacking(true);
-      const result = await createBackup();
+  const createBackupMutation = useMutation({
+    mutationFn: createBackup,
+    onSuccess: (result) => {
       success('Backup Complete', `Backup "${result?.file_name || 'system backup'}" has been created`);
-      fetchData();
-    } catch (err: unknown) {
+      queryClient.invalidateQueries({ queryKey: ['backups'] });
+    },
+    onError: (err: unknown) => {
       notifyError('Backup Failed', getErrorMessage(err, 'Could not create backup'));
-    } finally {
-      setBacking(false);
-    }
+    },
+  });
+
+  const restoreBackupMutation = useMutation({
+    mutationFn: (backupId: string) => restoreBackup(backupId),
+    onSuccess: () => {
+      success('Restore Initiated', 'System restore has been started. You will be notified when complete.');
+      setRestoreConfirm(false);
+      setSelectedBackup('');
+      queryClient.invalidateQueries({ queryKey: ['backups'] });
+    },
+    onError: (err: unknown) => {
+      notifyError('Restore Failed', getErrorMessage(err, 'Could not restore from backup'));
+    },
+  });
+
+  const handleBackup = () => {
+    createBackupMutation.mutate();
   };
 
-  const handleRestore = async () => {
+  const handleRestore = () => {
     if (!selectedBackup) {
       warning('No Backup Selected', 'Please select a backup to restore from');
       return;
@@ -86,18 +103,7 @@ const BackupPage = () => {
       setRestoreConfirm(true);
       return;
     }
-    try {
-      setRestoring(true);
-      await restoreBackup(selectedBackup);
-      success('Restore Initiated', 'System restore has been started. You will be notified when complete.');
-      setRestoreConfirm(false);
-      setSelectedBackup('');
-      fetchData();
-    } catch (err: unknown) {
-      notifyError('Restore Failed', getErrorMessage(err, 'Could not restore from backup'));
-    } finally {
-      setRestoring(false);
-    }
+    restoreBackupMutation.mutate(selectedBackup);
   };
 
   const lastBackup = backups.length > 0 ? backups[0] : null;
@@ -111,7 +117,7 @@ const BackupPage = () => {
             Create snapshots and restore the system to a previous state.
           </p>
         </div>
-        <Button variant="outline" leftIcon={<RefreshCw className="w-4 h-4" />} onClick={fetchData}>
+        <Button variant="outline" leftIcon={<RefreshCw className="w-4 h-4" />} onClick={refetch}>
           Refresh
         </Button>
       </div>
@@ -128,13 +134,11 @@ const BackupPage = () => {
               <div className="flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-danger-600 shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-danger-800 dark:text-danger-300">
-                    Could not load backups
-                  </p>
+                  <p className="text-sm font-medium text-danger-800 dark:text-danger-300">Could not load backups</p>
                   <p className="text-[10px] text-danger-600 dark:text-danger-400">{loadError}</p>
                 </div>
               </div>
-              <Button size="xs" variant="outline" onClick={fetchData}>
+              <Button size="xs" variant="outline" onClick={refetch}>
                 Retry
               </Button>
             </div>
@@ -192,8 +196,14 @@ const BackupPage = () => {
               <div className="p-4 pt-0 space-y-4">
                 <Button
                   className="w-full"
-                  isLoading={backing}
-                  leftIcon={backing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  isLoading={createBackupMutation.isPending}
+                  leftIcon={
+                    createBackupMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )
+                  }
                   onClick={handleBackup}
                 >
                   Create Backup Now
@@ -233,8 +243,14 @@ const BackupPage = () => {
                 <Button
                   className="w-full"
                   variant={restoreConfirm ? 'danger' : 'outline'}
-                  isLoading={restoring}
-                  leftIcon={restoring ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  isLoading={restoreBackupMutation.isPending}
+                  leftIcon={
+                    restoreBackupMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Upload className="w-4 h-4" />
+                    )
+                  }
                   onClick={handleRestore}
                   disabled={!selectedBackup}
                 >

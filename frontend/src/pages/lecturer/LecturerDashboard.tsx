@@ -1,26 +1,17 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
 import { useCurrentDepartment } from '../../components/branding/department';
 import { tenantPath } from '../../config/departmentAdminPaths';
-import {
-  getLecturerDashboardStats,
-  listMyLeaveRequests,
-  type LecturerDashboardStats,
-  type LecturerAssignment,
-  type LecturerLeave,
-} from '../../api/lecturers';
+import { getLecturerDashboardStats, listMyLeaveRequests, type LecturerDashboardStats } from '../../api/lecturers';
 import { getCourseClassList } from '../../api/courses';
 import { getSessions } from '../../api/sessions';
-import { listStudentAnnouncements, type AnnouncementV2 } from '../../api/verification-announcements';
-import {
-  getLecturerPendingAttendanceReviews,
-  getLecturerAttendanceHistory,
-  type PendingAttendanceReview,
-} from '../../api/attendance';
-import type { Session } from '../../types';
+import { listStudentAnnouncements } from '../../api/verification-announcements';
+import { getLecturerPendingAttendanceReviews, getLecturerAttendanceHistory } from '../../api/attendance';
+
 import { formatTimeAgo } from '../../utils/formatters';
+import { useQuery } from '@tanstack/react-query';
 import {
   BookOpen,
   Users,
@@ -51,18 +42,93 @@ export const LecturerDashboard: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { error: notifyError } = useNotification();
+
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['lecturer-dashboard', loadData],
+    queryFn: async () => {
+      const _r: any = {
+        stats: null,
+        courses: [],
+        leaves: [],
+        announcements: [],
+        sessions: [],
+        pendingReviews: [],
+        reviewHistory: [],
+      };
+      try {
+        const [statsRes, leavesRes, sessionsRes, annRes, pendingRes, historyRes] = await Promise.allSettled([
+          getLecturerDashboardStats(),
+          listMyLeaveRequests(),
+          getSessions({ page: 1, perPage: 10 }),
+          listStudentAnnouncements(),
+          getLecturerPendingAttendanceReviews(),
+          getLecturerAttendanceHistory(),
+        ]);
+
+        let statsData: LecturerDashboardStats | null = null;
+        if (statsRes.status === 'fulfilled' && statsRes.value) {
+          statsData = statsRes.value;
+          _r.stats = statsData;
+        }
+
+        if (leavesRes.status === 'fulfilled' && Array.isArray(leavesRes.value)) {
+          _r.leaves = leavesRes.value;
+        }
+
+        if (sessionsRes.status === 'fulfilled' && Array.isArray(sessionsRes.value)) {
+          _r.sessions = sessionsRes.value;
+        }
+
+        if (annRes.status === 'fulfilled' && Array.isArray(annRes.value)) {
+          _r.announcements = annRes.value.slice(0, 5);
+        }
+
+        if (pendingRes.status === 'fulfilled') {
+          _r.pendingReviews = pendingRes.value.reviews || [];
+        }
+
+        if (historyRes.status === 'fulfilled') {
+          _r.reviewHistory = historyRes.value.history || [];
+        }
+
+        const assignments = statsData?.assignments;
+        if (Array.isArray(assignments) && assignments.length > 0) {
+          const needsCounts = assignments.some((a) => a.enrolled_count == null);
+          if (!needsCounts) {
+            _r.courses = assignments;
+          } else {
+            const enriched = await Promise.all(
+              assignments.map(async (assign) => {
+                try {
+                  const students = await getCourseClassList(assign.course_id);
+                  return { ...assign, enrolled_count: Array.isArray(students) ? students.length : 0 };
+                } catch {
+                  return { ...assign, enrolled_count: assign.enrolled_count ?? 0 };
+                }
+              }),
+            );
+            _r.courses = enriched;
+          }
+        } else {
+          _r.courses = [];
+        }
+      } catch {
+        notifyError('Failed to load dashboard data', 'Could not sync lecturer statistics.');
+      }
+      return _r;
+    },
+    staleTime: 30_000,
+    enabled: !!loadData,
+  });
+  const stats = _qd?.stats ?? null;
+  const courses = _qd?.courses ?? [];
+  const leaves = _qd?.leaves ?? [];
+  const announcements = _qd?.announcements ?? [];
+  const sessions = _qd?.sessions ?? [];
+  const pendingReviews = _qd?.pendingReviews ?? [];
+  const reviewHistory = _qd?.reviewHistory ?? [];
   const department = useCurrentDepartment();
   const urlCode = user?.tenant?.urlCode;
-
-  const [stats, setStats] = useState<LecturerDashboardStats | null>(null);
-  const [courses, setCourses] = useState<LecturerAssignment[]>([]);
-  const [leaves, setLeaves] = useState<LecturerLeave[]>([]);
-  const [announcements, setAnnouncements] = useState<AnnouncementV2[]>([]);
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [pendingReviews, setPendingReviews] = useState<PendingAttendanceReview[]>([]);
-  const [reviewHistory, setReviewHistory] = useState<PendingAttendanceReview[]>([]);
-  const [loading, setLoading] = useState(true);
-
   const lecturerName = user?.firstName || user?.fullName?.split(' ')[0] || 'Lecturer';
   const contactEmail = department?.approvalContactEmail || department?.contactEmail || '';
   const classListPath = tenantPath(urlCode, '/l/class-list');
@@ -70,77 +136,6 @@ export const LecturerDashboard: React.FC = () => {
   const profilePath = tenantPath(urlCode, '/l/profile');
   const announcementsPath = tenantPath(urlCode, '/l/announcements');
   const attendancePath = tenantPath(urlCode, '/l/attendance-review');
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [statsRes, leavesRes, sessionsRes, annRes, pendingRes, historyRes] = await Promise.allSettled([
-        getLecturerDashboardStats(),
-        listMyLeaveRequests(),
-        getSessions({ page: 1, perPage: 10 }),
-        listStudentAnnouncements(),
-        getLecturerPendingAttendanceReviews(),
-        getLecturerAttendanceHistory(),
-      ]);
-
-      let statsData: LecturerDashboardStats | null = null;
-      if (statsRes.status === 'fulfilled' && statsRes.value) {
-        statsData = statsRes.value;
-        setStats(statsData);
-      }
-
-      if (leavesRes.status === 'fulfilled' && Array.isArray(leavesRes.value)) {
-        setLeaves(leavesRes.value);
-      }
-
-      if (sessionsRes.status === 'fulfilled' && Array.isArray(sessionsRes.value)) {
-        setSessions(sessionsRes.value);
-      }
-
-      if (annRes.status === 'fulfilled' && Array.isArray(annRes.value)) {
-        setAnnouncements(annRes.value.slice(0, 5));
-      }
-
-      if (pendingRes.status === 'fulfilled') {
-        setPendingReviews(pendingRes.value.reviews || []);
-      }
-
-      if (historyRes.status === 'fulfilled') {
-        setReviewHistory(historyRes.value.history || []);
-      }
-
-      const assignments = statsData?.assignments;
-      if (Array.isArray(assignments) && assignments.length > 0) {
-        const needsCounts = assignments.some((a) => a.enrolled_count == null);
-        if (!needsCounts) {
-          setCourses(assignments);
-        } else {
-          const enriched = await Promise.all(
-            assignments.map(async (assign) => {
-              try {
-                const students = await getCourseClassList(assign.course_id);
-                return { ...assign, enrolled_count: Array.isArray(students) ? students.length : 0 };
-              } catch {
-                return { ...assign, enrolled_count: assign.enrolled_count ?? 0 };
-              }
-            }),
-          );
-          setCourses(enriched);
-        }
-      } else {
-        setCourses([]);
-      }
-    } catch {
-      notifyError('Failed to load dashboard data', 'Could not sync lecturer statistics.');
-    } finally {
-      setLoading(false);
-    }
-  }, [notifyError]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
   const coursesCount = stats?.courses_assigned ?? courses.length;
   const totalStudents = useMemo(() => {
     if (typeof stats?.total_students === 'number') return stats.total_students;

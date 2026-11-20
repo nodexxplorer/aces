@@ -5,15 +5,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { fontFamily, fontSize, spacing } from '../../src/theme/typography';
 import Screen from '../../src/components/ui/Screen';
-import ClassRepAttendance from '../../src/components/ClassRepAttendance';
+import VerifiedAttendance from '../../src/components/VerifiedAttendance';
 import { StyleSheet } from 'react-native';
 
-// Dedicated class-rep attendance screen, reached only from the Class Rep
-// Tools hub (app/class-rep/index.tsx) — deliberately separate from the
-// (tabs)/attendance.tsx bottom-tab screen, which always shows the plain
-// student view regardless of active role. Renders the same
-// ClassRepAttendance component the earlier tab-swap approach used, just
-// relocated to its own screen instead of replacing student content.
+// Dedicated entry from Class Rep Tools. The shared verified-attendance view
+// exposes operating controls only for a lecturer-delegated session; students
+// retain their personal records and dispute access in either entry point.
 export default function ClassRepAttendanceScreen() {
   const { theme } = useTheme();
   const router = useRouter();
@@ -26,11 +23,17 @@ export default function ClassRepAttendanceScreen() {
       </Pressable>
 
       <Text style={[styles.header, { color: theme.text }]}>Take Attendance</Text>
-      <Text style={{ color: theme.textMuted, fontSize: fontSize.sm, marginBottom: spacing.md }}>
-        Open a session, share the QR code, and review who's checked in.
+      <Text
+        style={{
+          color: theme.textMuted,
+          fontSize: fontSize.sm,
+          marginBottom: spacing.md,
+        }}
+      >
+        Operate only sessions delegated by your lecturer. Lecturer review and finalization happen on the web portal.
       </Text>
 
-      <ClassRepAttendance />
+      <VerifiedAttendance />
     </Screen>
   );
 }

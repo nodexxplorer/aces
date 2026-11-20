@@ -1,15 +1,26 @@
 import { useState, useEffect } from 'react';
-import { getClassRepClassList, type ClassRepStudent } from '../../api/class-rep';
+import { getClassRepClassList } from '../../api/class-rep';
 import { useNotification } from '../../hooks/useNotification';
 import { Search, Download, Check, AlertTriangle, Eye, WifiOff } from 'lucide-react';
 
+import { useQuery } from '@tanstack/react-query';
 export default function ClassListPage() {
   const { error: notifyError } = useNotification();
-  const [students, setStudents] = useState<ClassRepStudent[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['class-list'],
+    queryFn: async () => {
+      const _r: any = { students: [] };
+      getClassRepClassList()
+        .then((data) => (_r.students = Array.isArray(data) ? data : []))
+        .catch(() => notifyError('Error', 'Failed to load class list'));
+      return _r;
+    },
+    staleTime: 60_000,
+  });
+  const students = _qd?.students ?? [];
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => setIsOffline(true);
@@ -19,13 +30,6 @@ export default function ClassListPage() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
-
-  useEffect(() => {
-    getClassRepClassList()
-      .then((data) => setStudents(Array.isArray(data) ? data : []))
-      .catch(() => notifyError('Error', 'Failed to load class list'))
-      .finally(() => setLoading(false));
   }, []);
 
   const filtered = students.filter(

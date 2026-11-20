@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Search, BookOpen, User, Megaphone, Loader2, AlertCircle } from 'lucide-react';
 import { universalSearch, type SearchResult } from '../../api/additional-features';
 import EmptyState from '../../components/ui/EmptyState';
 
+import { useQuery } from '@tanstack/react-query';
 const TYPE_CONFIG: Record<string, { icon: typeof BookOpen; label: string; color: string; bg: string }> = {
   course: {
     icon: BookOpen,
@@ -27,36 +28,31 @@ const TYPE_CONFIG: Record<string, { icon: typeof BookOpen; label: string; color:
 
 export default function SearchResultsPage() {
   const [params, setParams] = useSearchParams();
-  const query = params.get('q') || '';
+
   const [inputValue, setInputValue] = useState(query);
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
 
   useEffect(() => {
     setInputValue(query);
-    if (!query.trim()) {
-      setResults([]);
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    setError('');
-    universalSearch(query)
-      .then((data) => {
-        if (!cancelled) setResults(data);
-      })
-      .catch(() => {
-        if (!cancelled) setError('Search failed. Please try again.');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
   }, [query]);
+
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['search-results', query],
+    queryFn: async () => {
+      if (!query.trim()) return { results: [], error: '' };
+      try {
+        const data = await universalSearch(query);
+        return { results: Array.isArray(data) ? data : [], error: '' };
+      } catch {
+        return { results: [], error: 'Search failed. Please try again.' };
+      }
+    },
+    staleTime: 60_000,
+    enabled: !!query.trim(),
+  });
+  const results = _qd?.results ?? [];
+  const error = _qd?.error ?? '';
+  const query = params.get('q') || '';
+  const navigate = useNavigate();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

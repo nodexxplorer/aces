@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNotification } from '../../hooks/useNotification';
 import { getCourses } from '../../api/courses';
 import {
@@ -18,28 +18,24 @@ import { getErrorMessage } from '../../utils/errors';
 import type { Course } from '../../types';
 import { Search, Check, Scan, Send, Radio, QrCode } from 'lucide-react';
 
+import { useQuery } from '@tanstack/react-query';
 type AttendanceStatus = 'present' | 'late' | 'absent' | 'unmarked';
 
 export default function AttendancePage() {
   const { success, warning, error: notifyError } = useNotification();
 
   const [, setCourses] = useState<Course[]>([]);
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-  const [students, setStudents] = useState<ClassRepStudent[]>([]);
   const [, setSessions] = useState<AttendanceSession[]>([]);
-  const [activeSession, setActiveSession] = useState<AttendanceSession | null>(null);
-
   // Per student attendance status map
   const [statusMap, setStatusMap] = useState<Record<string, AttendanceStatus>>({});
   const [search, setSearch] = useState('');
   const [scannerOpen, setScannerOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    const init = async () => {
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['attendance'],
+    queryFn: async () => {
+      const _result: any = { selectedCourse: null, students: [], activeSession: null, loading: true };
       try {
-        setLoading(true);
         const [coursesRes, classListRes, sessionsRes] = await Promise.allSettled([
           getCourses(),
           getClassRepClassList(),
@@ -50,13 +46,13 @@ export default function AttendancePage() {
         if (coursesRes.status === 'fulfilled') {
           courseList = Array.isArray(coursesRes.value) ? coursesRes.value : [];
           setCourses(courseList);
-          if (courseList.length > 0) setSelectedCourse(courseList[0]);
+          if (courseList.length > 0) _result.selectedCourse = courseList[0];
         }
 
         let studentList: ClassRepStudent[] = [];
         if (classListRes.status === 'fulfilled') {
           studentList = Array.isArray(classListRes.value) ? classListRes.value : [];
-          setStudents(studentList);
+          _result.students = studentList;
         }
 
         if (sessionsRes.status === 'fulfilled') {
@@ -64,7 +60,7 @@ export default function AttendancePage() {
           setSessions(sList);
           const open = sList.find((s) => s.status === 'open' || s.status === 'active');
           if (open) {
-            setActiveSession(open);
+            _result.activeSession = open;
             // load checkins
             const checkins = await listAttendanceCheckins(open.id);
             const initMap: Record<string, AttendanceStatus> = {};
@@ -76,7 +72,7 @@ export default function AttendancePage() {
             // create default session
             try {
               const newSess = await createAttendanceSession(courseList[0].id, 'manual', 'LT 2');
-              setActiveSession(newSess);
+              _result.activeSession = newSess;
             } catch {
               // fallback
             }
@@ -84,13 +80,17 @@ export default function AttendancePage() {
         }
       } catch (e) {
         notifyError('Load Error', getErrorMessage(e, 'Failed to initialize session'));
-      } finally {
-        setLoading(false);
       }
-    };
-    init();
-  }, []);
 
+      return _result;
+    },
+    staleTime: 15_000,
+  });
+  const selectedCourse = _qd?.selectedCourse ?? null;
+  const students = _qd?.students ?? [];
+  const activeSession = _qd?.activeSession ?? null;
+  const loading = _qd?.loading ?? true;
+  const [submitting, setSubmitting] = useState(false);
   const handleSetStatus = async (studentId: string, status: AttendanceStatus) => {
     setStatusMap((prev) => ({ ...prev, [studentId]: status }));
     if (!activeSession) return;

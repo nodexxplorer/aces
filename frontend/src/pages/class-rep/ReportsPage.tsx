@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
-import { listMyReports, submitClassRepReport, type ClassRepReport } from '../../api/class-rep';
+import { listMyReports, submitClassRepReport } from '../../api/class-rep';
 import { getErrorMessage } from '../../utils/errors';
 import { FileText, Send, Paperclip, Check, Eye, Clock, Plus } from 'lucide-react';
 
+import { useQuery } from '@tanstack/react-query';
 const REPORT_TYPES = [
   { id: 'attendance', label: 'Attendance summary' },
   { id: 'concern', label: 'Class concern' },
@@ -15,33 +16,29 @@ const REPORT_TYPES = [
 export default function ReportsPage() {
   const { user } = useAuth();
   const { success, error: notifyError } = useNotification();
-
-  const [reports, setReports] = useState<ClassRepReport[]>([]);
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   // Form state
   const [reportType, setReportType] = useState<string>('concern');
   const [subject, setSubject] = useState('');
   const [details, setDetails] = useState('');
+
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['reports'],
+    queryFn: async () => {
+      const _r: any = { reports: [] };
+      try {
+        const res = await listMyReports();
+        _r.reports = Array.isArray(res) ? res : [];
+      } catch {
+        notifyError('Error', 'Failed to load reports');
+      }
+      return _r;
+    },
+    staleTime: 60_000,
+  });
+  const reports = _qd?.reports ?? [];
   const [fileName, setFileName] = useState<string | null>(null);
-
-  const fetchReports = async () => {
-    try {
-      setLoading(true);
-      const res = await listMyReports();
-      setReports(Array.isArray(res) ? res : []);
-    } catch {
-      notifyError('Error', 'Failed to load reports');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchReports();
-  }, []);
-
   const handleSendToHOD = async (isDraft = false) => {
     if (!subject.trim()) {
       notifyError('Validation', 'Please provide a subject');

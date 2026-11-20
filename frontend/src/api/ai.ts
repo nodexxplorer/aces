@@ -54,7 +54,11 @@ export const getQuickActions = async () => {
   return unwrap<QuickAction[]>(res);
 };
 
-export const sendChatFeedback = async (interactionId: string, feedback: 'positive' | 'negative' | 'neutral', wasAccurate?: boolean) => {
+export const sendChatFeedback = async (
+  interactionId: string,
+  feedback: 'positive' | 'negative' | 'neutral',
+  wasAccurate?: boolean,
+) => {
   const res = await apiClient.post('/ai/feedback', {
     interaction_id: interactionId,
     feedback,

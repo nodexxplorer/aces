@@ -9,10 +9,9 @@ describe('useDebounce', () => {
   });
 
   it('updates after delay', async () => {
-    const { result, rerender } = renderHook(
-      ({ value }) => useDebounce(value, 100),
-      { initialProps: { value: 'hello' } }
-    );
+    const { result, rerender } = renderHook(({ value }) => useDebounce(value, 100), {
+      initialProps: { value: 'hello' },
+    });
 
     rerender({ value: 'world' });
     expect(result.current).toBe('hello');

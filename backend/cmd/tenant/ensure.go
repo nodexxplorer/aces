@@ -197,7 +197,7 @@ func ensureOne(ctx context.Context, pool *pgxpool.Pool, spec departmentSpec, dry
 		fmt.Printf("       warning: no matric code, so students cannot sign up or finish onboarding until you run\n"+
 			"         go run ./cmd/tenant update -slug %s -matric-code EG/XX\n", spec.Slug)
 	}
-	fmt.Printf("       next: DB_SOURCE=<runtime DSN> ADMIN_EMAIL=<email> go run ./cmd/seed_admin -tenant %s\n", spec.Slug)
+	fmt.Printf("       next: DB_SOURCE=<owner DSN> go run ./cmd/tenant invite-hod -slug %s -email HOD_EMAIL -name HOD_NAME\n", spec.Slug)
 	return true, nil
 }
 

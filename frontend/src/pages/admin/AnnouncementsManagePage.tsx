@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNotification } from '../../hooks/useNotification';
 import {
   Plus,
@@ -28,11 +28,11 @@ import {
   listAdminAnnouncements,
   updateAnnouncementV2,
   deleteAnnouncementV2,
-  type AnnouncementV2,
 } from '../../api/verification-announcements';
 import { getDashboardAnalytics } from '../../api/analytics';
 import { getErrorMessage } from '../../utils/errors';
 
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 interface TemplateOption {
   id: string;
   title: string;
@@ -138,9 +138,7 @@ export const AnnouncementsManagePage: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // Real data state
-  const [announcements, setAnnouncements] = useState<AnnouncementV2[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [totalStudentsCount, setTotalStudentsCount] = useState<number>(0);
+  const [totalStudentsCount, _setTotalStudentsCount] = useState<number>(0);
   const [templateDropdownOpen, setTemplateDropdownOpen] = useState(false);
 
   // Filters
@@ -167,29 +165,23 @@ export const AnnouncementsManagePage: React.FC = () => {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  // Fetch real announcements & students count
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      // The real student total comes from the dashboard analytics; the users list is paged and cannot give a full count.
+  const queryClient = useQueryClient();
+  const { data: qData, isLoading: loading } = useQuery({
+    queryKey: ['announcements-manage'],
+    queryFn: async () => {
       const [annRes, analyticsRes] = await Promise.allSettled([listAdminAnnouncements(), getDashboardAnalytics()]);
-
-      if (annRes.status === 'fulfilled') {
-        setAnnouncements(annRes.value || []);
-      }
-      if (analyticsRes.status === 'fulfilled' && typeof analyticsRes.value?.totalStudents === 'number') {
-        setTotalStudentsCount(analyticsRes.value.totalStudents);
-      }
-    } catch {
-      // Graceful fallback
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
+      const announcements = annRes.status === 'fulfilled' ? annRes.value || [] : [];
+      const totalStudents =
+        analyticsRes.status === 'fulfilled' && typeof (analyticsRes.value as any)?.totalStudents === 'number'
+          ? (analyticsRes.value as any).totalStudents
+          : 0;
+      return { announcements, totalStudents };
+    },
+    staleTime: 60_000,
+  });
+  const announcements = qData?.announcements ?? [];
+  const totalStudentsCount = qData?.totalStudents ?? 0;
+  const fetchData = () => queryClient.invalidateQueries({ queryKey: ['announcements-manage'] });
 
   // Stats calculation
   const stats = useMemo(() => {

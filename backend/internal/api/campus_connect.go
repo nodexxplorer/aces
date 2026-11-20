@@ -23,7 +23,6 @@ type sendMessageReq struct {
 	Content    string    `json:"content" binding:"required"`
 }
 
-
 func (server *Server) sendConnectionRequest(ctx *gin.Context) {
 	var req sendConnectionReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -44,6 +43,8 @@ func (server *Server) sendConnectionRequest(ctx *gin.Context) {
 		return
 	}
 
+	kind := "connection"
+	server.notifyUser(ctx, connection.ReceiverID, "general", "connect", "normal", "Connection request", "You have a new connection request.", "/connect", "Open Connect", &kind, &connection.ID)
 	ctx.JSON(http.StatusOK, connection)
 }
 
@@ -88,6 +89,10 @@ func (server *Server) respondToConnection(ctx *gin.Context) {
 		return
 	}
 
+	if req.Status == "accepted" {
+		kind := "connection"
+		server.notifyUser(ctx, connection.RequesterID, "general", "connect", "normal", "Connection accepted", "Your connection request has been accepted.", "/connect", "Open Connect", &kind, &connection.ID)
+	}
 	ctx.JSON(http.StatusOK, connection)
 }
 
@@ -235,8 +240,6 @@ func (server *Server) markMessageRead(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, message)
 }
-
-
 
 func (server *Server) getStudentDirectory(ctx *gin.Context) {
 	userID := getUserID(ctx)

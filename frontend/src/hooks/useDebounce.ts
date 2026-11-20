@@ -9,16 +9,13 @@ export const useDebounce = <T>(value: T, delay: number = 300): T => {
   return debouncedValue;
 };
 
-export const useDebouncedCallback = <T extends (...args: unknown[]) => void>(
-  callback: T,
-  delay: number = 300
-) => {
+export const useDebouncedCallback = <T extends (...args: unknown[]) => void>(callback: T, delay: number = 300) => {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   return useCallback(
     (...args: Parameters<T>) => {
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => callback(...args), delay);
     },
-    [callback, delay]
+    [callback, delay],
   );
 };

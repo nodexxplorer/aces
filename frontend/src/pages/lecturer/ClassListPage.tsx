@@ -4,10 +4,11 @@ import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../hooks/useAuth';
 import { useCurrentDepartment } from '../../components/branding/department';
 import { Printer, Download, Loader2, Mail, Search, Users } from 'lucide-react';
-import { listLecturerAssignments, type LecturerAssignment } from '../../api/lecturers';
+import { listLecturerAssignments } from '../../api/lecturers';
 import { getCourseClassList } from '../../api/courses';
 import { getInitials } from '../../utils/formatters';
 
+import { useQuery } from '@tanstack/react-query';
 interface StudentRow {
   studentId?: string;
   matricNumber: string;
@@ -31,32 +32,38 @@ const ClassListPage = () => {
   const department = useCurrentDepartment();
   const contactEmail = department?.approvalContactEmail || department?.contactEmail || '';
   const [searchParams, setSearchParams] = useSearchParams();
-
-  const [assignments, setAssignments] = useState<LecturerAssignment[]>([]);
-  const [selectedId, setSelectedId] = useState('');
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [countsByAssignment, setCountsByAssignment] = useState<Record<string, number>>({});
-  const [loadingA, setLoadingA] = useState(true);
   const [loadingS, setLoadingS] = useState(false);
   const [query, setQuery] = useState(searchParams.get('search') || '');
   const [levelFilter, setLevelFilter] = useState('all');
   const [page, setPage] = useState(1);
 
-  useEffect(() => {
-    if (!user?.id) return;
-    listLecturerAssignments(user.id)
-      .then((data) => {
-        const arr = Array.isArray(data) ? data : [];
-        setAssignments(arr);
-        const fromUrl = searchParams.get('course');
-        const match = fromUrl ? arr.find((a) => a.course_id === fromUrl || a.id === fromUrl) : null;
-        if (match) setSelectedId(match.id);
-        else if (arr.length > 0) setSelectedId(arr[0].id);
-      })
-      .catch(() => notifyError('Error', 'Failed to load assignments'))
-      .finally(() => setLoadingA(false));
-  }, [user?.id, notifyError, searchParams]);
+  const [selectedId, setSelectedId] = useState('');
+  const { data: assignments = [], isLoading: loadingA } = useQuery({
+    queryKey: ['lecturer-assignments', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      try {
+        const data = await listLecturerAssignments(user.id);
+        return Array.isArray(data) ? data : [];
+      } catch {
+        notifyError('Error', 'Failed to load assignments');
+        return [];
+      }
+    },
+    staleTime: 60_000,
+    enabled: !!user?.id,
+  });
 
+  useEffect(() => {
+    if (assignments.length > 0 && !selectedId) {
+      const fromUrl = searchParams.get('course');
+      const match = fromUrl ? assignments.find((a) => a.course_id === fromUrl || a.id === fromUrl) : null;
+      if (match) setSelectedId(match.id);
+      else setSelectedId(assignments[0].id);
+    }
+  }, [assignments, searchParams, selectedId]);
   const sel = assignments.find((a) => a.id === selectedId);
 
   const load = useCallback(async () => {

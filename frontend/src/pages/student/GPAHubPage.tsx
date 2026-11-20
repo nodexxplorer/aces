@@ -4,6 +4,7 @@ import { getCourses } from '../../api/courses';
 import { getMyApprovedResults, type ApprovedResultDetail } from '../../api/cgpa';
 import type { Course } from '../../types';
 
+import { useQuery } from '@tanstack/react-query';
 interface SelectedCourse {
   id: string;
   code: string;
@@ -82,29 +83,30 @@ function CGPAGauge({ value }: { value: number }) {
 }
 
 export default function GPAHubPage() {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [approvedResults, setApprovedResults] = useState<ApprovedResultDetail[]>([]);
   const [selectedCourses, setSelectedCourses] = useState<SelectedCourse[]>([]);
   const [selectedPrefix, setSelectedPrefix] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [loading, setLoading] = useState(true);
 
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['gpahub'],
+    queryFn: async () => {
+      const _r: any = { courses: [], approvedResults: [] };
+      Promise.all([
+        getCourses({ perPage: 100 }).catch(() => [] as Course[]),
+        getMyApprovedResults().catch(() => [] as ApprovedResultDetail[]),
+      ]).then(([courseList, results]) => {
+        _r.courses = courseList;
+        _r.approvedResults = results;
+      });
+      return _r;
+    },
+    staleTime: 60_000,
+  });
+  const courses = _qd?.courses ?? [];
+  const approvedResults = _qd?.approvedResults ?? [];
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch real catalogue courses and student's approved results
-  useEffect(() => {
-    setLoading(true);
-    Promise.all([
-      getCourses({ perPage: 100 }).catch(() => [] as Course[]),
-      getMyApprovedResults().catch(() => [] as ApprovedResultDetail[]),
-    ])
-      .then(([courseList, results]) => {
-        setCourses(courseList);
-        setApprovedResults(results);
-      })
-      .finally(() => setLoading(false));
-  }, []);
-
   // Keyboard shortcut '/' to focus search input
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

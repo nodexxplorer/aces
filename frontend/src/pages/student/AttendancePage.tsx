@@ -1,13 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
 import { useNotification } from '../../hooks/useNotification';
 import { CalendarCheck, CheckCircle2, XCircle, MapPin, ClipboardList } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import {
   getMyAttendanceOverview,
   getMyCourseAttendance,
-  type StudentAttendanceOverview,
+  type _StudentAttendanceOverview,
   type StudentCourseAttendance,
   type StudentCourseAttendanceSession,
 } from '../../api/attendance';
@@ -20,20 +21,22 @@ const rateVariant = (rate: number) => {
 
 const AttendancePage = () => {
   const { error: notifyError } = useNotification();
-  const [overview, setOverview] = useState<StudentAttendanceOverview | null>(null);
-  const [loading, setLoading] = useState(true);
-
   const [selectedCourse, setSelectedCourse] = useState<StudentCourseAttendance | null>(null);
   const [sessions, setSessions] = useState<StudentCourseAttendanceSession[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  useEffect(() => {
-    getMyAttendanceOverview()
-      .then(setOverview)
-      .catch(() => notifyError('Error', 'Failed to load attendance overview'))
-      .finally(() => setLoading(false));
-  }, []);
-
+  const { data: overview = null, isLoading: loading } = useQuery({
+    queryKey: ['attendance-overview'],
+    queryFn: async () => {
+      try {
+        return await getMyAttendanceOverview();
+      } catch {
+        notifyError('Error', 'Failed to load attendance overview');
+        return null;
+      }
+    },
+    staleTime: 15_000,
+  });
   const openCourse = async (course: StudentCourseAttendance) => {
     setSelectedCourse(course);
     setDetailLoading(true);

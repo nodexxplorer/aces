@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Megaphone,
   Clock,
@@ -25,6 +25,8 @@ import { getErrorMessage } from '../../utils/errors';
 import Button from '../../components/ui/Button';
 import EmptyState from '../../components/ui/EmptyState';
 
+import { useQuery } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 interface Announcement {
   id: string;
   title: string;
@@ -109,8 +111,6 @@ function getCategoryColor(category: string): string {
 
 export default function StudentAnnouncementsPage() {
   const { success, error: notifyError } = useNotification();
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
@@ -120,30 +120,27 @@ export default function StudentAnnouncementsPage() {
   const [comments, setComments] = useState<AnnouncementComment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
-  const [acknowledging, setAcknowledging] = useState(false);
 
-  const fetchAnnouncements = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await listStudentAnnouncements();
-      setAnnouncements(
-        (data || []).map((a) => ({
+  const queryClient = useQueryClient();
+  const { data: announcements = [], isLoading: loading } = useQuery({
+    queryKey: ['student-announcements'],
+    queryFn: async () => {
+      try {
+        const data = await listStudentAnnouncements();
+        return (data || []).map((a) => ({
           ...a,
           attachment_count: a.attachments?.length || 0,
           author_role: (a as unknown as { author_role?: string }).author_role || '',
-        })) as unknown as Announcement[],
-      );
-    } catch (err: unknown) {
-      notifyError('Failed to load announcements', getErrorMessage(err, ''));
-    } finally {
-      setLoading(false);
-    }
-  }, [notifyError]);
-
-  useEffect(() => {
-    fetchAnnouncements();
-  }, [fetchAnnouncements]);
-
+        })) as unknown as Announcement[];
+      } catch (err: unknown) {
+        notifyError('Failed to load announcements', getErrorMessage(err, ''));
+        return [];
+      }
+    },
+    staleTime: 60_000,
+  });
+  const _fetchAnnouncements = () => queryClient.invalidateQueries({ queryKey: ['student-announcements'] });
+  const [acknowledging, setAcknowledging] = useState(false);
   useEffect(() => {
     const fetchReadStatuses = async () => {
       try {

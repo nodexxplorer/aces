@@ -28,7 +28,7 @@ func TestVisualOutput(t *testing.T) {
 	d := ReceiptData{
 		Date:         "29/09/2026",
 		ReceivedFrom: "John Doe (20/EE/1234)",
-		Of:           "John Doe (20/EE/1234)",
+		Of:           "Department of Computer Engineering",
 		SumOf:        "Fifteen Thousand Naira, Only",
 		NairaWords:   "Fifteen Thousand",
 		KoboWords:    "Zero",

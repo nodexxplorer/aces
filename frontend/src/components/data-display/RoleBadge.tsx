@@ -12,7 +12,7 @@ const RoleBadge = ({ role, className }: RoleBadgeProps) => (
     className={cn(
       'inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full shadow-sm',
       ROLE_COLORS[role] || 'bg-surface-100 text-surface-800 dark:bg-surface-800 dark:text-surface-300',
-      className
+      className,
     )}
   >
     {ROLE_LABELS[role] || role}

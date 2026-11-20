@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Select from '../../components/ui/Select';
 import Button from '../../components/ui/Button';
@@ -18,6 +18,7 @@ import {
 } from '../../api/complaints';
 import { getErrorMessage } from '../../utils/errors';
 
+import { useQuery } from '@tanstack/react-query';
 interface ComplaintRow {
   id: string;
   ticketNo?: string;
@@ -34,8 +35,6 @@ interface ComplaintRow {
 const ComplaintsManagePage = () => {
   const { user } = useAuth();
   const { success, error: notifyError } = useNotification();
-  const [complaints, setComplaints] = useState<ComplaintRow[]>([]);
-  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [viewOpen, setViewOpen] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState<ComplaintRow | null>(null);
@@ -43,23 +42,22 @@ const ComplaintsManagePage = () => {
   const [resolutionText, setResolutionText] = useState('');
   const [history, setHistory] = useState<ComplaintStatusHistoryEntry[]>([]);
 
-  useEffect(() => {
-    fetchComplaints();
-  }, []);
-
-  const fetchComplaints = async () => {
-    try {
-      setLoading(true);
-      const data = await getComplaints();
-      const items = Array.isArray(data) ? data : (data as unknown as { items?: ComplaintRow[] }).items || [];
-      setComplaints(items as unknown as ComplaintRow[]);
-    } catch (err: unknown) {
-      notifyError('Load Failed', getErrorMessage(err, 'Could not load complaints'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['complaints-manage'],
+    queryFn: async () => {
+      const _r: any = { complaints: [] };
+      try {
+        const data = await getComplaints();
+        const items = Array.isArray(data) ? data : (data as unknown as { items?: ComplaintRow[] }).items || [];
+        _r.complaints = items as unknown as ComplaintRow[];
+      } catch (err: unknown) {
+        notifyError('Load Failed', getErrorMessage(err, 'Could not load complaints'));
+      }
+      return _r;
+    },
+    staleTime: 60_000,
+  });
+  const complaints = _qd?.complaints ?? [];
   const filtered = statusFilter === 'all' ? complaints : complaints.filter((c) => c.status === statusFilter);
 
   const handleAssignToMe = async (id: string) => {

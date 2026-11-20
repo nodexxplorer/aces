@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
@@ -32,24 +32,11 @@ import {
 import { getUsers } from '../../api/users';
 import { formatCurrency } from '../../utils/formatters';
 import { getErrorMessage } from '../../utils/errors';
-import type {
-  AlumniProfile,
-  AlumniFullProfile,
-  AlumniDashboardStats,
-  AlumniDonation,
-  MentorItem,
-  AlumniEventItem,
-  User,
-} from '../../types';
+import { useQuery } from '@tanstack/react-query';
+import type { AlumniProfile, AlumniFullProfile, User } from '../../types';
 
 const AlumniManagementPage = () => {
   const { success, error: notifyError } = useNotification();
-  const [alumni, setAlumni] = useState<AlumniFullProfile[]>([]);
-  const [dashboardStats, setDashboardStats] = useState<AlumniDashboardStats | null>(null);
-  const [recentDonations, setRecentDonations] = useState<AlumniDonation[]>([]);
-  const [mentors, setMentors] = useState<MentorItem[]>([]);
-  const [events, setEvents] = useState<AlumniEventItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -72,6 +59,40 @@ const AlumniManagementPage = () => {
   const [searchingStudents, setSearchingStudents] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
 
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['alumni-management'],
+    queryFn: async () => {
+      const _r: any = { alumni: [], dashboardStats: null, recentDonations: [], mentors: [], events: [] };
+      try {
+        const [alumniData, statsData, donationsData, mentorsData, eventsData] = await Promise.allSettled([
+          getAlumniProfiles(),
+          getAlumniDashboardStats(),
+          listDonations(),
+          getMentors(),
+          getAlumniEvents(),
+        ]);
+        if (alumniData.status === 'fulfilled') {
+          const raw = alumniData.value as unknown as AlumniFullProfile[] | { items?: AlumniFullProfile[] };
+          const items = Array.isArray(raw) ? raw : raw.items || [];
+          _r.alumni = items;
+        }
+        if (statsData.status === 'fulfilled') _r.dashboardStats = statsData.value;
+        if (donationsData.status === 'fulfilled')
+          _r.recentDonations = Array.isArray(donationsData.value) ? donationsData.value : [];
+        if (mentorsData.status === 'fulfilled') _r.mentors = Array.isArray(mentorsData.value) ? mentorsData.value : [];
+        if (eventsData.status === 'fulfilled') _r.events = Array.isArray(eventsData.value) ? eventsData.value : [];
+      } catch {
+        // silent
+      }
+      return _r;
+    },
+    staleTime: 60_000,
+  });
+  const alumni = _qd?.alumni ?? [];
+  const dashboardStats = _qd?.dashboardStats ?? null;
+  const recentDonations = _qd?.recentDonations ?? [];
+  const mentors = _qd?.mentors ?? [];
+  const events = _qd?.events ?? [];
   const handleStudentSearch = async () => {
     if (!studentSearch.trim()) return;
     setSearchingStudents(true);
@@ -82,37 +103,6 @@ const AlumniManagementPage = () => {
       setStudentResults([]);
     } finally {
       setSearchingStudents(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [alumniData, statsData, donationsData, mentorsData, eventsData] = await Promise.allSettled([
-        getAlumniProfiles(),
-        getAlumniDashboardStats(),
-        listDonations(),
-        getMentors(),
-        getAlumniEvents(),
-      ]);
-      if (alumniData.status === 'fulfilled') {
-        const raw = alumniData.value as unknown as AlumniFullProfile[] | { items?: AlumniFullProfile[] };
-        const items = Array.isArray(raw) ? raw : raw.items || [];
-        setAlumni(items);
-      }
-      if (statsData.status === 'fulfilled') setDashboardStats(statsData.value);
-      if (donationsData.status === 'fulfilled')
-        setRecentDonations(Array.isArray(donationsData.value) ? donationsData.value : []);
-      if (mentorsData.status === 'fulfilled') setMentors(Array.isArray(mentorsData.value) ? mentorsData.value : []);
-      if (eventsData.status === 'fulfilled') setEvents(Array.isArray(eventsData.value) ? eventsData.value : []);
-    } catch {
-      // silent
-    } finally {
-      setLoading(false);
     }
   };
 

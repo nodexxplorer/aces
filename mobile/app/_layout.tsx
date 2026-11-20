@@ -1,23 +1,26 @@
-import { useEffect, useState } from 'react';
-import { View, ActivityIndicator, StyleSheet, AppState } from 'react-native';
-import { Stack } from 'expo-router';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from "react";
+import { View, ActivityIndicator, StyleSheet, AppState } from "react-native";
+import { Stack, router } from "expo-router";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 import {
   useFonts,
   Inter_400Regular,
   Inter_500Medium,
   Inter_600SemiBold,
   Inter_700Bold,
-} from '@expo-google-fonts/inter';
-import { ThemeProvider, useTheme } from '../src/theme/ThemeProvider';
-import { useAuthStore } from '../src/store/authStore';
-import { useSettingsStore } from '../src/store/settingsStore';
-import { palette } from '../src/theme/colors';
-import BiometricLock from '../src/components/BiometricLock';
-import { registerForPushNotificationsAsync } from '../src/utils/pushNotifications';
-import { registerPushToken } from '../src/api/notifications';
+} from "@expo-google-fonts/inter";
+import { ThemeProvider, useTheme } from "../src/theme/ThemeProvider";
+import { useAuthStore } from "../src/store/authStore";
+import { useSettingsStore } from "../src/store/settingsStore";
+import { palette } from "../src/theme/colors";
+import BiometricLock from "../src/components/BiometricLock";
+import {
+  registerForPushNotificationsAsync,
+  listenForPushResponses,
+} from "../src/utils/pushNotifications";
+import { registerPushToken } from "../src/api/notifications";
 
 function RootNavigator() {
   const { theme, isDark } = useTheme();
@@ -31,23 +34,68 @@ function RootNavigator() {
   // guidance: re-registering a still-valid token is a no-op server-side).
   useEffect(() => {
     if (!isAuthenticated) return;
+    let active = true;
+    const owner = user?.id;
     registerForPushNotificationsAsync()
       .then((token) => {
-        if (token) return registerPushToken(token);
+        if (token && active && useAuthStore.getState().user?.id === owner)
+          return registerPushToken(token);
       })
       .catch(() => {
         // No device, permission declined, or a transient failure — the
         // in-app/email channels still work either way, so this fails quietly.
       });
-  }, [isAuthenticated]);
+    return () => {
+      active = false;
+    };
+  }, [isAuthenticated, user?.id]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    let active = true;
+    let dispose: (() => void) | undefined;
+    listenForPushResponses((data) => {
+      if (
+        !active ||
+        data.recipient_id !== user.id ||
+        data.tenant_slug !== user.tenant?.slug
+      )
+        return;
+      if (data.target_kind === "dm" && typeof data.target_id === "string")
+        router.push({
+          pathname: "/connect/chat/[userId]",
+          params: { userId: data.target_id },
+        });
+      else if (
+        data.target_kind === "group" &&
+        typeof data.target_id === "string"
+      )
+        router.push({
+          pathname: "/connect/group/[groupId]",
+          params: { groupId: data.target_id },
+        });
+      else router.push("/communication");
+    })
+      .then((fn) => {
+        if (active) dispose = fn;
+        else fn();
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+      dispose?.();
+    };
+  }, [isAuthenticated, user?.id, user?.tenant?.slug]);
 
   // Mirrors web's global onboarding redirect (router.tsx): a freshly
   // signed-up student who hasn't completed onboarding is routed here before
   // anything else, waiting-screen included — the info onboarding collects
   // (DOB, admission mode, emergency contact) is part of what the HOD reviews
   // during approval, so it has to come first.
-  const needsOnboarding = isAuthenticated && user?.onboardingCompleted === false;
-  const needsApproval = isAuthenticated && !needsOnboarding && user?.isApproved === false;
+  const needsOnboarding =
+    isAuthenticated && user?.onboardingCompleted === false;
+  const needsApproval =
+    isAuthenticated && !needsOnboarding && user?.isApproved === false;
 
   const [unlocked, setUnlocked] = useState(false);
   useEffect(() => {
@@ -62,8 +110,8 @@ function RootNavigator() {
   // 'inactive' event right after onUnlock() runs.
   useEffect(() => {
     if (!biometricEnabled) return;
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'background') setUnlocked(false);
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "background") setUnlocked(false);
     });
     return () => sub.remove();
   }, [biometricEnabled]);
@@ -73,8 +121,15 @@ function RootNavigator() {
   return (
     <>
       <StatusBar style={theme.statusBar} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.background } }}>
-        <Stack.Protected guard={isAuthenticated && !needsOnboarding && !needsApproval}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: theme.background },
+        }}
+      >
+        <Stack.Protected
+          guard={isAuthenticated && !needsOnboarding && !needsApproval}
+        >
           <Stack.Screen name="(tabs)" />
         </Stack.Protected>
         <Stack.Protected guard={needsOnboarding}>
@@ -128,8 +183,8 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   loading: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#ffffff',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ffffff",
   },
 });

@@ -1,5 +1,6 @@
 const DB_NAME = 'aces-zone-offline';
 const DB_VERSION = 1;
+let cacheGeneration = 0;
 
 // In-memory cache for ultra-low latency synchronous access
 const memoryCache = new Map<string, { data: unknown; timestamp: number }>();
@@ -62,10 +63,12 @@ export const clearPendingActions = async () => {
 };
 
 export const cacheData = async (key: string, data: unknown) => {
+  const generation = cacheGeneration;
   const timestamp = Date.now();
   memoryCache.set(key, { data, timestamp });
   try {
     const db = await openDB();
+    if (generation !== cacheGeneration) return;
     const tx = db.transaction('cache', 'readwrite');
     tx.objectStore('cache').put({ key, data, timestamp });
   } catch {
@@ -74,6 +77,7 @@ export const cacheData = async (key: string, data: unknown) => {
 };
 
 export const getCachedData = async <T>(key: string): Promise<T | null> => {
+  const generation = cacheGeneration;
   if (memoryCache.has(key)) {
     return memoryCache.get(key)!.data as T;
   }
@@ -83,6 +87,7 @@ export const getCachedData = async <T>(key: string): Promise<T | null> => {
       const tx = db.transaction('cache', 'readonly');
       const req = tx.objectStore('cache').get(key);
       req.onsuccess = () => {
+        if (generation !== cacheGeneration) return resolve(null);
         const result = req.result;
         if (result?.data !== undefined) {
           memoryCache.set(key, { data: result.data, timestamp: result.timestamp || Date.now() });
@@ -101,6 +106,7 @@ export const getCachedData = async <T>(key: string): Promise<T | null> => {
 export const getCachedWithAge = async <T>(
   key: string,
 ): Promise<{ data: T; ageMs: number; timestamp: number } | null> => {
+  const generation = cacheGeneration;
   const now = Date.now();
   if (memoryCache.has(key)) {
     const item = memoryCache.get(key)!;
@@ -112,6 +118,7 @@ export const getCachedWithAge = async <T>(
       const tx = db.transaction('cache', 'readonly');
       const req = tx.objectStore('cache').get(key);
       req.onsuccess = () => {
+        if (generation !== cacheGeneration) return resolve(null);
         const result = req.result;
         if (result?.data !== undefined) {
           const timestamp = result.timestamp || now;
@@ -129,6 +136,7 @@ export const getCachedWithAge = async <T>(
 };
 
 export const invalidateCache = async (prefix?: string) => {
+  cacheGeneration += 1;
   if (!prefix) {
     memoryCache.clear();
   } else {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { getMediaUrl } from '../../api/client';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -19,9 +19,10 @@ import {
 } from '../../api/lecturers';
 import { getCourses } from '../../api/courses';
 import type { LecturerProfile, LecturerAssignment, LecturerLeave } from '../../api/lecturers';
-import type { Course } from '../../types';
+
 import { getErrorMessage } from '../../utils/errors';
 
+import { useQuery } from '@tanstack/react-query';
 type Tab = 'list' | 'courses' | 'leave';
 
 const statusVariant = (s: string) => {
@@ -42,10 +43,6 @@ const LecturerManagementPage = () => {
   const { success, error: notifyError } = useNotification();
 
   const [selectedTab, setSelectedTab] = useState<Tab>('list');
-  const [lecturers, setLecturers] = useState<LecturerProfile[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [leaveRequests, setLeaveRequests] = useState<LecturerLeave[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
   const [selectedLecturer, setSelectedLecturer] = useState<LecturerProfile | null>(null);
@@ -58,24 +55,25 @@ const LecturerManagementPage = () => {
 
   const [, setProfileModalOpen] = useState(false);
 
-  useEffect(() => {
-    fetchAll();
-  }, []);
-
-  const fetchAll = async () => {
-    try {
-      setLoading(true);
-      const [l, c, lr] = await Promise.allSettled([listLecturers(), getCourses(), listAllLeaveRequests()]);
-      if (l.status === 'fulfilled') setLecturers(Array.isArray(l.value) ? l.value : []);
-      if (c.status === 'fulfilled') setCourses(Array.isArray(c.value) ? c.value : []);
-      if (lr.status === 'fulfilled') setLeaveRequests(Array.isArray(lr.value) ? lr.value : []);
-    } catch {
-      // silent
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['lecturer-management'],
+    queryFn: async () => {
+      const _r: any = { lecturers: [], courses: [], leaveRequests: [] };
+      try {
+        const [l, c, lr] = await Promise.allSettled([listLecturers(), getCourses(), listAllLeaveRequests()]);
+        if (l.status === 'fulfilled') _r.lecturers = Array.isArray(l.value) ? l.value : [];
+        if (c.status === 'fulfilled') _r.courses = Array.isArray(c.value) ? c.value : [];
+        if (lr.status === 'fulfilled') _r.leaveRequests = Array.isArray(lr.value) ? lr.value : [];
+      } catch {
+        // silent
+      }
+      return _r;
+    },
+    staleTime: 60_000,
+  });
+  const lecturers = _qd?.lecturers ?? [];
+  const courses = _qd?.courses ?? [];
+  const leaveRequests = _qd?.leaveRequests ?? [];
   const filteredLecturers = lecturers.filter((l) => {
     const q = search.toLowerCase();
     return (

@@ -19,7 +19,7 @@ const Card = ({ children, className, hover, glass, padding = 'md', onClick }: Ca
       hover && 'transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5 cursor-pointer',
       glass && 'glass',
       paddings[padding],
-      className
+      className,
     )}
     onClick={onClick}
     role={onClick ? 'button' : undefined}

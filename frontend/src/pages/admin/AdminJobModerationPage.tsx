@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
@@ -49,59 +50,75 @@ const typeColors: Record<string, JobBadgeVariant> = {
 
 const AdminJobModerationPage = () => {
   const { success, error: notifyError } = useNotification();
-  const [jobs, setJobs] = useState<ModeratedJob[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [selectedJob, setSelectedJob] = useState<ModeratedJob | null>(null);
-  const [apps, setApps] = useState<JobApplicationEntry[]>([]);
-  const [appsLoading, setAppsLoading] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState<ModeratedJob | null>(null);
-  const [archiving, setArchiving] = useState(false);
 
-  useEffect(() => {
-    setLoading(true);
-    getJobPosts()
-      .then((data) => setJobs(Array.isArray(data) ? data : []))
-      .catch(() => notifyError('Error', 'Failed to load jobs'))
-      .finally(() => setLoading(false));
-  }, []);
-
-  const filtered = jobs.filter((j) => {
-    const matchType = typeFilter === 'all' || (j.job_type || j.type) === typeFilter;
-    const matchSearch =
-      !search ||
-      j.title?.toLowerCase().includes(search.toLowerCase()) ||
-      j.company?.toLowerCase().includes(search.toLowerCase());
-    return matchType && matchSearch;
+  const {
+    data: jobs = [],
+    isLoading: loading,
+    error: jobsError,
+  } = useQuery({
+    queryKey: ['jobs'],
+    queryFn: async () => {
+      const data = await getJobPosts();
+      return (Array.isArray(data) ? data : []) as unknown as ModeratedJob[];
+    },
+    staleTime: 60_000,
   });
 
-  const handleViewApps = async (job: ModeratedJob) => {
-    setSelectedJob(job);
-    setAppsLoading(true);
-    try {
-      const data = await listJobApplications(job.id);
-      setApps(Array.isArray(data) ? data : []);
-    } catch {
-      setApps([]);
-    } finally {
-      setAppsLoading(false);
+  useEffect(() => {
+    if (jobsError) {
+      notifyError('Error', 'Failed to load jobs');
     }
+  }, [jobsError, notifyError]);
+
+  const { data: apps = [], isLoading: appsLoading } = useQuery({
+    queryKey: ['job-applications', selectedJob?.id],
+    queryFn: async () => {
+      try {
+        const data = await listJobApplications(selectedJob!.id);
+        return (Array.isArray(data) ? data : []) as unknown as JobApplicationEntry[];
+      } catch {
+        return [] as JobApplicationEntry[];
+      }
+    },
+    enabled: !!selectedJob?.id,
+    staleTime: 60_000,
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: (job: ModeratedJob) => archiveJobPost(job.id),
+    onSuccess: (_data, job) => {
+      success('Deactivated', `"${job.title}" has been removed from listings`);
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      setConfirmArchive(null);
+    },
+    onError: (err: unknown) => {
+      notifyError('Failed', getErrorMessage(err));
+    },
+  });
+
+  const filtered = useMemo(() => {
+    return jobs.filter((j) => {
+      const matchType = typeFilter === 'all' || (j.job_type || j.type) === typeFilter;
+      const matchSearch =
+        !search ||
+        j.title?.toLowerCase().includes(search.toLowerCase()) ||
+        j.company?.toLowerCase().includes(search.toLowerCase());
+      return matchType && matchSearch;
+    });
+  }, [jobs, typeFilter, search]);
+
+  const handleViewApps = (job: ModeratedJob) => {
+    setSelectedJob(job);
   };
 
-  const handleArchive = async () => {
+  const handleArchive = () => {
     if (!confirmArchive) return;
-    setArchiving(true);
-    try {
-      await archiveJobPost(confirmArchive.id);
-      success('Deactivated', `"${confirmArchive.title}" has been removed from listings`);
-      setJobs((prev) => prev.filter((j) => j.id !== confirmArchive.id));
-      setConfirmArchive(null);
-    } catch (err: unknown) {
-      notifyError('Failed', getErrorMessage(err));
-    } finally {
-      setArchiving(false);
-    }
+    archiveMutation.mutate(confirmArchive);
   };
 
   return (
@@ -220,7 +237,6 @@ const AdminJobModerationPage = () => {
         isOpen={!!selectedJob}
         onClose={() => {
           setSelectedJob(null);
-          setApps([]);
         }}
         title={`Applications — ${selectedJob?.title || ''}`}
       >
@@ -258,7 +274,7 @@ const AdminJobModerationPage = () => {
           <Button variant="outline" onClick={() => setConfirmArchive(null)}>
             Cancel
           </Button>
-          <Button variant="danger" isLoading={archiving} onClick={handleArchive}>
+          <Button variant="danger" isLoading={archiveMutation.isPending} onClick={handleArchive}>
             Deactivate
           </Button>
         </div>

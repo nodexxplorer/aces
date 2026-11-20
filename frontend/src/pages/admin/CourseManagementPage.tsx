@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -14,6 +14,8 @@ import { assignCourseToLecturer } from '../../api/lecturers';
 import { getErrorMessage } from '../../utils/errors';
 import type { User as UserType, Course } from '../../types';
 
+import { useQuery } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 // `lecturer_id` is a defensive snake_case fallback in case the raw API
 // response bypasses the camelCase mapping in api/courses.ts.
 type CourseRow = Course & { lecturer_id?: string };
@@ -25,9 +27,6 @@ type CourseUpdatePayload = Partial<Course> & { is_active?: boolean; lecturer_id?
 
 const CourseManagementPage = () => {
   const { success, error: notifyError } = useNotification();
-  const [courses, setCourses] = useState<CourseRow[]>([]);
-  const [lecturers, setLecturers] = useState<UserType[]>([]);
-  const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<CourseRow | null>(null);
@@ -44,28 +43,29 @@ const CourseManagementPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [assigning, setAssigning] = useState(false);
 
-  useEffect(() => {
-    fetchInitialData();
-  }, []);
-
-  const fetchInitialData = async () => {
-    try {
-      setLoading(true);
-      const [coursesResult, lecturersResult] = await Promise.all([
-        getCourses({ page: 1, perPage: 100 }),
-        getUsers({ page: 1, perPage: 100, role: 'lecturer' }),
-      ]);
-      setCourses(
-        (coursesResult as unknown as { items?: CourseRow[] }).items || (coursesResult as unknown as CourseRow[]),
-      );
-      setLecturers(Array.isArray(lecturersResult) ? lecturersResult : []);
-    } catch (err: unknown) {
-      notifyError('Load Failed', getErrorMessage(err, 'Could not load data'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  const queryClient = useQueryClient();
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['course-management'],
+    queryFn: async () => {
+      try {
+        const [coursesResult, lecturersResult] = await Promise.all([
+          getCourses({ page: 1, perPage: 100 }),
+          getUsers({ page: 1, perPage: 100, role: 'lecturer' }),
+        ]);
+        const courses =
+          (coursesResult as unknown as { items?: CourseRow[] }).items || (coursesResult as unknown as CourseRow[]);
+        const lecturers = Array.isArray(lecturersResult) ? lecturersResult : [];
+        return { courses, lecturers };
+      } catch (err: unknown) {
+        notifyError('Load Failed', getErrorMessage(err, 'Could not load data'));
+        return { courses: [], lecturers: [] };
+      }
+    },
+    staleTime: 60_000,
+  });
+  const courses = _qd?.courses ?? [];
+  const lecturers = _qd?.lecturers ?? [];
+  const fetchInitialData = () => queryClient.invalidateQueries({ queryKey: ['course-management'] });
   const lecturerMap = useMemo(() => {
     const map: Record<string, UserType> = {};
     lecturers.forEach((l) => {

@@ -132,9 +132,16 @@ const menuItems: MenuItem[] = [
     icon: FileSignature,
     roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
   },
+  {
+    label: 'Attendance',
+    path: '/i/attendance',
+    icon: Check,
+    roles: ['student', 'project_coordinator', 'event_coordinator', 'alumni_rep'],
+  },
 
   { label: 'Connect', path: '/connect', icon: Users },
   { label: 'Lecturer Portal', path: '/l/dashboard', icon: LayoutDashboard, roles: ['lecturer'] },
+  { label: 'Attendance', path: '/l/attendance', icon: Check, roles: ['lecturer'] },
   { label: 'Class List', path: '/l/class-list', icon: Users, roles: ['lecturer'] },
 
   { label: 'Admin Portal', path: '/admin', icon: LayoutDashboard, roles: ['hod', 'delegated_admin', 'admin'] },
@@ -166,6 +173,7 @@ const menuItems: MenuItem[] = [
   },
   { label: 'Course Hub', path: '/admin/course-hub', icon: BookOpen, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Sessions', path: '/admin/sessions', icon: Calendar, roles: ['hod', 'delegated_admin', 'admin'] },
+  { label: 'Attendance', path: '/admin/attendance', icon: Check, roles: ['hod', 'delegated_admin', 'admin'] },
   { label: 'Announcements', path: '/admin/announcements', icon: Megaphone, roles: ['hod', 'delegated_admin', 'admin'] },
   // { label: 'Academics', path: '/admin/academics', icon: GraduationCap, roles: ['hod', 'delegated_admin', 'admin'] },
   // { label: 'Complaints', path: '/admin/complaints', icon: HelpCircle, roles: ['hod', 'delegated_admin', 'admin'] },
@@ -213,6 +221,7 @@ const studentSections: NavSection[] = [
       { label: 'GPA Tools', path: '/i/gpa', icon: TrendingUp },
       { label: 'Course Registration', path: '/i/courses', icon: BookMarked },
       { label: 'Course Form Signing', path: '/i/course-form-signing', icon: FileSignature },
+      { label: 'Attendance', path: '/i/attendance', icon: Check },
     ],
   },
   {
@@ -246,7 +255,7 @@ const mobileSections: NavSection[] = [
       // { label: 'Study Planner', path: '/i/study-planner', icon: ClipboardList },
       { label: 'Courses Registration', path: '/i/courses', icon: BookMarked },
       { label: 'Course Form Signing', path: '/i/course-form-signing', icon: FileSignature },
-      // { label: 'My Attendance', path: '/i/attendance', icon: ClipboardCheck },
+      { label: 'My Attendance', path: '/i/attendance', icon: Check },
       { label: 'Complaints', path: '/i/complaints', icon: HelpCircle },
     ],
   },
@@ -284,6 +293,7 @@ const mobileSections: NavSection[] = [
     items: [
       { label: 'Semesters & Registration', path: '/admin/sessions', icon: Calendar },
       { label: 'Courses', path: '/admin/course-hub', icon: BookOpen },
+      { label: 'Attendance', path: '/admin/attendance', icon: Check },
       { label: 'Course Forms', path: '/admin/crf-signing', icon: FileSignature },
     ],
   },
@@ -292,7 +302,10 @@ const mobileSections: NavSection[] = [
     icon: UsersRound,
     key: 'admin_users',
     roles: ['hod', 'delegated_admin', 'admin'],
-    items: [{ label: 'Users', path: '/admin/users', icon: Users }],
+    items: [
+      { label: 'Users', path: '/admin/users', icon: Users },
+      { label: 'Invitations', path: '/admin/invitations', icon: UsersRound },
+    ],
   },
   {
     title: 'FINANCE',
@@ -380,6 +393,7 @@ const lecturerSections: NavSection[] = [
     items: [
       { label: 'My courses', path: '/l/dashboard', icon: BookOpen },
       { label: 'Class lists', path: '/l/class-list', icon: Users },
+      { label: 'Attendance', path: '/l/attendance', icon: Check },
       { label: 'Leave requests', path: '/l/leave', icon: Calendar },
     ],
   },

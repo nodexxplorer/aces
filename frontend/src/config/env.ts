@@ -17,7 +17,7 @@ function validateEnv() {
 
     throw new Error(
       `Invalid environment configuration:\n${messages}\n\n` +
-        'Copy .env.example to .env and fill in the required values.'
+        'Copy .env.example to .env and fill in the required values.',
     );
   }
 

@@ -16,7 +16,9 @@ export const useWebSocket = (url?: string) => {
     } catch {
       setIsConnected(false);
     }
-    return () => { ws.current?.close(); };
+    return () => {
+      ws.current?.close();
+    };
   }, [url]);
 
   const sendMessage = useCallback((data: string) => {

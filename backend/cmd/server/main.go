@@ -60,6 +60,7 @@ func main() {
 
 	server := api.NewServer(store, tenants, cfg)
 
+	go server.RunNotificationWorker(ctx)
 	if cfg.EnableInAppSchedulers {
 		log.Println("Starting in-app background schedulers (birthday, study task reminders)...")
 		go server.RunBirthdayScheduler(ctx)

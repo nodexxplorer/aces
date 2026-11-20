@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -7,23 +6,25 @@ import { getResult } from '../../api/results';
 import { useNotification } from '../../hooks/useNotification';
 import { ArrowLeft, BookOpen, User, Award, Calendar } from 'lucide-react';
 import GradeBadge from '../../components/data-display/GradeBadge';
-import type { Result } from '../../types';
 
+import { useQuery } from '@tanstack/react-query';
 const ResultDetailPage = () => {
   const { id } = useParams();
   const { error: notifyError } = useNotification();
-  const [result, setResult] = useState<Result | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!id) return;
-    setLoading(true);
-    getResult(id)
-      .then(setResult)
-      .catch(() => notifyError('Error', 'Failed to load result details'))
-      .finally(() => setLoading(false));
-  }, [id]);
-
+  const { data: result = null, isLoading: loading } = useQuery({
+    queryKey: ['result-detail', id],
+    queryFn: async () => {
+      try {
+        return await getResult(id!);
+      } catch {
+        notifyError('Error', 'Failed to load result details');
+        return null;
+      }
+    },
+    staleTime: 60_000,
+    enabled: !!id,
+  });
   if (loading) {
     return (
       <div className="space-y-6">

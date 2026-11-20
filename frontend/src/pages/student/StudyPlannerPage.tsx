@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Plus, Trash2, CheckCircle, Clock, AlertTriangle, Circle, Calendar, Sparkles, X } from 'lucide-react';
 import {
   createStudyTask,
@@ -10,6 +10,7 @@ import {
 } from '../../api/additional-features';
 import EmptyState from '../../components/ui/EmptyState';
 
+import { useQuery } from '@tanstack/react-query';
 type Priority = 'high' | 'medium' | 'low';
 type Status = 'pending' | 'in_progress' | 'completed';
 type FilterTab = 'all' | 'high' | 'in_progress' | 'completed';
@@ -34,9 +35,6 @@ const filterTabs: { key: FilterTab; label: string }[] = [
 ];
 
 export default function StudyPlannerPage() {
-  const [tasks, setTasks] = useState<StudyTask[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
   const [showModal, setShowModal] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -50,6 +48,24 @@ export default function StudyPlannerPage() {
   const [aiPlanLoading, setAiPlanLoading] = useState(false);
   const [aiPlanError, setAiPlanError] = useState('');
 
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['study-planner'],
+    queryFn: async () => {
+      const _r: any = { tasks: [], error: '' };
+      try {
+        _r.error = '';
+        const res = await listMyStudyTasks();
+        const list = Array.isArray(res) ? res : ((res as { data?: StudyTask[] } | undefined)?.data ?? []);
+        _r.tasks = list;
+      } catch {
+        _r.error = 'Failed to load study tasks';
+      }
+      return _r;
+    },
+    staleTime: 60_000,
+  });
+  const tasks = _qd?.tasks ?? [];
+  const error = _qd?.error ?? '';
   const handleGeneratePlan = async () => {
     setAiPlanLoading(true);
     setAiPlanError('');
@@ -62,24 +78,6 @@ export default function StudyPlannerPage() {
       setAiPlanLoading(false);
     }
   };
-
-  const fetchTasks = async () => {
-    try {
-      setError('');
-      const res = await listMyStudyTasks();
-      const list = Array.isArray(res) ? res : ((res as { data?: StudyTask[] } | undefined)?.data ?? []);
-      setTasks(list);
-    } catch {
-      setError('Failed to load study tasks');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchTasks();
-  }, []);
-
   const filteredTasks = tasks.filter((t) => {
     if (activeFilter === 'all') return true;
     if (activeFilter === 'high') return t.priority === 'high';

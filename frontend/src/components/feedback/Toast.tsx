@@ -23,15 +23,15 @@ export const ToastContainer = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.15 } }}
             className={cn(
-              'pointer-events-auto flex items-start gap-3 p-4 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl shadow-lg'
+              'pointer-events-auto flex items-start gap-3 p-4 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl shadow-lg',
             )}
           >
-            <div className="shrink-0">
-              {toastIcons[toast.type as keyof typeof toastIcons] || toastIcons.info}
-            </div>
+            <div className="shrink-0">{toastIcons[toast.type as keyof typeof toastIcons] || toastIcons.info}</div>
             <div className="flex-1 min-w-0">
               <h4 className="text-sm font-semibold text-surface-900 dark:text-surface-100">{toast.title}</h4>
-              {toast.message && <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">{toast.message}</p>}
+              {toast.message && (
+                <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">{toast.message}</p>
+              )}
             </div>
             <button
               onClick={() => removeToast(toast.id)}

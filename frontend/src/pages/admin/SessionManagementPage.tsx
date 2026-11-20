@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Calendar,
   Plus,
@@ -33,11 +33,9 @@ import {
 } from '../../api/sessions';
 import type { Session, SemesterEntry } from '../../types';
 
+import { useQuery } from '@tanstack/react-query';
 export default function SessionManagementPage() {
   const { success, error: notifyError } = useNotification();
-
-  const [loading, setLoading] = useState(true);
-  const [sessions, setSessions] = useState<Session[]>([]);
   const [semestersMap, setSemestersMap] = useState<Record<string, SemesterEntry[]>>({});
 
   // ── Helpers: format dates & compute semester status/progress from real data ──
@@ -98,36 +96,41 @@ export default function SessionManagementPage() {
   const [rollOverLoading, setRollOverLoading] = useState(false);
   const [rollOverConfirming, setRollOverConfirming] = useState(false);
 
-  // Load sessions and their semesters
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const list = await getSessions();
-      const sessionsList = Array.isArray(list) ? list : [];
-      setSessions(sessionsList);
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['session-management', fetchData],
 
-      const semMap: Record<string, SemesterEntry[]> = {};
-      for (const s of sessionsList) {
-        try {
-          const sems = await listSessionSemesters(s.id);
-          semMap[s.id] = Array.isArray(sems) ? sems : [];
-        } catch {
-          semMap[s.id] = [];
+    queryFn: async () => {
+      const _r: any = { sessions: [] };
+
+      try {
+        const list = await getSessions();
+        const sessionsList = Array.isArray(list) ? list : [];
+        _r.sessions = sessionsList;
+
+        const semMap: Record<string, SemesterEntry[]> = {};
+        for (const s of sessionsList) {
+          try {
+            const sems = await listSessionSemesters(s.id);
+            semMap[s.id] = Array.isArray(sems) ? sems : [];
+          } catch {
+            semMap[s.id] = [];
+          }
         }
+        setSemestersMap(semMap);
+      } catch (err: unknown) {
+        notifyError('Failed to load', getErrorMessage(err, 'Could not load sessions.'));
       }
-      setSemestersMap(semMap);
-    } catch (err: unknown) {
-      notifyError('Failed to load', getErrorMessage(err, 'Could not load sessions.'));
-    } finally {
-      setLoading(false);
-    }
-  }, [notifyError]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+      return _r;
+    },
 
-  // Identify active session & active semester
+    staleTime: 60_000,
+
+    enabled: !!fetchData,
+  });
+
+  const sessions = _qd?.sessions ?? [];
+  // Load sessions and their semesters    // Identify active session & active semester
   const activeSession = useMemo(() => {
     return sessions.find((s) => s.is_active || s.isActive) || null;
   }, [sessions]);

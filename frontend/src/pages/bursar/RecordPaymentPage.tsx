@@ -1,15 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
 import { getAllDues } from '../../api/payments';
 import { recordManualPayment } from '../../api/lecturers';
 import { getStudents } from '../../api/users';
-import type { DuePayment, User } from '../../types';
+
 import { getErrorMessage } from '../../utils/errors';
 import { formatCurrency } from '../../utils/formatters';
 import { User as UserIcon, Check, AlertTriangle, Paperclip, Calendar, CreditCard, Info } from 'lucide-react';
 
+import { useQuery } from '@tanstack/react-query';
 const PAYMENT_METHODS = [
   { id: 'Cash', label: 'Cash' },
   { id: 'Bank transfer', label: 'Bank transfer' },
@@ -20,54 +21,51 @@ export default function RecordPaymentPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { success, error: notifyError } = useNotification();
-
-  const [students, setStudents] = useState<User[]>([]);
-  const [dues, setDues] = useState<DuePayment[]>([]);
-  const [, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   // Form fields
-  const [selectedStudentId, setSelectedStudentId] = useState<string>('');
-  const [selectedDueId, setSelectedDueId] = useState<string>('');
-  const [amount, setAmount] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Bank transfer' | 'POS'>('Cash');
   const [reference, setReference] = useState<string>('');
   const [datePaid, setDatePaid] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState<string>('');
   const [receiptFileName, setReceiptFileName] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
+  const { data: _qd, isLoading: _loading } = useQuery({
+    queryKey: ['record-payment'],
+    queryFn: async () => {
+      const _r: any = { students: [], dues: [], selectedStudentId: '', selectedDueId: '', amount: '' };
       try {
-        setLoading(true);
         const [duesRes, studentsRes] = await Promise.allSettled([getAllDues(), getStudents({ perPage: 150 })]);
 
         if (duesRes.status === 'fulfilled') {
           const arr = Array.isArray(duesRes.value) ? duesRes.value : [];
           const active = arr.filter((d) => d.is_active);
-          setDues(active);
+          _r.dues = active;
           if (active.length > 0) {
-            setSelectedDueId(active[0].id);
-            setAmount(String(active[0].amount));
+            _r.selectedDueId = active[0].id;
+            _r.amount = String(active[0].amount);
           }
         }
 
         if (studentsRes.status === 'fulfilled') {
           const sArr = Array.isArray(studentsRes.value) ? studentsRes.value : [];
-          setStudents(sArr);
+          _r.students = sArr;
           if (sArr.length > 0) {
-            setSelectedStudentId(sArr[0].id);
+            _r.selectedStudentId = sArr[0].id;
           }
         }
       } catch {
         notifyError('Error', 'Failed to load dues and students');
-      } finally {
-        setLoading(false);
       }
-    };
-    fetchData();
-  }, []);
-
+      return _r;
+    },
+    staleTime: 60_000,
+  });
+  const students = _qd?.students ?? [];
+  const dues = _qd?.dues ?? [];
+  const selectedStudentId = _qd?.selectedStudentId ?? '';
+  const selectedDueId = _qd?.selectedDueId ?? '';
+  const amount = _qd?.amount ?? '';
   const handleDueChange = (dueId: string) => {
     setSelectedDueId(dueId);
     const found = dues.find((d) => d.id === dueId);

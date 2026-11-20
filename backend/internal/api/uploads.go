@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/aces/backend/internal/uploads"
 	"github.com/gin-gonic/gin"
@@ -20,6 +21,12 @@ func (server *Server) registerUploadRoutes(router *gin.Engine) {
 // serveUpload GET /uploads/*filepath
 func (server *Server) serveUpload(ctx *gin.Context) {
 	store := ctx.Param("filepath")
+	// Connect attachments are never exposed by the generic signed-file server.
+	if strings.HasPrefix(store, "/.connect-private/") || store == "/.connect-private" {
+		ctx.Status(http.StatusNotFound)
+		return
+	}
+
 	if err := server.uploads.Verify(store, ctx.Query("exp"), ctx.Query("sig")); err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 		return

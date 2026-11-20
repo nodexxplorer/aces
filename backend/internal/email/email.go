@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log"
 	"mime"
+	"net"
 	"net/smtp"
 	"strings"
+	"time"
 )
 
 // DefaultFromName is the display name for mail that names no department.
@@ -52,7 +54,7 @@ func (s *SMTPSender) SendEmail(to []string, subject, body string, isHTML bool) e
 // the display name in the From header.
 func (s *SMTPSender) SendEmailFrom(fromName string, to []string, subject, body string, isHTML bool) error {
 	if s.useMock {
-		log.Printf("[mock-email] Sending email to %v\nSubject: %s\nBody: %s", to, subject, body)
+		log.Print("[mock-email] simulated email; no SMTP request")
 		return nil
 	}
 
@@ -60,7 +62,7 @@ func (s *SMTPSender) SendEmailFrom(fromName string, to []string, subject, body s
 
 	header["From"] = formatFrom(fromName, s.from)
 	header["To"] = strings.Join(to, ", ")
-	header["Subject"] = subject
+	header["Subject"] = mime.QEncoding.Encode("utf-8", strings.NewReplacer("\r", " ", "\n", " ").Replace(subject))
 	if isHTML {
 		header["MIME-Version"] = "1.0"
 		header["Content-Type"] = "text/html; charset=\"utf-8\""
@@ -80,58 +82,62 @@ func (s *SMTPSender) SendEmailFrom(fromName string, to []string, subject, body s
 	}
 	addr := fmt.Sprintf("%s:%d", s.host, s.port)
 
-	// Since ports like 465 require implicit TLS:
+	// Bound all SMTP operations below the delivery lease. A worker restart
+	// can retry an ambiguous SMTP acceptance; SMTP is at-least-once, not exactly-once.
+	dialer := &net.Dialer{Timeout: 8 * time.Second}
+	var conn net.Conn
+	var err error
 	if s.port == 465 {
-		tlsConfig := &tls.Config{
-			InsecureSkipVerify: true,
-			ServerName:         s.host,
-		}
-		conn, err := tls.Dial("tcp", addr, tlsConfig)
-		if err != nil {
-			return fmt.Errorf("failed to dial implicit TLS: %w", err)
-		}
-		defer conn.Close()
-
-		client, err := smtp.NewClient(conn, s.host)
-		if err != nil {
-			return fmt.Errorf("failed to create SMTP client: %w", err)
-		}
-		defer client.Close()
-
-		if err = client.Auth(auth); err != nil {
-			return fmt.Errorf("failed to authenticate SMTP client: %w", err)
-		}
-
-		for _, addr := range to {
-			if err = client.Mail(s.from); err != nil {
-				return err
-			}
-			if err = client.Rcpt(addr); err != nil {
-				return err
-			}
-			w, err := client.Data()
-			if err != nil {
-				return err
-			}
-			_, err = w.Write([]byte(message))
-			if err != nil {
-				return err
-			}
-			err = w.Close()
-			if err != nil {
-				return err
-			}
-		}
-		return nil
+		conn, err = tls.DialWithDialer(dialer, "tcp", addr, &tls.Config{MinVersion: tls.VersionTLS12, ServerName: s.host})
+	} else {
+		conn, err = dialer.Dial("tcp", addr)
 	}
-
-	// Standard SMTP send for other ports (587, 25)
-	err := smtp.SendMail(addr, auth, s.from, to, []byte(message))
 	if err != nil {
-		return fmt.Errorf("failed to send email: %w", err)
+		return fmt.Errorf("SMTP connection failed: %w", err)
 	}
+	defer conn.Close()
+	if err = conn.SetDeadline(time.Now().Add(15 * time.Second)); err != nil {
+		return err
+	}
+	client, err := smtp.NewClient(conn, s.host)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	if s.port != 465 {
+		if ok, _ := client.Extension("STARTTLS"); ok {
+			if err = client.StartTLS(&tls.Config{MinVersion: tls.VersionTLS12, ServerName: s.host}); err != nil {
+				return err
+			}
+		} else if s.host != "localhost" && s.host != "127.0.0.1" {
+			return fmt.Errorf("SMTP server must support TLS")
+		}
+	}
+	if auth != nil {
+		if err = client.Auth(auth); err != nil {
+			return err
+		}
+	}
+	if err = client.Mail(s.from); err != nil {
+		return err
+	}
+	for _, recipient := range to {
+		if err = client.Rcpt(recipient); err != nil {
+			return err
+		}
+	}
+	w, err := client.Data()
+	if err != nil {
+		return err
+	}
+	if _, err = w.Write([]byte(message)); err != nil {
+		return err
+	}
+	if err = w.Close(); err != nil {
+		return err
+	}
+	return client.Quit()
 
-	return nil
 }
 
 // quotedNameEscaper escapes a display name for use inside a quoted-string.
@@ -140,7 +146,7 @@ var quotedNameEscaper = strings.NewReplacer(`\`, `\\`, `"`, `\"`)
 // formatFrom builds a From header value. The display name is quoted, and it is
 // RFC 2047-encoded when it is not ASCII.
 func formatFrom(name, addr string) string {
-	name = strings.TrimSpace(name)
+	name = strings.TrimSpace(strings.NewReplacer("\r", " ", "\n", " ").Replace(name))
 	if name == "" {
 		name = DefaultFromName
 	}
@@ -151,3 +157,6 @@ func formatFrom(name, addr string) string {
 	}
 	return "\"" + quotedNameEscaper.Replace(name) + "\" <" + addr + ">"
 }
+
+// Mock lets delivery reporting distinguish simulation from SMTP acceptance.
+func (s *SMTPSender) Mock() bool { return s.useMock }

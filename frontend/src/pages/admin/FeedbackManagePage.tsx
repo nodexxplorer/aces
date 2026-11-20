@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { MessageSquare, Star, CheckCircle, Clock, AlertCircle, Filter } from 'lucide-react';
-import { listFeedback, updateFeedbackStatus, type Feedback } from '../../api/additional-features';
+import { listFeedback, updateFeedbackStatus } from '../../api/additional-features';
 import EmptyState from '../../components/ui/EmptyState';
 
+import { useQuery } from '@tanstack/react-query';
 const STATUS_TABS = [
   { key: 'all', label: 'All' },
   { key: 'submitted', label: 'Submitted' },
@@ -35,29 +36,26 @@ const STATUS_ICONS: Record<string, React.ReactNode> = {
 };
 
 const FeedbackManagePage = () => {
-  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [responseMap, setResponseMap] = useState<Record<string, string>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchFeedbacks();
-  }, []);
-
-  const fetchFeedbacks = async () => {
-    setLoading(true);
-    try {
-      const data = await listFeedback();
-      setFeedbacks(Array.isArray(data) ? data : []);
-    } catch {
-      // silent
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['feedback-manage'],
+    queryFn: async () => {
+      const _r: any = { feedbacks: [] };
+      try {
+        const data = await listFeedback();
+        _r.feedbacks = Array.isArray(data) ? data : [];
+      } catch {
+        // silent
+      }
+      return _r;
+    },
+    staleTime: 60_000,
+  });
+  const feedbacks = _qd?.feedbacks ?? [];
   const filtered = activeTab === 'all' ? feedbacks : feedbacks.filter((f) => f.status === activeTab);
 
   const handleStatusUpdate = async (id: string, status: string) => {

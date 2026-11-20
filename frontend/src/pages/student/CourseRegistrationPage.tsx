@@ -25,8 +25,8 @@ import {
   getActiveSessionAndSemester,
   getMyRegisteredCourseIDs,
   getStudentRegistrations,
-  type RawSession,
-  type RawSemester,
+  type _RawSession,
+  type _RawSemester,
 } from '../../api/course-registrations';
 import { getMyDues, checkDuePaid } from '../../api/payments';
 import { useNotification } from '../../hooks/useNotification';
@@ -34,6 +34,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { getErrorMessage } from '../../utils/errors';
 import type { Course, User } from '../../types';
 
+import { useQuery } from '@tanstack/react-query';
 type Tab = 'register' | 'registrations';
 
 interface RegisteredCourseRow {
@@ -68,25 +69,15 @@ export default function CourseRegistrationPage() {
   const [activeTab, setActiveTab] = useState<Tab>('register');
 
   // Course registration state
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [allCourses, setAllCourses] = useState<Course[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [registeredCourseIds, setRegisteredCourseIds] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [semesterInfo, setSemesterInfo] = useState<{ session: RawSession | null; semester: RawSemester | null }>({
-    session: null,
-    semester: null,
-  });
-  const [loadError, setLoadError] = useState(false);
-
   // Search & Type Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'compulsory' | 'elective'>('all');
 
   // Other levels courses state
   const [showOtherLevelsModal, setShowOtherLevelsModal] = useState(false);
-  const [otherLevelCourses, setOtherLevelCourses] = useState<Course[]>([]);
   const [otherLevelFilter, setOtherLevelFilter] = useState<number | 'all'>('all');
   const [otherLevelSearch, setOtherLevelSearch] = useState('');
 
@@ -101,6 +92,61 @@ export default function CourseRegistrationPage() {
   const [registrations, setRegistrations] = useState<RegistrationRow[]>([]);
   const [loadingRegistrations, setLoadingRegistrations] = useState(false);
 
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['course-registration', loadCourses],
+    queryFn: async () => {
+      const _r: any = {
+        courses: [],
+        allCourses: [],
+        semesterInfo: {
+          session: null,
+          semester: null,
+        },
+        loadError: false,
+        otherLevelCourses: [],
+      };
+      _r.loadError = false;
+      try {
+        const semResult = await getActiveSessionAndSemester();
+        _r.semesterInfo = semResult;
+
+        if (!semResult.semester) {
+          _r.loadError = true;
+          _r.courses = [];
+          return;
+        }
+
+        const semName = semResult.semester.name || semResult.semester.season || 'first';
+        const allLevels = [100, 200, 300, 400, 500];
+        const otherLevels = allLevels.filter((lvl) => lvl !== studentLevel);
+
+        const [courseList, regIds, allCourseList, ...otherLevelLists] = await Promise.all([
+          getCoursesByLevelAndSemester(studentLevel, semName),
+          getMyRegisteredCourseIDs().catch(() => []),
+          getCourses({ perPage: 100 }).catch(() => []),
+          ...otherLevels.map((lvl) => getCoursesByLevelAndSemester(lvl, semName).catch(() => [] as Course[])),
+        ]);
+        _r.courses = courseList || [];
+        _r.allCourses = allCourseList || [];
+        setRegisteredCourseIds(new Set(regIds || []));
+        _r.otherLevelCourses = (otherLevelLists || []).flat();
+      } catch {
+        _r.loadError = true;
+        _r.courses = [];
+      }
+      return _r;
+    },
+    staleTime: 60_000,
+    enabled: !!loadCourses,
+  });
+  const courses = _qd?.courses ?? [];
+  const allCourses = _qd?.allCourses ?? [];
+  const semesterInfo = _qd?.semesterInfo ?? {
+    session: null,
+    semester: null,
+  };
+  const loadError = _qd?.loadError ?? false;
+  const otherLevelCourses = _qd?.otherLevelCourses ?? [];
   const studentLevel = user?.level || 0;
   const minUnits = 4;
   const maxUnits = 24;
@@ -112,43 +158,7 @@ export default function CourseRegistrationPage() {
     return type === 'core' || type === 'compulsory' || sub === 'compulsory' || sub === 'core';
   }, []);
 
-  // Load active semester and available courses
-  const loadCourses = useCallback(async () => {
-    setLoading(true);
-    setLoadError(false);
-    try {
-      const semResult = await getActiveSessionAndSemester();
-      setSemesterInfo(semResult);
-
-      if (!semResult.semester) {
-        setLoadError(true);
-        setCourses([]);
-        return;
-      }
-
-      const semName = semResult.semester.name || semResult.semester.season || 'first';
-      const allLevels = [100, 200, 300, 400, 500];
-      const otherLevels = allLevels.filter((lvl) => lvl !== studentLevel);
-
-      const [courseList, regIds, allCourseList, ...otherLevelLists] = await Promise.all([
-        getCoursesByLevelAndSemester(studentLevel, semName),
-        getMyRegisteredCourseIDs().catch(() => []),
-        getCourses({ perPage: 100 }).catch(() => []),
-        ...otherLevels.map((lvl) => getCoursesByLevelAndSemester(lvl, semName).catch(() => [] as Course[])),
-      ]);
-      setCourses(courseList || []);
-      setAllCourses(allCourseList || []);
-      setRegisteredCourseIds(new Set(regIds || []));
-      setOtherLevelCourses((otherLevelLists || []).flat());
-    } catch {
-      setLoadError(true);
-      setCourses([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [studentLevel]);
-
-  // Load existing registrations
+  // Load active semester and available courses  // Load existing registrations
   const loadRegistrations = useCallback(async () => {
     setLoadingRegistrations(true);
     try {
@@ -163,10 +173,6 @@ export default function CourseRegistrationPage() {
       setLoadingRegistrations(false);
     }
   }, [user, notifyError]);
-
-  useEffect(() => {
-    loadCourses();
-  }, [loadCourses]);
 
   useEffect(() => {
     if (activeTab === 'registrations') {
@@ -397,8 +403,8 @@ export default function CourseRegistrationPage() {
         course_ids: selectedIds,
       });
       success(
-        'Registration Submitted',
-        `Successfully registered ${selectedCourses.length} courses (${totalUnits} units) for the semester.`,
+        'Registration Approved',
+        `Successfully registered and approved ${selectedCourses.length} courses (${totalUnits} units) for the semester.`,
       );
       setSelectedIds([]);
       setShowConfirmModal(false);
@@ -1235,6 +1241,15 @@ export default function CourseRegistrationPage() {
                       <Download className="w-4 h-4" />
                       <span>Download slip</span>
                     </button>
+                  </div>
+
+                  {/* Card 3: Need to change courses? */}
+                  <div className="p-5 rounded-2xl border border-slate-200 dark:border-[#222530] bg-white/60 dark:bg-[#161820]/60 text-xs text-[var(--text-muted)] space-y-1.5 shadow-sm">
+                    <p className="font-semibold text-[var(--text)]">Need to change your courses?</p>
+                    <p className="leading-relaxed">
+                      Your registered courses are automatically approved. If you need to make changes, contact the HOD
+                      or department admin to update your registration.
+                    </p>
                   </div>
                 </div>
               </div>

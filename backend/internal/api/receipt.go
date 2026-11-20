@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
 	db "github.com/aces/backend/internal/db/sql"
@@ -89,6 +90,31 @@ func nairaToWords(amount decimal.Decimal) string {
 		out = append(out, belowThousand(int(whole)))
 	}
 	return strings.Join(out, " ")
+}
+
+func sanitizeReceiptFileName(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "Dues Receipt"
+	}
+	name = strings.ReplaceAll(name, "/", "-")
+	name = strings.ReplaceAll(name, "\\", "-")
+	name = strings.ReplaceAll(name, ":", "-")
+	var sb strings.Builder
+	for _, r := range name {
+		if r == '"' || r == '*' || r == '?' || r == '<' || r == '>' || r == '|' {
+			continue
+		}
+		sb.WriteRune(r)
+	}
+	res := strings.TrimSpace(sb.String())
+	for strings.Contains(res, "  ") {
+		res = strings.ReplaceAll(res, "  ", " ")
+	}
+	if res == "" {
+		return "Dues Receipt"
+	}
+	return res
 }
 
 func receiptFileName(brand tenant.Brand, paymentID, kind string, number int32) string {
@@ -180,10 +206,50 @@ func (server *Server) getDuesPaymentReceipt(ctx *gin.Context) {
 	}
 	dateStr := paidAt.Time.Format("02/01/2006")
 
+	firstName := strings.TrimSpace(user.FirstName)
+	if firstName == "" {
+		fullName := derefStrPtr(user.FullName)
+		if idx := strings.Index(fullName, "("); idx != -1 {
+			fullName = fullName[:idx]
+		}
+		if idx := strings.Index(fullName, ","); idx != -1 {
+			fullName = fullName[:idx]
+		}
+		parts := strings.Fields(fullName)
+		if len(parts) > 0 {
+			firstName = parts[0]
+		}
+	}
+
+	brand := tenant.BrandFrom(ctx.Request.Context())
+	deptName := strings.TrimSpace(brand.Name)
+	if deptName == "" {
+		deptName = "Department of Computer Engineering"
+	} else if !strings.HasPrefix(strings.ToLower(deptName), "department of") {
+		deptName = "Department of " + deptName
+	}
+
+	var hodSigBytes []byte
+	if asset, err := queries.GetCRFSignatureAsset(ctx.Request.Context(), "hod"); err == nil && asset.FilePath != "" {
+		if server.storage != nil {
+			fullPath := server.storage.GetFullPath(asset.FilePath)
+			if b, err := os.ReadFile(fullPath); err == nil && len(b) > 0 {
+				hodSigBytes = b
+			}
+		}
+	}
+
+	var deptStampBytes []byte
+	if stampCfg, err := utils.StampConfigFor(brand.Name); err == nil {
+		if stampPNG, err := utils.DeptStampPNG(400, 260, stampCfg); err == nil {
+			deptStampBytes = stampPNG
+		}
+	}
+
 	data := utils.ReceiptData{
 		Date:         dateStr,
 		ReceivedFrom: receivedFrom,
-		Of:           receivedFrom,
+		Of:           deptName,
 		SumOf:        fmt.Sprintf("%s Naira, Only", nairaToWords(amount)),
 		NairaWords:   nairaToWords(naira),
 		KoboWords: func() string {
@@ -192,13 +258,14 @@ func (server *Server) getDuesPaymentReceipt(ctx *gin.Context) {
 			}
 			return nairaToWords(kobo)
 		}(),
-		Being:       being,
-		AmountNaira: naira.StringFixed(0),
-		AmountKobo:  kobo.StringFixed(0),
-		RegNo:       matric,
+		Being:            being,
+		AmountNaira:      naira.StringFixed(0),
+		AmountKobo:       kobo.StringFixed(0),
+		RegNo:            matric,
+		StudentSignature: firstName,
+		CashierSignature: hodSigBytes,
+		DepartmentStamp:  deptStampBytes,
 	}
-
-	brand := tenant.BrandFrom(ctx.Request.Context())
 	org := utils.OrgFor(brand.Name, brand.Institution, brand.ContactEmail, server.departmentLogo(ctx.Request.Context(), brand))
 	pdfBytes, err := utils.RenderReceiptPDF(org, kind, int(number), data)
 	if err != nil {
@@ -206,11 +273,15 @@ func (server *Server) getDuesPaymentReceipt(ctx *gin.Context) {
 		return
 	}
 
-	kindLabel := "Department-Dues"
-	if kind == utils.ClassDues {
-		kindLabel = "Class-Dues"
+	duesName := strings.TrimSpace(payment.ItemName)
+	if duesName == "" {
+		if kind == utils.ClassDues {
+			duesName = "Class Dues"
+		} else {
+			duesName = "Department Dues"
+		}
 	}
-	filename := receiptFileName(brand, payment.ID.String(), kindLabel, number)
+	filename := sanitizeReceiptFileName(duesName) + ".pdf"
 
 	ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
 	ctx.Data(http.StatusOK, "application/pdf", pdfBytes)

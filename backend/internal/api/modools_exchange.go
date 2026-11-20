@@ -126,6 +126,7 @@ func (server *Server) modoolsExchange(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate tokens"})
 		return
 	}
+	server.notifyUser(ctx, user.ID, "general", "auth", "low", "Login Successful", "You have signed in using Modools.", "/dashboard", "Go to dashboard", nil, nil)
 	ctx.JSON(http.StatusOK, gin.H{"user": resp.User, "tokens": resp.Tokens})
 }
 

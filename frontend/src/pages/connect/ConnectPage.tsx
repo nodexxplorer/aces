@@ -1,3 +1,6 @@
+import ConnectComposer from '../../components/connect/ConnectComposer';
+import ConnectAttachments from '../../components/connect/ConnectAttachments';
+import { loadConnectAttachment, uploadConnectAttachment, type ConnectAttachment } from '../../api/connect-media';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -10,7 +13,6 @@ import {
   Check,
   X,
   MessageCircle,
-  Send,
   ArrowLeft,
   Search,
   Loader2,
@@ -18,10 +20,6 @@ import {
   Plus,
   Link2,
   Compass,
-  Paperclip,
-  Mic,
-  FileText,
-  Download,
   Info,
   BellOff,
   Copy,
@@ -30,11 +28,10 @@ import {
   BookOpen,
   Megaphone,
   CheckCheck,
-  Trash2,
-  Play,
-  Pause,
   Clock,
   QrCode,
+  CornerUpLeft,
+  Share2,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import {
@@ -44,7 +41,6 @@ import {
   sendConnectionRequest,
   respondToConnection,
   getConversation,
-  sendMessage,
   markMessageRead,
   getConnectionUserIds,
   getMyConversations,
@@ -54,6 +50,7 @@ import {
   addGroupMember,
   createGroup,
   joinGroup,
+  sendMessage,
   sendGroupMessage,
   getGroupMessages,
   getGroupInviteCode,
@@ -148,15 +145,7 @@ interface ThreadMessage {
   created_at: string;
   sender_name?: string;
   sender_avatar?: string | null;
-  attachment?: {
-    name: string;
-    size: string;
-    url?: string;
-  };
-  voice_note?: {
-    duration: number;
-    audioUrl: string;
-  };
+  attachments?: ConnectAttachment[];
 }
 
 type ThreadTarget =
@@ -303,7 +292,9 @@ export default function ConnectPage() {
   return (
     <div
       className={`flex flex-col ${
-        view === 'chats' ? 'h-[calc(100dvh-)] min-h-[560px] pb-5' : 'min-h-[calc(100dvh-8.5rem)] pb-8'
+        view === 'chats'
+          ? 'h-[calc(100dvh-5.5rem)] sm:h-[calc(100dvh-6.5rem)] lg:h-[calc(100dvh-7.5rem)] min-h-[520px]'
+          : 'min-h-[calc(100dvh-8.5rem)] pb-8'
       } text-[var(--text)]`}
     >
       {/* Top Header */}
@@ -578,6 +569,7 @@ export default function ConnectPage() {
               <div className="flex-1 min-w-0 flex">
                 {/* Center Chat View */}
                 <ThreadView
+                  key={`${myId}:${activeThread.kind}:${activeThread.id}`}
                   myId={myId}
                   target={activeThread}
                   onBack={() => setActiveThread(null)}
@@ -585,6 +577,8 @@ export default function ConnectPage() {
                   incomingGroupChat={incomingGroupChat}
                   onToggleDetails={() => setShowRightDetails(!showRightDetails)}
                   onAddMembers={() => setAddMembersOpen(true)}
+                  dms={dms}
+                  groups={groups}
                 />
 
                 {/* Right Details Sidebar (Toggleable on desktop) */}
@@ -734,6 +728,147 @@ export default function ConnectPage() {
 }
 
 // ========================================================
+// FORWARD MESSAGE MODAL
+// ========================================================
+function ForwardModal({
+  isOpen,
+  onClose,
+  dms,
+  groups,
+  item,
+  onForwarded,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  dms: DMConversation[];
+  groups: GroupConversation[];
+  item: { content?: string; attachment?: ConnectAttachment } | null;
+  onForwarded: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const [sendingId, setSendingId] = useState<string | null>(null);
+  const { success, error: notifyError } = useNotification();
+
+  if (!isOpen || !item) return null;
+
+  const filteredDMs = dms.filter((d) => d.other_full_name.toLowerCase().includes(search.toLowerCase()));
+  const filteredGroups = groups.filter((g) => g.name.toLowerCase().includes(search.toLowerCase()));
+
+  async function handleSendTo(kind: 'dm' | 'group', targetId: string) {
+    setSendingId(targetId);
+    try {
+      let attachmentId: string | undefined;
+      const c = new AbortController();
+      if (item?.attachment) {
+        const blob = await loadConnectAttachment(item.attachment.id, c.signal);
+        const uploaded = await uploadConnectAttachment(
+          { kind, id: targetId },
+          item.attachment.kind,
+          blob,
+          crypto.randomUUID(),
+          c.signal,
+          () => {},
+        );
+        attachmentId = uploaded.id;
+      }
+      const textToSend = item?.content || (attachmentId ? '' : 'Forwarded message');
+      const options = {
+        attachments: attachmentId ? [attachmentId] : [],
+        client_nonce: crypto.randomUUID(),
+      };
+      if (kind === 'dm') {
+        await sendMessage(targetId, textToSend, options);
+      } else {
+        await sendGroupMessage(targetId, textToSend, options);
+      }
+      success('Message forwarded!');
+      onForwarded();
+      onClose();
+    } catch (e) {
+      notifyError(getErrorMessage(e, 'Could not forward message.'));
+    } finally {
+      setSendingId(null);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+      <div className="bg-white dark:bg-[#161821] rounded-2xl border border-slate-200 dark:border-[#22252e] w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+        <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-[#1d2028]">
+          <h3 className="font-bold text-base text-[var(--text)]">Forward to…</h3>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-[#20232e] text-[var(--text-muted)]"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="p-3 border-b border-slate-100 dark:border-[#1d2028]">
+          <div className="relative">
+            <Search className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search conversations…"
+              className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-[#22252e] bg-slate-50 dark:bg-[#101217] text-[var(--text)] focus:outline-none focus:border-[#1d68ec]"
+              autoFocus
+            />
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          {filteredGroups.length > 0 && (
+            <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">
+              Groups
+            </div>
+          )}
+          {filteredGroups.map((g) => (
+            <button
+              key={g.id}
+              disabled={sendingId === g.id}
+              onClick={() => void handleSendTo('group', g.id)}
+              className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-[#1a1d27] transition-colors text-left"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <ChatAvatar name={g.name} url={g.avatar_url} className="w-8 h-8 text-[10px]" />
+                <span className="text-xs font-semibold text-[var(--text)] truncate">{g.name}</span>
+              </div>
+              <span className="text-xs font-medium text-[#1d68ec] px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/40">
+                {sendingId === g.id ? 'Sending…' : 'Send'}
+              </span>
+            </button>
+          ))}
+          {filteredDMs.length > 0 && (
+            <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mt-2">
+              Direct Messages
+            </div>
+          )}
+          {filteredDMs.map((d) => (
+            <button
+              key={d.connection_id}
+              disabled={sendingId === d.other_user_id}
+              onClick={() => void handleSendTo('dm', d.other_user_id)}
+              className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-[#1a1d27] transition-colors text-left"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <ChatAvatar name={d.other_full_name} url={d.other_avatar_url} className="w-8 h-8 text-[10px]" />
+                <span className="text-xs font-semibold text-[var(--text)] truncate">{d.other_full_name}</span>
+              </div>
+              <span className="text-xs font-medium text-[#1d68ec] px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/40">
+                {sendingId === d.other_user_id ? 'Sending…' : 'Send'}
+              </span>
+            </button>
+          ))}
+          {filteredGroups.length === 0 && filteredDMs.length === 0 && (
+            <p className="text-center text-xs text-[var(--text-muted)] py-6">No chats found.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================
 // CENTER THREAD VIEW (MESSAGES, VOICE NOTE, AI ASSISTANT)
 // ========================================================
 function ThreadView({
@@ -744,6 +879,8 @@ function ThreadView({
   incomingGroupChat,
   onToggleDetails,
   onAddMembers: _onAddMembers,
+  dms,
+  groups,
 }: {
   myId: string;
   target: ThreadTarget;
@@ -752,25 +889,18 @@ function ThreadView({
   incomingGroupChat: GroupMessage | null;
   onToggleDetails: () => void;
   onAddMembers: () => void;
+  dms: DMConversation[];
+  groups: GroupConversation[];
 }) {
   const { success, error: notifyError } = useNotification();
+  const [text, setText] = useState('');
+  const [replyingTo, setReplyingTo] = useState<{ id: string; senderName: string; content: string } | null>(null);
+  const [forwardingItem, setForwardingItem] = useState<{ content?: string; attachment?: ConnectAttachment } | null>(
+    null,
+  );
+  const bottomRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<ThreadMessage[]>([]);
   const [loading, setLoading] = useState(true);
-  const [text, setText] = useState('');
-  const [sending, setSending] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Voice Note State
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const recordIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // AI Assistant State
-  const [_aiLoading, setAiLoading] = useState(false);
-  const [showAiMenu, setShowAiMenu] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -785,6 +915,7 @@ function ThreadView({
               id: m.id,
               sender_id: m.sender_id,
               content: m.content,
+              attachments: m.attachments,
               created_at: m.created_at,
             })),
           );
@@ -799,6 +930,7 @@ function ThreadView({
               id: m.id,
               sender_id: m.sender_id,
               content: m.content,
+              attachments: m.attachments,
               created_at: m.created_at,
               sender_name: m.full_name,
               sender_avatar: m.avatar_url,
@@ -817,141 +949,73 @@ function ThreadView({
     };
   }, [target]);
 
-  // Handle incoming websocket chat
+  const handleReply = (m: ThreadMessage) => {
+    const sender = m.sender_id === myId ? 'You' : m.sender_name || target.name;
+    const preview = m.content || (m.attachments?.length ? '📷 Photo' : 'Message');
+    setReplyingTo({ id: m.id, senderName: sender, content: preview });
+  };
+
+  function renderMessageContent(content: string) {
+    const match = content.match(/^>\s*\*\*([^*]+)\*\*:\s*(.*?)\n\n([\s\S]*)$/);
+    if (match) {
+      return (
+        <div className="space-y-1.5">
+          <div className="p-2 rounded-lg bg-black/10 dark:bg-white/10 border-l-2 border-current text-xs">
+            <span className="font-semibold block opacity-90">{match[1]}</span>
+            <span className="line-clamp-2 opacity-80">{match[2]}</span>
+          </div>
+          <p className="whitespace-pre-wrap text-sm">{match[3]}</p>
+        </div>
+      );
+    }
+    return <p className="whitespace-pre-wrap text-sm">{content}</p>;
+  }
+
+  // AI Assistant State
+  const [_aiLoading, setAiLoading] = useState(false);
+  const [showAiMenu, setShowAiMenu] = useState(false); // Handle incoming websocket chat
   useEffect(() => {
     if (!incomingChat || target.kind !== 'dm' || incomingChat.sender_id !== target.id) return;
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: incomingChat.id,
-        sender_id: incomingChat.sender_id,
-        content: incomingChat.content,
-        created_at: incomingChat.created_at,
-      },
-    ]);
+    setMessages((prev) =>
+      prev.some((m) => m.id === incomingChat.id)
+        ? prev
+        : [
+            ...prev,
+            {
+              id: incomingChat.id,
+              sender_id: incomingChat.sender_id,
+              content: incomingChat.content,
+              attachments: incomingChat.attachments,
+              created_at: incomingChat.created_at,
+            },
+          ],
+    );
     markMessageRead(incomingChat.id).catch(() => {});
   }, [incomingChat, target.kind, target.id]);
 
   useEffect(() => {
     if (!incomingGroupChat || target.kind !== 'group' || incomingGroupChat.group_id !== target.id) return;
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: incomingGroupChat.id,
-        sender_id: incomingGroupChat.sender_id,
-        content: incomingGroupChat.content,
-        created_at: incomingGroupChat.created_at,
-        sender_name: incomingGroupChat.full_name,
-        sender_avatar: incomingGroupChat.avatar_url,
-      },
-    ]);
+    setMessages((prev) =>
+      prev.some((m) => m.id === incomingGroupChat.id)
+        ? prev
+        : [
+            ...prev,
+            {
+              id: incomingGroupChat.id,
+              sender_id: incomingGroupChat.sender_id,
+              content: incomingGroupChat.content,
+              attachments: incomingGroupChat.attachments,
+              created_at: incomingGroupChat.created_at,
+              sender_name: incomingGroupChat.full_name,
+              sender_avatar: incomingGroupChat.avatar_url,
+            },
+          ],
+    );
   }, [incomingGroupChat, target.kind, target.id]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
-
-  // Send message
-  const handleSend = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const content = text.trim();
-    if (!content || sending) return;
-    setSending(true);
-    try {
-      if (target.kind === 'dm') {
-        const msg = await sendMessage(target.id, content);
-        setMessages((prev) => [
-          ...prev,
-          { id: msg.id, sender_id: msg.sender_id, content: msg.content, created_at: msg.created_at },
-        ]);
-      } else {
-        const msg = await sendGroupMessage(target.id, content);
-        setMessages((prev) =>
-          prev.some((m) => m.id === msg.id)
-            ? prev
-            : [
-                ...prev,
-                {
-                  id: msg.id,
-                  sender_id: msg.sender_id,
-                  content: msg.content,
-                  created_at: msg.created_at,
-                  sender_name: msg.full_name,
-                  sender_avatar: msg.avatar_url,
-                },
-              ],
-        );
-      }
-      setText('');
-    } catch (err) {
-      notifyError('Failed', getErrorMessage(err, 'Could not send message'));
-    } finally {
-      setSending(false);
-    }
-  };
-
-  // Start Voice Note Recording
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const audioUrl = URL.createObjectURL(audioBlob);
-        // Create voice note message
-        const voiceMsg: ThreadMessage = {
-          id: `vn-${Date.now()}`,
-          sender_id: myId,
-          content: '🎙️ Voice Note',
-          created_at: new Date().toISOString(),
-          voice_note: {
-            duration: recordingSeconds || 5,
-            audioUrl,
-          },
-        };
-        setMessages((prev) => [...prev, voiceMsg]);
-        success('Voice Note Sent', 'Your audio recording was sent.');
-        stream.getTracks().forEach((track) => track.stop());
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-      setRecordingSeconds(0);
-      recordIntervalRef.current = setInterval(() => {
-        setRecordingSeconds((s) => s + 1);
-      }, 1000);
-    } catch {
-      notifyError('Microphone Access', 'Please allow microphone access to record voice notes.');
-    }
-  };
-
-  // Stop and send Voice Note
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      if (recordIntervalRef.current) clearInterval(recordIntervalRef.current);
-    }
-  };
-
-  // Cancel Voice Note
-  const cancelRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
-      setIsRecording(false);
-      if (recordIntervalRef.current) clearInterval(recordIntervalRef.current);
-      setRecordingSeconds(0);
-    }
-  };
 
   // In-Chat AI Assistant Action
   const handleAiAction = async (promptType: 'explain' | 'summarize' | 'reply') => {
@@ -981,26 +1045,6 @@ function ThreadView({
     } finally {
       setAiLoading(false);
     }
-  };
-
-  // File upload attachment
-  const handleFileAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const attachmentMsg: ThreadMessage = {
-      id: `file-${Date.now()}`,
-      sender_id: myId,
-      content: `Sent attachment: ${file.name}`,
-      created_at: new Date().toISOString(),
-      attachment: {
-        name: file.name,
-        size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-        url: URL.createObjectURL(file),
-      },
-    };
-    setMessages((prev) => [...prev, attachmentMsg]);
-    success('Attachment Sent', `${file.name} sent to conversation.`);
   };
 
   return (
@@ -1072,7 +1116,7 @@ function ThreadView({
               const isMine = m.sender_id === myId;
 
               return (
-                <div key={m.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
+                <div key={m.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} group relative`}>
                   {/* Sender Name if group and not mine */}
                   {!isMine && target.kind === 'group' && (
                     <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mb-1 px-1">
@@ -1080,46 +1124,45 @@ function ThreadView({
                     </span>
                   )}
 
-                  {/* Attachment Card or Text Bubble */}
-                  {m.attachment ? (
-                    <div className="p-3 rounded-2xl border border-slate-200 dark:border-[#262833] bg-slate-50 dark:bg-[#161820] max-w-sm flex items-center justify-between gap-4 shadow-sm">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-[#1d68ec] flex items-center justify-center shrink-0">
-                          <FileText className="w-5 h-5" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-[var(--text)] truncate">{m.attachment.name}</p>
-                          <p className="text-[10px] text-[var(--text-muted)]">PDF &middot; {m.attachment.size}</p>
-                        </div>
-                      </div>
-                      <a
-                        href={m.attachment.url || '#'}
-                        download={m.attachment.name}
-                        className="p-1.5 rounded-lg bg-slate-200 dark:bg-[#252833] text-[var(--text)] hover:bg-[#1d68ec] hover:text-white transition-colors"
-                        title="Download file"
-                      >
-                        <Download className="w-4 h-4" />
-                      </a>
-                    </div>
-                  ) : m.voice_note ? (
-                    /* Voice Note Audio Bubble */
-                    <VoiceNoteBubble
-                      isMine={isMine}
-                      duration={m.voice_note.duration}
-                      audioUrl={m.voice_note.audioUrl}
-                    />
-                  ) : (
-                    /* Normal Chat Bubble */
+                  <div className="relative group/msg flex items-center gap-1.5 max-w-full">
+                    {/* Hover actions: Reply & Forward */}
                     <div
-                      className={`p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed max-w-md shadow-sm ${
-                        isMine
-                          ? 'bg-[#1d68ec] text-white rounded-tr-sm'
-                          : 'bg-slate-100 dark:bg-[#181b24] text-[var(--text)] border border-slate-200/80 dark:border-[#22252e] rounded-tl-sm'
+                      className={`opacity-0 group-hover/msg:opacity-100 transition-opacity flex items-center gap-1 text-[var(--text-muted)] ${
+                        isMine ? 'order-first' : 'order-last'
                       }`}
                     >
-                      <p className="whitespace-pre-wrap">{m.content}</p>
+                      <button
+                        type="button"
+                        onClick={() => handleReply(m)}
+                        title="Double-click bubble or click here to reply"
+                        className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-[var(--text)] transition-colors"
+                      >
+                        <CornerUpLeft className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setForwardingItem({ content: m.content, attachment: m.attachments?.[0] })}
+                        title="Forward message"
+                        className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-[var(--text)] transition-colors"
+                      >
+                        <Share2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                  )}
+
+                    <div
+                      onDoubleClick={() => handleReply(m)}
+                      title="Double-click to reply"
+                      className={`p-3 rounded-2xl max-w-md select-text cursor-pointer transition-all ${
+                        isMine ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800'
+                      }`}
+                    >
+                      <ConnectAttachments
+                        items={m.attachments}
+                        onForward={(att) => setForwardingItem({ attachment: att })}
+                      />
+                      {m.content && renderMessageContent(m.content)}
+                    </div>
+                  </div>
 
                   {/* Timestamp & read receipts */}
                   <div className="flex items-center gap-1 mt-1 px-1 text-[10px] text-[var(--text-muted)]">
@@ -1135,32 +1178,6 @@ function ThreadView({
           </>
         )}
       </div>
-
-      {/* Live Voice Recording Bar (When active) */}
-      {isRecording && (
-        <div className="px-4 py-2.5 bg-red-50 dark:bg-red-950/20 border-t border-red-200 dark:border-red-900/50 flex items-center justify-between animate-pulse">
-          <div className="flex items-center gap-2 text-xs font-bold text-red-600 dark:text-red-400">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-600" />
-            <span>Recording Voice Note... 0:{recordingSeconds < 10 ? `0${recordingSeconds}` : recordingSeconds}</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={cancelRecording}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 transition-colors"
-              title="Cancel recording"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-            <button
-              onClick={stopRecording}
-              className="px-3 py-1 rounded-lg bg-red-600 text-white font-bold text-xs shadow-sm hover:bg-red-700 transition-colors"
-            >
-              Send Audio
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* AI Assistant Quick Dropdown */}
       {showAiMenu && (
@@ -1189,122 +1206,45 @@ function ThreadView({
         </div>
       )}
 
-      {/* Bottom Message Input Bar */}
-      <form
-        onSubmit={handleSend}
-        className="p-3.5 border-t border-slate-100 dark:border-[#1d2028] bg-white dark:bg-[#12141a] flex items-center gap-2"
-      >
-        {/* Attachment button */}
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-slate-100 dark:hover:bg-[#1c1f28] transition-colors shrink-0"
-          title="Attach file"
-        >
-          <Paperclip className="w-4 h-4" />
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".jpg,.jpeg,.png,.pdf,.docx"
-          className="hidden"
-          onChange={handleFileAttach}
+      <ConnectComposer
+        key={`${myId}:${target.kind}:${target.id}`}
+        target={target}
+        text={text}
+        onText={setText}
+        replyingTo={replyingTo}
+        onClearReply={() => setReplyingTo(null)}
+        onAI={() => setShowAiMenu(!showAiMenu)}
+        onSent={(msg) => {
+          setReplyingTo(null);
+          setMessages((prev) =>
+            prev.some((m) => m.id === msg.id)
+              ? prev
+              : [
+                  ...prev,
+                  {
+                    id: msg.id,
+                    sender_id: msg.sender_id,
+                    content: msg.content,
+                    created_at: msg.created_at,
+                    attachments: msg.attachments,
+                    sender_name: 'full_name' in msg ? msg.full_name : undefined,
+                    sender_avatar: 'avatar_url' in msg ? msg.avatar_url : undefined,
+                  },
+                ],
+          );
+        }}
+      />
+
+      {forwardingItem && (
+        <ForwardModal
+          isOpen={!!forwardingItem}
+          onClose={() => setForwardingItem(null)}
+          dms={dms}
+          groups={groups}
+          item={forwardingItem}
+          onForwarded={() => success('Message forwarded successfully!')}
         />
-
-        {/* Text input */}
-        <input
-          type="text"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Write a message..."
-          className="flex-1 px-4 py-2.5 text-xs sm:text-sm rounded-full border border-slate-200 dark:border-[#262833] bg-slate-50 dark:bg-[#161820] text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[#1d68ec]"
-        />
-
-        {/* Voice Note Button */}
-        <button
-          type="button"
-          onClick={isRecording ? stopRecording : startRecording}
-          className={`p-2 rounded-xl transition-colors shrink-0 ${
-            isRecording
-              ? 'text-red-500 bg-red-50 dark:bg-red-950/30'
-              : 'text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-slate-100 dark:hover:bg-[#1c1f28]'
-          }`}
-          title={isRecording ? 'Stop recording' : 'Record voice note'}
-        >
-          <Mic className="w-4 h-4" />
-        </button>
-
-        {/* AI Assistant Button */}
-        <button
-          type="button"
-          onClick={() => setShowAiMenu(!showAiMenu)}
-          className="p-2 rounded-xl text-[#1d68ec] hover:bg-blue-50 dark:hover:bg-[#162033] transition-colors shrink-0"
-          title="AI Assistant"
-        >
-          <Sparkles className="w-4 h-4" />
-        </button>
-
-        {/* Send Button */}
-        <button
-          type="submit"
-          disabled={sending || !text.trim()}
-          className="p-2.5 rounded-full bg-[#1d68ec] hover:bg-[#1554c2] text-white disabled:opacity-50 transition-all shrink-0 shadow-sm"
-          title="Send"
-        >
-          <Send className="w-4 h-4" />
-        </button>
-      </form>
-    </div>
-  );
-}
-
-// Subcomponent: Voice Note Player Bubble
-function VoiceNoteBubble({ isMine, duration, audioUrl }: { isMine: boolean; duration: number; audioUrl: string }) {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  const togglePlay = () => {
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      audioRef.current.play();
-      setIsPlaying(true);
-    }
-  };
-
-  return (
-    <div
-      className={`p-3 rounded-2xl flex items-center gap-3 shadow-sm min-w-[200px] ${
-        isMine
-          ? 'bg-[#1d68ec] text-white rounded-tr-sm'
-          : 'bg-slate-100 dark:bg-[#181b24] text-[var(--text)] border border-slate-200/80 dark:border-[#22252e] rounded-tl-sm'
-      }`}
-    >
-      <audio ref={audioRef} src={audioUrl} onEnded={() => setIsPlaying(false)} className="hidden" />
-
-      <button
-        onClick={togglePlay}
-        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-          isMine ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-[#1d68ec] text-white'
-        }`}
-      >
-        {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
-      </button>
-
-      {/* Waveform graphic bars */}
-      <div className="flex items-center gap-0.5 flex-1 h-5">
-        {[40, 70, 30, 90, 60, 100, 45, 80, 50, 65, 35, 75].map((h, i) => (
-          <div
-            key={i}
-            style={{ height: `${h}%` }}
-            className={`w-1 rounded-full ${isMine ? 'bg-white/70' : 'bg-slate-400 dark:bg-slate-600'}`}
-          />
-        ))}
-      </div>
-
-      <span className="text-[11px] font-mono shrink-0">0:{duration < 10 ? `0${duration}` : duration}</span>
+      )}
     </div>
   );
 }
@@ -1699,7 +1639,6 @@ function CreateGroupModal({
 function DiscoverTab({ myId }: { myId: string }) {
   const { success, error: notifyError } = useNotification();
   const [users, setUsers] = useState<DirectoryUser[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [level, setLevel] = useState<number | 'all'>('all');
   const [connectedIds, setConnectedIds] = useState<Set<string>>(new Set());
@@ -1939,7 +1878,6 @@ function RequestsTab({
   const { success, error: notifyError } = useNotification();
   const [receivedRequests, setReceivedRequests] = useState<Connection[]>([]);
   const [sentRequests, setSentRequests] = useState<Connection[]>([]);
-  const [loading, setLoading] = useState(true);
   const [subTab, setSubTab] = useState<'received' | 'sent'>('received');
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -2322,6 +2260,7 @@ function JoinByLinkModal({
   onSubmitCode: (code: string) => void;
 }) {
   const [val, setVal] = useState('');
+
   if (!isOpen) return null;
 
   return (

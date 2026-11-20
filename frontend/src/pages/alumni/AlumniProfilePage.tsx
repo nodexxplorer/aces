@@ -1,52 +1,68 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Card, { CardHeader, CardTitle } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Badge from '../../components/ui/Badge';
 import { useNotification } from '../../hooks/useNotification';
 import { getMyAlumniStatus, updateAlumniProfileFull } from '../../api/alumni';
-import type { AlumniFullProfile } from '../../types';
+
 import { Save, Loader2, MapPin, Briefcase, Globe } from 'lucide-react';
 import { FaLinkedin } from 'react-icons/fa';
 
+import { useQuery } from '@tanstack/react-query';
 const AlumniProfilePage = () => {
   const { success, error: notifyError } = useNotification();
-  const [profile, setProfile] = useState<AlumniFullProfile | null>(null);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [location, setLocation] = useState('');
-  const [industry, setIndustry] = useState('');
-  const [jobTitle, setJobTitle] = useState('');
-  const [company, setCompany] = useState('');
-  const [bio, setBio] = useState('');
-  const [linkedinUrl, setLinkedinUrl] = useState('');
-  const [portfolioUrl, setPortfolioUrl] = useState('');
-  const [isMentor, setIsMentor] = useState(false);
-  const [mentorTopics, setMentorTopics] = useState('');
-  const [skills, setSkills] = useState('');
-  const [privacyLevel, setPrivacyLevel] = useState('public');
-
-  useEffect(() => {
-    getMyAlumniStatus()
-      .then((data) => {
-        setProfile(data);
-        setLocation(data.location || '');
-        setIndustry(data.industry || '');
-        setJobTitle(data.current_position || '');
-        setCompany(data.current_company || '');
-        setBio(data.bio || '');
-        setLinkedinUrl(data.linkedin_url || '');
-        setPortfolioUrl(data.portfolio_url || '');
-        setIsMentor(data.is_mentor_available || false);
-        setMentorTopics(Array.isArray(data.mentorship_topics) ? data.mentorship_topics.join(', ') : '');
-        setSkills(Array.isArray(data.skills) ? data.skills.join(', ') : '');
-        setPrivacyLevel(data.privacy_level || 'public');
-      })
-      .catch(() => notifyError('Error', 'Failed to load profile'))
-      .finally(() => setLoading(false));
-  }, []);
-
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['alumni-profile'],
+    queryFn: async () => {
+      const _r: any = {
+        profile: null,
+        location: '',
+        industry: '',
+        jobTitle: '',
+        company: '',
+        bio: '',
+        linkedinUrl: '',
+        portfolioUrl: '',
+        isMentor: false,
+        mentorTopics: '',
+        skills: '',
+        privacyLevel: 'public',
+      };
+      getMyAlumniStatus()
+        .then((data) => {
+          _r.profile = data;
+          _r.location = data.location || '';
+          _r.industry = data.industry || '';
+          _r.jobTitle = data.current_position || '';
+          _r.company = data.current_company || '';
+          _r.bio = data.bio || '';
+          _r.linkedinUrl = data.linkedin_url || '';
+          _r.portfolioUrl = data.portfolio_url || '';
+          _r.isMentor = data.is_mentor_available || false;
+          _r.mentorTopics = Array.isArray(data.mentorship_topics) ? data.mentorship_topics.join(', ') : '';
+          _r.skills = Array.isArray(data.skills) ? data.skills.join(', ') : '';
+          _r.privacyLevel = data.privacy_level || 'public';
+        })
+        .catch(() => notifyError('Error', 'Failed to load profile'));
+      return _r;
+    },
+    staleTime: 60_000,
+  });
+  const profile = _qd?.profile ?? null;
+  const location = _qd?.location ?? '';
+  const industry = _qd?.industry ?? '';
+  const jobTitle = _qd?.jobTitle ?? '';
+  const company = _qd?.company ?? '';
+  const bio = _qd?.bio ?? '';
+  const linkedinUrl = _qd?.linkedinUrl ?? '';
+  const portfolioUrl = _qd?.portfolioUrl ?? '';
+  const isMentor = _qd?.isMentor ?? false;
+  const mentorTopics = _qd?.mentorTopics ?? '';
+  const skills = _qd?.skills ?? '';
+  const privacyLevel = _qd?.privacyLevel ?? 'public';
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -131,13 +147,47 @@ const AlumniProfilePage = () => {
           </CardHeader>
           <div className="space-y-4 p-4 pt-0">
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Industry" placeholder="e.g. Tech, Finance" value={industry} onChange={(e) => setIndustry(e.target.value)} leftIcon={<Briefcase className="w-4 h-4" />} />
-              <Input label="Job Title" placeholder="e.g. Software Engineer" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} />
+              <Input
+                label="Industry"
+                placeholder="e.g. Tech, Finance"
+                value={industry}
+                onChange={(e) => setIndustry(e.target.value)}
+                leftIcon={<Briefcase className="w-4 h-4" />}
+              />
+              <Input
+                label="Job Title"
+                placeholder="e.g. Software Engineer"
+                value={jobTitle}
+                onChange={(e) => setJobTitle(e.target.value)}
+              />
             </div>
-            <Input label="Current Company" placeholder="e.g. Google" value={company} onChange={(e) => setCompany(e.target.value)} />
-            <Input label="Location" placeholder="e.g. Lagos, Nigeria" value={location} onChange={(e) => setLocation(e.target.value)} leftIcon={<MapPin className="w-4 h-4" />} />
-            <Input label="LinkedIn URL" placeholder="https://linkedin.com/in/..." value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} leftIcon={<FaLinkedin className="w-4 h-4" />} />
-            <Input label="Portfolio URL" placeholder="https://..." value={portfolioUrl} onChange={(e) => setPortfolioUrl(e.target.value)} leftIcon={<Globe className="w-4 h-4" />} />
+            <Input
+              label="Current Company"
+              placeholder="e.g. Google"
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
+            />
+            <Input
+              label="Location"
+              placeholder="e.g. Lagos, Nigeria"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              leftIcon={<MapPin className="w-4 h-4" />}
+            />
+            <Input
+              label="LinkedIn URL"
+              placeholder="https://linkedin.com/in/..."
+              value={linkedinUrl}
+              onChange={(e) => setLinkedinUrl(e.target.value)}
+              leftIcon={<FaLinkedin className="w-4 h-4" />}
+            />
+            <Input
+              label="Portfolio URL"
+              placeholder="https://..."
+              value={portfolioUrl}
+              onChange={(e) => setPortfolioUrl(e.target.value)}
+              leftIcon={<Globe className="w-4 h-4" />}
+            />
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-surface-700 dark:text-surface-300">Bio</label>
               <textarea
@@ -168,8 +218,18 @@ const AlumniProfilePage = () => {
                   Available as Mentor
                 </label>
               </div>
-              <Input label="Mentorship Topics" placeholder="e.g. Career guidance, Technical skills" value={mentorTopics} onChange={(e) => setMentorTopics(e.target.value)} />
-              <Input label="Skills" placeholder="e.g. React, Python, DevOps" value={skills} onChange={(e) => setSkills(e.target.value)} />
+              <Input
+                label="Mentorship Topics"
+                placeholder="e.g. Career guidance, Technical skills"
+                value={mentorTopics}
+                onChange={(e) => setMentorTopics(e.target.value)}
+              />
+              <Input
+                label="Skills"
+                placeholder="e.g. React, Python, DevOps"
+                value={skills}
+                onChange={(e) => setSkills(e.target.value)}
+              />
             </div>
           </Card>
 

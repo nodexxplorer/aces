@@ -1,5 +1,5 @@
 import { alumniLabel, useCurrentDepartment } from '../../components/branding/department';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
@@ -11,6 +11,7 @@ import { getJobPosts, applyToJob } from '../../api/alumni';
 import { getErrorMessage } from '../../utils/errors';
 import type { JobPost } from '../../types';
 
+import { useQuery } from '@tanstack/react-query';
 type JobTypeVariant = 'primary' | 'info' | 'success' | 'warning';
 
 const typeLabels: Record<string, string> = {
@@ -36,8 +37,6 @@ const extractId = (v: unknown): string => {
 const StudentJobBoardPage = () => {
   const department = useCurrentDepartment();
   const { success, error: notifyError } = useNotification();
-  const [jobs, setJobs] = useState<JobPost[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [applyOpen, setApplyOpen] = useState(false);
@@ -46,14 +45,18 @@ const StudentJobBoardPage = () => {
   const [resumeUrl, setResumeUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    setLoading(true);
-    getJobPosts()
-      .then((data) => setJobs(Array.isArray(data) ? data : []))
-      .catch(() => notifyError('Error', 'Failed to load jobs'))
-      .finally(() => setLoading(false));
-  }, []);
-
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['student-job-board'],
+    queryFn: async () => {
+      const _r: any = { jobs: [] };
+      getJobPosts()
+        .then((data) => (_r.jobs = Array.isArray(data) ? data : []))
+        .catch(() => notifyError('Error', 'Failed to load jobs'));
+      return _r;
+    },
+    staleTime: 60_000,
+  });
+  const jobs = _qd?.jobs ?? [];
   const filtered = jobs.filter((j) => {
     const q = search.toLowerCase();
     const matchSearch = !q || j.title?.toLowerCase().includes(q) || j.company?.toLowerCase().includes(q);

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"time"
@@ -12,7 +13,6 @@ import (
 type PushSender interface {
 	SendPush(token, title, body string, data map[string]interface{}) error
 }
-
 
 type ExpoPushSender struct {
 	client  *http.Client
@@ -36,7 +36,7 @@ type expoPushMessage struct {
 
 func (s *ExpoPushSender) SendPush(token, title, body string, data map[string]interface{}) error {
 	if s.useMock {
-		log.Printf("[mock-push] Sending push to %s\nTitle: %s\nBody: %s", token, title, body)
+		log.Printf("[mock-push] simulated push; no provider request")
 		return nil
 	}
 
@@ -62,5 +62,24 @@ func (s *ExpoPushSender) SendPush(token, title, body string, data map[string]int
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("expo push service returned status %d", resp.StatusCode)
 	}
+	var ticket struct {
+		Data struct {
+			Status  string `json:"status"`
+			Details struct {
+				Error string `json:"error"`
+			} `json:"details"`
+		} `json:"data"`
+	}
+	if json.NewDecoder(io.LimitReader(resp.Body, 64<<10)).Decode(&ticket) != nil {
+		return fmt.Errorf("invalid Expo push response")
+	}
+	if ticket.Data.Status != "ok" {
+		if ticket.Data.Details.Error == "DeviceNotRegistered" {
+			return ErrUnregistered
+		}
+		return fmt.Errorf("Expo push rejected notification")
+	}
 	return nil
 }
+
+func (s *ExpoPushSender) Mock() bool { return s.useMock }

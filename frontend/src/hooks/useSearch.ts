@@ -9,7 +9,7 @@ interface Searchable {
 export const useSearch = <T extends Searchable = Searchable>(
   initialQuery = '',
   dataset?: T[],
-  searchKeys?: (keyof T)[]
+  searchKeys?: (keyof T)[],
 ) => {
   const [query, setQuery] = useState(initialQuery);
   const debouncedQuery = useDebounce(query, 300);
@@ -22,7 +22,7 @@ export const useSearch = <T extends Searchable = Searchable>(
       searchKeys.some((key) => {
         const val = item[key];
         return val != null && String(val).toLowerCase().includes(lower);
-      })
+      }),
     );
   }, [debouncedQuery, dataset, searchKeys]);
 

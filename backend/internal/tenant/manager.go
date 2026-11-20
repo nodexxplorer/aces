@@ -311,6 +311,12 @@ func (m *Manager) poolFor(id uuid.UUID) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("tenant: open pool for tenant %s: %w", id, err)
 	}
 	m.pools[id] = p
+
+	// Log pool count so operators can spot connection pressure.
+	totalMax := m.opts.MaxConnsSystem + int32(len(m.pools))*m.opts.MaxConnsPerTenant
+	log.Printf("[tenant] pool opened for %s (%d tenant pools, max total conns ≈ %d)",
+		id, len(m.pools), totalMax)
+
 	return p, nil
 }
 
@@ -328,8 +334,9 @@ func configurePoolConfig(cfg *pgxpool.Config, maxConns int32, idleTime time.Dura
 	cfg.MinConns = 0
 	cfg.MaxConns = maxConns
 	cfg.MaxConnIdleTime = idleTime
-	cfg.MaxConnLifetime = 5 * time.Minute
-	cfg.ConnConfig.ConnectTimeout = 25 * time.Second
+	cfg.MaxConnLifetime = 3 * time.Minute // recycle faster to free pooler slots
+	cfg.HealthCheckPeriod = 30 * time.Second
+	cfg.ConnConfig.ConnectTimeout = 10 * time.Second
 	cfg.ConnConfig.DialFunc = serverlessDialer()
 }
 

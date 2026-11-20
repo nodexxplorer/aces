@@ -1,15 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import EmptyState from '../../components/ui/EmptyState';
 import { Search, MapPin, Briefcase, ExternalLink, Filter } from 'lucide-react';
 import { searchAlumniDirectory } from '../../api/alumni';
-import type { AlumniDirectoryItem } from '../../types';
 
+import { useQuery } from '@tanstack/react-query';
 const AlumniNetworkPage = () => {
-  const [alumni, setAlumni] = useState<AlumniDirectoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [yearFrom, setYearFrom] = useState('');
   const [yearTo, setYearTo] = useState('');
@@ -18,13 +16,13 @@ const AlumniNetworkPage = () => {
   const [mentorOnly, setMentorOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
-  useEffect(() => {
-    fetchAlumni();
-  }, []);
-
-  const fetchAlumni = async () => {
-    setLoading(true);
-    try {
+  const {
+    data: alumni = [],
+    isLoading: loading,
+    refetch: fetchAlumni,
+  } = useQuery({
+    queryKey: ['alumni-network', search, yearFrom, yearTo, industry, location, mentorOnly],
+    queryFn: async () => {
       const data = await searchAlumniDirectory({
         search: search || undefined,
         year_from: yearFrom ? parseInt(yearFrom) : undefined,
@@ -33,13 +31,10 @@ const AlumniNetworkPage = () => {
         location: location || undefined,
         mentor_only: mentorOnly || undefined,
       });
-      setAlumni(Array.isArray(data) ? data : []);
-    } catch {
-      // silent
-    } finally {
-      setLoading(false);
-    }
-  };
+      return Array.isArray(data) ? data : [];
+    },
+    staleTime: 60_000,
+  });
 
   const handleSearch = () => fetchAlumni();
 

@@ -1,3 +1,4 @@
+import type { ConnectAttachment, ConnectSendOptions } from './connect-media';
 import apiClient, { unwrap } from './client';
 
 export interface DirectoryUser {
@@ -23,6 +24,7 @@ export interface Connection {
 }
 
 export interface ChatMessage {
+  attachments?: ConnectAttachment[];
   id: string;
   sender_id: string;
   receiver_id: string;
@@ -65,8 +67,8 @@ export const getConversation = async (userId: string) => {
   return unwrap<ChatMessage[]>(res);
 };
 
-export const sendChatMessage = async (receiverId: string, content: string) => {
-  const res = await apiClient.post('/campus-connect/messages', { receiver_id: receiverId, content });
+export const sendChatMessage = async (receiverId: string, content: string, options?: ConnectSendOptions) => {
+  const res = await apiClient.post('/campus-connect/messages', { receiver_id: receiverId, content, ...options });
   return unwrap<ChatMessage>(res);
 };
 
@@ -141,6 +143,7 @@ export interface GroupMember {
 }
 
 export interface GroupMessage {
+  attachments?: ConnectAttachment[];
   id: string;
   group_id: string;
   sender_id: string;
@@ -219,8 +222,8 @@ export const addGroupMember = async (groupId: string, userId: string) => {
   return unwrap<GroupMember>(res);
 };
 
-export const sendGroupMessage = async (groupId: string, content: string) => {
-  const res = await apiClient.post(`/groups/${groupId}/messages`, { content });
+export const sendGroupMessage = async (groupId: string, content: string, options?: ConnectSendOptions) => {
+  const res = await apiClient.post(`/groups/${groupId}/messages`, { content, ...options });
   return unwrap<GroupMessage>(res);
 };
 

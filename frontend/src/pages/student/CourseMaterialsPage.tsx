@@ -15,8 +15,8 @@ import {
   type CourseMaterialType,
 } from '../../api/course-materials';
 import { FileText, Download, Loader2, BookOpen } from 'lucide-react';
-import type { Course } from '../../types';
 
+import { useQuery } from '@tanstack/react-query';
 const TYPE_LABELS: Record<CourseMaterialType, string> = {
   slide: 'Lecture Slide',
   past_question: 'Past Question',
@@ -34,25 +34,34 @@ const TYPE_COLORS: Record<CourseMaterialType, 'primary' | 'info' | 'success' | '
 export default function StudentCourseMaterialsPage() {
   const { user } = useAuth();
   const { error: notifyError } = useNotification();
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [courseId, setCourseId] = useState('');
   const [materials, setMaterials] = useState<CourseMaterial[]>([]);
-  const [loadingCourses, setLoadingCourses] = useState(true);
   const [loadingMaterials, setLoadingMaterials] = useState(false);
 
-  useEffect(() => {
-    setLoadingCourses(true);
-    Promise.all([getCourses({ level: user?.level, perPage: 100 }), getMyRegisteredCourseIDs()])
-      .then(([allCourses, registeredIds]) => {
+  const [courseId, setCourseId] = useState('');
+  const { data: courses = [], isLoading: loadingCourses } = useQuery({
+    queryKey: ['student-registered-courses', user?.level],
+    queryFn: async () => {
+      try {
+        const [allCourses, registeredIds] = await Promise.all([
+          getCourses({ level: user?.level, perPage: 100 }),
+          getMyRegisteredCourseIDs(),
+        ]);
         const registered = new Set(registeredIds);
-        const list = allCourses.filter((c) => registered.has(c.id));
-        setCourses(list);
-        if (list.length > 0) setCourseId(list[0].id);
-      })
-      .catch(() => notifyError('Error', 'Failed to load courses'))
-      .finally(() => setLoadingCourses(false));
-  }, [user]);
+        return allCourses.filter((c) => registered.has(c.id));
+      } catch {
+        notifyError('Error', 'Failed to load courses');
+        return [];
+      }
+    },
+    staleTime: 60_000,
+    enabled: !!user,
+  });
 
+  useEffect(() => {
+    if (courses.length > 0 && !courseId) {
+      setCourseId(courses[0].id);
+    }
+  }, [courses, courseId]);
   useEffect(() => {
     if (!courseId) return;
     setLoadingMaterials(true);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { useNotification } from '../../hooks/useNotification';
@@ -6,26 +6,16 @@ import { getAISettings, updateAISettings } from '../../api/ai';
 import type { AISettings } from '../../api/ai';
 import { Bot, Brain, Eye, Shield, Globe, Save } from 'lucide-react';
 
+import { useQuery } from '@tanstack/react-query';
 const AISettingsPage = () => {
   const { success, error } = useNotification();
-  const [settings, setSettings] = useState<AISettings | null>(null);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
-    try {
-      const data = await getAISettings();
-      setSettings(data);
-    } catch {
-      error('Failed to load settings');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: settings, isLoading: loading } = useQuery({
+    queryKey: ['aisettings'],
+    queryFn: getAISettings,
+    staleTime: 5 * 60_000,
+  });
 
   const handleToggle = async (key: keyof AISettings) => {
     if (!settings) return;

@@ -1,36 +1,33 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getDefaulters } from '../../api/payments';
 import { useNotification } from '../../hooks/useNotification';
 import { formatCurrency } from '../../utils/formatters';
-import type { Defaulter } from '../../types';
+
 import { Download, Users, CreditCard, Clock, CheckCircle, Search, Send, Plus, Check } from 'lucide-react';
 
+import { useQuery } from '@tanstack/react-query';
 export default function DefaultersPage() {
   const { success, error: notifyError } = useNotification();
-  const [list, setList] = useState<Defaulter[]>([]);
-  const [loading, setLoading] = useState(true);
   const [levelFilter, setLevelFilter] = useState<number | 'all'>('all');
   const [overdueFilter, setOverdueFilter] = useState<string>('any');
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [remindersSentToday, setRemindersSentToday] = useState(0);
 
-  useEffect(() => {
-    fetchDefaulters();
-  }, []);
-
-  const fetchDefaulters = async () => {
-    try {
-      setLoading(true);
-      const items = await getDefaulters();
-      setList(Array.isArray(items) ? items : []);
-    } catch {
-      notifyError('Error', 'Failed to load defaulters');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: list = [], isLoading: loading } = useQuery({
+    queryKey: ['defaulters'],
+    queryFn: async () => {
+      try {
+        const items = await getDefaulters();
+        return Array.isArray(items) ? items : [];
+      } catch {
+        notifyError('Error', 'Failed to load defaulters');
+        return [];
+      }
+    },
+    staleTime: 60_000,
+  });
 
   const filtered = list.filter((d) => {
     const matchesLevel = levelFilter === 'all' || d.level === levelFilter;

@@ -36,6 +36,7 @@ import (
 	"text/tabwriter"
 	"unicode/utf8"
 
+	"github.com/aces/backend/internal/invitation"
 	"github.com/aces/backend/internal/tenant"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -70,6 +71,8 @@ func main() {
 		list(ctx, pool)
 	case "create":
 		create(ctx, pool, args)
+	case "invite-hod":
+		inviteHOD(ctx, pool, args)
 	case "ensure":
 		ensure(ctx, pool, args)
 	case "update":
@@ -86,8 +89,9 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: tenant <list | create | ensure | update | logos | activate | deactivate> [flags]")
-	fmt.Fprintln(os.Stderr, "  create      -slug <slug> -name <name> [-matric-code <EG/EE>] [-institution <text>] [-faculty <text>]")
+	fmt.Fprintln(os.Stderr, "usage: tenant <list | create | invite-hod | ensure | update | logos | activate | deactivate> [flags]")
+	fmt.Fprintln(os.Stderr, "  create      -slug <slug> -name <name> [-matric-code <EG/EE>] [-institution <text>] [-faculty <text>] [-hod-email <email> -hod-name <full name>]")
+	fmt.Fprintln(os.Stderr, "  invite-hod  -slug <slug> -email <HOD email> -name <full name> [-resend <invitation UUID> | -revoke <invitation UUID>]")
 	fmt.Fprintln(os.Stderr, "  ensure      [-file deploy/departments.json] [-dry-run]   create every department of a file that is missing")
 	fmt.Fprintln(os.Stderr, "  update      -slug <slug> [-name <name>] [-matric-code <EG/EE>] [-institution <text>] [-faculty <text>]")
 	fmt.Fprintln(os.Stderr, "              [-description <text>] [-logo <file.png|jpg|webp>] [-remove-logo]")
@@ -127,6 +131,8 @@ func create(ctx context.Context, pool *pgxpool.Pool, args []string) {
 	matricCode := fs.String("matric-code", "", "matric code, e.g. EG/EE for 20/EG/EE/1234")
 	institution := fs.String("institution", "", "institution name")
 	faculty := fs.String("faculty", "", "faculty name")
+	hodEmail := fs.String("hod-email", "", "send first-HOD setup invitation to this personal account email")
+	hodName := fs.String("hod-name", "", "full name of the first HOD (required with -hod-email)")
 	urlCodeFlag := fs.String("url-code", "", "web address code, e.g. co for /co and /co/admin (default: the matric code's suffix, so EG/CO gives co)")
 	_ = fs.Parse(args)
 	urlCodeGiven := false
@@ -136,6 +142,14 @@ func create(ctx context.Context, pool *pgxpool.Pool, args []string) {
 		}
 	})
 
+	if *hodEmail != "" || *hodName != "" {
+		if _, err := invitation.Normalize(invitation.Request{Email: *hodEmail, Name: *hodName, Role: "hod"}); err != nil {
+			log.Fatal("valid -hod-email and -hod-name are required together")
+		}
+		if _, err := invitation.FrontendOrigin(os.Getenv("FRONTEND_PUBLIC_URL")); err != nil {
+			log.Fatal(err)
+		}
+	}
 	*slug = normalizeSlug(*slug)
 	if !slugPattern.MatchString(*slug) || len(*slug) > 64 {
 		log.Fatalf("invalid -slug %q: use lowercase letters, digits and single hyphens (max 64)", *slug)
@@ -178,7 +192,13 @@ func create(ctx context.Context, pool *pgxpool.Pool, args []string) {
 		fmt.Printf("warning: %q has no matric code, so students cannot sign up or complete onboarding until you run:\n", *slug)
 		fmt.Printf("  tenant update -slug %s -matric-code EG/XX\n", *slug)
 	}
-	fmt.Printf("create its first admin with: DB_SOURCE=... ADMIN_EMAIL=... go run ./cmd/seed_admin -tenant %s (it prints the generated password once)\n", *slug)
+	if *hodEmail != "" {
+		if err := issueHODInvitation(ctx, pool, *slug, *hodEmail, *hodName, "", ""); err != nil {
+			log.Fatalf("department was created, but HOD invitation needs attention: %v; use tenant invite-hod to retry", err)
+		}
+	} else {
+		fmt.Printf("invite its first HOD with: go run ./cmd/tenant invite-hod -slug %s -email HOD_EMAIL -name HOD_NAME\n", *slug)
+	}
 }
 
 // update changes only the fields whose flags were given. An empty value passed

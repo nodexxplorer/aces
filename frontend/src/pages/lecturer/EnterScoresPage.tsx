@@ -7,9 +7,10 @@ import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../hooks/useAuth';
 import { calculateGrade } from '../../utils/cgpa';
 import { Save, AlertCircle, Loader2 } from 'lucide-react';
-import { listLecturerAssignments, type LecturerAssignment } from '../../api/lecturers';
+import { listLecturerAssignments } from '../../api/lecturers';
 import { getCourseResults, updateScore } from '../../api/results';
 
+import { useQuery } from '@tanstack/react-query';
 interface Row {
   resultId?: string;
   matricNumber: string;
@@ -35,25 +36,32 @@ interface CourseResultRow {
 export const ScoresTab = () => {
   const { user } = useAuth();
   const { success, warning, error: notifyError } = useNotification();
-  const [assignments, setAssignments] = useState<LecturerAssignment[]>([]);
-  const [selectedId, setSelectedId] = useState('');
   const [rows, setRows] = useState<Row[]>([]);
-  const [loadingA, setLoadingA] = useState(true);
   const [loadingR, setLoadingR] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (!user?.id) return;
-    listLecturerAssignments(user.id)
-      .then((d) => {
-        const a = Array.isArray(d) ? d : [];
-        setAssignments(a);
-        if (a.length) setSelectedId(a[0].id);
-      })
-      .catch(() => notifyError('Error', 'Failed to load assignments'))
-      .finally(() => setLoadingA(false));
-  }, [user?.id]);
+  const [selectedId, setSelectedId] = useState('');
+  const { data: assignments = [], isLoading: loadingA } = useQuery({
+    queryKey: ['enter-scores-assignments', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      try {
+        const d = await listLecturerAssignments(user.id);
+        return Array.isArray(d) ? d : [];
+      } catch {
+        notifyError('Error', 'Failed to load assignments');
+        return [];
+      }
+    },
+    staleTime: 60_000,
+    enabled: !!user?.id,
+  });
 
+  useEffect(() => {
+    if (assignments.length > 0 && !selectedId) {
+      setSelectedId(assignments[0].id);
+    }
+  }, [assignments, selectedId]);
   const sel = assignments.find((a) => a.id === selectedId);
 
   const load = useCallback(async () => {

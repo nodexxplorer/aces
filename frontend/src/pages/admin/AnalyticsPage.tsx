@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import EmptyState from '../../components/ui/EmptyState';
 import { useNotification } from '../../hooks/useNotification';
-import { getAnalyticsOverview, getRecentActivity, type AnalyticsOverview } from '../../api/analytics';
-import { generateReport, listReports, type GeneratedReport, type ReportType } from '../../api/reports';
+import { getAnalyticsOverview, getRecentActivity } from '../../api/analytics';
+import { generateReport, listReports, type ReportType } from '../../api/reports';
 import { getMediaUrl } from '../../api/client';
 import {
   TrendingUp,
@@ -51,62 +52,69 @@ const PIE_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b
 const reportTypes: ReportType[] = ['grade_distribution', 'revenue_forecast', 'at_risk_students'];
 
 const AnalyticsPage = () => {
+  const queryClient = useQueryClient();
   const { success, error: notifyError } = useNotification();
-  const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
-  const [recentActivity, setRecentActivity] = useState<RecentActivityItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [analyticsError, setAnalyticsError] = useState(false);
 
-  const [reports, setReports] = useState<GeneratedReport[]>([]);
-  const [reportsLoading, setReportsLoading] = useState(true);
-  const [generating, setGenerating] = useState<ReportType | null>(null);
+  const {
+    data: overview,
+    isLoading: isOverviewLoading,
+    isError: isOverviewError,
+    refetch: refetchOverview,
+  } = useQuery({
+    queryKey: ['admin-dashboard', 'overview'],
+    queryFn: getAnalyticsOverview,
+    staleTime: 30_000,
+  });
 
-  useEffect(() => {
-    fetchData();
-    fetchReports();
-  }, []);
+  const {
+    data: rawActivity,
+    isLoading: isActivityLoading,
+    refetch: refetchActivity,
+  } = useQuery({
+    queryKey: ['admin-dashboard', 'activity'],
+    queryFn: getRecentActivity,
+    staleTime: 30_000,
+  });
 
-  const fetchReports = () => {
-    setReportsLoading(true);
-    listReports()
-      .then((data) => setReports(Array.isArray(data) ? data : []))
-      .catch(() => setReports([]))
-      .finally(() => setReportsLoading(false));
-  };
+  const recentActivity = useMemo<RecentActivityItem[]>(() => {
+    if (!rawActivity) return [];
+    const items = rawActivity as unknown;
+    return Array.isArray(items)
+      ? (items as RecentActivityItem[])
+      : (items as { items?: RecentActivityItem[] })?.items || [];
+  }, [rawActivity]);
 
-  const handleGenerate = async (type: ReportType) => {
-    setGenerating(type);
-    try {
-      await generateReport(type);
+  const loading = isOverviewLoading || isActivityLoading;
+  const analyticsError = isOverviewError;
+
+  const { data: rawReports, isLoading: reportsLoading } = useQuery({
+    queryKey: ['reports'],
+    queryFn: listReports,
+    staleTime: 60_000,
+  });
+
+  const reports = useMemo(() => (Array.isArray(rawReports) ? rawReports : []), [rawReports]);
+
+  const generateMutation = useMutation({
+    mutationFn: (type: ReportType) => generateReport(type),
+    onSuccess: (_data, type) => {
       success('Report Generated', `${reportTypeLabels[type]} report is ready to download`);
-      fetchReports();
-    } catch {
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
+    onError: (_error, type) => {
       notifyError('Generation Failed', `Could not generate the ${reportTypeLabels[type]} report`);
-    } finally {
-      setGenerating(null);
-    }
+    },
+  });
+
+  const generating = generateMutation.isPending ? (generateMutation.variables ?? null) : null;
+
+  const handleGenerate = (type: ReportType) => {
+    generateMutation.mutate(type);
   };
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      setAnalyticsError(false);
-      const [ov, act] = await Promise.allSettled([getAnalyticsOverview(), getRecentActivity()]);
-      if (ov.status === 'fulfilled') setOverview(ov.value);
-      else setAnalyticsError(true);
-      if (act.status === 'fulfilled') {
-        const items = act.value as unknown;
-        setRecentActivity(
-          Array.isArray(items)
-            ? (items as RecentActivityItem[])
-            : (items as { items?: RecentActivityItem[] })?.items || [],
-        );
-      }
-    } catch {
-      setAnalyticsError(true);
-    } finally {
-      setLoading(false);
-    }
+  const fetchData = () => {
+    refetchOverview();
+    refetchActivity();
   };
 
   const kpiCards = overview

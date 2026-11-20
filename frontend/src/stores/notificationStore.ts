@@ -114,9 +114,7 @@ export const useNotificationStore = create<NotificationState>()((set, get) => ({
     try {
       await notificationsApi.markAsRead(id);
       set((state) => ({
-        notifications: state.notifications.map((n) =>
-          n.id === id ? { ...n, is_read: true } : n
-        ),
+        notifications: state.notifications.map((n) => (n.id === id ? { ...n, is_read: true } : n)),
         unreadCount: Math.max(0, state.unreadCount - 1),
       }));
     } catch {
@@ -144,9 +142,7 @@ export const useNotificationStore = create<NotificationState>()((set, get) => ({
         const target = state.notifications.find((n) => n.id === id);
         return {
           notifications: state.notifications.filter((n) => n.id !== id),
-          unreadCount: target && !target.is_read
-            ? Math.max(0, state.unreadCount - 1)
-            : state.unreadCount,
+          unreadCount: target && !target.is_read ? Math.max(0, state.unreadCount - 1) : state.unreadCount,
           total: Math.max(0, state.total - 1),
         };
       });
@@ -162,8 +158,11 @@ export const useNotificationStore = create<NotificationState>()((set, get) => ({
 
   addNotification: (notification: NotificationFull) => {
     set((state) => ({
-      notifications: [notification, ...state.notifications],
-      unreadCount: state.unreadCount + (notification.is_read ? 0 : 1),
+      notifications: state.notifications.some((n) => n.id === notification.id)
+        ? state.notifications
+        : [notification, ...state.notifications],
+      unreadCount:
+        state.unreadCount + (notification.is_read || state.notifications.some((n) => n.id === notification.id) ? 0 : 1),
     }));
   },
 

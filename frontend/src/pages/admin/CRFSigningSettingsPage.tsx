@@ -10,12 +10,11 @@ import {
   updateCRFBacklogPrice,
   getCRFSignatureImageUrl,
   listAllCRFHistory,
-  type CRFSignatureAsset,
   type CRFSignatureKind,
-  type CRFAdminSubmission,
 } from '../../api/crf-signing';
 import { getSessions } from '../../api/sessions';
-import type { Session } from '../../types';
+
+import { useQuery } from '@tanstack/react-query';
 import {
   FileText,
   Pencil,
@@ -49,16 +48,9 @@ export default function CRFSigningSettingsPage() {
   const activeTab: TabKey = tabParam === 'history' ? 'history' : tabParam === 'queue' ? 'queue' : 'setup';
 
   const { success, error: notifyError } = useNotification();
-  const [assets, setAssets] = useState<CRFSignatureAsset[]>([]);
-  const [submissions, setSubmissions] = useState<CRFAdminSubmission[]>([]);
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [loading, setLoading] = useState(true);
-
   // Backlog price state (real data from API)
   const [, setBacklogFee] = useState<number | null>(null);
-  const [feeInput, setFeeInput] = useState<string>('');
   // The fee is only shown and saved once the server has returned it.
-  const [feeLoaded, setFeeLoaded] = useState(false);
   const [savingFee, setSavingFee] = useState(false);
 
   // History Tab Filters
@@ -82,50 +74,52 @@ export default function CRFSigningSettingsPage() {
   const [savingSignature, setSavingSignature] = useState(false);
   const [deletingKind, setDeletingKind] = useState<CRFSignatureKind | null>(null);
 
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['crfsigning-settings'],
+    queryFn: async () => {
+      const _r: any = { assets: [], submissions: [], sessions: [], feeInput: '', feeLoaded: false };
+      try {
+        const [assetsData, priceData, historyData, sessionsData] = await Promise.allSettled([
+          listCRFSignatureAssets(),
+          getCRFBacklogPrice(),
+          listAllCRFHistory(),
+          getSessions(),
+        ]);
+
+        if (assetsData.status === 'fulfilled') {
+          _r.assets = Array.isArray(assetsData.value) ? assetsData.value : [];
+        }
+        if (priceData.status === 'fulfilled') {
+          const amt = Number(priceData.value?.amount_per_backlog);
+          if (Number.isFinite(amt) && amt > 0) {
+            setBacklogFee(amt);
+            _r.feeInput = String(amt);
+            _r.feeLoaded = true;
+          }
+        }
+        if (historyData.status === 'fulfilled') {
+          _r.submissions = Array.isArray(historyData.value) ? historyData.value : [];
+        }
+        if (sessionsData.status === 'fulfilled') {
+          _r.sessions = Array.isArray(sessionsData.value) ? sessionsData.value : [];
+        }
+      } catch {
+        notifyError('Load Failed', 'Could not load course forms data');
+      }
+      return _r;
+    },
+    staleTime: 5 * 60_000,
+  });
+  const assets = _qd?.assets ?? [];
+  const submissions = _qd?.submissions ?? [];
+  const sessions = _qd?.sessions ?? [];
+  const feeInput = _qd?.feeInput ?? '';
+  const feeLoaded = _qd?.feeLoaded ?? false;
   // Hidden file inputs for each kind
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const currentUploadKindRef = useRef<CRFSignatureKind>('hod');
 
-  // Load Real Data from APIs
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const [assetsData, priceData, historyData, sessionsData] = await Promise.allSettled([
-        listCRFSignatureAssets(),
-        getCRFBacklogPrice(),
-        listAllCRFHistory(),
-        getSessions(),
-      ]);
-
-      if (assetsData.status === 'fulfilled') {
-        setAssets(Array.isArray(assetsData.value) ? assetsData.value : []);
-      }
-      if (priceData.status === 'fulfilled') {
-        const amt = Number(priceData.value?.amount_per_backlog);
-        if (Number.isFinite(amt) && amt > 0) {
-          setBacklogFee(amt);
-          setFeeInput(String(amt));
-          setFeeLoaded(true);
-        }
-      }
-      if (historyData.status === 'fulfilled') {
-        setSubmissions(Array.isArray(historyData.value) ? historyData.value : []);
-      }
-      if (sessionsData.status === 'fulfilled') {
-        setSessions(Array.isArray(sessionsData.value) ? sessionsData.value : []);
-      }
-    } catch {
-      notifyError('Load Failed', 'Could not load course forms data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const hodAsset = useMemo(() => assets.find((a) => a.kind === 'hod'), [assets]);
+  // Load Real Data from APIs    const hodAsset = useMemo(() => assets.find((a) => a.kind === 'hod'), [assets]);
   const examOfficerAsset = useMemo(() => assets.find((a) => a.kind === 'exam_officer'), [assets]);
   const isReady = Boolean(hodAsset && examOfficerAsset);
 

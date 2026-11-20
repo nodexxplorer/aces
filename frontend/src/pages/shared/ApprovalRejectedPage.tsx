@@ -15,27 +15,28 @@ const ApprovalRejectedPage = () => {
         transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
         className="w-full max-w-lg"
       >
-        <Card glass className="p-8 md:p-10 text-center shadow-2xl relative overflow-hidden border border-surface-200/50 dark:border-surface-800/50">
+        <Card
+          glass
+          className="p-8 md:p-10 text-center shadow-2xl relative overflow-hidden border border-surface-200/50 dark:border-surface-800/50"
+        >
           <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-danger-500 to-danger-600" />
-          
+
           <div className="mx-auto w-20 h-20 rounded-2xl bg-danger-500/10 dark:bg-danger-500/20 text-danger-500 flex items-center justify-center mb-6">
             <XOctagon className="w-10 h-10" />
           </div>
 
-          <h2 className="text-2xl font-bold text-surface-900 dark:text-white mb-3">
-            Registration Disapproved
-          </h2>
-          
+          <h2 className="text-2xl font-bold text-surface-900 dark:text-white mb-3">Registration Disapproved</h2>
+
           <p className="text-sm text-surface-500 dark:text-surface-400 max-w-sm mx-auto mb-6 leading-relaxed">
             Your registration request for the Admin Pack portal has been rejected by department administrators.
           </p>
 
           {user?.rejectionReason && (
             <div className="p-4 bg-danger-500/5 border border-danger-500/10 rounded-xl text-left mb-8">
-              <span className="block text-xs font-semibold text-danger-500 uppercase tracking-wider mb-1">Reason provided:</span>
-              <p className="text-sm text-surface-700 dark:text-surface-300 font-medium">
-                "{user.rejectionReason}"
-              </p>
+              <span className="block text-xs font-semibold text-danger-500 uppercase tracking-wider mb-1">
+                Reason provided:
+              </span>
+              <p className="text-sm text-surface-700 dark:text-surface-300 font-medium">"{user.rejectionReason}"</p>
             </div>
           )}
 

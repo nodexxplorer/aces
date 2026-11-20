@@ -1,3 +1,4 @@
+import { disableBrowserPush } from '../hooks/browserPush';
 import apiClient, { setCsrfToken } from './client';
 import type { User, AuthTokens, LoginPayload } from '../types';
 
@@ -8,6 +9,7 @@ export const login = async (payload: LoginPayload) => {
 };
 
 export const logout = async () => {
+  await disableBrowserPush().catch(() => {});
   await apiClient.post('/auth/logout');
   setCsrfToken(null);
 };

@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -7,32 +6,37 @@ import { getCourse } from '../../api/courses';
 import { getUser } from '../../api/users';
 import { useNotification } from '../../hooks/useNotification';
 import { ArrowLeft, BookOpen, User as UserIcon, Layers, Clock, Loader2 } from 'lucide-react';
-import type { Course } from '../../types';
 
+import { useQuery } from '@tanstack/react-query';
 const CourseDetailPage = () => {
   const { id } = useParams();
   const { error: notifyError } = useNotification();
-  const [course, setCourse] = useState<Course | null>(null);
-  const [lecturerName, setLecturerName] = useState('');
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!id) return;
-    setLoading(true);
-    getCourse(id)
-      .then((c) => {
-        setCourse(c);
-        const lid = c.lecturerId;
-        if (lid) {
-          getUser(lid)
-            .then((u) => setLecturerName(u.fullName || `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email))
-            .catch(() => setLecturerName('Unknown'));
-        }
-      })
-      .catch(() => notifyError('Error', 'Failed to load course details'))
-      .finally(() => setLoading(false));
-  }, [id]);
-
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['course-detail', id],
+    queryFn: async () => {
+      const _r: any = { course: null, lecturerName: '' };
+      if (!id) return;
+      getCourse(id)
+        .then((c) => {
+          _r.course = c;
+          const lid = c.lecturerId;
+          if (lid) {
+            getUser(lid)
+              .then(
+                (u) => (_r.lecturerName = u.fullName || `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email),
+              )
+              .catch(() => (_r.lecturerName = 'Unknown'));
+          }
+        })
+        .catch(() => notifyError('Error', 'Failed to load course details'));
+      return _r;
+    },
+    staleTime: 60_000,
+    enabled: !!id,
+  });
+  const course = _qd?.course ?? null;
+  const lecturerName = _qd?.lecturerName ?? '';
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">

@@ -19,7 +19,8 @@ const ApprovalPendingBanner = () => {
           <ShieldAlert className="w-3.5 h-3.5" /> Account Pending Approval
         </p>
         <p className="text-xs text-warning-700 dark:text-warning-400 mt-0.5 leading-relaxed">
-          Your account is awaiting verification by department administrators. Some features are restricted until your identity is confirmed.
+          Your account is awaiting verification by department administrators. Some features are restricted until your
+          identity is confirmed.
         </p>
       </div>
     </div>

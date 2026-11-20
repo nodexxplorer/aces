@@ -2,9 +2,9 @@ import { WifiOff, Zap } from 'lucide-react';
 import { useOfflineSync } from '../../hooks/useOfflineSync';
 
 const OfflineBanner = () => {
-  const { isOnline, isSlowConnection, pendingSync } = useOfflineSync();
+  const { isOnline, isSlowConnection } = useOfflineSync();
 
-  if (isOnline && !isSlowConnection && pendingSync === 0) return null;
+  if (isOnline && !isSlowConnection) return null;
 
   if (!isOnline) {
     return (
@@ -13,10 +13,7 @@ const OfflineBanner = () => {
         className="fixed top-0 inset-x-0 z-[100] flex items-center justify-center gap-2 bg-amber-600 text-white text-xs sm:text-sm font-medium py-1.5 px-4 shadow-md backdrop-blur"
       >
         <WifiOff className="w-4 h-4 flex-shrink-0 animate-pulse" />
-        <span>
-          Offline Mode active — browsing cached data.{' '}
-          {pendingSync > 0 && `(${pendingSync} action${pendingSync > 1 ? 's' : ''} queued for sync)`}
-        </span>
+        <span>Offline — cached data may be shown. Changes are not queued; check their status before retrying.</span>
       </div>
     );
   }

@@ -4,5 +4,5 @@
 /** Paid once per regular course form, before the student can sign it. */
 export const CRF_SIGNING_FEE = 200;
 
-/** Added once to each dues checkout (cart), whatever the number of dues in it. */
-export const DUES_CHECKOUT_CHARGE = 200;
+/** Added per dues item in the checkout cart. */
+export const DUES_CHECKOUT_CHARGE = 300;

@@ -31,6 +31,7 @@ import { getSessions, listSessionSemesters } from '../../api/sessions';
 import type { DuePayment, SemesterEntry, Session } from '../../types';
 import Modal from '../../components/ui/Modal';
 import SignaturePlacementCanvas from '../../components/crf/SignaturePlacementCanvas';
+import { useQuery } from '@tanstack/react-query';
 import {
   getMyCRFSubmission,
   uploadCRF,
@@ -47,9 +48,9 @@ import {
   createCRFBacklogRequest,
   getMyCRFBacklogStatus,
   submitCRFBacklogForm,
-  type CRFSigningSubmission,
-  type CRFBacklogRequest,
-  type CRFSignatureAsset,
+  type _CRFSigningSubmission,
+  type _CRFBacklogRequest,
+  type _CRFSignatureAsset,
   type CRFPlacements,
 } from '../../api/crf-signing';
 
@@ -59,17 +60,12 @@ export default function CourseFormSigningPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Submission & Flow State
-  const [submission, setSubmission] = useState<CRFSigningSubmission | null>(null);
-  const [historyList, setHistoryList] = useState<CRFSigningSubmission[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeStep, setActiveStep] = useState<number>(1);
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
 
   // Placements & Editor State
-  const [assets, setAssets] = useState<CRFSignatureAsset[]>([]);
-  const [placements, setPlacements] = useState<CRFPlacements>({});
   const [placementHistory, setPlacementHistory] = useState<CRFPlacements[]>([]);
   const [sizeFactor, setSizeFactor] = useState(1);
   const [snapToLines, setSnapToLines] = useState(true);
@@ -81,27 +77,117 @@ export default function CourseFormSigningPage() {
   const [viewingSignedUrl, setViewingSignedUrl] = useState<string | null>(null);
 
   // Backlog State
-  const [backlogPrice, setBacklogPrice] = useState(1000);
-  const [backlog, setBacklog] = useState<CRFBacklogRequest | null>(null);
   const [requestCount, setRequestCount] = useState(1);
   const [requestingBacklog, setRequestingBacklog] = useState(false);
   const [isBacklogModalOpen, setIsBacklogModalOpen] = useState(false);
   const [showNewCourse, setShowNewCourse] = useState(false);
-  const [pastSemesters, setPastSemesters] = useState<SemesterEntry[]>([]);
-  const [allSemesters, setAllSemesters] = useState<SemesterEntry[]>([]);
-  const [activeSemesterId, setActiveSemesterId] = useState<string>('');
   const [selectedSemesterId, setSelectedSemesterId] = useState('');
   const [backlogFile, setBacklogFile] = useState<File | null>(null);
   const [uploadingBacklog, setUploadingBacklog] = useState(false);
 
   // History Tab Filter
   const [historyFilter, setHistoryFilter] = useState<'all' | 'current' | 'old'>('all');
-  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
-
   // Dues State
   const [unpaidDuesList, setUnpaidDuesList] = useState<DuePayment[]>([]);
   const [duesLoading, setDuesLoading] = useState(true);
 
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['course-form-signing'],
+    queryFn: async () => {
+      const _r: any = {
+        submission: null,
+        historyList: [],
+        assets: [],
+        placements: {},
+        backlogPrice: 1000,
+        backlog: null,
+        pastSemesters: [],
+        allSemesters: [],
+        activeSemesterId: '',
+        selectedHistoryId: null,
+      };
+      Promise.all([
+        getMyCRFSubmission().catch(() => null),
+        listCRFSignatureAssets().catch(() => []),
+        getCRFBacklogPrice().catch(() => null),
+        getMyCRFBacklogStatus().catch(() => null),
+        getSessions()
+          .then(async (sessions: Session[]) => {
+            const recentSessions = (sessions || []).slice(0, 3);
+            const lists = await Promise.all(
+              recentSessions.map((s) => listSessionSemesters(s.id).catch(() => [] as SemesterEntry[])),
+            );
+            return lists.flat();
+          })
+          .catch(() => []),
+        listMyCRFDrafts().catch(() => []),
+        listMyCRFHistory().catch(() => []),
+      ])
+        .then(([sub, assetList, bPrice, bStatus, semestersList, drafts, historyData]) => {
+          let currentSub = sub;
+          if (!currentSub && drafts.length > 0) {
+            currentSub = drafts[0];
+          }
+          _r.submission = currentSub;
+          if (currentSub) {
+            const rawPlacements = currentSub.placements || {};
+            const initialPlacements: CRFPlacements = {
+              hod: rawPlacements.hod || { page: 1, x: 72, y: 215, width: 110, max_height: 34 },
+              exam_officer: rawPlacements.exam_officer || { page: 1, x: 320, y: 215, width: 110, max_height: 34 },
+            };
+            if (rawPlacements.watermark) {
+              initialPlacements.watermark = rawPlacements.watermark;
+            }
+            _r.placements = initialPlacements;
+          }
+
+          _r.assets = assetList || [];
+          if (bPrice?.amount_per_backlog) {
+            _r.backlogPrice = Number(bPrice.amount_per_backlog);
+          }
+          _r.backlog = bStatus;
+
+          const allSems = semestersList || [];
+          _r.allSemesters = allSems;
+          const nowStr = new Date().toISOString();
+          const activeSem =
+            allSems.find((s) => s.is_active) ||
+            allSems.find((s) => {
+              const start = s.start_date || (s as any).startDate || '';
+              const end = s.end_date || (s as any).endDate || '';
+              return Boolean(start && end && nowStr >= start && nowStr <= end);
+            }) ||
+            allSems[allSems.length - 1];
+          if (activeSem?.id) {
+            _r.activeSemesterId = activeSem.id;
+          }
+          _r.pastSemesters = allSems.filter((s) => s.id !== activeSem?.id);
+
+          // Deduplicate history items
+          const combined = [...(historyData || [])];
+          if (currentSub && currentSub.status === 'completed' && !combined.some((h) => h.id === currentSub?.id)) {
+            combined.unshift(currentSub);
+          }
+          _r.historyList = combined;
+          if (combined.length > 0) {
+            _r.selectedHistoryId = combined[0].id;
+          }
+        })
+        .catch(() => {});
+      return _r;
+    },
+    staleTime: 60_000,
+  });
+  const submission = _qd?.submission ?? null;
+  const historyList = _qd?.historyList ?? [];
+  const assets = _qd?.assets ?? [];
+  const placements = _qd?.placements ?? {};
+  const backlogPrice = _qd?.backlogPrice ?? 1000;
+  const backlog = _qd?.backlog ?? null;
+  const pastSemesters = _qd?.pastSemesters ?? [];
+  const allSemesters = _qd?.allSemesters ?? [];
+  const activeSemesterId = _qd?.activeSemesterId ?? '';
+  const selectedHistoryId = _qd?.selectedHistoryId ?? null;
   // Check unpaid required dues
   useEffect(() => {
     let cancelled = false;
@@ -142,78 +228,6 @@ export default function CourseFormSigningPage() {
   }, [user?.level]);
 
   // Load all CRF data
-  useEffect(() => {
-    Promise.all([
-      getMyCRFSubmission().catch(() => null),
-      listCRFSignatureAssets().catch(() => []),
-      getCRFBacklogPrice().catch(() => null),
-      getMyCRFBacklogStatus().catch(() => null),
-      getSessions()
-        .then(async (sessions: Session[]) => {
-          const recentSessions = (sessions || []).slice(0, 3);
-          const lists = await Promise.all(
-            recentSessions.map((s) => listSessionSemesters(s.id).catch(() => [] as SemesterEntry[])),
-          );
-          return lists.flat();
-        })
-        .catch(() => []),
-      listMyCRFDrafts().catch(() => []),
-      listMyCRFHistory().catch(() => []),
-    ])
-      .then(([sub, assetList, bPrice, bStatus, semestersList, drafts, historyData]) => {
-        let currentSub = sub;
-        if (!currentSub && drafts.length > 0) {
-          currentSub = drafts[0];
-        }
-        setSubmission(currentSub);
-        if (currentSub) {
-          const rawPlacements = currentSub.placements || {};
-          const initialPlacements: CRFPlacements = {
-            hod: rawPlacements.hod || { page: 1, x: 72, y: 215, width: 110, max_height: 34 },
-            exam_officer: rawPlacements.exam_officer || { page: 1, x: 320, y: 215, width: 110, max_height: 34 },
-          };
-          if (rawPlacements.watermark) {
-            initialPlacements.watermark = rawPlacements.watermark;
-          }
-          setPlacements(initialPlacements);
-        }
-
-        setAssets(assetList || []);
-        if (bPrice?.amount_per_backlog) {
-          setBacklogPrice(Number(bPrice.amount_per_backlog));
-        }
-        setBacklog(bStatus);
-
-        const allSems = semestersList || [];
-        setAllSemesters(allSems);
-        const nowStr = new Date().toISOString();
-        const activeSem =
-          allSems.find((s) => s.is_active) ||
-          allSems.find((s) => {
-            const start = s.start_date || (s as any).startDate || '';
-            const end = s.end_date || (s as any).endDate || '';
-            return Boolean(start && end && nowStr >= start && nowStr <= end);
-          }) ||
-          allSems[allSems.length - 1];
-        if (activeSem?.id) {
-          setActiveSemesterId(activeSem.id);
-        }
-        setPastSemesters(allSems.filter((s) => s.id !== activeSem?.id));
-
-        // Deduplicate history items
-        const combined = [...(historyData || [])];
-        if (currentSub && currentSub.status === 'completed' && !combined.some((h) => h.id === currentSub?.id)) {
-          combined.unshift(currentSub);
-        }
-        setHistoryList(combined);
-        if (combined.length > 0) {
-          setSelectedHistoryId(combined[0].id);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
   const totalOutstandingDues = useMemo(() => {
     return unpaidDuesList.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
   }, [unpaidDuesList]);

@@ -9,7 +9,7 @@ import { useNotification } from '../../hooks/useNotification';
 import { useAuthStore } from '../../stores/authStore';
 import { getMediaUrl } from '../../api/client';
 import { updateUser } from '../../api/users';
-import { getCGPAConfig, updateCGPAConfig } from '../../api/cgpa';
+import { updateCGPAConfig } from '../../api/cgpa';
 import { getAISettings, updateAISettings } from '../../api/ai';
 import type { AISettings } from '../../api/ai';
 import { getErrorMessage } from '../../utils/errors';
@@ -246,31 +246,7 @@ const SettingsPage = () => {
 
 function CGPATab() {
   const { success, error: notifyError } = useNotification();
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [scale, setScale] = useState('5.0');
-  const [passingCGPA, setPassingCGPA] = useState('1.0');
-  const [firstClass, setFirstClass] = useState('4.5');
-  const [secondClassUpper, setSecondClassUpper] = useState('3.5');
-  const [secondClassLower, setSecondClassLower] = useState('2.5');
-  const [thirdClass, setThirdClass] = useState('1.5');
-
-  useEffect(() => {
-    getCGPAConfig()
-      .then((config) => {
-        if (config) {
-          setScale(String(config.scale || config.maxScale || '5.0'));
-          setPassingCGPA(String(config.passingCGPA || config.minimumPassing || '1.0'));
-          setFirstClass(String(config.firstClass || config.gradeBoundaries?.firstClass || '4.5'));
-          setSecondClassUpper(String(config.secondClassUpper || config.gradeBoundaries?.secondClassUpper || '3.5'));
-          setSecondClassLower(String(config.secondClassLower || config.gradeBoundaries?.secondClassLower || '2.5'));
-          setThirdClass(String(config.thirdClass || config.gradeBoundaries?.thirdClass || '1.5'));
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -313,7 +289,7 @@ function CGPATab() {
             label="Maximum CGPA Scale"
             type="number"
             step="0.1"
-            value={scale}
+            value={}
             onChange={(e) => setScale(e.target.value)}
             required
           />
@@ -321,7 +297,7 @@ function CGPATab() {
             label="Minimum Passing CGPA"
             type="number"
             step="0.1"
-            value={passingCGPA}
+            value={}
             onChange={(e) => setPassingCGPA(e.target.value)}
             required
           />
@@ -331,7 +307,7 @@ function CGPATab() {
             label="First Class (min CGPA)"
             type="number"
             step="0.1"
-            value={firstClass}
+            value={}
             onChange={(e) => setFirstClass(e.target.value)}
             required
           />
@@ -339,7 +315,7 @@ function CGPATab() {
             label="Second Class Upper (min CGPA)"
             type="number"
             step="0.1"
-            value={secondClassUpper}
+            value={}
             onChange={(e) => setSecondClassUpper(e.target.value)}
             required
           />
@@ -347,7 +323,7 @@ function CGPATab() {
             label="Second Class Lower (min CGPA)"
             type="number"
             step="0.1"
-            value={secondClassLower}
+            value={}
             onChange={(e) => setSecondClassLower(e.target.value)}
             required
           />
@@ -355,7 +331,7 @@ function CGPATab() {
             label="Third Class (min CGPA)"
             type="number"
             step="0.1"
-            value={thirdClass}
+            value={}
             onChange={(e) => setThirdClass(e.target.value)}
             required
           />

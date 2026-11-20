@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Circle, Clock, Mail, RefreshCw, ExternalLink } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
@@ -52,7 +53,7 @@ const WaitingDashboardPage = () => {
 
   const handleCheckStatus = useCallback(async () => {
     setLoading(true);
-    const status = await fetchStatus();
+    const { data: status } = await refetchStatus();
     if (status === 'approved') {
       notifySuccess('Approved', 'Your account has been approved!');
     } else if (status === 'rejected') {
@@ -63,13 +64,12 @@ const WaitingDashboardPage = () => {
     setLoading(false);
   }, [fetchStatus, notifyError, notifySuccess]);
 
-  useEffect(() => {
-    fetchStatus();
-    const interval = setInterval(() => {
-      fetchStatus();
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [fetchStatus]);
+  const { refetch: refetchStatus } = useQuery({
+    queryKey: ['waiting-approval-status'],
+    queryFn: fetchStatus,
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+  });
 
   const dashboardPath = departmentDashboardPath(user?.tenant?.urlCode, user?.activeRole || user?.role);
 

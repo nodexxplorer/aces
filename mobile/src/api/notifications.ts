@@ -1,4 +1,4 @@
-import apiClient, { unwrap } from './client';
+import apiClient, { unwrap } from "./client";
 
 // Mirrors frontend/src/api/notifications.ts's NotificationPreferences.
 export interface NotificationPreferences {
@@ -29,12 +29,14 @@ export interface NotificationPreferences {
 }
 
 export const getPreferences = async () => {
-  const res = await apiClient.get('/notifications/preferences');
+  const res = await apiClient.get("/notifications/preferences");
   return unwrap<NotificationPreferences>(res);
 };
 
-export const updatePreferences = async (prefs: Partial<NotificationPreferences>) => {
-  const res = await apiClient.put('/notifications/preferences', prefs);
+export const updatePreferences = async (
+  prefs: Partial<NotificationPreferences>,
+) => {
+  const res = await apiClient.put("/notifications/preferences", prefs);
   return unwrap<NotificationPreferences>(res);
 };
 
@@ -42,6 +44,24 @@ export const updatePreferences = async (prefs: Partial<NotificationPreferences>)
 // notifications (not just the in-app/WebSocket ones) when this user isn't
 // actively looking at the app.
 export const registerPushToken = async (pushToken: string) => {
-  const res = await apiClient.put('/notifications/push-token', { push_token: pushToken });
+  const res = await apiClient.put("/notifications/push-token", {
+    push_token: pushToken,
+  });
   return unwrap<NotificationPreferences>(res);
 };
+
+export interface DeliverySetup {
+  email_mode: string;
+  push_mode: string;
+  web_push_configured: boolean;
+  mobile_devices: number;
+  quiet_hours_timezone: string;
+}
+export const notificationDeliverySetup = async () =>
+  unwrap<DeliverySetup>(await apiClient.get("/notifications/delivery-status"));
+export const sendNotificationTest = async (id: string) =>
+  unwrap<{ id: string }>(await apiClient.post("/notifications/test", { id }));
+export const notificationTestStatus = async (id: string) =>
+  unwrap<{
+    channels: { channel: string; status: string; detail: string | null }[];
+  }>(await apiClient.get(`/notifications/test/${id}`));

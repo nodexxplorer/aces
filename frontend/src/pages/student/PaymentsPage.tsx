@@ -30,7 +30,7 @@ import {
   clearStudentCart,
   checkDuePaid,
   downloadPaymentReceipt,
-  type CartItem,
+  type _CartItem,
 } from '../../api/payments';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
@@ -38,6 +38,7 @@ import { getErrorMessage } from '../../utils/errors';
 import { DUES_CHECKOUT_CHARGE } from '../../config/fees';
 import type { Payment, DuePayment, PaymentStatus, PaymentType } from '../../types';
 
+import { useQuery } from '@tanstack/react-query';
 const STATUS_FILTERS: { key: PaymentStatus | 'all'; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'completed', label: 'Successful' },
@@ -65,18 +66,6 @@ const TYPE_LABELS: Record<string, string> = {
 const PaymentsPage = () => {
   const { user } = useAuth();
   const { success, error: notifyError } = useNotification();
-
-  const [tab, setTab] = useState<'cart' | 'transactions'>('cart');
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [summary, setSummary] = useState<{
-    total_paid: number;
-    total_pending: number;
-    amount_paid: number;
-    amount_pending: number;
-  } | null>(null);
-  const [dues, setDues] = useState<DuePayment[]>([]);
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [cartBusyId, setCartBusyId] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [paidDueIds, setPaidDueIds] = useState<Set<string>>(new Set());
@@ -86,9 +75,56 @@ const PaymentsPage = () => {
   const [txTypeFilter, setTxTypeFilter] = useState<PaymentType | 'all'>('all');
   const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
   const typeDropdownRef = useRef<HTMLDivElement>(null);
-  const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
   const [receiptBusyId, setReceiptBusyId] = useState<string | null>(null);
 
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['payments', user?.id, user?.level, notifyError],
+    queryFn: async () => {
+      const _r: any = { tab: 'cart', payments: [], summary: null, dues: [], cart: [], selectedPaymentId: null };
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('tab') === 'transactions') _r.tab = 'transactions';
+
+      if (!user?.id) return;
+      Promise.all([
+        getStudentPayments(user.id).catch(() => []),
+        getStudentPaymentSummary(user.id).catch(() => null),
+        getMyDues(user?.level).catch(() => []),
+        listStudentCart(user.id).catch(() => []),
+      ])
+        .then(([pays, summ, duesData, cartData]) => {
+          const sortedPays = (pays || []).sort(
+            (a, b) =>
+              new Date(b.created_at || b.createdAt || '').getTime() -
+              new Date(a.created_at || a.createdAt || '').getTime(),
+          );
+          _r.payments = sortedPays;
+          if (sortedPays.length > 0) {
+            _r.selectedPaymentId = sortedPays[0].id;
+          }
+          _r.summary = summ;
+          _r.dues = duesData || [];
+          _r.cart = cartData || [];
+
+          (duesData || []).forEach((d: DuePayment) => {
+            checkDuePaid(d.id, user!.id)
+              .then((res) => {
+                if (res.is_paid) setPaidDueIds((prev) => new Set(prev).add(d.id));
+              })
+              .catch(() => {});
+          });
+        })
+        .catch(() => notifyError('Error', 'Failed to load payments'));
+      return _r;
+    },
+    staleTime: 60_000,
+    enabled: !!notifyError,
+  });
+  const tab = _qd?.tab ?? 'cart';
+  const payments = _qd?.payments ?? [];
+  const summary = _qd?.summary ?? null;
+  const dues = _qd?.dues ?? [];
+  const cart = _qd?.cart ?? [];
+  const selectedPaymentId = _qd?.selectedPaymentId ?? null;
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (typeDropdownRef.current && !typeDropdownRef.current.contains(e.target as Node)) {
@@ -108,44 +144,6 @@ const PaymentsPage = () => {
       // ignore
     }
   }, [user?.id]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('tab') === 'transactions') setTab('transactions');
-
-    if (!user?.id) return;
-    setLoading(true);
-    Promise.all([
-      getStudentPayments(user.id).catch(() => []),
-      getStudentPaymentSummary(user.id).catch(() => null),
-      getMyDues(user?.level).catch(() => []),
-      listStudentCart(user.id).catch(() => []),
-    ])
-      .then(([pays, summ, duesData, cartData]) => {
-        const sortedPays = (pays || []).sort(
-          (a, b) =>
-            new Date(b.created_at || b.createdAt || '').getTime() -
-            new Date(a.created_at || a.createdAt || '').getTime(),
-        );
-        setPayments(sortedPays);
-        if (sortedPays.length > 0) {
-          setSelectedPaymentId(sortedPays[0].id);
-        }
-        setSummary(summ);
-        setDues(duesData || []);
-        setCart(cartData || []);
-
-        (duesData || []).forEach((d: DuePayment) => {
-          checkDuePaid(d.id, user!.id)
-            .then((res) => {
-              if (res.is_paid) setPaidDueIds((prev) => new Set(prev).add(d.id));
-            })
-            .catch(() => {});
-        });
-      })
-      .catch(() => notifyError('Error', 'Failed to load payments'))
-      .finally(() => setLoading(false));
-  }, [user?.id, user?.level, notifyError]);
 
   const handleAddToCart = async (due: DuePayment) => {
     if (!user?.id) return;
@@ -224,10 +222,10 @@ const PaymentsPage = () => {
     }
   };
 
-  const handleDownloadReceipt = async (paymentId: string) => {
+  const handleDownloadReceipt = async (paymentId: string, itemName?: string) => {
     setReceiptBusyId(paymentId);
     try {
-      await downloadPaymentReceipt(paymentId);
+      await downloadPaymentReceipt(paymentId, itemName);
       success('Receipt Downloaded', 'Your official receipt PDF has been saved.');
     } catch (err) {
       notifyError('Download Failed', getErrorMessage(err, 'Could not download receipt'));
@@ -274,8 +272,8 @@ const PaymentsPage = () => {
     return cart.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   }, [cart]);
 
-  // One processing charge per checkout, added only when there is something in the cart.
-  const cartCharge = cart.length > 0 ? DUES_CHECKOUT_CHARGE : 0;
+  // One processing charge per dues item in the cart.
+  const cartCharge = cart.length > 0 ? DUES_CHECKOUT_CHARGE * cart.length : 0;
   const cartTotal = cartDuesTotal + cartCharge;
 
   // Filtered transactions
@@ -587,7 +585,7 @@ const PaymentsPage = () => {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleDownloadReceipt(p.id);
+                                    handleDownloadReceipt(p.id, p.item_name);
                                   }}
                                   disabled={receiptBusyId === p.id}
                                   className="p-2 rounded-xl border border-slate-200 dark:border-[#2b2e3c] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-slate-100 dark:hover:bg-[#1f222d] transition-colors"
@@ -682,7 +680,7 @@ const PaymentsPage = () => {
                   <div className="space-y-2.5 pt-1">
                     {selectedPayment.status === 'completed' && (
                       <button
-                        onClick={() => handleDownloadReceipt(selectedPayment.id)}
+                        onClick={() => handleDownloadReceipt(selectedPayment.id, selectedPayment.item_name)}
                         disabled={receiptBusyId === selectedPayment.id}
                         className="w-full py-3 px-4 rounded-xl bg-[#1d68ec] hover:bg-[#1554c2] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95"
                       >
@@ -1008,7 +1006,7 @@ const PaymentsPage = () => {
                           </div>
                           <div className="flex items-center gap-2.5 shrink-0">
                             <span className="text-xs sm:text-sm font-bold text-[var(--text)]">
-                              ₦{formatNumber(Number(item.amount) || 0)}
+                              ₦{formatNumber((Number(item.amount) || 0) + DUES_CHECKOUT_CHARGE)}
                             </span>
                             <button
                               onClick={() => handleRemoveFromCart(item.id)}
@@ -1025,14 +1023,9 @@ const PaymentsPage = () => {
                   </div>
 
                   <div className="border-t border-slate-100 dark:border-[#20232e] pt-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-[var(--text-muted)]">Dues</span>
-                      <span className="text-xs font-semibold text-[var(--text)]">₦{formatNumber(cartDuesTotal)}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-[var(--text-muted)]">Payment processing charge</span>
-                      <span className="text-xs font-semibold text-[var(--text)]">₦{formatNumber(cartCharge)}</span>
-                    </div>
+                    <p className="text-[11px] text-[var(--text-muted)]">
+                      Includes ₦{formatNumber(DUES_CHECKOUT_CHARGE)} processing fee per item
+                    </p>
                   </div>
 
                   <div className="flex items-center justify-between">

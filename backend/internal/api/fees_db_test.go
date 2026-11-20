@@ -212,21 +212,21 @@ func TestCRFSigningFeePostgres(t *testing.T) {
 		}
 	})
 
-	t.Run("dues checkout charge is part of the batch the webhook reconciles", func(t *testing.T) {
-		// A cart of ₦1000 dues with the ₦200 charge: one batch of ₦1200 whose two rows share the reference.
+	t.Run("dues checkout charge is baked into each dues payment row", func(t *testing.T) {
+		// A cart of one ₦1000 due with a ₦200 charge baked in: one batch of
+		// ₦1200 with a single ₦1200 payment row.
 		const reference = "ACES-FEE-TEST-1"
 		var batchID uuid.UUID
 		if err := conn.QueryRow(ctx, `INSERT INTO payment_batches (student_id, total_amount, paystack_reference) VALUES ($1, 1200, $2) RETURNING id`, studentID, reference).Scan(&batchID); err != nil {
 			t.Fatalf("seed batch: %v", err)
 		}
-		mustExec(`INSERT INTO payments (student_id, batch_id, type, item_name, amount, paystack_reference, status) VALUES ($1, $2, 'dept_dues', 'Dues', 1000, $3, 'pending')`, studentID, batchID, reference)
-		mustExec(`INSERT INTO payments (student_id, batch_id, type, item_name, amount, paystack_reference, status) VALUES ($1, $2, 'other', 'Payment Processing Charge', 200, $3, 'pending')`, studentID, batchID, reference)
+		mustExec(`INSERT INTO payments (student_id, batch_id, type, item_name, amount, paystack_reference, status) VALUES ($1, $2, 'dept_dues', 'Dues', 1200, $3, 'pending')`, studentID, batchID, reference)
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest(http.MethodPost, "/", nil).WithContext(ctx)
 
-		// Underpaid by the charge (paid ₦1000): refused, nothing completed.
+		// Underpaid (paid ₦1000): refused, nothing completed.
 		if _, err := server.completePaymentsForReference(c, reference, 100000); err == nil {
 			t.Fatal("underpayment of the batch total was accepted")
 		}
@@ -234,11 +234,11 @@ func TestCRFSigningFeePostgres(t *testing.T) {
 		if err := conn.QueryRow(ctx, `SELECT count(*) FROM payments WHERE batch_id = $1 AND status = 'pending'`, batchID).Scan(&pending); err != nil {
 			t.Fatalf("count: %v", err)
 		}
-		if pending != 2 {
-			t.Fatalf("pending rows after refused payment = %d, want 2", pending)
+		if pending != 1 {
+			t.Fatalf("pending rows after refused payment = %d, want 1", pending)
 		}
 
-		// Paid in full (₦1200): both the dues and the charge complete.
+		// Paid in full (₦1200): the dues row completes.
 		if _, err := server.completePaymentsForReference(c, reference, 120000); err != nil {
 			t.Fatalf("full payment refused: %v", err)
 		}
@@ -246,8 +246,8 @@ func TestCRFSigningFeePostgres(t *testing.T) {
 		if err := conn.QueryRow(ctx, `SELECT count(*) FROM payments WHERE batch_id = $1 AND status = 'completed'`, batchID).Scan(&completed); err != nil {
 			t.Fatalf("count completed: %v", err)
 		}
-		if completed != 2 {
-			t.Fatalf("completed rows = %d, want 2", completed)
+		if completed != 1 {
+			t.Fatalf("completed rows = %d, want 1", completed)
 		}
 	})
 
