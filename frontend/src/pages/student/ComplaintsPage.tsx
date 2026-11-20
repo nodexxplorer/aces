@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { getErrorMessage } from '../../utils/errors';
 
+import { useQuery } from '@tanstack/react-query';
 /* ─────────────────────── local types ─────────────────────── */
 
 interface ChatMessage {
@@ -118,9 +119,6 @@ const ComplaintsPage = () => {
   const [searchParams] = useSearchParams();
 
   /* ─── core state ─── */
-  const [loading, setLoading] = useState(true);
-  const [liveComplaints, setLiveComplaints] = useState<Complaint[]>([]);
-  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'open' | 'in_review' | 'resolved'>('all');
   const [viewMode, setViewMode] = useState<'board' | 'submitted' | 'new_ticket'>('board');
 
@@ -147,30 +145,27 @@ const ComplaintsPage = () => {
   const [feedbackComment, setFeedbackComment] = useState('');
   const [feedbackSubmitted, setFeedbackSubmitted] = useState<Record<string, boolean>>({});
 
-  /* ─────────────────────── data fetching ─────────────────────── */
-
-  const fetchComplaints = async () => {
-    setLoading(true);
-    try {
-      const res = await getMyComplaints();
-      const list = Array.isArray(res) ? res : ((res as { data?: Complaint[] } | undefined)?.data ?? []);
-      setLiveComplaints(list);
-      if (list.length > 0 && !selectedTicketId) {
-        setSelectedTicketId(list[0].id);
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['complaints'],
+    queryFn: async () => {
+      const _r: any = { liveComplaints: [], selectedTicketId: null };
+      try {
+        const res = await getMyComplaints();
+        const list = Array.isArray(res) ? res : ((res as { data?: Complaint[] } | undefined)?.data ?? []);
+        _r.liveComplaints = list;
+        if (list.length > 0 && !selectedTicketId) {
+          _r.selectedTicketId = list[0].id;
+        }
+      } catch (err) {
+        notifyError('Connection Error', getErrorMessage(err, 'Could not fetch complaints from department server.'));
       }
-    } catch (err) {
-      notifyError('Connection Error', getErrorMessage(err, 'Could not fetch complaints from department server.'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchComplaints();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  /* ─────────────────────── derived data ─────────────────────── */
+      return _r;
+    },
+    staleTime: 60_000,
+  });
+  const liveComplaints = _qd?.liveComplaints ?? [];
+  const selectedTicketId = _qd?.selectedTicketId ?? null;
+  /* ─────────────────────── data fetching ─────────────────────── */ /* ─────────────────────── derived data ─────────────────────── */
 
   const tickets = useMemo<TicketItem[]>(() => {
     return liveComplaints.map((c) => {

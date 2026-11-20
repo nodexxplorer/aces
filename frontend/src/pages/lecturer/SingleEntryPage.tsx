@@ -6,12 +6,13 @@ import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../hooks/useAuth';
 import { getErrorMessage } from '../../utils/errors';
 import { Search, Loader2, Send, X } from 'lucide-react';
-import { listLecturerAssignments, type LecturerAssignment } from '../../api/lecturers';
+import { listLecturerAssignments } from '../../api/lecturers';
 import { searchStudentsForRoles } from '../../api/role-management';
 import { getCourseClassList } from '../../api/courses';
 import { enterScore } from '../../api/results';
 import type { StudentForRoleManagement } from '../../types';
 
+import { useQuery } from '@tanstack/react-query';
 interface ClassListItem {
   student_id?: string;
   matric_number: string;
@@ -23,34 +24,37 @@ interface ClassListItem {
 export function SingleEntryTab() {
   const { user } = useAuth();
   const { success, error: notifyError, warning } = useNotification();
-  const [assignments, setAssignments] = useState<LecturerAssignment[]>([]);
-  const [selectedAssignmentId, setSelectedAssignmentId] = useState('');
-  const [students, setStudents] = useState<StudentForRoleManagement[]>([]);
   const [studentSearch, setStudentSearch] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<StudentForRoleManagement | null>(null);
   const [showStudentDropdown, setShowStudentDropdown] = useState(false);
   const [caScore, setCaScore] = useState('');
   const [examScore, setExamScore] = useState('');
-  const [, setLoadingMeta] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (!user?.id) return;
-    setLoadingMeta(true);
-    Promise.all([
-      listLecturerAssignments(user.id).catch(() => []),
-      searchStudentsForRoles({ per_page: 500 }).catch(() => ({ data: [] })),
-    ])
-      .then(([ass, stu]) => {
-        const arr = Array.isArray(ass) ? ass : [];
-        setAssignments(arr);
-        if (arr.length > 0) setSelectedAssignmentId(arr[0].id);
-        setStudents(Array.isArray(stu.data) ? stu.data : []);
-      })
-      .catch(() => notifyError('Error', 'Failed to load initial data'))
-      .finally(() => setLoadingMeta(false));
-  }, [user?.id]);
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState('');
+  const { data: meta, isLoading: _loadingMeta } = useQuery({
+    queryKey: ['single-entry-meta', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return { assignments: [], students: [] };
+      const [ass, stu] = await Promise.all([
+        listLecturerAssignments(user.id).catch(() => []),
+        searchStudentsForRoles({ per_page: 500 }).catch(() => ({ data: [] })),
+      ]);
+      const assignments = Array.isArray(ass) ? ass : [];
+      const students = Array.isArray((stu as any).data) ? (stu as any).data : [];
+      return { assignments, students };
+    },
+    staleTime: 60_000,
+    enabled: !!user?.id,
+  });
+  const assignments = meta?.assignments ?? [];
+  const students = meta?.students ?? [];
 
+  useEffect(() => {
+    if (assignments.length > 0 && !selectedAssignmentId) {
+      setSelectedAssignmentId(assignments[0].id);
+    }
+  }, [assignments, selectedAssignmentId]);
   const selAssignment = assignments.find((a) => a.id === selectedAssignmentId);
 
   useEffect(() => {

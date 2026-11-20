@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
@@ -11,6 +11,7 @@ import { delegateAdmin } from '../../api/role-management';
 import type { User } from '../../types';
 import { getErrorMessage } from '../../utils/errors';
 
+import { useQuery } from '@tanstack/react-query';
 const getDisplayName = (u: User) => {
   if (u.fullName) return u.fullName;
   if (u.firstName || u.lastName) return `${u.firstName || ''} ${u.lastName || ''}`.trim();
@@ -19,29 +20,26 @@ const getDisplayName = (u: User) => {
 
 const DelegateAdminPage = () => {
   const { success, error } = useNotification();
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [assigning, setAssigning] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
-    try {
-      setLoading(true);
-      const result = await getUsers({ page: 1, perPage: 100 });
-      const items = Array.isArray(result) ? result : [];
-      setUsers(items.filter((u) => u.role === 'lecturer' || u.role === 'hod'));
-    } catch (err) {
-      error('Load Failed', getErrorMessage(err, 'Could not load users'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['delegate-admin'],
+    queryFn: async () => {
+      const _r: any = { users: [] };
+      try {
+        const result = await getUsers({ page: 1, perPage: 100 });
+        const items = Array.isArray(result) ? result : [];
+        _r.users = items.filter((u) => u.role === 'lecturer' || u.role === 'hod');
+      } catch (err) {
+        error('Load Failed', getErrorMessage(err, 'Could not load users'));
+      }
+      return _r;
+    },
+    staleTime: 60_000,
+  });
+  const users = _qd?.users ?? [];
   const filtered = users.filter((u) => {
     const matchesRole = roleFilter === 'all' || u.role === roleFilter;
     const name = getDisplayName(u);

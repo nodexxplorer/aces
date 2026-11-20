@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, CheckCircle, Send, ArrowLeft, AlertCircle } from 'lucide-react';
@@ -11,7 +12,6 @@ export default function PasswordResetOTPPage() {
   const navigate = useNavigate();
   const { selected } = useDepartments();
   const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [sentSuccess, setSentSuccess] = useState(false);
   const [step, setStep] = useState<1 | 2>(1); // 1 = request reset link, 2 = enter new password/otp if needed
@@ -21,25 +21,36 @@ export default function PasswordResetOTPPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [resetComplete, setResetComplete] = useState(false);
 
-  const handleSendLink = async (e: React.FormEvent) => {
+  const sendLinkMutation = useMutation({
+    mutationFn: () => requestPasswordReset(email.trim(), undefined, selected),
+    onSuccess: () => setSentSuccess(true),
+    onError: (err: unknown) => setError(getErrorMessage(err, 'Failed to send password reset link')),
+  });
+
+  const finalResetMutation = useMutation({
+    mutationFn: () => resetPasswordWithOTP(email.trim(), otp.trim(), newPassword, selected),
+    onSuccess: () => {
+      setResetComplete(true);
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+    },
+    onError: (err: unknown) => setError(getErrorMessage(err, 'Failed to reset password')),
+  });
+
+  const loading = sendLinkMutation.isPending || finalResetMutation.isPending;
+
+  const handleSendLink = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) {
       setError('Please enter your school email');
       return;
     }
     setError('');
-    setLoading(true);
-    try {
-      await requestPasswordReset(email.trim(), undefined, selected);
-      setSentSuccess(true);
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Failed to send password reset link'));
-    } finally {
-      setLoading(false);
-    }
+    sendLinkMutation.mutate();
   };
 
-  const handleFinalReset = async (e: React.FormEvent) => {
+  const handleFinalReset = (e: React.FormEvent) => {
     e.preventDefault();
     if (!otp.trim()) {
       setError('Please enter the verification code');
@@ -54,18 +65,7 @@ export default function PasswordResetOTPPage() {
       return;
     }
     setError('');
-    setLoading(true);
-    try {
-      await resetPasswordWithOTP(email.trim(), otp.trim(), newPassword, selected);
-      setResetComplete(true);
-      setTimeout(() => {
-        navigate('/login');
-      }, 2000);
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Failed to reset password'));
-    } finally {
-      setLoading(false);
-    }
+    finalResetMutation.mutate();
   };
 
   return (

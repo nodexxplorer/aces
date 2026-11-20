@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -29,7 +29,8 @@ import {
 } from 'lucide-react';
 import type { User as UserType, Course, UserRole } from '../../types';
 
-type EditFormState = {
+import { useQuery } from '@tanstack/react-query';
+type _EditFormState = {
   fullName: string;
   email: string;
   phone: string;
@@ -48,15 +49,78 @@ const UserDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { success, error: notifyError } = useNotification();
-  const [user, setUser] = useState<UserType | null>(null);
-  const [assignedCourses, setAssignedCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const [editForm, setEditForm] = useState<EditFormState>({
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['user-detail', id],
+    queryFn: async () => {
+      const _r: any = {
+        user: null,
+        assignedCourses: [],
+        editForm: {
+          fullName: '',
+          email: '',
+          phone: '',
+          role: 'student',
+          dateOfBirth: '',
+          matricNumber: '',
+          level: '',
+          admissionMode: '',
+          yearAdmitted: '',
+          emergencyContactName: '',
+          emergencyContactPhone: '',
+          homeAddress: '',
+        },
+      };
+      if (!id) return;
+      getUser(id)
+        .then((userData) => {
+          // normalize unknown user shape safely
+          const ud = userData as Partial<UserType> & Record<string, unknown>;
+          const getStr = (keys: string[]) => {
+            for (const k of keys) {
+              const v = ud[k];
+              if (v !== undefined && v !== null) return String(v);
+            }
+            return '';
+          };
+
+          _r.user = userData;
+          _r.editForm = {
+            fullName: userData.fullName || `${userData.firstName || ''} ${userData.lastName || ''}`.trim(),
+            email: userData.email,
+            phone: userData.phone || '',
+            role: userData.role || userData.activeRole || 'student',
+            dateOfBirth: getStr(['dateOfBirth', 'date_of_birth']),
+            matricNumber: getStr(['matricNumber', 'matric_number']),
+            level: getStr(['level']),
+            admissionMode: getStr(['admissionMode', 'admission_mode']),
+            yearAdmitted: getStr(['yearAdmitted', 'year_admitted']),
+            emergencyContactName: getStr(['emergencyContactName', 'emergency_contact_name']),
+            emergencyContactPhone: getStr(['emergencyContactPhone', 'emergency_contact_phone']),
+            homeAddress: getStr(['homeAddress', 'home_address']),
+          };
+          if (userData.role === 'lecturer' || userData.activeRole === 'lecturer') {
+            getCourses({ page: 1, perPage: 100 })
+              .then((res) => {
+                const mine = res.filter((c) => String(c.lecturerId || '') === String(id));
+                _r.assignedCourses = mine;
+              })
+              .catch(() => {});
+          }
+        })
+        .catch(() => notifyError('Error', 'Failed to load user details'));
+      return _r;
+    },
+    staleTime: 60_000,
+    enabled: !!id,
+  });
+  const user = _qd?.user ?? null;
+  const assignedCourses = _qd?.assignedCourses ?? [];
+  const editForm = _qd?.editForm ?? {
     fullName: '',
     email: '',
     phone: '',
@@ -69,51 +133,7 @@ const UserDetailPage = () => {
     emergencyContactName: '',
     emergencyContactPhone: '',
     homeAddress: '',
-  });
-
-  useEffect(() => {
-    if (!id) return;
-    setLoading(true);
-    getUser(id)
-      .then((userData) => {
-        // normalize unknown user shape safely
-        const ud = userData as Partial<UserType> & Record<string, unknown>;
-        const getStr = (keys: string[]) => {
-          for (const k of keys) {
-            const v = ud[k];
-            if (v !== undefined && v !== null) return String(v);
-          }
-          return '';
-        };
-
-        setUser(userData);
-        setEditForm({
-          fullName: userData.fullName || `${userData.firstName || ''} ${userData.lastName || ''}`.trim(),
-          email: userData.email,
-          phone: userData.phone || '',
-          role: userData.role || userData.activeRole || 'student',
-          dateOfBirth: getStr(['dateOfBirth', 'date_of_birth']),
-          matricNumber: getStr(['matricNumber', 'matric_number']),
-          level: getStr(['level']),
-          admissionMode: getStr(['admissionMode', 'admission_mode']),
-          yearAdmitted: getStr(['yearAdmitted', 'year_admitted']),
-          emergencyContactName: getStr(['emergencyContactName', 'emergency_contact_name']),
-          emergencyContactPhone: getStr(['emergencyContactPhone', 'emergency_contact_phone']),
-          homeAddress: getStr(['homeAddress', 'home_address']),
-        });
-        if (userData.role === 'lecturer' || userData.activeRole === 'lecturer') {
-          getCourses({ page: 1, perPage: 100 })
-            .then((res) => {
-              const mine = res.filter((c) => String(c.lecturerId || '') === String(id));
-              setAssignedCourses(mine);
-            })
-            .catch(() => {});
-        }
-      })
-      .catch(() => notifyError('Error', 'Failed to load user details'))
-      .finally(() => setLoading(false));
-  }, [id]);
-
+  };
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
 import { useDarkMode } from '../../hooks/useDarkMode';
@@ -51,6 +52,7 @@ import {
 type TabKey = 'overview' | 'privileges' | 'security' | 'activity' | 'preferences' | 'department';
 
 export const AdminProfilePage: React.FC = () => {
+  const queryClient = useQueryClient();
   const { user, updateUser } = useAuth();
   const { success, error: notifyError } = useNotification();
   const { mode, setMode } = useDarkMode();
@@ -84,10 +86,33 @@ export const AdminProfilePage: React.FC = () => {
   };
 
   // Upload photo & Edit basic info
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [savingBasicInfo, setSavingBasicInfo] = useState(false);
   const [requestSent, setRequestSent] = useState(false);
+
+  const uploadPhotoMutation = useMutation({
+    mutationFn: (file: File) => uploadProfilePhoto(file),
+    onSuccess: (result) => {
+      updateUser({ avatar: result.avatar_url });
+      success('Photo Updated', 'Profile photo updated successfully.');
+    },
+    onError: (err) => {
+      notifyError('Upload Failed', getErrorMessage(err, 'Failed to upload photo.'));
+    },
+  });
+  const uploadingPhoto = uploadPhotoMutation.isPending;
+
+  const saveProfileMutation = useMutation({
+    mutationFn: (payload: Parameters<typeof updateBasicInfo>[0]) => updateBasicInfo(payload),
+    onSuccess: (updated) => {
+      updateUser(updated);
+      setIsEditModalOpen(false);
+      success('Profile Updated', 'Personal details saved successfully.');
+    },
+    onError: (err) => {
+      notifyError('Update Failed', getErrorMessage(err, 'Could not save profile details'));
+    },
+  });
+  const savingBasicInfo = saveProfileMutation.isPending;
 
   const urlCode = user?.tenant?.urlCode || department?.urlCode;
   const role = user?.activeRole || user?.role || 'hod';
@@ -144,46 +169,27 @@ export const AdminProfilePage: React.FC = () => {
     setIsEditModalOpen(true);
   };
 
-  const handleSaveProfile = async (e: React.FormEvent) => {
+  const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
-    setSavingBasicInfo(true);
-    try {
-      const updated = await updateBasicInfo({
-        firstName: form.firstName.trim() || undefined,
-        lastName: form.lastName.trim() || undefined,
-        phone: form.phone.trim() || undefined,
-        homeAddress: form.homeAddress.trim() || undefined,
-        dateOfBirth: form.dateOfBirth.trim() || undefined,
-        emergencyContactName: form.emergencyContactName.trim() || undefined,
-        emergencyContactPhone: form.emergencyContactPhone.trim() || undefined,
-      });
-      updateUser(updated);
-      setIsEditModalOpen(false);
-      success('Profile Updated', 'Personal details saved successfully.');
-    } catch (err) {
-      notifyError('Update Failed', getErrorMessage(err, 'Could not save profile details'));
-    } finally {
-      setSavingBasicInfo(false);
-    }
+    saveProfileMutation.mutate({
+      firstName: form.firstName.trim() || undefined,
+      lastName: form.lastName.trim() || undefined,
+      phone: form.phone.trim() || undefined,
+      homeAddress: form.homeAddress.trim() || undefined,
+      dateOfBirth: form.dateOfBirth.trim() || undefined,
+      emergencyContactName: form.emergencyContactName.trim() || undefined,
+      emergencyContactPhone: form.emergencyContactPhone.trim() || undefined,
+    });
   };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
       notifyError('File Too Large', 'Profile photo must be less than 2MB.');
       return;
     }
-    setUploadingPhoto(true);
-    try {
-      const result = await uploadProfilePhoto(file);
-      updateUser({ avatar: result.avatar_url });
-      success('Photo Updated', 'Profile photo updated successfully.');
-    } catch (err) {
-      notifyError('Upload Failed', getErrorMessage(err, 'Failed to upload photo.'));
-    } finally {
-      setUploadingPhoto(false);
-    }
+    uploadPhotoMutation.mutate(file);
   };
 
   // ─────────────────────────────────────────────
@@ -195,8 +201,25 @@ export const AdminProfilePage: React.FC = () => {
   const [showCurrentPass, setShowCurrentPass] = useState(false);
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
-  const [changingPass, setChangingPass] = useState(false);
   const [passError, setPassError] = useState<string | null>(null);
+
+  const changePasswordMutation = useMutation({
+    mutationFn: ({ currentPass, newPass }: { currentPass: string; newPass: string }) =>
+      changePassword(currentPass, newPass),
+    onSuccess: () => {
+      success('Password changed', 'Your password was updated successfully.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to update password.';
+      setPassError(msg);
+      notifyError('Password error', msg);
+    },
+  });
+  const changingPass = changePasswordMutation.isPending;
 
   const [signInAlerts, setSignInAlerts] = useState<boolean>(() => {
     const saved = localStorage.getItem(`admin_signin_alerts_${user?.id || 'default'}`);
@@ -221,7 +244,7 @@ export const AdminProfilePage: React.FC = () => {
     return { score: 4, label: 'Strong', color: 'bg-emerald-500' };
   }, [newPassword]);
 
-  const handleChangePassword = async (e: React.FormEvent) => {
+  const handleChangePassword = (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentPassword) {
       setPassError('Please enter your current password.');
@@ -236,21 +259,7 @@ export const AdminProfilePage: React.FC = () => {
       return;
     }
     setPassError(null);
-    setChangingPass(true);
-    try {
-      await changePassword(currentPassword, newPassword);
-      success('Password changed', 'Your password was updated successfully.');
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-    } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to update password.';
-      setPassError(msg);
-      notifyError('Password error', msg);
-    } finally {
-      setChangingPass(false);
-    }
+    changePasswordMutation.mutate({ currentPass: currentPassword, newPass: newPassword });
   };
 
   // Detected client session for "Where you are signed in"
@@ -296,32 +305,19 @@ export const AdminProfilePage: React.FC = () => {
   // ─────────────────────────────────────────────
   // TAB 4: ACTIVITY STATE & LOGIC
   // ─────────────────────────────────────────────
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [loadingLogs, setLoadingLogs] = useState(false);
   const [activityFilter, setActivityFilter] = useState<'All' | 'Academics' | 'Users' | 'Finance' | 'Announcements'>(
     'All',
   );
   const [exportRange, setExportRange] = useState<'30' | '7' | '90' | 'all'>('30');
 
-  useEffect(() => {
-    let isMounted = true;
-    setLoadingLogs(true);
-    getAllAuditLogs(1, 50)
-      .then((res: { data: AuditLog[] } | AuditLog[]) => {
-        if (!isMounted) return;
-        const items = Array.isArray(res) ? res : (res?.data ?? []);
-        setAuditLogs(items);
-      })
-      .catch(() => {
-        if (isMounted) setAuditLogs([]);
-      })
-      .finally(() => {
-        if (isMounted) setLoadingLogs(false);
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const { data: auditLogs = [], isLoading: loadingLogs } = useQuery<AuditLog[]>({
+    queryKey: ['audit-logs'],
+    queryFn: async () => {
+      const res = await getAllAuditLogs(1, 50);
+      return Array.isArray(res) ? res : (res?.data ?? []);
+    },
+    staleTime: 60_000,
+  });
 
   // Filtered activity logs
   const filteredLogs = useMemo(() => {
@@ -408,41 +404,45 @@ export const AdminProfilePage: React.FC = () => {
   // TAB 5: PREFERENCES STATE & LOGIC
   // ─────────────────────────────────────────────
   const [aiSettings, setAiSettings] = useState<AISettings | null>(null);
-  const [_loadingAI, setLoadingAI] = useState(false);
-  const [savingPrefs, setSavingPrefs] = useState(false);
+
+  const { data: initialAISettings, isLoading: _loadingAI } = useQuery<AISettings>({
+    queryKey: ['ai-settings'],
+    queryFn: getAISettings,
+    staleTime: 5 * 60_000,
+  });
 
   useEffect(() => {
-    setLoadingAI(true);
-    getAISettings()
-      .then((data) => {
-        if (data) setAiSettings(data);
-      })
-      .catch(() => {})
-      .finally(() => setLoadingAI(false));
-  }, []);
+    if (initialAISettings) {
+      setAiSettings(initialAISettings);
+    }
+  }, [initialAISettings]);
+
+  const savePreferencesMutation = useMutation({
+    mutationFn: (settings: Parameters<typeof updateAISettings>[0]) => updateAISettings(settings),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ai-settings'] });
+      success('Preferences Saved', 'Theme, AI features, and language preferences updated.');
+    },
+    onError: () => {
+      notifyError('Error', 'Failed to save preferences.');
+    },
+  });
+  const savingPrefs = savePreferencesMutation.isPending;
 
   const handleAIToggle = (key: keyof AISettings) => {
     if (!aiSettings) return;
     setAiSettings({ ...aiSettings, [key]: !aiSettings[key] });
   };
 
-  const handleSavePreferences = async () => {
-    setSavingPrefs(true);
-    try {
-      if (aiSettings) {
-        await updateAISettings({
-          chatbot_enabled: aiSettings.chatbot_enabled,
-          personalization_enabled: aiSettings.personalization_enabled,
-          face_recognition_enabled: aiSettings.face_recognition_enabled,
-          data_collection_consent: aiSettings.data_collection_consent,
-          preferred_language: aiSettings.preferred_language || 'en',
-        });
-      }
-      success('Preferences Saved', 'Theme, AI features, and language preferences updated.');
-    } catch {
-      notifyError('Error', 'Failed to save preferences.');
-    } finally {
-      setSavingPrefs(false);
+  const handleSavePreferences = () => {
+    if (aiSettings) {
+      savePreferencesMutation.mutate({
+        chatbot_enabled: aiSettings.chatbot_enabled,
+        personalization_enabled: aiSettings.personalization_enabled,
+        face_recognition_enabled: aiSettings.face_recognition_enabled,
+        data_collection_consent: aiSettings.data_collection_consent,
+        preferred_language: aiSettings.preferred_language || 'en',
+      });
     }
   };
 

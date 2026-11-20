@@ -1,52 +1,68 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Card, { CardHeader, CardTitle } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Badge from '../../components/ui/Badge';
 import { useNotification } from '../../hooks/useNotification';
 import { getMyAlumniStatus, updateAlumniProfileFull } from '../../api/alumni';
-import type { AlumniFullProfile } from '../../types';
+
 import { Save, Loader2, MapPin, Briefcase, Globe } from 'lucide-react';
 import { FaLinkedin } from 'react-icons/fa';
 
+import { useQuery } from '@tanstack/react-query';
 const AlumniProfilePage = () => {
   const { success, error: notifyError } = useNotification();
-  const [profile, setProfile] = useState<AlumniFullProfile | null>(null);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [location, setLocation] = useState('');
-  const [industry, setIndustry] = useState('');
-  const [jobTitle, setJobTitle] = useState('');
-  const [company, setCompany] = useState('');
-  const [bio, setBio] = useState('');
-  const [linkedinUrl, setLinkedinUrl] = useState('');
-  const [portfolioUrl, setPortfolioUrl] = useState('');
-  const [isMentor, setIsMentor] = useState(false);
-  const [mentorTopics, setMentorTopics] = useState('');
-  const [skills, setSkills] = useState('');
-  const [privacyLevel, setPrivacyLevel] = useState('public');
-
-  useEffect(() => {
-    getMyAlumniStatus()
-      .then((data) => {
-        setProfile(data);
-        setLocation(data.location || '');
-        setIndustry(data.industry || '');
-        setJobTitle(data.current_position || '');
-        setCompany(data.current_company || '');
-        setBio(data.bio || '');
-        setLinkedinUrl(data.linkedin_url || '');
-        setPortfolioUrl(data.portfolio_url || '');
-        setIsMentor(data.is_mentor_available || false);
-        setMentorTopics(Array.isArray(data.mentorship_topics) ? data.mentorship_topics.join(', ') : '');
-        setSkills(Array.isArray(data.skills) ? data.skills.join(', ') : '');
-        setPrivacyLevel(data.privacy_level || 'public');
-      })
-      .catch(() => notifyError('Error', 'Failed to load profile'))
-      .finally(() => setLoading(false));
-  }, []);
-
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['alumni-profile'],
+    queryFn: async () => {
+      const _r: any = {
+        profile: null,
+        location: '',
+        industry: '',
+        jobTitle: '',
+        company: '',
+        bio: '',
+        linkedinUrl: '',
+        portfolioUrl: '',
+        isMentor: false,
+        mentorTopics: '',
+        skills: '',
+        privacyLevel: 'public',
+      };
+      getMyAlumniStatus()
+        .then((data) => {
+          _r.profile = data;
+          _r.location = data.location || '';
+          _r.industry = data.industry || '';
+          _r.jobTitle = data.current_position || '';
+          _r.company = data.current_company || '';
+          _r.bio = data.bio || '';
+          _r.linkedinUrl = data.linkedin_url || '';
+          _r.portfolioUrl = data.portfolio_url || '';
+          _r.isMentor = data.is_mentor_available || false;
+          _r.mentorTopics = Array.isArray(data.mentorship_topics) ? data.mentorship_topics.join(', ') : '';
+          _r.skills = Array.isArray(data.skills) ? data.skills.join(', ') : '';
+          _r.privacyLevel = data.privacy_level || 'public';
+        })
+        .catch(() => notifyError('Error', 'Failed to load profile'));
+      return _r;
+    },
+    staleTime: 60_000,
+  });
+  const profile = _qd?.profile ?? null;
+  const location = _qd?.location ?? '';
+  const industry = _qd?.industry ?? '';
+  const jobTitle = _qd?.jobTitle ?? '';
+  const company = _qd?.company ?? '';
+  const bio = _qd?.bio ?? '';
+  const linkedinUrl = _qd?.linkedinUrl ?? '';
+  const portfolioUrl = _qd?.portfolioUrl ?? '';
+  const isMentor = _qd?.isMentor ?? false;
+  const mentorTopics = _qd?.mentorTopics ?? '';
+  const skills = _qd?.skills ?? '';
+  const privacyLevel = _qd?.privacyLevel ?? 'public';
   const handleSave = async () => {
     setSaving(true);
     try {

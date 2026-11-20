@@ -6,6 +6,7 @@ import Modal from '../../components/ui/Modal';
 import EmptyState from '../../components/ui/EmptyState';
 import { useNotification } from '../../hooks/useNotification';
 import { CheckCircle, XCircle, AlertCircle, FileText, History, Download } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import {
   getLecturerPendingAttendanceReviews,
   getLecturerAttendanceHistory,
@@ -27,28 +28,29 @@ const STATUS_VARIANT: Record<string, 'success' | 'danger' | 'warning' | 'default
 const LecturerAttendanceReviewPage = () => {
   const { success, error: notifyError } = useNotification();
   const [tab, setTab] = useState<'pending' | 'history'>('pending');
-  const [reviews, setReviews] = useState<PendingAttendanceReview[]>([]);
   const [history, setHistory] = useState<PendingAttendanceReview[]>([]);
-  const [loading, setLoading] = useState(true);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewSessionId, setPreviewSessionId] = useState<string | null>(null);
+
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['attendance-review'],
+    queryFn: async () => {
+      const _r: any = { reviews: [] };
+      try {
+        const data = await getLecturerPendingAttendanceReviews();
+        _r.reviews = data.reviews || [];
+      } catch {
+        notifyError('Error', 'Failed to load pending attendance submissions');
+      }
+      return _r;
+    },
+    staleTime: 15_000,
+  });
+  const reviews = _qd?.reviews ?? [];
   const [previewLoading, setPreviewLoading] = useState(false);
-
-  const fetchReviews = async () => {
-    try {
-      setLoading(true);
-      const data = await getLecturerPendingAttendanceReviews();
-      setReviews(data.reviews || []);
-    } catch {
-      notifyError('Error', 'Failed to load pending attendance submissions');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const fetchHistory = async () => {
     try {
       setHistoryLoading(true);
@@ -61,10 +63,6 @@ const LecturerAttendanceReviewPage = () => {
       setHistoryLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchReviews();
-  }, []);
 
   useEffect(() => {
     if (tab === 'history' && !historyLoaded) {

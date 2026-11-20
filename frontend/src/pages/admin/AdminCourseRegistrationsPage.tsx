@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
@@ -58,177 +59,192 @@ function isSameSemester(courseSemester?: string, selectedSemesterName?: string):
 
 const AdminCourseRegistrationsPage = () => {
   const { success, error: notifyError } = useNotification();
+  const queryClient = useQueryClient();
 
   // Session & Semester selection state
-  const [sessions, setSessions] = useState<AcademicSession[]>([]);
   const [selectedSession, setSelectedSession] = useState<string>('');
-  const [semesters, setSemesters] = useState<SemesterEntry[]>([]);
   const [selectedSemester, setSelectedSemester] = useState<string>('');
 
   // Student list & search state
-  const [students, setStudents] = useState<StudentForRoleManagement[]>([]);
   const [studentSearch, setStudentSearch] = useState<string>('');
   const [selectedStudent, setSelectedStudent] = useState<StudentForRoleManagement | null>(null);
   const [showStudentDropdown, setShowStudentDropdown] = useState<boolean>(false);
 
-  // Courses & Registrations state
-  const [allCourses, setAllCourses] = useState<Course[]>([]);
-  const [allStudentRegistrations, setAllStudentRegistrations] = useState<StudentRegistration[]>([]);
-  const [registeredCourses, setRegisteredCourses] = useState<RegisteredCourseRecord[]>([]);
-
-  // Loading states
-  const [loadingMeta, setLoadingMeta] = useState<boolean>(false);
-  const [loadingRegs, setLoadingRegs] = useState<boolean>(false);
-  const [loadingCourses, setLoadingCourses] = useState<boolean>(false);
-
   // Modal states
   const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
   const [selectedCourseIdToAdd, setSelectedCourseIdToAdd] = useState('');
-  const [submittingAddCourse, setSubmittingAddCourse] = useState(false);
-  const [submittingCreateReg, setSubmittingCreateReg] = useState(false);
 
-  // 1. Initial metadata fetch: sessions, courses, students
-  const fetchMetadata = useCallback(async () => {
-    setLoadingMeta(true);
-    try {
-      const [sessRes, crsRes, stuRes] = await Promise.all([
-        getSessions({ page: 1, perPage: 50 }).catch(() => []),
-        getCourses().catch(() => []),
-        searchStudentsForRoles({ per_page: 500 }).catch(() => ({ data: [] })),
-      ]);
+  // 1. Initial metadata queries: sessions, courses, students
+  const {
+    data: sessions = [],
+    isLoading: loadingSessions,
+    isError: isSessionsError,
+  } = useQuery<AcademicSession[]>({
+    queryKey: ['sessions'],
+    queryFn: async () => {
+      const res = await getSessions({ page: 1, perPage: 50 });
+      return Array.isArray(res) ? res : [];
+    },
+    staleTime: 60_000,
+  });
 
-      const sessList = Array.isArray(sessRes) ? sessRes : [];
-      setSessions(sessList);
-      if (sessList.length > 0 && !selectedSession) {
-        setSelectedSession(sessList[0].id);
-      }
+  const {
+    data: allCourses = [],
+    isLoading: loadingCoursesAll,
+    isError: isCoursesError,
+  } = useQuery<Course[]>({
+    queryKey: ['courses'],
+    queryFn: async () => {
+      const res = await getCourses();
+      return Array.isArray(res) ? res : [];
+    },
+    staleTime: 60_000,
+  });
 
-      setAllCourses(Array.isArray(crsRes) ? crsRes : []);
-      setStudents(Array.isArray(stuRes.data) ? stuRes.data : []);
-    } catch {
-      notifyError('Error', 'Failed to load initial session and course metadata');
-    } finally {
-      setLoadingMeta(false);
-    }
-  }, []);
+  const {
+    data: students = [],
+    isLoading: loadingStudents,
+    isError: isStudentsError,
+  } = useQuery<StudentForRoleManagement[]>({
+    queryKey: ['students-roles'],
+    queryFn: async () => {
+      const res = await searchStudentsForRoles({ per_page: 500 });
+      return Array.isArray(res?.data) ? res.data : [];
+    },
+    staleTime: 60_000,
+  });
 
+  const loadingMeta = loadingSessions || loadingCoursesAll || loadingStudents;
+
+  // Notify on metadata error
+  const isMetadataError = isSessionsError || isCoursesError || isStudentsError;
   useEffect(() => {
-    fetchMetadata();
-  }, [fetchMetadata]);
+    if (isMetadataError) {
+      notifyError('Error', 'Failed to load initial session and course metadata');
+    }
+  }, [isMetadataError, notifyError]);
 
-  // 2. Fetch semesters whenever selectedSession changes
+  // Set default session once sessions load
+  useEffect(() => {
+    if (sessions.length > 0 && !selectedSession) {
+      setSelectedSession(sessions[0].id);
+    }
+  }, [sessions, selectedSession]);
+
+  // 2. Query semesters whenever selectedSession changes
+  const { data: semesters = [], isLoading: loadingSemesters } = useQuery<SemesterEntry[]>({
+    queryKey: ['session-semesters', selectedSession],
+    queryFn: async () => {
+      const res = await listSessionSemesters(selectedSession);
+      return Array.isArray(res) ? res : [];
+    },
+    enabled: !!selectedSession,
+    staleTime: 60_000,
+  });
+
+  // Keep selected semester in sync with current session's semesters
   useEffect(() => {
     if (!selectedSession) {
-      setSemesters([]);
       setSelectedSemester('');
-      return;
+    } else if (semesters.length > 0) {
+      if (!semesters.some((s) => s.id === selectedSemester)) {
+        setSelectedSemester(semesters[0].id);
+      }
+    } else if (!loadingSemesters) {
+      setSelectedSemester('');
     }
-    listSessionSemesters(selectedSession)
-      .then((res) => {
-        const semsList = Array.isArray(res) ? res : [];
-        setSemesters(semsList);
-        if (semsList.length > 0) {
-          setSelectedSemester(semsList[0].id);
-        } else {
-          setSelectedSemester('');
-        }
-      })
-      .catch(() => {
-        setSemesters([]);
-        setSelectedSemester('');
-      });
-  }, [selectedSession]);
+  }, [selectedSession, semesters, selectedSemester, loadingSemesters]);
 
   // 3. Load registrations for the selected student
-  const loadStudentRegistrations = useCallback(async (studentId: string) => {
-    setLoadingRegs(true);
-    try {
-      const regs = await getStudentRegistrations(studentId);
-      setAllStudentRegistrations(regs);
-    } catch {
-      notifyError('Error', 'Could not fetch course registrations for selected student');
-      setAllStudentRegistrations([]);
-    } finally {
-      setLoadingRegs(false);
-    }
-  }, []);
+  const {
+    data: allStudentRegistrations = [],
+    isLoading: loadingRegs,
+    isError: isRegsError,
+  } = useQuery<StudentRegistration[]>({
+    queryKey: ['course-registrations', selectedStudent?.student_id],
+    queryFn: async () => {
+      if (!selectedStudent?.student_id) return [];
+      return await getStudentRegistrations(selectedStudent.student_id);
+    },
+    enabled: !!selectedStudent?.student_id,
+    staleTime: 30_000,
+  });
 
   useEffect(() => {
-    if (selectedStudent?.student_id) {
-      loadStudentRegistrations(selectedStudent.student_id);
-    } else {
-      setAllStudentRegistrations([]);
-      setRegisteredCourses([]);
+    if (isRegsError) {
+      notifyError('Error', 'Could not fetch course registrations for selected student');
     }
-  }, [selectedStudent, loadStudentRegistrations]);
+  }, [isRegsError, notifyError]);
 
   // 4. Resolve current session & semester registration record
-  const currentRegistration = allStudentRegistrations.find(
-    (r) => r.session_id === selectedSession && r.semester_id === selectedSemester,
+  const currentRegistration = useMemo(
+    () => allStudentRegistrations.find((r) => r.session_id === selectedSession && r.semester_id === selectedSemester),
+    [allStudentRegistrations, selectedSession, selectedSemester],
   );
 
   // 5. Load registered courses whenever currentRegistration changes
-  const loadRegistrationCourses = useCallback(async (regId: string) => {
-    setLoadingCourses(true);
-    try {
-      const courses = await getRegisteredCourses(regId);
-      setRegisteredCourses(courses);
-    } catch {
-      notifyError('Error', 'Failed to load course details for this registration');
-      setRegisteredCourses([]);
-    } finally {
-      setLoadingCourses(false);
-    }
-  }, []);
+  const {
+    data: registeredCourses = [],
+    isLoading: loadingCourses,
+    isError: isRegisteredCoursesError,
+  } = useQuery<RegisteredCourseRecord[]>({
+    queryKey: ['registered-courses', currentRegistration?.id],
+    queryFn: async () => {
+      if (!currentRegistration?.id) return [];
+      return await getRegisteredCourses(currentRegistration.id);
+    },
+    enabled: !!currentRegistration?.id,
+    staleTime: 30_000,
+  });
 
   useEffect(() => {
-    if (currentRegistration?.id) {
-      loadRegistrationCourses(currentRegistration.id);
-    } else {
-      setRegisteredCourses([]);
+    if (isRegisteredCoursesError) {
+      notifyError('Error', 'Failed to load course details for this registration');
     }
-  }, [currentRegistration?.id, loadRegistrationCourses]);
+  }, [isRegisteredCoursesError, notifyError]);
 
-  // Handlers for creating registration, adding/removing courses, approving status
-  const handleCreateRegistration = async () => {
-    if (!selectedStudent || !selectedSession || !selectedSemester) {
-      notifyError('Missing Selection', 'Please select a session, semester, and student first');
-      return;
-    }
-
-    setSubmittingCreateReg(true);
-    try {
-      await createRegistration({
+  // Mutations
+  const createRegistrationMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedStudent || !selectedSession || !selectedSemester) {
+        throw new Error('Please select a session, semester, and student first');
+      }
+      return await createRegistration({
         student_id: selectedStudent.student_id,
         session_id: selectedSession,
         semester_id: selectedSemester,
         status: 'approved',
       });
+    },
+    onSuccess: () => {
       success('Registration Initialized', 'Created course registration header for this semester');
-      await loadStudentRegistrations(selectedStudent.student_id);
-    } catch (err) {
+      queryClient.invalidateQueries({
+        queryKey: ['course-registrations', selectedStudent?.student_id],
+      });
+    },
+    onError: (err) => {
       notifyError('Initialization Error', getErrorMessage(err, 'Could not create course registration'));
-    } finally {
-      setSubmittingCreateReg(false);
-    }
-  };
+    },
+  });
 
-  const handleAddCourse = async () => {
-    if (!selectedCourseIdToAdd) {
-      notifyError('Missing Course', 'Please select a course to add');
+  const handleCreateRegistration = () => {
+    if (!selectedStudent || !selectedSession || !selectedSemester) {
+      notifyError('Missing Selection', 'Please select a session, semester, and student first');
       return;
     }
+    createRegistrationMutation.mutate();
+  };
 
-    let targetRegId = currentRegistration?.id;
+  const submittingCreateReg = createRegistrationMutation.isPending;
 
-    setSubmittingAddCourse(true);
-    try {
+  const addCourseMutation = useMutation({
+    mutationFn: async (courseId: string) => {
+      let targetRegId = currentRegistration?.id;
+
       // Auto-create registration header if it doesn't exist yet
       if (!targetRegId) {
         if (!selectedStudent || !selectedSession || !selectedSemester) {
-          notifyError('Error', 'Required fields missing to initialize registration');
-          setSubmittingAddCourse(false);
-          return;
+          throw new Error('Required fields missing to initialize registration');
         }
         const newReg = await createRegistration({
           student_id: selectedStudent.student_id,
@@ -240,88 +256,144 @@ const AdminCourseRegistrationsPage = () => {
       }
 
       await addCourseToRegistration(targetRegId, {
-        course_id: selectedCourseIdToAdd,
+        course_id: courseId,
         status: 'enrolled',
       });
 
+      return targetRegId;
+    },
+    onSuccess: (targetRegId) => {
       success('Course Enrolled', 'Course added to student registration record');
       setIsAddCourseModalOpen(false);
       setSelectedCourseIdToAdd('');
-      if (selectedStudent?.student_id) {
-        await loadStudentRegistrations(selectedStudent.student_id);
-      }
+      queryClient.invalidateQueries({
+        queryKey: ['course-registrations', selectedStudent?.student_id],
+      });
       if (targetRegId) {
-        await loadRegistrationCourses(targetRegId);
+        queryClient.invalidateQueries({
+          queryKey: ['registered-courses', targetRegId],
+        });
       }
-    } catch (err) {
+    },
+    onError: (err) => {
       notifyError('Enrollment Error', getErrorMessage(err, 'Failed to add course to registration'));
-    } finally {
-      setSubmittingAddCourse(false);
+    },
+  });
+
+  const handleAddCourse = () => {
+    if (!selectedCourseIdToAdd) {
+      notifyError('Missing Course', 'Please select a course to add');
+      return;
     }
+    if (!currentRegistration?.id && (!selectedStudent || !selectedSession || !selectedSemester)) {
+      notifyError('Error', 'Required fields missing to initialize registration');
+      return;
+    }
+    addCourseMutation.mutate(selectedCourseIdToAdd);
   };
 
-  const handleRemoveCourse = async (registeredCourseId: string) => {
+  const submittingAddCourse = addCourseMutation.isPending;
+
+  const removeCourseMutation = useMutation({
+    mutationFn: async (registeredCourseId: string) => {
+      if (!currentRegistration?.id) throw new Error('No registration record found');
+      await removeCourseFromRegistration(currentRegistration.id, registeredCourseId);
+      return currentRegistration.id;
+    },
+    onSuccess: (regId) => {
+      success('Course Removed', 'Course removed from student registration');
+      queryClient.invalidateQueries({
+        queryKey: ['course-registrations', selectedStudent?.student_id],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['registered-courses', regId],
+      });
+    },
+    onError: (err) => {
+      notifyError('Error', getErrorMessage(err, 'Failed to remove course'));
+    },
+  });
+
+  const handleRemoveCourse = (registeredCourseId: string) => {
     if (!currentRegistration?.id) return;
     if (!confirm('Are you sure you want to remove this course from student registration?')) return;
-    try {
-      await removeCourseFromRegistration(currentRegistration.id, registeredCourseId);
-      success('Course Removed', 'Course removed from student registration');
-      if (selectedStudent?.student_id) {
-        loadStudentRegistrations(selectedStudent.student_id);
-      }
-      loadRegistrationCourses(currentRegistration.id);
-    } catch (err) {
-      notifyError('Error', getErrorMessage(err, 'Failed to remove course'));
-    }
+    removeCourseMutation.mutate(registeredCourseId);
   };
 
-  const handleStatusChange = async (newStatus: string) => {
-    if (!currentRegistration?.id) return;
-    try {
+  const updateStatusMutation = useMutation({
+    mutationFn: async (newStatus: string) => {
+      if (!currentRegistration?.id) throw new Error('No registration record found');
       await updateRegistrationStatus(currentRegistration.id, newStatus);
+      return newStatus;
+    },
+    onSuccess: (newStatus) => {
       success('Status Updated', `Registration status set to ${newStatus.toUpperCase()}`);
-      if (selectedStudent?.student_id) {
-        loadStudentRegistrations(selectedStudent.student_id);
-      }
-    } catch (err) {
+      queryClient.invalidateQueries({
+        queryKey: ['course-registrations', selectedStudent?.student_id],
+      });
+    },
+    onError: (err) => {
       notifyError('Error', getErrorMessage(err, 'Failed to update registration status'));
-    }
+    },
+  });
+
+  const handleStatusChange = (newStatus: string) => {
+    if (!currentRegistration?.id) return;
+    updateStatusMutation.mutate(newStatus);
   };
 
-  const handleDeleteRegistration = async (regIdToDelete?: string) => {
+  const deleteRegistrationMutation = useMutation({
+    mutationFn: async (targetId: string) => {
+      await deleteCourseRegistration(targetId);
+      return targetId;
+    },
+    onSuccess: (targetId) => {
+      success('Registration Deleted', 'Course registration header deleted successfully');
+      queryClient.setQueryData(['registered-courses', targetId], []);
+      queryClient.removeQueries({
+        queryKey: ['registered-courses', targetId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['course-registrations', selectedStudent?.student_id],
+      });
+    },
+    onError: (err) => {
+      notifyError('Error', getErrorMessage(err, 'Failed to delete course registration'));
+    },
+  });
+
+  const handleDeleteRegistration = (regIdToDelete?: string) => {
     const targetId = regIdToDelete || currentRegistration?.id;
     if (!targetId) return;
     if (!confirm('Are you sure you want to delete this course registration header and all enrolled courses within it?'))
       return;
-    try {
-      await deleteCourseRegistration(targetId);
-      success('Registration Deleted', 'Course registration header deleted successfully');
-      setRegisteredCourses([]);
-      if (selectedStudent?.student_id) {
-        await loadStudentRegistrations(selectedStudent.student_id);
-      }
-    } catch (err) {
-      notifyError('Error', getErrorMessage(err, 'Failed to delete course registration'));
-    }
+    deleteRegistrationMutation.mutate(targetId);
   };
 
   // Filter student list for dropdown
-  const filteredStudents = students
-    .filter((s) => {
-      if (!studentSearch || studentSearch.length < 2) return false;
-      const q = studentSearch.toLowerCase();
-      const name = (s.full_name || s.email || '').toLowerCase();
-      const matric = (s.matric_number || '').toLowerCase();
-      return name.includes(q) || matric.includes(q);
-    })
-    .slice(0, 20);
+  const filteredStudents = useMemo(
+    () =>
+      students
+        .filter((s) => {
+          if (!studentSearch || studentSearch.length < 2) return false;
+          const q = studentSearch.toLowerCase();
+          const name = (s.full_name || s.email || '').toLowerCase();
+          const matric = (s.matric_number || '').toLowerCase();
+          return name.includes(q) || matric.includes(q);
+        })
+        .slice(0, 20),
+    [students, studentSearch],
+  );
 
   // Find semester object and filter courses for the selected semester
-  const selectedSemObj = semesters.find((s) => s.id === selectedSemester);
+  const selectedSemObj = useMemo(() => semesters.find((s) => s.id === selectedSemester), [semesters, selectedSemester]);
   const selectedSemName = selectedSemObj?.name || '';
-  const selectedSessObj = sessions.find((s) => s.id === selectedSession);
+  const selectedSessObj = useMemo(() => sessions.find((s) => s.id === selectedSession), [sessions, selectedSession]);
 
-  const availableCoursesForSemester = allCourses.filter((c) => isSameSemester(c.semester, selectedSemName));
+  const availableCoursesForSemester = useMemo(
+    () => allCourses.filter((c) => isSameSemester(c.semester, selectedSemName)),
+    [allCourses, selectedSemName],
+  );
 
   return (
     <div className="space-y-6">

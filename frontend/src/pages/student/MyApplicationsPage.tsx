@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import EmptyState from '../../components/ui/EmptyState';
@@ -7,6 +6,7 @@ import { listMyJobApplications } from '../../api/alumni';
 import { CheckCircle, Clock, AlertCircle, type LucideIcon } from 'lucide-react';
 import type { BadgeVariant } from '../../components/ui/Badge';
 
+import { useQuery } from '@tanstack/react-query';
 const statusColors: Record<string, BadgeVariant> = {
   pending: 'warning',
   reviewed: 'info',
@@ -43,7 +43,7 @@ const extractTimestamptz = (v: unknown): string => {
 // (snake_case, with the nullable-wrapper shapes handled above) rather than
 // the camelCase `JobApplication` shared type, which doesn't match this
 // endpoint's payload.
-interface JobApplicationRaw {
+interface _JobApplicationRaw {
   id?: unknown;
   status?: string;
   job_title?: string;
@@ -54,17 +54,19 @@ interface JobApplicationRaw {
 
 const MyApplicationsPage = () => {
   const { error: notifyError } = useNotification();
-  const [applications, setApplications] = useState<JobApplicationRaw[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    setLoading(true);
-    listMyJobApplications()
-      .then((data) => setApplications(Array.isArray(data) ? data : []))
-      .catch(() => notifyError('Error', 'Failed to load applications'))
-      .finally(() => setLoading(false));
-  }, []);
-
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['my-applications'],
+    queryFn: async () => {
+      const _r: any = { applications: [] };
+      listMyJobApplications()
+        .then((data) => (_r.applications = Array.isArray(data) ? data : []))
+        .catch(() => notifyError('Error', 'Failed to load applications'));
+      return _r;
+    },
+    staleTime: 60_000,
+  });
+  const applications = _qd?.applications ?? [];
   return (
     <div className="space-y-6">
       <div>

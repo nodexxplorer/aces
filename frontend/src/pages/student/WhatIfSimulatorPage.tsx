@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Sparkles,
   Plus,
@@ -103,7 +104,6 @@ export default function WhatIfSimulatorTab() {
   const [approvedResults, setApprovedResults] = useState<ApprovedResultDetail[]>([]);
   const [catalogCourses, setCatalogCourses] = useState<Course[]>([]);
   const [registeredIds, setRegisteredIds] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
 
   // User's interactive projected courses
   const [projectedCourses, setProjectedCourses] = useState<ProjectedCourseRow[]>([]);
@@ -122,91 +122,81 @@ export default function WhatIfSimulatorTab() {
   const [customGrade, setCustomGrade] = useState<'A' | 'B' | 'C' | 'D' | 'E' | 'F'>('A');
 
   // Load real data from backend
-  useEffect(() => {
-    let isMounted = true;
-    setLoading(true);
+  const { isLoading: loading } = useQuery({
+    queryKey: ['what-if-simulator', user?.id],
+    queryFn: async () => {
+      const [resultsRes, coursesRes, regRes] = await Promise.allSettled([
+        getMyApprovedResults(),
+        getCourses({ perPage: 100 }),
+        getMyRegisteredCourseIDs(),
+      ]);
 
-    Promise.allSettled([getMyApprovedResults(), getCourses({ perPage: 100 }), getMyRegisteredCourseIDs()])
-      .then(([resultsRes, coursesRes, regRes]) => {
-        if (!isMounted) return;
+      const results = resultsRes.status === 'fulfilled' ? resultsRes.value || [] : [];
+      const courses = coursesRes.status === 'fulfilled' ? coursesRes.value || [] : [];
+      const regIds = regRes.status === 'fulfilled' ? new Set(regRes.value || []) : new Set<string>();
 
-        const results = resultsRes.status === 'fulfilled' ? resultsRes.value || [] : [];
-        const courses = coursesRes.status === 'fulfilled' ? coursesRes.value || [] : [];
-        const regIds = regRes.status === 'fulfilled' ? new Set(regRes.value || []) : new Set<string>();
+      setApprovedResults(results);
+      setCatalogCourses(courses);
+      setRegisteredIds(regIds);
 
-        setApprovedResults(results);
-        setCatalogCourses(courses);
-        setRegisteredIds(regIds);
+      const initialRows: ProjectedCourseRow[] = [];
 
-        // Pre-populate projection list:
-        // 1. If student has approved results, prefill them
-        // 2. If student has NO approved results but registered courses, prefill registered courses with default 'A'
-        // 3. Otherwise if fresh student, preload current level courses
-        const initialRows: ProjectedCourseRow[] = [];
-
-        if (results.length > 0) {
-          results.forEach((r) => {
-            const validGrade = (
-              ['A', 'B', 'C', 'D', 'E', 'F'].includes(r.grade?.toUpperCase())
-                ? r.grade.toUpperCase()
-                : scoreToGrade(r.score)
-            ) as 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
-
+      if (results.length > 0) {
+        results.forEach((r) => {
+          const validGrade = (
+            ['A', 'B', 'C', 'D', 'E', 'F'].includes(r.grade?.toUpperCase())
+              ? r.grade.toUpperCase()
+              : scoreToGrade(r.score)
+          ) as 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
+          initialRows.push({
+            id: `res-${r.course_id}`,
+            course_id: r.course_id,
+            course_code: r.course_code,
+            course_title: r.course_title,
+            unit: r.unit || 3,
+            grade: validGrade,
+            score: r.score,
+            isExistingResult: true,
+            actualGrade: r.grade,
+            actualScore: r.score,
+          });
+        });
+      } else if (regIds.size > 0 && courses.length > 0) {
+        courses
+          .filter((c) => regIds.has(c.id))
+          .forEach((c) => {
             initialRows.push({
-              id: `res-${r.course_id}`,
-              course_id: r.course_id,
-              course_code: r.course_code,
-              course_title: r.course_title,
-              unit: r.unit || 3,
-              grade: validGrade,
-              score: r.score,
-              isExistingResult: true,
-              actualGrade: r.grade,
-              actualScore: r.score,
+              id: `reg-${c.id}`,
+              course_id: c.id,
+              course_code: c.code,
+              course_title: c.title,
+              unit: c.creditUnits || c.unit || 3,
+              grade: 'A',
+              score: 75,
             });
           });
-        } else if (regIds.size > 0 && courses.length > 0) {
-          courses
-            .filter((c) => regIds.has(c.id))
-            .forEach((c) => {
-              initialRows.push({
-                id: `reg-${c.id}`,
-                course_id: c.id,
-                course_code: c.code,
-                course_title: c.title,
-                unit: c.creditUnits || c.unit || 3,
-                grade: 'A',
-                score: 75,
-              });
+      } else if (courses.length > 0 && user?.level) {
+        courses
+          .filter((c) => c.level === user.level)
+          .slice(0, 5)
+          .forEach((c) => {
+            initialRows.push({
+              id: `lvl-${c.id}`,
+              course_id: c.id,
+              course_code: c.code,
+              course_title: c.title,
+              unit: c.creditUnits || c.unit || 3,
+              grade: 'A',
+              score: 75,
             });
-        } else if (courses.length > 0 && user?.level) {
-          // Preload up to 5 courses matching the user's level
-          courses
-            .filter((c) => c.level === user.level)
-            .slice(0, 5)
-            .forEach((c) => {
-              initialRows.push({
-                id: `lvl-${c.id}`,
-                course_id: c.id,
-                course_code: c.code,
-                course_title: c.title,
-                unit: c.creditUnits || c.unit || 3,
-                grade: 'A',
-                score: 75,
-              });
-            });
-        }
+          });
+      }
 
-        setProjectedCourses(initialRows);
-      })
-      .finally(() => {
-        if (isMounted) setLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [user]);
+      setProjectedCourses(initialRows);
+      return { results, courses, regIds };
+    },
+    staleTime: 5 * 60_000,
+  });
 
   // Set of already added course IDs
   const addedCourseIds = useMemo(() => {

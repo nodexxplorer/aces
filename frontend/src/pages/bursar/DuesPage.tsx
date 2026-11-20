@@ -1,20 +1,15 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useNotification } from '../../hooks/useNotification';
 import { getAllDues, createDue, deleteDue, getAllPayments } from '../../api/payments';
 import { getStudents } from '../../api/users';
-import type { DuePayment, Payment, User } from '../../types';
+import type { DuePayment } from '../../types';
 import { formatCurrency } from '../../utils/formatters';
 import { getErrorMessage } from '../../utils/errors';
 import { CreditCard, BarChart3, Plus, Check, X, Folder } from 'lucide-react';
 
+import { useQuery } from '@tanstack/react-query';
 export default function DuesPage() {
   const { success, error: notifyError } = useNotification();
-
-  const [dues, setDues] = useState<DuePayment[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [students, setStudents] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-
   // Create Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -22,37 +17,38 @@ export default function DuesPage() {
   const [formDescription, setFormDescription] = useState('');
   const [formAmount, setFormAmount] = useState('');
   const [formDeadline, setFormDeadline] = useState('');
+
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['dues'],
+    queryFn: async () => {
+      const _r: any = { dues: [], payments: [], students: [] };
+      try {
+        const [duesRes, paymentsRes, studentsRes] = await Promise.allSettled([
+          getAllDues({ limit: 100 }),
+          getAllPayments({ limit: 500 }),
+          getStudents({ perPage: 150 }),
+        ]);
+
+        if (duesRes.status === 'fulfilled') {
+          _r.dues = Array.isArray(duesRes.value) ? duesRes.value : [];
+        }
+        if (paymentsRes.status === 'fulfilled') {
+          _r.payments = Array.isArray(paymentsRes.value) ? paymentsRes.value : [];
+        }
+        if (studentsRes.status === 'fulfilled') {
+          _r.students = Array.isArray(studentsRes.value) ? studentsRes.value : [];
+        }
+      } catch {
+        notifyError('Error', 'Failed to load dues data');
+      }
+      return _r;
+    },
+    staleTime: 60_000,
+  });
+  const dues = _qd?.dues ?? [];
+  const payments = _qd?.payments ?? [];
+  const students = _qd?.students ?? [];
   const [formLevel, setFormLevel] = useState<number | 'all'>('all');
-
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const [duesRes, paymentsRes, studentsRes] = await Promise.allSettled([
-        getAllDues({ limit: 100 }),
-        getAllPayments({ limit: 500 }),
-        getStudents({ perPage: 150 }),
-      ]);
-
-      if (duesRes.status === 'fulfilled') {
-        setDues(Array.isArray(duesRes.value) ? duesRes.value : []);
-      }
-      if (paymentsRes.status === 'fulfilled') {
-        setPayments(Array.isArray(paymentsRes.value) ? paymentsRes.value : []);
-      }
-      if (studentsRes.status === 'fulfilled') {
-        setStudents(Array.isArray(studentsRes.value) ? studentsRes.value : []);
-      }
-    } catch {
-      notifyError('Error', 'Failed to load dues data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
   const completedPayments = useMemo(() => {
     return payments.filter((p) => p.status === 'completed' || p.status === 'success' || p.status === 'verified');
   }, [payments]);

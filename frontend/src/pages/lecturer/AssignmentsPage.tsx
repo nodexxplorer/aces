@@ -11,10 +11,10 @@ import { useNotification } from '../../hooks/useNotification';
 import { Save, Plus, ArrowLeft, Trash2 } from 'lucide-react';
 import type { Assignment, Course, Session, SemesterEntry } from '../../types';
 
+import { useQuery } from '@tanstack/react-query';
 const AssignmentsPage = () => {
   const { user } = useAuth();
   const { success, error: notifyError } = useNotification();
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [semesters, setSemesters] = useState<SemesterEntry[]>([]);
@@ -26,9 +26,22 @@ const AssignmentsPage = () => {
   const [desc, setDesc] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [maxScore, setMaxScore] = useState('100');
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const { data: assignments = [], isLoading: loading } = useQuery({
+    queryKey: ['assignments', selectedCourseId, sessionId],
+    queryFn: async () => {
+      if (!selectedCourseId || !sessionId) return [];
+      try {
+        const res = await getAssignments(selectedCourseId, sessionId);
+        return Array.isArray(res) ? res : [];
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 60_000,
+    enabled: !!selectedCourseId && !!sessionId,
+  });
   useEffect(() => {
     getCourses()
       .then((res) => {
@@ -63,18 +76,6 @@ const AssignmentsPage = () => {
       })
       .catch(() => setSemesters([]));
   }, [sessionId]);
-
-  useEffect(() => {
-    if (!selectedCourseId || !sessionId) {
-      setAssignments([]);
-      return;
-    }
-    setLoading(true);
-    getAssignments(selectedCourseId, sessionId)
-      .then(setAssignments)
-      .catch(() => setAssignments([]))
-      .finally(() => setLoading(false));
-  }, [selectedCourseId, sessionId]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

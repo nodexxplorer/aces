@@ -1,5 +1,6 @@
 import { alumniLabel, useCurrentDepartment } from '../../components/branding/department';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
@@ -23,9 +24,6 @@ const statusVariants: Record<string, StatusVariant> = {
 const FindMentorPage = () => {
   const department = useCurrentDepartment();
   const { success, error: notifyError } = useNotification();
-  const [mentors, setMentors] = useState<MentorItem[]>([]);
-  const [myRequests, setMyRequests] = useState<MentorshipRequestItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [requestOpen, setRequestOpen] = useState(false);
   const [selectedMentor, setSelectedMentor] = useState<MentorItem | null>(null);
@@ -33,16 +31,24 @@ const FindMentorPage = () => {
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const load = () => {
-    setLoading(true);
-    Promise.allSettled([getMentors(), getMyMentorshipRequests()]).then(([mentorsRes, requestsRes]) => {
-      setMentors(mentorsRes.status === 'fulfilled' && Array.isArray(mentorsRes.value) ? mentorsRes.value : []);
-      setMyRequests(requestsRes.status === 'fulfilled' && Array.isArray(requestsRes.value) ? requestsRes.value : []);
-      setLoading(false);
-    });
-  };
-
-  useEffect(load, []);
+  const queryClient = useQueryClient();
+  const { data: _findMentorData, isLoading: loading } = useQuery({
+    queryKey: ['find-mentor'],
+    queryFn: async () => {
+      const [mentorsRes, requestsRes] = await Promise.allSettled([getMentors(), getMyMentorshipRequests()]);
+      return {
+        mentors: (mentorsRes.status === 'fulfilled' && Array.isArray(mentorsRes.value)
+          ? mentorsRes.value
+          : []) as MentorItem[],
+        myRequests: (requestsRes.status === 'fulfilled' && Array.isArray(requestsRes.value)
+          ? requestsRes.value
+          : []) as MentorshipRequestItem[],
+      };
+    },
+    staleTime: 60_000,
+  });
+  const mentors = _findMentorData?.mentors ?? [];
+  const myRequests = _findMentorData?.myRequests ?? [];
 
   const requestedMentorIds = new Set(myRequests.map((r) => r.mentor_id));
 
@@ -71,7 +77,7 @@ const FindMentorPage = () => {
       await requestMentorship(selectedMentor.user_id, topic.trim(), message.trim() || undefined);
       setRequestOpen(false);
       success('Request Sent', `Your mentorship request to ${selectedMentor.full_name} has been sent`);
-      load();
+      queryClient.invalidateQueries({ queryKey: ['find-mentor'] });
     } catch (err) {
       notifyError('Request Failed', getErrorMessage(err, 'Could not send mentorship request'));
     } finally {

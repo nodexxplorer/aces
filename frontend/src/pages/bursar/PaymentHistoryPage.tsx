@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
@@ -42,7 +43,6 @@ export default function PaymentHistoryPage() {
   const urlCode = user?.tenant?.urlCode;
   const { success, error: notifyError } = useNotification();
 
-  const [, setLoading] = useState(true);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [dues, setDues] = useState<DuePayment[]>([]);
   const [students, setStudents] = useState<User[]>([]);
@@ -67,9 +67,11 @@ export default function PaymentHistoryPage() {
   const [page, setPage] = useState(1);
   const pageSize = 8;
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
+  const queryClient = useQueryClient();
+
+  useQuery({
+    queryKey: ['payment-history'],
+    queryFn: async () => {
       const [paymentsRes, duesRes, studentsRes, sessionsRes] = await Promise.allSettled([
         getAllPayments({ limit: 500 }),
         getAllDues({ limit: 100 }),
@@ -95,16 +97,10 @@ export default function PaymentHistoryPage() {
       if (loadedPayments.length > 0 && !selectedPayment) {
         setSelectedPayment(loadedPayments[0]);
       }
-    } catch {
-      notifyError('Error', 'Failed to load transactions');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
+      return loadedPayments;
+    },
+    staleTime: 30_000,
+  });
 
   // Update selected payment if payments change
   useEffect(() => {
@@ -203,10 +199,10 @@ export default function PaymentHistoryPage() {
   }, [filteredPayments, page, pageSize]);
 
   // Download official receipt
-  const handleDownloadReceipt = async (paymentId: string) => {
+  const handleDownloadReceipt = async (paymentId: string, itemName?: string) => {
     try {
       setDownloadingId(paymentId);
-      await downloadPaymentReceipt(paymentId);
+      await downloadPaymentReceipt(paymentId, itemName);
       success('Receipt Downloaded', 'Official receipt PDF has been saved.');
     } catch (err: unknown) {
       notifyError('Failed', getErrorMessage(err, 'Could not download receipt.'));
@@ -221,7 +217,7 @@ export default function PaymentHistoryPage() {
       setVerifyingId(paymentId);
       await verifyPayment(paymentId);
       success('Verified', 'Payment status updated from gateway.');
-      fetchData();
+      queryClient.invalidateQueries({ queryKey: ['payment-history'] });
     } catch (err: unknown) {
       notifyError('Verification Failed', getErrorMessage(err, 'Could not verify payment.'));
     } finally {
@@ -700,7 +696,7 @@ export default function PaymentHistoryPage() {
                                           type="button"
                                           onClick={() => {
                                             setOpenRowMenuId(null);
-                                            handleDownloadReceipt(p.id);
+                                            handleDownloadReceipt(p.id, p.item_name);
                                           }}
                                           className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2"
                                         >
@@ -900,7 +896,7 @@ export default function PaymentHistoryPage() {
                     <button
                       type="button"
                       disabled={downloadingId === selectedPayment.id}
-                      onClick={() => handleDownloadReceipt(selectedPayment.id)}
+                      onClick={() => handleDownloadReceipt(selectedPayment.id, selectedPayment.item_name)}
                       className="w-full py-2.5 rounded-xl text-xs font-semibold bg-[#1a66d6] hover:bg-blue-600 text-white shadow-xs flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
                     >
                       <Download className="w-4 h-4" />

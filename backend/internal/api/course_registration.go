@@ -48,7 +48,7 @@ func (server *Server) createCourseRegistration(ctx *gin.Context) {
 
 	status := req.Status
 	if status == "" {
-		status = "draft"
+		status = "approved"
 	}
 
 	arg := db.CreateCourseRegistrationParams{
@@ -63,6 +63,11 @@ func (server *Server) createCourseRegistration(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
+	}
+	if status == "approved" {
+		if q, ok := server.store.(interface{ GetDB() db.DBTX }); ok {
+			_, _ = q.GetDB().Exec(ctx, "UPDATE course_registrations SET approved_at = NOW() WHERE id = $1", registration.ID)
+		}
 	}
 
 	ctx.JSON(http.StatusCreated, registration)
@@ -465,17 +470,21 @@ func (server *Server) submitRegistration(ctx *gin.Context) {
 		return
 	}
 
-	// Create the registration header
+	// Create the registration header (auto-approved upon student registration)
 	registration, err := server.store.CreateCourseRegistration(ctx, db.CreateCourseRegistrationParams{
 		StudentID:  student.ID,
 		SessionID:  sessionID,
 		SemesterID: semesterID,
 		TotalUnits: totalUnits,
-		Status:     "submitted",
+		Status:     "approved",
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
+	}
+
+	if q, ok := server.store.(interface{ GetDB() db.DBTX }); ok {
+		_, _ = q.GetDB().Exec(ctx, "UPDATE course_registrations SET approved_at = NOW() WHERE id = $1", registration.ID)
 	}
 
 	// Register each course
@@ -495,7 +504,7 @@ func (server *Server) submitRegistration(ctx *gin.Context) {
 	}
 
 	kind := "course_registration"
-	server.notifyUser(ctx, userID, "general", "results", "normal", "Course registration submitted", "Your course registration has been submitted for review.", "/course-registration", "View registration", &kind, &registration.ID)
+	server.notifyUser(ctx, userID, "general", "results", "normal", "Course registration approved", "Your course registration has been automatically approved.", "/course-registration", "View registration", &kind, &registration.ID)
 	if server.notificationsFull != nil {
 		bgCtx, cancel := tenant.Detach(ctx, 10*time.Second)
 		func(studentUserID uuid.UUID, level int32, regID uuid.UUID) {

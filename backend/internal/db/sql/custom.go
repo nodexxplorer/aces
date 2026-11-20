@@ -133,22 +133,28 @@ func (q *Queries) GetStudentAttendanceSummary(ctx context.Context, studentID, us
 			JOIN course_registrations cr ON cr.id = rc.registration_id
 			WHERE cr.student_id = $1 AND cr.semester_id = $3
 		),
-		my_sessions AS (
+		my_legacy_sessions AS (
 			SELECT asess.id
 			FROM attendance_sessions asess
 			JOIN my_courses mc ON mc.course_id = asess.course_id
-			-- attendance_sessions.semester_id is never populated at session
-			-- creation time (always NULL in practice), so filtering on it here
-			-- silently zeroed out every student's count. Match by date range
-			-- against the semester instead, same as
-			-- GetStudentCourseAttendanceOverview already does correctly.
 			WHERE asess.created_at BETWEEN $4 AND $5 AND `+attendanceSessionCountedStatusesSQL+`
+		),
+		my_v2_sessions AS (
+			SELECT v2s.id
+			FROM attendance_v2_sessions v2s
+			JOIN my_courses mc ON mc.course_id = v2s.course_id
+			WHERE v2s.semester_id = $3 AND v2s.status IN ('open', 'closed', 'finalized')
 		)
 		SELECT
-			(SELECT COUNT(*) FROM my_sessions)::int AS total_classes,
-			(SELECT COUNT(*) FROM attendance_checkins ac
-			 JOIN my_sessions ms ON ms.id = ac.session_id
-			 WHERE ac.student_id = $2 AND ac.present = true)::int AS attended
+			((SELECT COUNT(*) FROM my_legacy_sessions) + (SELECT COUNT(*) FROM my_v2_sessions))::int AS total_classes,
+			((SELECT COUNT(*) FROM attendance_checkins ac
+			  JOIN my_legacy_sessions mls ON mls.id = ac.session_id
+			  WHERE ac.student_id = $2 AND ac.present = true)
+			 +
+			 (SELECT COUNT(*) FROM attendance_v2_records vr
+			  JOIN my_v2_sessions mvs ON mvs.id = vr.session_id
+			  WHERE vr.user_id = $2 AND (vr.outcome IN ('present', 'late') OR vr.verification IN ('verified', 'approved')))
+			)::int AS attended
 	`, studentID, userID, semesterID, semStart, semEnd).Scan(&i.TotalClasses, &i.Attended)
 	return i, err
 }

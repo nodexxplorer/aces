@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
@@ -9,9 +9,10 @@ import { useNotification } from '../../hooks/useNotification';
 import { Heart, DollarSign, Users, Loader2 } from 'lucide-react';
 import { createDonation, listMyDonations, listDonations, getDonationStats } from '../../api/alumni';
 import { formatCurrency } from '../../utils/formatters';
-import type { AlumniDonation, DonationStats, DonationChannel } from '../../types';
+import type { DonationChannel } from '../../types';
 import { getErrorMessage } from '../../utils/errors';
 
+import { useQuery } from '@tanstack/react-query';
 const channels: { value: DonationChannel; label: string; desc: string }[] = [
   { value: 'general', label: 'General Fund', desc: 'Support department operations and growth' },
   { value: 'scholarship', label: 'Scholarship Fund', desc: 'Fund scholarships for outstanding juniors' },
@@ -30,37 +31,38 @@ const tierColors: Record<string, BadgeVariant> = {
 
 const GiveBackPage = () => {
   const { success, error: notifyError } = useNotification();
-  const [myDonations, setMyDonations] = useState<AlumniDonation[]>([]);
-  const [allDonations, setAllDonations] = useState<AlumniDonation[]>([]);
-  const [stats, setStats] = useState<DonationStats | null>(null);
-  const [loading, setLoading] = useState(true);
   const [donateOpen, setDonateOpen] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState<DonationChannel>('general');
   const [amount, setAmount] = useState('50000');
   const [message, setMessage] = useState('');
   const [anonymous, setAnonymous] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['give-back'],
+    queryFn: async () => {
+      const _result: any = { myDonations: [], allDonations: [], stats: null, loading: true };
       try {
         const [myData, allData, statsData] = await Promise.allSettled([
           listMyDonations(),
           listDonations(),
           getDonationStats(),
         ]);
-        if (myData.status === 'fulfilled') setMyDonations(Array.isArray(myData.value) ? myData.value : []);
-        if (allData.status === 'fulfilled') setAllDonations(Array.isArray(allData.value) ? allData.value : []);
-        if (statsData.status === 'fulfilled') setStats(statsData.value);
+        if (myData.status === 'fulfilled') _result.myDonations = Array.isArray(myData.value ? myData.value : []);
+        if (allData.status === 'fulfilled') _result.allDonations = Array.isArray(allData.value ? allData.value : []);
+        if (statsData.status === 'fulfilled') _result.stats = statsData.value;
       } catch {
         // silent
-      } finally {
-        setLoading(false);
       }
-    };
-    fetchData();
-  }, []);
 
+      return _result;
+    },
+    staleTime: 60_000,
+  });
+  const myDonations = _qd?.myDonations ?? [];
+  const allDonations = _qd?.allDonations ?? [];
+  const stats = _qd?.stats ?? null;
+  const loading = _qd?.loading ?? true;
+  const [submitting, setSubmitting] = useState(false);
   const handleDonate = async () => {
     const val = parseInt(amount);
     if (!val || val <= 0) return;

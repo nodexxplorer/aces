@@ -9,11 +9,14 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	_ "image/jpeg"
+	_ "image/png"
 	"log"
 	"math"
 	"os"
 	"strings"
 	"sync"
+	"unicode"
 
 	"github.com/fogleman/gg"
 	"github.com/go-pdf/fpdf"
@@ -39,7 +42,7 @@ func embeddedFont(name string) (*truetype.Font, error) {
 		fontMap = map[string]*truetype.Font{}
 		names := []string{
 			"DejaVuSans-Bold.ttf", "DejaVuSans.ttf", "DejaVuSerif.ttf",
-			"DejaVuSerif-Bold.ttf", "DejaVuSansMono-Bold.ttf",
+			"DejaVuSerif-Bold.ttf", "DejaVuSansMono-Bold.ttf", "Signature.ttf",
 		}
 		for _, n := range names {
 			raw, err := receiptFonts.ReadFile("assets/fonts/" + n)
@@ -90,6 +93,7 @@ const (
 	FontSerif     = "DejaVuSerif.ttf"
 	FontSerifBold = "DejaVuSerif-Bold.ttf"
 	FontMono      = "DejaVuSansMono-Bold.ttf"
+	FontSignature = "Signature.ttf"
 )
 
 // ---- Receipt numbering ---------------------------------------------------
@@ -189,17 +193,20 @@ var acesLogoPNG []byte
 
 // ReceiptData holds optional pre-filled values. Empty = blank line.
 type ReceiptData struct {
-	Date         string
-	ReceivedFrom string
-	Of           string
-	SumOf        string // "The Sum Of:" line
-	NairaWords   string // line before "Naira"
-	KoboWords    string // line before "Kobo"
-	Being        string
-	BeingCont    string // second "Being" line
-	AmountNaira  string // inside the  ₦ [ ] K  box
-	AmountKobo   string
-	RegNo        string
+	Date             string
+	ReceivedFrom     string
+	Of               string
+	SumOf            string // "The Sum Of:" line
+	NairaWords       string // line before "Naira"
+	KoboWords        string // line before "Kobo"
+	Being            string
+	BeingCont        string // second "Being" line
+	AmountNaira      string // inside the  ₦ [ ] K  box
+	AmountKobo       string
+	RegNo            string
+	StudentSignature string // student's first name in cursive signature font
+	CashierSignature []byte // uploaded HOD signature image bytes
+	DepartmentStamp  []byte // department official stamp image bytes
 }
 
 // ---- Layout --------------------------------------------------------------
@@ -352,11 +359,109 @@ func RenderReceipt(org Org, kind ReceiptKind, number int, d ReceiptData) *gg.Con
 	dc.Stroke()
 	dc.DrawLine(right-360, sigY, right, sigY)
 	dc.Stroke()
+
+	// Student's first name rendered in signature font above the signature line
+	sigName := d.StudentSignature
+	if sigName == "" {
+		src := d.ReceivedFrom
+		if src == "" {
+			src = d.Of
+		}
+		if idx := strings.Index(src, "("); idx != -1 {
+			src = src[:idx]
+		}
+		if idx := strings.Index(src, ","); idx != -1 {
+			src = src[:idx]
+		}
+		fields := strings.Fields(src)
+		if len(fields) > 0 {
+			sigName = fields[0]
+		}
+	}
+	if sigName != "" {
+		setFont(dc, FontSignature, 54)
+		dc.SetColor(ink)
+		dc.DrawStringAnchored(formatSignatureName(sigName), left+180, sigY-44, 0.5, 0.9)
+	}
+
+	// Department stamp over the cashier signature area
+	stampBytes := d.DepartmentStamp
+	if len(stampBytes) == 0 {
+		deptName := strings.TrimSpace(org.Name1 + " " + org.Name2)
+		if cfg, err := StampConfigFor(deptName); err == nil {
+			if b, err := DeptStampPNG(400, 260, cfg); err == nil {
+				stampBytes = b
+			}
+		}
+	}
+	if len(stampBytes) > 0 {
+		drawStampImage(dc, stampBytes, right-180, sigY-12, 205, 132)
+	}
+
+	// Cashier signature: HOD signature uploaded in settings
+	if len(d.CashierSignature) > 0 {
+		drawSignatureImage(dc, d.CashierSignature, right-180, sigY-6, 320, 85)
+	}
+
 	setFont(dc, FontSerif, 28)
+	dc.SetColor(blue)
 	dc.DrawStringAnchored("Student's Signature", left+180, sigY+22, 0.5, 0.5)
 	dc.DrawStringAnchored("Cashier Signature", right-180, sigY+22, 0.5, 0.5)
 
 	return dc
+}
+
+// drawSignatureImage fits the signature image within maxW × maxH,
+// anchored with its bottom center resting at (cx, bottomY).
+func drawSignatureImage(dc *gg.Context, sigBytes []byte, cx, bottomY, maxW, maxH float64) {
+	if len(sigBytes) == 0 {
+		return
+	}
+	img, err := decodePNGBytes(sigBytes)
+	if err != nil {
+		return
+	}
+	b := img.Bounds()
+	if b.Dx() <= 0 || b.Dy() <= 0 {
+		return
+	}
+	s := math.Min(maxW/float64(b.Dx()), maxH/float64(b.Dy()))
+	dc.Push()
+	dc.Translate(cx, bottomY)
+	dc.Scale(s, s)
+	dc.DrawImageAnchored(img, 0, 0, 0.5, 1.0)
+	dc.Pop()
+}
+
+// drawStampImage draws the department stamp centered at (cx, cy) with maxW and maxH.
+func drawStampImage(dc *gg.Context, stampBytes []byte, cx, cy, maxW, maxH float64) {
+	if len(stampBytes) == 0 {
+		return
+	}
+	img, err := decodePNGBytes(stampBytes)
+	if err != nil {
+		return
+	}
+	b := img.Bounds()
+	if b.Dx() <= 0 || b.Dy() <= 0 {
+		return
+	}
+	s := math.Min(maxW/float64(b.Dx()), maxH/float64(b.Dy()))
+	dc.Push()
+	dc.Translate(cx, cy)
+	dc.Scale(s, s)
+	dc.DrawImageAnchored(img, 0, 0, 0.5, 0.5)
+	dc.Pop()
+}
+
+func formatSignatureName(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	runes := []rune(strings.ToLower(s))
+	runes[0] = unicode.ToUpper(runes[0])
+	return string(runes)
 }
 
 // IssueReceipt takes the next number for this receipt type and renders it.
@@ -479,9 +584,8 @@ func drawImagePlaceholder(dc *gg.Context, cx, cy, w, h float64, col color.Color)
 // ---- PDF output ----------------------------------------------------------
 
 // RenderReceiptPDF rasterizes the receipt face and wraps it in a single-page
-// A4 PDF (receipt scaled to fill the page minus a small margin). PDF is what
-// students expect for a downloadable receipt — it prints at a predictable
-// size and can't be casually edited the way a PNG can.
+// PDF sized exactly to the receipt dimensions (not A4), so the document ends
+// cleanly right where the receipt details end without empty space.
 func RenderReceiptPDF(org Org, kind ReceiptKind, number int, d ReceiptData) ([]byte, error) {
 	dc := RenderReceipt(org, kind, number, d)
 
@@ -490,15 +594,24 @@ func RenderReceiptPDF(org Org, kind ReceiptKind, number int, d ReceiptData) ([]b
 		return nil, fmt.Errorf("encode receipt png: %w", err)
 	}
 
-	pdf := fpdf.New("P", "mm", "A4", "")
+	pageW := 210.0
+	pageH := pageW * float64(receiptH) / float64(receiptW) // 157.5 mm, exact receipt dimensions
+
+	pdf := fpdf.NewCustom(&fpdf.InitType{
+		UnitStr: "mm",
+		Size:    fpdf.SizeType{Wd: pageW, Ht: pageH},
+	})
+	pdf.SetMargins(0, 0, 0)
+	pdf.SetAutoPageBreak(false, 0)
 	pdf.AddPage()
+
 	// RegisterImageReader keeps the raw PNG out of a temp file; the image is
 	// decoded once here and embedded into the PDF stream.
 	info := pdf.RegisterImageReader("receipt", "png", bytes.NewReader(pngBuf.Bytes()))
 	if info == nil {
 		return nil, fmt.Errorf("register receipt image")
 	}
-	pdf.Image("receipt", 0, 0, 210, 0, false, "png", 0, "")
+	pdf.Image("receipt", 0, 0, pageW, pageH, false, "png", 0, "")
 
 	var out bytes.Buffer
 	if err := pdf.Output(&out); err != nil {

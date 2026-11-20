@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../hooks/useAuth';
@@ -15,20 +16,16 @@ export default function PaymentVerificationPage() {
   const [searchedRecord, setSearchedRecord] = useState<Payment | null>(null);
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  const [recentVerifications, setRecentVerifications] = useState<Payment[]>([]);
+  const queryClient = useQueryClient();
 
-  const fetchRecent = async () => {
-    try {
+  const { data: recentVerifications = [] as Payment[] } = useQuery({
+    queryKey: ['recent-verifications'],
+    queryFn: async () => {
       const verified = await getRecentVerifiedPayments();
-      setRecentVerifications(Array.isArray(verified) ? verified : []);
-    } catch {
-      // silently ignore
-    }
-  };
-
-  useEffect(() => {
-    fetchRecent();
-  }, []);
+      return Array.isArray(verified) ? verified : [];
+    },
+    staleTime: 30_000,
+  });
 
   const handleSearch = async () => {
     if (!refInput.trim()) return;
@@ -51,7 +48,7 @@ export default function PaymentVerificationPage() {
       setVerifying(true);
       const updated = await verifyPayment(searchedRecord.id);
       setSearchedRecord(updated);
-      setRecentVerifications((prev) => [updated, ...prev.filter((p) => p.id !== updated.id)]);
+      queryClient.invalidateQueries({ queryKey: ['recent-verifications'] });
       success('Manually Approved', `Payment ${searchedRecord.paystack_reference || searchedRecord.id} verified.`);
     } catch (err) {
       notifyError('Approval Failed', getErrorMessage(err, 'Could not verify payment'));

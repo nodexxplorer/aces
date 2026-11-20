@@ -1,6 +1,6 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { acceptInvitation, inspectInvitation, type InvitationPreview } from '../../api/invitations';
+import { acceptInvitation, inspectInvitation } from '../../api/invitations';
 import { setCsrfToken } from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
 import { ADMIN_GRANTS } from '../../config/permissions';
@@ -9,6 +9,7 @@ import { storeDepartment } from '../../config/department';
 import { getErrorMessage } from '../../utils/errors';
 import Button from '../../components/ui/Button';
 
+import { useQuery } from '@tanstack/react-query';
 const STORAGE_KEY = 'aces-access-invitation';
 // Keep the secret out of query strings, referrer headers and server access logs.
 function invitationCredentials(): { tenant: string; token: string } | null {
@@ -30,34 +31,33 @@ function invitationCredentials(): { tenant: string; token: string } | null {
 }
 export default function AcceptInvitationPage() {
   const [credentials] = useState(invitationCredentials);
-  const [preview, setPreview] = useState<InvitationPreview | null>(null);
-  const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
   const { user, login, logout } = useAuth();
+
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['accept-invitation', credentials?.tenant, credentials?.token],
+    queryFn: async () => {
+      if (!credentials) {
+        return {
+          preview: null,
+          error: 'This invitation link is missing or invalid. Ask the sender for a new invitation.',
+        };
+      }
+      try {
+        const preview = await inspectInvitation(credentials.tenant, credentials.token);
+        return { preview, error: '' };
+      } catch (err: unknown) {
+        return { preview: null, error: getErrorMessage(err) };
+      }
+    },
+    staleTime: 60_000,
+    enabled: !!credentials,
+  });
+  const preview = _qd?.preview ?? null;
+  const error =
+    _qd?.error ??
+    (!credentials ? 'This invitation link is missing or invalid. Ask the sender for a new invitation.' : '');
   const navigate = useNavigate();
-  useEffect(() => {
-    if (window.location.hash) window.history.replaceState(window.history.state, '', window.location.pathname);
-    let active = true;
-    if (!credentials) {
-      setError('This invitation link is missing or invalid. Ask the sender for a new invitation.');
-      setLoading(false);
-      return;
-    }
-    void inspectInvitation(credentials.tenant, credentials.token)
-      .then((value) => {
-        if (active) setPreview(value);
-      })
-      .catch((err: unknown) => {
-        if (active) setError(getErrorMessage(err));
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [credentials]);
   const matchingAccount = Boolean(
     user &&
     preview &&

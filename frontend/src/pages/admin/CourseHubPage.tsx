@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   BookOpen,
   Users,
@@ -41,7 +42,6 @@ export default function CourseHubPage() {
   const [activeTab, setActiveTab] = useState<'courses' | 'enrollment'>('courses');
 
   // Loading states
-  const [loadingCourses, setLoadingCourses] = useState(true);
   const [submittingCourse, setSubmittingCourse] = useState(false);
 
   // Real Data
@@ -108,18 +108,22 @@ export default function CourseHubPage() {
   const [savingChanges, setSavingChanges] = useState(false);
   const [searchAddCourse, setSearchAddCourse] = useState('');
 
+  const queryClient = useQueryClient();
+
   // Fetch initial course and lecturer data
-  const fetchCoursesAndLecturers = useCallback(async () => {
-    try {
-      setLoadingCourses(true);
+  const { isLoading: loadingCourses } = useQuery({
+    queryKey: ['course-hub-data'],
+    queryFn: async () => {
       const [crsRes, lctRes, sessRes] = await Promise.all([
         getCourses({ page: 1, perPage: 100 }),
         getUsers({ page: 1, perPage: 100, role: 'lecturer' }),
         getSessions({ page: 1, perPage: 50 }).catch(() => []),
       ]);
 
-      setCourses(Array.isArray(crsRes) ? crsRes : []);
-      setLecturers(Array.isArray(lctRes) ? lctRes : []);
+      const crs = Array.isArray(crsRes) ? crsRes : [];
+      const lct = Array.isArray(lctRes) ? lctRes : [];
+      setCourses(crs);
+      setLecturers(lct);
 
       const sessList = Array.isArray(sessRes) ? sessRes : [];
       setSessions(sessList);
@@ -127,16 +131,14 @@ export default function CourseHubPage() {
         const active = sessList.find((s) => s.is_active || s.isActive) || sessList[0];
         setSelectedSessionId(active.id);
       }
-    } catch (err: unknown) {
-      notifyError('Failed to load courses', getErrorMessage(err, 'Could not fetch catalogue.'));
-    } finally {
-      setLoadingCourses(false);
-    }
-  }, [notifyError]);
+      return { courses: crs, lecturers: lct, sessions: sessList };
+    },
+    staleTime: 60_000,
+  });
 
-  useEffect(() => {
-    fetchCoursesAndLecturers();
-  }, [fetchCoursesAndLecturers]);
+  const fetchCoursesAndLecturers = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['course-hub-data'] });
+  }, [queryClient]);
 
   // Load semesters when session changes
   useEffect(() => {

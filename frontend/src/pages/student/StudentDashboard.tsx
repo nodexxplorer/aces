@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   CreditCard,
@@ -12,11 +12,14 @@ import {
   Check,
   Users,
   FileCheck2,
+  CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-import { getStudentDashboard, type StudentDashboard as DashboardData } from '../../api/dashboard';
+import { getStudentDashboard } from '../../api/dashboard';
 import StudentBottomNav from '../../components/layout/StudentBottomNav';
 
+import { useQuery } from '@tanstack/react-query';
 /**
  * Semi-circular gauge (half-donut) component for Dues Status.
  */
@@ -65,31 +68,96 @@ function SemiCircleGauge({ cleared = true, percentage = 100 }: { cleared?: boole
   );
 }
 
+/**
+ * Semi-circular gauge for Student Attendance %.
+ * Threshold: 75% for exam eligibility.
+ */
+function AttendanceGauge({ percentage, totalClasses }: { percentage: number | null; totalClasses: number }) {
+  const radius = 64;
+  const strokeWidth = 14;
+  const circumference = Math.PI * radius;
+  const pct = percentage !== null ? Math.min(Math.max(percentage, 0), 100) : 0;
+  const strokeDashoffset = circumference - (circumference * pct) / 100;
+
+  const isEligible = percentage !== null && percentage >= 75;
+  const isRisk = percentage !== null && percentage < 75 && percentage >= 50;
+  const hasClasses = totalClasses > 0 && percentage !== null;
+
+  return (
+    <div className="relative flex flex-col items-center justify-center">
+      <svg width="160" height="95" viewBox="0 0 160 95" className="overflow-visible">
+        {/* Track arc */}
+        <path
+          d="M 16 85 A 64 64 0 0 1 144 85"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          className="text-slate-200 dark:text-[#2a2d33]"
+        />
+        {/* Filled progress arc */}
+        {hasClasses && (
+          <path
+            d="M 16 85 A 64 64 0 0 1 144 85"
+            fill="none"
+            stroke="url(#attendanceGaugeGradient)"
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            className="transition-all duration-1000 ease-out"
+          />
+        )}
+        <defs>
+          <linearGradient id="attendanceGaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            {isEligible ? (
+              <>
+                <stop offset="0%" stopColor="#10b981" />
+                <stop offset="100%" stopColor="#059669" />
+              </>
+            ) : isRisk ? (
+              <>
+                <stop offset="0%" stopColor="#f59e0b" />
+                <stop offset="100%" stopColor="#d97706" />
+              </>
+            ) : (
+              <>
+                <stop offset="0%" stopColor="#ef4444" />
+                <stop offset="100%" stopColor="#dc2626" />
+              </>
+            )}
+          </linearGradient>
+        </defs>
+      </svg>
+      <div className="absolute bottom-2 flex flex-col items-center">
+        <span className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text)]">
+          {hasClasses ? `${pct}%` : '—'}
+        </span>
+        <span className="text-[10px] font-medium text-[var(--text-muted)]">
+          {hasClasses ? (isEligible ? 'Eligible' : 'At Risk') : 'No sessions'}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 const StudentDashboard = () => {
   const { user } = useAuth();
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [attempt, setAttempt] = useState(0);
 
+  const { data = null, isLoading: loading } = useQuery({
+    queryKey: ['student-dashboard', user?.id, attempt],
+    queryFn: async () => {
+      try {
+        return await getStudentDashboard();
+      } catch {
+        return null;
+      }
+    },
+    staleTime: 30_000,
+    enabled: !!user,
+  });
   // No fallback data: if the dashboard cannot be loaded, the page says so and offers a retry.
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    getStudentDashboard()
-      .then((d) => {
-        if (active) setData(d);
-      })
-      .catch(() => {
-        if (active) setData(null);
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [user, attempt]);
-
   const studentName = data?.student.full_name?.split(' ')[0] || user?.firstName || 'Student';
   const studentLevel = data?.student.level || 0;
   const duesOutstanding = data?.payments?.dues_outstanding;
@@ -113,6 +181,7 @@ const StudentDashboard = () => {
   const desktopSubtitle = [levelLabel, 'All you need in one place.'].filter(Boolean).join(' · ');
   const attendanceAttended = data?.attendance?.attended ?? 0;
   const attendanceTotal = data?.attendance?.total_classes ?? 0;
+  const attendancePercent = attendanceTotal > 0 ? Math.round((attendanceAttended / attendanceTotal) * 100) : null;
   const amountPending = data?.payments?.amount_pending ?? 0;
   // Share of the semester's dues already paid. With no dues set for the semester,
   // the gauge is full only when nothing is outstanding.
@@ -217,12 +286,17 @@ const StudentDashboard = () => {
         </Link>
 
         <Link
-          to="/i/courses"
+          to="/i/attendance"
           className="flex flex-col justify-between rounded-2xl border border-[var(--border)] bg-white p-3.5 dark:bg-[#1c1e22] shadow-sm transition-all active:scale-95"
         >
-          <span className="text-[11px] font-medium text-[var(--text-muted)]">Attendance</span>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-medium text-[var(--text-muted)]">Attendance</span>
+            {attendancePercent !== null && (
+              <span className={`h-2 w-2 rounded-full ${attendancePercent >= 75 ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+            )}
+          </div>
           <span className="mt-2 text-base font-bold text-[var(--text)]">
-            {attendanceAttended}/{attendanceTotal}
+            {attendancePercent !== null ? `${attendancePercent}%` : `${attendanceAttended}/${attendanceTotal}`}
           </span>
         </Link>
 
@@ -284,7 +358,7 @@ const StudentDashboard = () => {
 
         {/* 3. Attendance Card */}
         <Link
-          to="/i/courses"
+          to="/i/attendance"
           className="group relative flex flex-col justify-between overflow-hidden rounded-[22px] border border-[var(--border)] bg-white p-5 dark:bg-[#1c1e22] shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md"
         >
           <div className="flex items-center justify-between">
@@ -294,11 +368,29 @@ const StudentDashboard = () => {
             </div>
           </div>
           <div className="mt-4">
-            <span className="text-2xl font-bold tracking-tight text-[var(--text)]">
-              {attendanceAttended}/{attendanceTotal}{' '}
-              <span className="text-sm font-normal text-[var(--text-muted)]">classes</span>
-            </span>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">Nothing recorded yet</p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold tracking-tight text-[var(--text)]">
+                {attendancePercent !== null ? `${attendancePercent}%` : `${attendanceAttended}/${attendanceTotal}`}
+              </span>
+              <span className="text-xs text-[var(--text-muted)]">
+                ({attendanceAttended}/{attendanceTotal} classes)
+              </span>
+            </div>
+            <div className="mt-2 flex items-center gap-1.5">
+              {attendanceTotal === 0 ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--text-muted)]">
+                  No classes held yet
+                </span>
+              ) : attendancePercent !== null && attendancePercent >= 75 ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+                  <CheckCircle2 className="h-3 w-3" /> Exam Eligible
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+                  <AlertTriangle className="h-3 w-3" /> Under 75% Target
+                </span>
+              )}
+            </div>
           </div>
         </Link>
 
@@ -376,6 +468,56 @@ const StudentDashboard = () => {
             <span className="text-xs font-semibold leading-snug text-[var(--text)]">Complaint</span>
           </Link>
         </div>
+      </div>
+
+      {/* ────────────────── MOBILE ATTENDANCE CARD (mobile only) ────────────────── */}
+      <div className="block md:hidden">
+        <Link
+          to="/i/attendance"
+          className="block rounded-[24px] border border-[var(--border)] bg-white p-5 dark:bg-[#1c1e22] shadow-sm transition-transform active:scale-[0.99]"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[var(--text)]">Attendance Performance</span>
+            {attendancePercent !== null && attendancePercent >= 75 ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+                <CheckCircle2 className="h-3 w-3" /> ≥75% Eligible
+              </span>
+            ) : attendanceTotal > 0 ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+                <AlertTriangle className="h-3 w-3" /> &lt;75% Risk
+              </span>
+            ) : (
+              <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-[#2a2d33] dark:text-slate-400">
+                No classes yet
+              </span>
+            )}
+          </div>
+
+          <div className="mt-3 flex items-center justify-between gap-4">
+            <div className="shrink-0">
+              <AttendanceGauge percentage={attendancePercent} totalClasses={attendanceTotal} />
+            </div>
+            <div className="flex-1 space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[var(--text-muted)]">Attended:</span>
+                <span className="font-bold text-[var(--text)]">{attendanceAttended} classes</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[var(--text-muted)]">Total held:</span>
+                <span className="font-medium text-[var(--text)]">{attendanceTotal}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[var(--text-muted)]">Exam threshold:</span>
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400">75% min</span>
+              </div>
+              <div className="pt-1">
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--primary)]">
+                  Check In &rarr;
+                </span>
+              </div>
+            </div>
+          </div>
+        </Link>
       </div>
 
       {/* ────────────────── MOBILE REMINDERS CARD (mobile only) ────────────────── */}
@@ -511,7 +653,7 @@ const StudentDashboard = () => {
         </div>
       </div>
 
-      {/* ────────────────── DESKTOP BOTTOM ROW (Dues Status, Connect) ────────────────── */}
+      {/* ────────────────── DESKTOP BOTTOM ROW: Dues & Attendance (12 cols) ────────────────── */}
       <div className="hidden md:grid md:grid-cols-12 gap-5">
         {/* Column 1: Dues Status (6 cols) */}
         <div className="md:col-span-12 lg:col-span-6 rounded-[24px] border border-[var(--border)] bg-white p-6 dark:bg-[#1c1e22] shadow-sm">
@@ -548,15 +690,71 @@ const StudentDashboard = () => {
           </div>
         </div>
 
-        {/* Column 2: Connect (6 cols) */}
-        <div className="md:col-span-12 lg:col-span-6 flex flex-col justify-between rounded-[24px] border border-[var(--border)] bg-white p-6 dark:bg-[#1c1e22] shadow-sm">
-          <div>
-            <h2 className="text-sm font-bold text-[var(--text)]">Connect</h2>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">Meet classmates and join the department community.</p>
+        {/* Column 2: Attendance Performance & Exam Clearance (6 cols) */}
+        <div className="md:col-span-12 lg:col-span-6 rounded-[24px] border border-[var(--border)] bg-white p-6 dark:bg-[#1c1e22] shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-bold text-[var(--text)]">Attendance &amp; Exam Clearance</h2>
+            {attendancePercent !== null && attendancePercent >= 75 ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+                <CheckCircle2 className="h-3.5 w-3.5" /> Exam Eligible
+              </span>
+            ) : attendanceTotal > 0 ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+                <AlertTriangle className="h-3.5 w-3.5" /> Under 75% Target
+              </span>
+            ) : (
+              <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600 dark:bg-[#2a2d33] dark:text-slate-400">
+                Semester In Progress
+              </span>
+            )}
           </div>
 
-          <div className="my-6 flex items-center justify-end gap-3">
-            {/* Overlapping Classmate Avatars */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-2">
+            {/* Left: Semi-circle Arc Gauge */}
+            <div className="shrink-0 flex items-center justify-center">
+              <AttendanceGauge percentage={attendancePercent} totalClasses={attendanceTotal} />
+            </div>
+
+            {/* Right: Metrics & Action Button */}
+            <div className="flex flex-1 flex-col justify-between space-y-4 w-full">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[var(--text-muted)]">Classes attended</span>
+                  <span className="font-bold text-[var(--text)]">
+                    {attendanceAttended} of {attendanceTotal}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[var(--text-muted)]">Exam threshold requirement</span>
+                  <span className="rounded-full bg-emerald-50 dark:bg-emerald-950/30 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
+                    75% minimum
+                  </span>
+                </div>
+              </div>
+
+              <Link
+                to="/i/attendance"
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-[var(--primary)] bg-transparent py-2.5 text-xs font-semibold text-[var(--primary)] transition-all hover:bg-blue-50/50 dark:hover:bg-blue-950/20 active:scale-95"
+              >
+                <span>Check In / Attendance Hub</span>
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ────────────────── DESKTOP CONNECT ROW (12 cols) ────────────────── */}
+      <div className="hidden md:block">
+        <div className="flex items-center justify-between rounded-[24px] border border-[var(--border)] bg-white p-6 dark:bg-[#1c1e22] shadow-sm">
+          <div>
+            <h2 className="text-sm font-bold text-[var(--text)]">Connect with Classmates</h2>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              Meet fellow engineering students and join departmental study groups.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-6">
             <div className="flex -space-x-2.5 overflow-hidden">
               <div className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#1a66d6] text-white ring-2 ring-white dark:ring-[#1c1e22]">
                 <Users className="h-4 w-4" />
@@ -571,16 +769,15 @@ const StudentDashboard = () => {
                 <Users className="h-4 w-4" />
               </div>
             </div>
-            <span className="text-[11px] font-medium text-[var(--text-muted)]">Classmates in your department</span>
-          </div>
 
-          <Link
-            to="/connect"
-            className="inline-flex w-fit items-center gap-2 rounded-full border border-[var(--border)] bg-transparent px-5 py-2.5 text-xs font-semibold text-[var(--text)] transition-all hover:bg-[var(--surface)] hover:text-[var(--primary)] active:scale-95"
-          >
-            <Users className="h-3.5 w-3.5" />
-            <span>Open Connect</span>
-          </Link>
+            <Link
+              to="/connect"
+              className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-transparent px-5 py-2.5 text-xs font-semibold text-[var(--text)] transition-all hover:bg-[var(--surface)] hover:text-[var(--primary)] active:scale-95"
+            >
+              <Users className="h-3.5 w-3.5" />
+              <span>Open Connect</span>
+            </Link>
+          </div>
         </div>
       </div>
 

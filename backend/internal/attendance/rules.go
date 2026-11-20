@@ -39,8 +39,10 @@ func Decision(credited, total, pending int) string {
 	return "not_eligible"
 }
 func hash(value string) string { s := sha256.Sum256([]byte(value)); return hex.EncodeToString(s[:]) }
+const ChallengeDuration = 59 * time.Second
+
 func Challenge(secret, session string, now time.Time) (string, time.Time) {
-	expires := now.Truncate(20 * time.Second).Add(20 * time.Second)
+	expires := now.Truncate(ChallengeDuration).Add(ChallengeDuration)
 	payload := strconv.FormatInt(expires.Unix(), 10)
 	m := hmac.New(sha256.New, []byte(secret))
 	fmt.Fprint(m, session+":"+payload)
@@ -52,7 +54,7 @@ func ValidChallenge(secret, session, token string, now time.Time) bool {
 		return false
 	}
 	n, err := strconv.ParseInt(parts[0], 10, 64)
-	if err != nil || n <= now.Unix() || n > now.Unix()+20 {
+	if err != nil || n <= now.Unix() || n > now.Unix()+int64(ChallengeDuration.Seconds()) {
 		return false
 	}
 	sig, err := hex.DecodeString(parts[1])

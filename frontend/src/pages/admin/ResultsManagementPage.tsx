@@ -37,6 +37,7 @@ import { searchStudentsForRoles } from '../../api/role-management';
 import type { Course, Session, StudentForRoleManagement, SemesterEntry } from '../../types';
 import { getErrorMessage } from '../../utils/errors';
 
+import { useQuery } from '@tanstack/react-query';
 type Tab = 'manage' | 'bulk' | 'single';
 
 // The results endpoints return raw backend rows (snake_case, with occasional
@@ -98,13 +99,28 @@ function isSameSemester(courseSemester?: string, selectedSemesterName?: string):
 
 function ManageTab() {
   const { success, error: notifyError } = useNotification();
-  const [students, setStudents] = useState<StudentForRoleManagement[]>([]);
+  const { data: meta, isLoading: loadingStu } = useQuery({
+    queryKey: ['results-management-meta'],
+    queryFn: async () => {
+      const [sr, cr, se] = await Promise.all([
+        searchStudentsForRoles({ per_page: 500 }).catch(() => ({ data: [] })),
+        getCourses().catch(() => []),
+        getSessions().catch(() => []),
+      ]);
+      return {
+        students: Array.isArray((sr as any).data) ? (sr as any).data : [],
+        mgCrs: Array.isArray(cr) ? cr : [],
+        mgSess: Array.isArray(se) ? se : [],
+      };
+    },
+    staleTime: 60_000,
+  });
+  const students = meta?.students ?? [];
+  const mgCrs = meta?.mgCrs ?? [];
+  const mgSess = meta?.mgSess ?? [];
   const [stuSearch, setStuSearch] = useState('');
   const [sel, setSel] = useState<StudentForRoleManagement | null>(null);
-  const [loadingStu, setLoadingStu] = useState(true);
   const [sRes, setSRes] = useState<RawResult[]>([]);
-  const [mgCrs, setMgCrs] = useState<Course[]>([]);
-  const [mgSess, setMgSess] = useState<Session[]>([]);
   const [semesterMap, setSemesterMap] = useState<Record<string, SemesterEntry[]>>({});
   const [loadingR, setLoadingR] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -112,22 +128,6 @@ function ManageTab() {
   const [eEx, setEEx] = useState('');
   const [saving, setSaving] = useState(false);
   const [expKey, setExpKey] = useState<string | null>(null);
-
-  useEffect(() => {
-    setLoadingStu(true);
-    Promise.all([
-      searchStudentsForRoles({ per_page: 500 }).catch(() => ({ data: [] })),
-      getCourses().catch(() => []),
-      getSessions().catch(() => []),
-    ])
-      .then(([sr, cr, se]) => {
-        setStudents(Array.isArray(sr.data) ? sr.data : []);
-        setMgCrs(Array.isArray(cr) ? cr : []);
-        setMgSess(Array.isArray(se) ? se : []);
-      })
-      .catch(() => notifyError('Error', 'Failed to load'))
-      .finally(() => setLoadingStu(false));
-  }, []);
 
   const loadR = useCallback(async (student: StudentForRoleManagement) => {
     setSel(student);
@@ -580,7 +580,6 @@ function BulkUploadTab() {
   const [semesters, setSemesters] = useState<SemesterEntry[]>([]);
   const [selectedSemester, setSelectedSemester] = useState('');
   const [courses, setCourses] = useState<Course[]>([]);
-  const [students, setStudents] = useState<StudentForRoleManagement[]>([]);
   const [existingResults, setExistingResults] = useState<RawResult[]>([]);
   const [rawRows, setRawRows] = useState<CsvRow[]>([]);
   const [validatedRows, setValidatedRows] = useState<ValidatedRow[]>([]);
@@ -1026,7 +1025,6 @@ function SingleEntryTab() {
   const [semesters, setSemesters] = useState<SemesterEntry[]>([]);
   const [selectedSemester, setSelectedSemester] = useState('');
   const [courses, setCourses] = useState<Course[]>([]);
-  const [students, setStudents] = useState<StudentForRoleManagement[]>([]);
   const [loadingMeta, setLoadingMeta] = useState(false);
 
   const [studentSearch, setStudentSearch] = useState('');

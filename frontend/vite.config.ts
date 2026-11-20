@@ -1,6 +1,6 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import { VitePWA } from 'vite-plugin-pwa'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   server: {
@@ -17,6 +17,14 @@ export default defineConfig({
           if (id.includes('/jspdf/')) return 'pdf-export';
           if (/\/(framer-motion|motion-dom|motion-utils)\//.test(id)) return 'motion';
           if (/\/(react|react-dom|scheduler)\//.test(id)) return 'react-vendor';
+          // Charts — only used by AnalyticsPage + LecturerReportsPage
+          if (/\/recharts\//.test(id)) return 'BarChart';
+          // Form validation — only needed on form-heavy pages
+          if (/\/(zod|@hookform|react-hook-form)\//.test(id)) return 'forms';
+          // Date utilities
+          if (/\/date-fns\//.test(id)) return 'date-fns';
+          // QR code generation + scanning
+          if (/\/(qrcode|html5-qrcode)\//.test(id)) return 'qr-scanner';
         },
       },
     },
@@ -44,4 +52,4 @@ export default defineConfig({
       },
     }),
   ],
-})
+});

@@ -1,6 +1,6 @@
 import ConnectComposer from '../../components/connect/ConnectComposer';
 import ConnectAttachments from '../../components/connect/ConnectAttachments';
-import type { ConnectAttachment } from '../../api/connect-media';
+import { loadConnectAttachment, uploadConnectAttachment, type ConnectAttachment } from '../../api/connect-media';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -30,6 +30,8 @@ import {
   CheckCheck,
   Clock,
   QrCode,
+  CornerUpLeft,
+  Share2,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import {
@@ -48,6 +50,8 @@ import {
   addGroupMember,
   createGroup,
   joinGroup,
+  sendMessage,
+  sendGroupMessage,
   getGroupMessages,
   getGroupInviteCode,
   getGroupByInviteCode,
@@ -288,7 +292,9 @@ export default function ConnectPage() {
   return (
     <div
       className={`flex flex-col ${
-        view === 'chats' ? 'h-[calc(100dvh-)] min-h-[560px] pb-5' : 'min-h-[calc(100dvh-8.5rem)] pb-8'
+        view === 'chats'
+          ? 'h-[calc(100dvh-5.5rem)] sm:h-[calc(100dvh-6.5rem)] lg:h-[calc(100dvh-7.5rem)] min-h-[520px]'
+          : 'min-h-[calc(100dvh-8.5rem)] pb-8'
       } text-[var(--text)]`}
     >
       {/* Top Header */}
@@ -571,6 +577,8 @@ export default function ConnectPage() {
                   incomingGroupChat={incomingGroupChat}
                   onToggleDetails={() => setShowRightDetails(!showRightDetails)}
                   onAddMembers={() => setAddMembersOpen(true)}
+                  dms={dms}
+                  groups={groups}
                 />
 
                 {/* Right Details Sidebar (Toggleable on desktop) */}
@@ -720,6 +728,147 @@ export default function ConnectPage() {
 }
 
 // ========================================================
+// FORWARD MESSAGE MODAL
+// ========================================================
+function ForwardModal({
+  isOpen,
+  onClose,
+  dms,
+  groups,
+  item,
+  onForwarded,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  dms: DMConversation[];
+  groups: GroupConversation[];
+  item: { content?: string; attachment?: ConnectAttachment } | null;
+  onForwarded: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const [sendingId, setSendingId] = useState<string | null>(null);
+  const { success, error: notifyError } = useNotification();
+
+  if (!isOpen || !item) return null;
+
+  const filteredDMs = dms.filter((d) => d.other_full_name.toLowerCase().includes(search.toLowerCase()));
+  const filteredGroups = groups.filter((g) => g.name.toLowerCase().includes(search.toLowerCase()));
+
+  async function handleSendTo(kind: 'dm' | 'group', targetId: string) {
+    setSendingId(targetId);
+    try {
+      let attachmentId: string | undefined;
+      const c = new AbortController();
+      if (item?.attachment) {
+        const blob = await loadConnectAttachment(item.attachment.id, c.signal);
+        const uploaded = await uploadConnectAttachment(
+          { kind, id: targetId },
+          item.attachment.kind,
+          blob,
+          crypto.randomUUID(),
+          c.signal,
+          () => {},
+        );
+        attachmentId = uploaded.id;
+      }
+      const textToSend = item?.content || (attachmentId ? '' : 'Forwarded message');
+      const options = {
+        attachments: attachmentId ? [attachmentId] : [],
+        client_nonce: crypto.randomUUID(),
+      };
+      if (kind === 'dm') {
+        await sendMessage(targetId, textToSend, options);
+      } else {
+        await sendGroupMessage(targetId, textToSend, options);
+      }
+      success('Message forwarded!');
+      onForwarded();
+      onClose();
+    } catch (e) {
+      notifyError(getErrorMessage(e, 'Could not forward message.'));
+    } finally {
+      setSendingId(null);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+      <div className="bg-white dark:bg-[#161821] rounded-2xl border border-slate-200 dark:border-[#22252e] w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+        <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-[#1d2028]">
+          <h3 className="font-bold text-base text-[var(--text)]">Forward to…</h3>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-[#20232e] text-[var(--text-muted)]"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="p-3 border-b border-slate-100 dark:border-[#1d2028]">
+          <div className="relative">
+            <Search className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search conversations…"
+              className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-[#22252e] bg-slate-50 dark:bg-[#101217] text-[var(--text)] focus:outline-none focus:border-[#1d68ec]"
+              autoFocus
+            />
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          {filteredGroups.length > 0 && (
+            <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">
+              Groups
+            </div>
+          )}
+          {filteredGroups.map((g) => (
+            <button
+              key={g.id}
+              disabled={sendingId === g.id}
+              onClick={() => void handleSendTo('group', g.id)}
+              className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-[#1a1d27] transition-colors text-left"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <ChatAvatar name={g.name} url={g.avatar_url} className="w-8 h-8 text-[10px]" />
+                <span className="text-xs font-semibold text-[var(--text)] truncate">{g.name}</span>
+              </div>
+              <span className="text-xs font-medium text-[#1d68ec] px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/40">
+                {sendingId === g.id ? 'Sending…' : 'Send'}
+              </span>
+            </button>
+          ))}
+          {filteredDMs.length > 0 && (
+            <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mt-2">
+              Direct Messages
+            </div>
+          )}
+          {filteredDMs.map((d) => (
+            <button
+              key={d.connection_id}
+              disabled={sendingId === d.other_user_id}
+              onClick={() => void handleSendTo('dm', d.other_user_id)}
+              className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-[#1a1d27] transition-colors text-left"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <ChatAvatar name={d.other_full_name} url={d.other_avatar_url} className="w-8 h-8 text-[10px]" />
+                <span className="text-xs font-semibold text-[var(--text)] truncate">{d.other_full_name}</span>
+              </div>
+              <span className="text-xs font-medium text-[#1d68ec] px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/40">
+                {sendingId === d.other_user_id ? 'Sending…' : 'Send'}
+              </span>
+            </button>
+          ))}
+          {filteredGroups.length === 0 && filteredDMs.length === 0 && (
+            <p className="text-center text-xs text-[var(--text-muted)] py-6">No chats found.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================
 // CENTER THREAD VIEW (MESSAGES, VOICE NOTE, AI ASSISTANT)
 // ========================================================
 function ThreadView({
@@ -730,6 +879,8 @@ function ThreadView({
   incomingGroupChat,
   onToggleDetails,
   onAddMembers: _onAddMembers,
+  dms,
+  groups,
 }: {
   myId: string;
   target: ThreadTarget;
@@ -738,16 +889,18 @@ function ThreadView({
   incomingGroupChat: GroupMessage | null;
   onToggleDetails: () => void;
   onAddMembers: () => void;
+  dms: DMConversation[];
+  groups: GroupConversation[];
 }) {
   const { success, error: notifyError } = useNotification();
+  const [text, setText] = useState('');
+  const [replyingTo, setReplyingTo] = useState<{ id: string; senderName: string; content: string } | null>(null);
+  const [forwardingItem, setForwardingItem] = useState<{ content?: string; attachment?: ConnectAttachment } | null>(
+    null,
+  );
+  const bottomRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<ThreadMessage[]>([]);
   const [loading, setLoading] = useState(true);
-  const [text, setText] = useState('');
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  // AI Assistant State
-  const [_aiLoading, setAiLoading] = useState(false);
-  const [showAiMenu, setShowAiMenu] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -796,7 +949,31 @@ function ThreadView({
     };
   }, [target]);
 
-  // Handle incoming websocket chat
+  const handleReply = (m: ThreadMessage) => {
+    const sender = m.sender_id === myId ? 'You' : m.sender_name || target.name;
+    const preview = m.content || (m.attachments?.length ? '📷 Photo' : 'Message');
+    setReplyingTo({ id: m.id, senderName: sender, content: preview });
+  };
+
+  function renderMessageContent(content: string) {
+    const match = content.match(/^>\s*\*\*([^*]+)\*\*:\s*(.*?)\n\n([\s\S]*)$/);
+    if (match) {
+      return (
+        <div className="space-y-1.5">
+          <div className="p-2 rounded-lg bg-black/10 dark:bg-white/10 border-l-2 border-current text-xs">
+            <span className="font-semibold block opacity-90">{match[1]}</span>
+            <span className="line-clamp-2 opacity-80">{match[2]}</span>
+          </div>
+          <p className="whitespace-pre-wrap text-sm">{match[3]}</p>
+        </div>
+      );
+    }
+    return <p className="whitespace-pre-wrap text-sm">{content}</p>;
+  }
+
+  // AI Assistant State
+  const [_aiLoading, setAiLoading] = useState(false);
+  const [showAiMenu, setShowAiMenu] = useState(false); // Handle incoming websocket chat
   useEffect(() => {
     if (!incomingChat || target.kind !== 'dm' || incomingChat.sender_id !== target.id) return;
     setMessages((prev) =>
@@ -939,7 +1116,7 @@ function ThreadView({
               const isMine = m.sender_id === myId;
 
               return (
-                <div key={m.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
+                <div key={m.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} group relative`}>
                   {/* Sender Name if group and not mine */}
                   {!isMine && target.kind === 'group' && (
                     <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mb-1 px-1">
@@ -947,11 +1124,44 @@ function ThreadView({
                     </span>
                   )}
 
-                  <div
-                    className={`p-3 rounded-2xl max-w-md ${isMine ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800'}`}
-                  >
-                    <ConnectAttachments items={m.attachments} />
-                    {m.content && <p className="whitespace-pre-wrap text-sm">{m.content}</p>}
+                  <div className="relative group/msg flex items-center gap-1.5 max-w-full">
+                    {/* Hover actions: Reply & Forward */}
+                    <div
+                      className={`opacity-0 group-hover/msg:opacity-100 transition-opacity flex items-center gap-1 text-[var(--text-muted)] ${
+                        isMine ? 'order-first' : 'order-last'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => handleReply(m)}
+                        title="Double-click bubble or click here to reply"
+                        className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-[var(--text)] transition-colors"
+                      >
+                        <CornerUpLeft className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setForwardingItem({ content: m.content, attachment: m.attachments?.[0] })}
+                        title="Forward message"
+                        className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-[var(--text)] transition-colors"
+                      >
+                        <Share2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <div
+                      onDoubleClick={() => handleReply(m)}
+                      title="Double-click to reply"
+                      className={`p-3 rounded-2xl max-w-md select-text cursor-pointer transition-all ${
+                        isMine ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800'
+                      }`}
+                    >
+                      <ConnectAttachments
+                        items={m.attachments}
+                        onForward={(att) => setForwardingItem({ attachment: att })}
+                      />
+                      {m.content && renderMessageContent(m.content)}
+                    </div>
                   </div>
 
                   {/* Timestamp & read receipts */}
@@ -1001,8 +1211,11 @@ function ThreadView({
         target={target}
         text={text}
         onText={setText}
+        replyingTo={replyingTo}
+        onClearReply={() => setReplyingTo(null)}
         onAI={() => setShowAiMenu(!showAiMenu)}
         onSent={(msg) => {
+          setReplyingTo(null);
           setMessages((prev) =>
             prev.some((m) => m.id === msg.id)
               ? prev
@@ -1021,6 +1234,17 @@ function ThreadView({
           );
         }}
       />
+
+      {forwardingItem && (
+        <ForwardModal
+          isOpen={!!forwardingItem}
+          onClose={() => setForwardingItem(null)}
+          dms={dms}
+          groups={groups}
+          item={forwardingItem}
+          onForwarded={() => success('Message forwarded successfully!')}
+        />
+      )}
     </div>
   );
 }
@@ -1415,7 +1639,6 @@ function CreateGroupModal({
 function DiscoverTab({ myId }: { myId: string }) {
   const { success, error: notifyError } = useNotification();
   const [users, setUsers] = useState<DirectoryUser[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [level, setLevel] = useState<number | 'all'>('all');
   const [connectedIds, setConnectedIds] = useState<Set<string>>(new Set());
@@ -1655,7 +1878,6 @@ function RequestsTab({
   const { success, error: notifyError } = useNotification();
   const [receivedRequests, setReceivedRequests] = useState<Connection[]>([]);
   const [sentRequests, setSentRequests] = useState<Connection[]>([]);
-  const [loading, setLoading] = useState(true);
   const [subTab, setSubTab] = useState<'received' | 'sent'>('received');
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -2038,6 +2260,7 @@ function JoinByLinkModal({
   onSubmitCode: (code: string) => void;
 }) {
   const [val, setVal] = useState('');
+
   if (!isOpen) return null;
 
   return (

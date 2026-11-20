@@ -475,7 +475,7 @@ export default function VerifiedAttendancePage() {
             <div className="space-y-2">
               <img src={qr} alt="Rotating attendance check-in QR" className="w-64 h-64" />
               <p className="text-sm">
-                Code expires at {new Date(expires).toLocaleTimeString()}. Keep this screen open; codes rotate every 20
+                Code expires at {new Date(expires).toLocaleTimeString()}. Keep this screen open; codes rotate every 59
                 seconds.
               </p>
               <a className="underline break-all" href={link}>

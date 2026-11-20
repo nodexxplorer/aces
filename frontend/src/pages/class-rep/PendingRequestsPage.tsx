@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNotification } from '../../hooks/useNotification';
 import {
   listPendingCourseRegistrations,
@@ -16,53 +17,37 @@ export default function PendingRequestsPage() {
   const [activeTab, setActiveTab] = useState<'forms' | 'registrations'>('forms');
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Course forms state
-  const [courseForms, setCourseForms] = useState<PendingCourseRegistration[]>([]);
   const [selectedFormIndex, setSelectedFormIndex] = useState(0);
-  const [loadingForms, setLoadingForms] = useState(true);
   const [verifyingFormId, setVerifyingFormId] = useState<string | null>(null);
-
-  // Student accounts state
-  const [studentAccounts, setStudentAccounts] = useState<PendingStudentRegistration[]>([]);
-  const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [approvingAccountId, setApprovingAccountId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchForms = async () => {
-    try {
-      setLoadingForms(true);
+  // Course forms query
+  const { data: courseForms = [] as PendingCourseRegistration[], isLoading: loadingForms } = useQuery({
+    queryKey: ['pending-course-forms', refreshKey],
+    queryFn: async () => {
       const res = await listPendingCourseRegistrations();
-      setCourseForms(Array.isArray(res) ? res : []);
-      setSelectedFormIndex(0);
-    } catch {
-      notifyError('Error', 'Failed to load pending course forms');
-    } finally {
-      setLoadingForms(false);
-    }
-  };
+      return Array.isArray(res) ? res : [];
+    },
+    staleTime: 30_000,
+  });
 
-  const fetchAccounts = async () => {
-    try {
-      setLoadingAccounts(true);
+  // Student accounts query
+  const { data: studentAccounts = [] as PendingStudentRegistration[], isLoading: loadingAccounts } = useQuery({
+    queryKey: ['pending-student-accounts', refreshKey],
+    queryFn: async () => {
       const res = await listPendingStudentRegistrations();
-      setStudentAccounts(Array.isArray(res) ? res : []);
-    } catch {
-      notifyError('Error', 'Failed to load pending student registrations');
-    } finally {
-      setLoadingAccounts(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchForms();
-    fetchAccounts();
-  }, [refreshKey]);
+      return Array.isArray(res) ? res : [];
+    },
+    staleTime: 30_000,
+  });
 
   const handleVerifyForm = async (reg: PendingCourseRegistration) => {
     try {
       setVerifyingFormId(reg.id);
       await approveCourseRegistration(reg.id);
       success('Form Verified', `Verified course form for ${reg.student_name}`);
-      await fetchForms();
+      queryClient.invalidateQueries({ queryKey: ['pending-course-forms'] });
     } catch (e) {
       notifyError('Error', getErrorMessage(e, 'Failed to verify form'));
     } finally {
@@ -75,7 +60,7 @@ export default function PendingRequestsPage() {
       setApprovingAccountId(account.id);
       await approveStudentRegistration(account.id);
       success('Account Approved', `Approved ${account.full_name}'s registration`);
-      await fetchAccounts();
+      queryClient.invalidateQueries({ queryKey: ['pending-student-accounts'] });
     } catch (e) {
       notifyError('Error', getErrorMessage(e, 'Failed to approve student'));
     } finally {
@@ -86,16 +71,13 @@ export default function PendingRequestsPage() {
   const handleApproveAllAccounts = async () => {
     if (studentAccounts.length === 0) return;
     try {
-      setLoadingAccounts(true);
       for (const account of studentAccounts) {
         await approveStudentRegistration(account.id);
       }
       success('All Approved', `Approved all ${studentAccounts.length} student accounts`);
-      await fetchAccounts();
+      queryClient.invalidateQueries({ queryKey: ['pending-student-accounts'] });
     } catch (e) {
       notifyError('Error', getErrorMessage(e, 'Failed to approve all students'));
-    } finally {
-      setLoadingAccounts(false);
     }
   };
 

@@ -1135,9 +1135,10 @@ func (server *Server) checkoutCart(ctx *gin.Context) {
 	for _, item := range cartItems {
 		duesTotal = duesTotal.Add(item.Amount)
 	}
-	// The charge is part of the batch total, so the one Paystack charge and the
-	// webhook's amount check both include it.
-	totalAmount := duesTotal.Add(duesCheckoutCharge)
+	// Each dues item carries its own processing charge, baked into its amount
+	// so there is no separate "Processing Charge" receipt row.
+	totalCharge := duesCheckoutCharge.Mul(decimal.NewFromInt(int64(len(cartItems))))
+	totalAmount := duesTotal.Add(totalCharge)
 
 	batch, err := server.store.CreatePaymentBatch(ctx, db.CreatePaymentBatchParams{
 		StudentID:   studentID,
@@ -1159,37 +1160,21 @@ func (server *Server) checkoutCart(ctx *gin.Context) {
 			itemName = due.Name
 			dueType = due.Type
 		}
-		// Stamp the batch's Paystack reference onto each individual payment too —
-		// both the webhook and the staff by-reference lookup query the payments
-		// table directly, so without this a successful cart checkout can never be
-		// reconciled back to the dues it paid for.
+		// The processing charge is added to the dues amount so each payment
+		// row reflects the full price the student paid for that due.
 		_, err = server.store.CreatePayment(ctx, db.CreatePaymentParams{
 			StudentID:         studentID,
 			BatchID:           pgtype.UUID{Bytes: batchID, Valid: true},
 			DueID:             pgtype.UUID{Bytes: item.DueID, Valid: true},
 			Type:              dueType,
 			ItemName:          itemName,
-			Amount:            item.Amount,
+			Amount:            item.Amount.Add(duesCheckoutCharge),
 			PaystackReference: &reference,
 		})
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
 		}
-	}
-
-	// The charge is its own payment row in the batch, sharing the batch
-	// reference, so the webhook completes it with the dues.
-	if _, err := server.store.CreatePayment(ctx, db.CreatePaymentParams{
-		StudentID:         studentID,
-		BatchID:           pgtype.UUID{Bytes: batchID, Valid: true},
-		Type:              db.PaymentTypeOther,
-		ItemName:          "Payment Processing Charge",
-		Amount:            duesCheckoutCharge,
-		PaystackReference: &reference,
-	}); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-		return
 	}
 
 	if q, ok := server.store.(interface{ GetDB() db.DBTX }); ok {
@@ -1355,13 +1340,19 @@ func (server *Server) confirmMyPaymentByReference(ctx *gin.Context) {
 		paystackClient := payment.NewPaystackClient(server.config.PaystackSecretKey, server.config.PaystackPublicKey)
 		psResp, err := paystackClient.VerifyPayment(q.Reference)
 		if err != nil {
-			ctx.JSON(http.StatusBadGateway, gin.H{"error": "could not verify payment with Paystack"})
-			return
-		}
-		if psResp.Data.Status == "success" {
+			// Paystack API unreachable (network, timeout, etc.). Instead of a
+			// hard error that shows "Payment Verification Issue" to the student,
+			// fall through and return the existing payment record so the
+			// frontend can show "pending" with a retry option. The webhook or a
+			// subsequent retry will complete the payment once Paystack is
+			// reachable again.
+			log.Printf("[payment-confirm] Paystack verify failed for %s, returning existing record: %v", q.Reference, err)
+		} else if psResp.Data.Status == "success" {
 			if _, err := server.completePaymentsForReference(ctx, q.Reference, psResp.Data.Amount); err != nil {
-				ctx.JSON(http.StatusBadRequest, gin.H{"error": "internal server error"})
-				return
+				// Amount mismatch or DB error — log it but still return the
+				// payment record so the student sees "pending" rather than a
+				// cryptic error. The webhook will reconcile correctly.
+				log.Printf("[payment-confirm] completePaymentsForReference failed for %s: %v", q.Reference, err)
 			}
 		}
 	}

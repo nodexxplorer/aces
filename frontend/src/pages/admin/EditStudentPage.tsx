@@ -1,26 +1,75 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import EmptyState from '../../components/ui/EmptyState';
 import Badge from '../../components/ui/Badge';
-import { getStudentFullProfile, hodEditStudent, type AuditLog, type StudentProfile } from '../../api/profile-edit';
+import { getStudentFullProfile, hodEditStudent, type _AuditLog, type StudentProfile } from '../../api/profile-edit';
 import { useNotification } from '../../hooks/useNotification';
 import { ArrowLeft, Save, Shield, Clock, User, Phone, MapPin, Mail, AlertCircle } from 'lucide-react';
 import { getErrorMessage } from '../../utils/errors';
 
+import { useQuery } from '@tanstack/react-query';
 const EditStudentPage = () => {
   const { id } = useParams();
   const { success, error: notifyError } = useNotification();
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [profile, setProfile] = useState<StudentProfile | null>(null);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [reason, setReason] = useState('');
   const [showReason, setShowReason] = useState(false);
 
-  const [form, setForm] = useState({
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['edit-student', id],
+    queryFn: async () => {
+      const _r: any = {
+        profile: null,
+        auditLogs: [],
+        form: {
+          firstName: '',
+          lastName: '',
+          phone: '',
+          homeAddress: '',
+          dateOfBirth: '',
+          emergencyContactName: '',
+          emergencyContactPhone: '',
+          matricNumber: '',
+          level: '',
+          academicStanding: '',
+          graduationStatus: '',
+          admissionMode: '',
+          yearAdmitted: '',
+        },
+      };
+      if (!id) return;
+      getStudentFullProfile(id)
+        .then((data: StudentProfile) => {
+          _r.profile = data;
+          _r.auditLogs = data.audit_logs || [];
+          _r.form = {
+            firstName: data.firstName || '',
+            lastName: data.lastName || '',
+            phone: data.phone || '',
+            homeAddress: data.homeAddress || '',
+            dateOfBirth: data.dateOfBirth || '',
+            emergencyContactName: data.emergencyContactName || '',
+            emergencyContactPhone: data.emergencyContactPhone || '',
+            matricNumber: data.matricNumber || '',
+            level: data.level ? String(data.level) : '',
+            academicStanding: data.academicStanding || '',
+            graduationStatus: data.graduationStatus || '',
+            admissionMode: data.admissionMode || '',
+            yearAdmitted: data.yearAdmitted ? String(data.yearAdmitted) : '',
+          };
+        })
+        .catch((err: unknown) => notifyError('Error', getErrorMessage(err, 'Failed to load profile')));
+      return _r;
+    },
+    staleTime: 60_000,
+    enabled: !!id,
+  });
+  const profile = _qd?.profile ?? null;
+  const auditLogs = _qd?.auditLogs ?? [];
+  const form = _qd?.form ?? {
     firstName: '',
     lastName: '',
     phone: '',
@@ -34,35 +83,7 @@ const EditStudentPage = () => {
     graduationStatus: '',
     admissionMode: '',
     yearAdmitted: '',
-  });
-
-  useEffect(() => {
-    if (!id) return;
-    setLoading(true);
-    getStudentFullProfile(id)
-      .then((data: StudentProfile) => {
-        setProfile(data);
-        setAuditLogs(data.audit_logs || []);
-        setForm({
-          firstName: data.firstName || '',
-          lastName: data.lastName || '',
-          phone: data.phone || '',
-          homeAddress: data.homeAddress || '',
-          dateOfBirth: data.dateOfBirth || '',
-          emergencyContactName: data.emergencyContactName || '',
-          emergencyContactPhone: data.emergencyContactPhone || '',
-          matricNumber: data.matricNumber || '',
-          level: data.level ? String(data.level) : '',
-          academicStanding: data.academicStanding || '',
-          graduationStatus: data.graduationStatus || '',
-          admissionMode: data.admissionMode || '',
-          yearAdmitted: data.yearAdmitted ? String(data.yearAdmitted) : '',
-        });
-      })
-      .catch((err: unknown) => notifyError('Error', getErrorMessage(err, 'Failed to load profile')))
-      .finally(() => setLoading(false));
-  }, [id]);
-
+  };
   const hasChanges =
     JSON.stringify(form) !==
     JSON.stringify({

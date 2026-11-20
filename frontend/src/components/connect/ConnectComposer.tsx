@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Mic, ImagePlus, Send, Trash2, Square, Sparkles } from 'lucide-react';
+import { Mic, ImagePlus, Send, Trash2, Square, Sparkles, CornerUpLeft, X, Loader2 } from 'lucide-react';
 import {
   compressConnectImage,
   discardConnectAttachment,
@@ -8,6 +8,7 @@ import {
 } from '../../api/connect-media';
 import { sendMessage, sendGroupMessage, type Message, type GroupMessage } from '../../api/connect';
 import { getErrorMessage } from '../../utils/errors';
+import VoiceNotePlayer from './VoiceNotePlayer';
 
 type Draft = { nonce: string; kind: 'image' | 'voice'; blob: Blob; url: string; assetId?: string };
 export default function ConnectComposer({
@@ -16,12 +17,16 @@ export default function ConnectComposer({
   onText,
   onSent,
   onAI,
+  replyingTo,
+  onClearReply,
 }: {
   target: ConnectTarget;
   text: string;
   onText: (s: string) => void;
   onSent: (m: Message | GroupMessage) => void;
   onAI?: () => void;
+  replyingTo?: { senderName: string; content: string } | null;
+  onClearReply?: () => void;
 }) {
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const latest = useRef<Draft[]>([]);
@@ -188,16 +193,20 @@ export default function ConnectComposer({
         }
       if (!alive.current) return;
       setStatus('Sending…');
+      const contentToSend = replyingTo
+        ? `> **${replyingTo.senderName}**: ${replyingTo.content.replace(/\n/g, ' ').slice(0, 100)}\n\n${text.trim()}`
+        : text.trim();
       const options = { attachments: latest.current.map((d) => d.assetId!), client_nonce: nonce.current };
       const m =
         target.kind === 'dm'
-          ? await sendMessage(target.id, text.trim(), options)
-          : await sendGroupMessage(target.id, text.trim(), options);
+          ? await sendMessage(target.id, contentToSend, options)
+          : await sendGroupMessage(target.id, contentToSend, options);
       if (!alive.current) return;
       latest.current.forEach((d) => URL.revokeObjectURL(d.url));
       update([]);
       nonce.current = crypto.randomUUID();
       onText('');
+      onClearReply?.();
       setLocked(false);
       onSent(m);
     } catch (e) {
@@ -241,40 +250,114 @@ export default function ConnectComposer({
         </p>
       )}
       {recording && (
-        <div className="flex items-center gap-3">
-          <span role="status">
-            Recording {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')} / 5:00
-          </span>
-          <button type="button" onClick={() => stop()} className="p-2" aria-label="Stop and preview recording">
-            <Square size={18} />
-          </button>
-          <button type="button" onClick={() => stop(true)} aria-label="Cancel recording">
-            <Trash2 size={18} />
-          </button>
+        <div className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-red-50/80 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 animate-fade-in shadow-sm">
+          <div className="flex items-center gap-3">
+            {/* WhatsApp live pulsing red recording indicator */}
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
+            </span>
+            <span role="status" className="font-mono text-sm font-semibold text-red-600 dark:text-red-400 tabular-nums">
+              Recording {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')} / 5:00
+            </span>
+          </div>
+
+          {/* WhatsApp Recording equalizer waves */}
+          <div className="hidden sm:flex items-center gap-1 h-6 flex-1 max-w-[200px] px-2">
+            {[40, 75, 55, 90, 60, 85, 45, 100, 70, 50, 80, 65, 95, 40].map((h, i) => (
+              <div
+                key={i}
+                style={{ height: `${h}%`, animationDelay: `${i * 80}ms` }}
+                className="flex-1 bg-red-500/80 rounded-full animate-pulse min-w-[2px]"
+              />
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => stop(true)}
+              aria-label="Cancel recording"
+              title="Cancel recording"
+              className="p-2 rounded-full text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40 active:scale-95 transition-all"
+            >
+              <Trash2 size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => stop()}
+              aria-label="Stop and preview recording"
+              title="Stop & preview"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#00a884] hover:bg-[#008f6f] active:scale-95 text-white text-xs font-semibold shadow-sm transition-all"
+            >
+              <Square size={13} className="fill-current" />
+              <span>Stop & Preview</span>
+            </button>
+          </div>
         </div>
       )}
       <div className="flex gap-2 flex-wrap">
         {drafts.map((d) => (
-          <div key={d.nonce} className="border rounded p-1">
+          <div key={d.nonce} className="relative group">
             {d.kind === 'image' ? (
-              <img src={d.url} alt="Image ready to send" className="w-24 h-24 object-contain" />
+              <div className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-800">
+                <img src={d.url} alt="Image ready to send" className="w-24 h-24 object-cover" />
+                <button
+                  type="button"
+                  disabled={working || locked}
+                  onClick={() => {
+                    dispose(d);
+                    update(latest.current.filter((x) => x !== d));
+                  }}
+                  aria-label="Remove image"
+                  title="Remove image"
+                  className="absolute top-1 right-1 p-1 rounded-full bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm transition-all"
+                >
+                  <X size={14} />
+                  <span className="sr-only">Remove</span>
+                </button>
+              </div>
             ) : (
-              <audio controls preload="metadata" src={d.url} aria-label="Voice note preview" />
+              <div className="flex items-center gap-2 p-1 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                <VoiceNotePlayer src={d.url} compact={true} seed={d.nonce} ariaLabel="Voice note preview" />
+                <button
+                  type="button"
+                  disabled={working || locked}
+                  onClick={() => {
+                    dispose(d);
+                    update(latest.current.filter((x) => x !== d));
+                  }}
+                  aria-label="Remove"
+                  title="Discard voice note"
+                  className="p-2 mr-1 rounded-full text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-95 transition-all"
+                >
+                  <Trash2 size={18} />
+                  <span className="sr-only">Remove</span>
+                </button>
+              </div>
             )}
-            <button
-              type="button"
-              disabled={working || locked}
-              onClick={() => {
-                dispose(d);
-                update(latest.current.filter((x) => x !== d));
-              }}
-              className="text-xs underline p-1"
-            >
-              Remove
-            </button>
           </div>
         ))}
       </div>
+      {replyingTo && (
+        <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800/80 border-l-4 border-[#1d68ec] text-xs">
+          <div className="flex items-center gap-2 min-w-0">
+            <CornerUpLeft className="w-3.5 h-3.5 text-[#1d68ec] shrink-0" />
+            <div className="truncate">
+              <span className="font-bold text-[#1d68ec] mr-1.5">Replying to {replyingTo.senderName}:</span>
+              <span className="text-[var(--text-muted)] truncate">{replyingTo.content}</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClearReply}
+            className="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-[var(--text-muted)] hover:text-[var(--text)] ml-2 shrink-0"
+            aria-label="Cancel reply"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -296,7 +379,8 @@ export default function ConnectComposer({
           aria-label="Attach images"
           disabled={working || recording || locked || drafts.some((d) => d.kind === 'voice')}
           onClick={() => input.current?.click()}
-          className="p-2 disabled:opacity-40"
+          className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 active:scale-95 transition-all disabled:opacity-40"
+          title="Attach images"
         >
           <ImagePlus size={20} />
         </button>
@@ -305,7 +389,8 @@ export default function ConnectComposer({
           aria-label="Record voice note"
           disabled={working || recording || locked || drafts.length > 0}
           onClick={() => void record()}
-          className="p-2 disabled:opacity-40"
+          className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 active:scale-95 transition-all disabled:opacity-40"
+          title="Record voice note"
         >
           <Mic size={20} />
         </button>
@@ -316,7 +401,7 @@ export default function ConnectComposer({
           maxLength={8000}
           placeholder={drafts.length ? 'Optional caption…' : 'Message…'}
           aria-label="Message or caption"
-          className="min-w-0 flex-1 rounded-lg border p-2 bg-transparent"
+          className="min-w-0 flex-1 rounded-full border border-slate-200 dark:border-slate-700/80 px-4 py-2 text-sm bg-slate-50/50 dark:bg-slate-800/50 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#00a884]/40 dark:focus:ring-[#00a884]/30 transition-all placeholder:text-slate-400"
         />
         {onAI && (
           <button
@@ -324,7 +409,8 @@ export default function ConnectComposer({
             onClick={onAI}
             disabled={working || locked || recording}
             aria-label="AI assistant"
-            className="p-2"
+            className="p-2 rounded-full hover:bg-purple-50 dark:hover:bg-purple-950/30 text-purple-600 dark:text-purple-400 transition-colors"
+            title="Ask AI"
           >
             <Sparkles size={18} />
           </button>
@@ -333,15 +419,22 @@ export default function ConnectComposer({
           type="submit"
           disabled={working || recording || (!text.trim() && !drafts.length)}
           aria-label={locked ? 'Retry sending' : 'Send message'}
-          className="p-2 disabled:opacity-40"
+          className="flex items-center justify-center w-10 h-10 rounded-full bg-[#00a884] hover:bg-[#008f6f] active:scale-95 text-white shadow-sm shrink-0 transition-all disabled:opacity-40 disabled:hover:bg-[#00a884] disabled:scale-100"
         >
-          <Send size={20} />
+          {working ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} className="ml-0.5" />}
         </button>
       </form>
       {(drafts.length > 0 || locked) && (
-        <button type="button" disabled={working} onClick={discard} className="text-xs underline">
-          Discard draft
-        </button>
+        <div className="flex justify-end pt-1">
+          <button
+            type="button"
+            disabled={working}
+            onClick={discard}
+            className="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 hover:underline transition-colors"
+          >
+            Discard draft
+          </button>
+        </div>
       )}
     </div>
   );

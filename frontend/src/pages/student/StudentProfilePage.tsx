@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../hooks/useAuth';
 import { getMediaUrl } from '../../api/client';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
@@ -70,7 +71,6 @@ export const StudentProfilePage = () => {
   const [saving, setSaving] = useState(false);
   const [, setUploadingPhoto] = useState(false);
   const [documents, setDocuments] = useState<StudentDocument[]>([]);
-  const [, setLoadingDocs] = useState(false);
 
   // Form state
   const initialForm = useMemo(() => {
@@ -114,15 +114,16 @@ export const StudentProfilePage = () => {
   }, [form, initialForm]);
 
   // Load documents
-  useEffect(() => {
-    setLoadingDocs(true);
-    listStudentDocuments()
-      .then((res) => {
-        setDocuments(extractDocuments(res));
-      })
-      .catch(() => {})
-      .finally(() => setLoadingDocs(false));
-  }, []);
+  useQuery({
+    queryKey: ['student-documents'],
+    queryFn: async () => {
+      const res = await listStudentDocuments();
+      const docs = extractDocuments(res);
+      setDocuments(docs);
+      return docs;
+    },
+    staleTime: 5 * 60_000,
+  });
 
   // Generate Digital ID QR Code
   useEffect(() => {

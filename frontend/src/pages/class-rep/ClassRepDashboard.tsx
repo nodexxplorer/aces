@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
@@ -9,50 +8,54 @@ import {
   listMyReports,
   listPendingCourseRegistrations,
   listPendingStudentRegistrations,
-  type ClassRepStudent,
-  type AttendanceSession,
-  type ClassRepReport,
 } from '../../api/class-rep';
 import { Users, CheckCircle, BarChart3, FileText, RefreshCw, Plus, ArrowUpRight, Check, Megaphone } from 'lucide-react';
 
+import { useQuery } from '@tanstack/react-query';
 export default function ClassRepDashboard() {
   const { user } = useAuth();
   const { error: notifyError } = useNotification();
-  const [students, setStudents] = useState<ClassRepStudent[]>([]);
-  const [sessions, setSessions] = useState<AttendanceSession[]>([]);
-  const [reports, setReports] = useState<ClassRepReport[]>([]);
-  const [pendingFormsCount, setPendingFormsCount] = useState(0);
-  const [pendingStudentsCount, setPendingStudentsCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
 
-  const loadData = async () => {
-    try {
-      const [classList, sessionsList, reportsList, formsList, studentsRegList] = await Promise.allSettled([
-        getClassRepClassList(),
-        listMyAttendanceSessions(),
-        listMyReports(),
-        listPendingCourseRegistrations(),
-        listPendingStudentRegistrations(),
-      ]);
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['class-rep-dashboard'],
+    queryFn: async () => {
+      const _r: any = {
+        students: [],
+        sessions: [],
+        reports: [],
+        pendingFormsCount: 0,
+        pendingStudentsCount: 0,
+        refreshing: false,
+      };
+      try {
+        const [classList, sessionsList, reportsList, formsList, studentsRegList] = await Promise.allSettled([
+          getClassRepClassList(),
+          listMyAttendanceSessions(),
+          listMyReports(),
+          listPendingCourseRegistrations(),
+          listPendingStudentRegistrations(),
+        ]);
 
-      if (classList.status === 'fulfilled') setStudents(classList.value);
-      if (sessionsList.status === 'fulfilled') setSessions(sessionsList.value);
-      if (reportsList.status === 'fulfilled') setReports(reportsList.value);
-      if (formsList.status === 'fulfilled') setPendingFormsCount(formsList.value.length);
-      if (studentsRegList.status === 'fulfilled') setPendingStudentsCount(studentsRegList.value.length);
-    } catch (e: unknown) {
-      notifyError('Load Error', getErrorMessage(e, 'Failed to load dashboard data'));
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
+        if (classList.status === 'fulfilled') _r.students = classList.value;
+        if (sessionsList.status === 'fulfilled') _r.sessions = sessionsList.value;
+        if (reportsList.status === 'fulfilled') _r.reports = reportsList.value;
+        if (formsList.status === 'fulfilled') _r.pendingFormsCount = formsList.value.length;
+        if (studentsRegList.status === 'fulfilled') _r.pendingStudentsCount = studentsRegList.value.length;
+      } catch (e: unknown) {
+        notifyError('Load Error', getErrorMessage(e, 'Failed to load dashboard data'));
+      } finally {
+        _r.refreshing = false;
+      }
+      return _r;
+    },
+    staleTime: 30_000,
+  });
+  const students = _qd?.students ?? [];
+  const sessions = _qd?.sessions ?? [];
+  const reports = _qd?.reports ?? [];
+  const pendingFormsCount = _qd?.pendingFormsCount ?? 0;
+  const pendingStudentsCount = _qd?.pendingStudentsCount ?? 0;
+  const refreshing = _qd?.refreshing ?? false;
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadData();

@@ -31,6 +31,7 @@ import {
 } from '../../api/alumni';
 import { getErrorMessage } from '../../utils/errors';
 
+import { useQuery } from '@tanstack/react-query';
 // Job/application shapes as actually consumed on this page — the backend
 // returns a mix of snake_case and camelCase fields for these resources.
 type JobBadgeVariant = 'primary' | 'info' | 'success' | 'warning' | 'danger' | 'default' | 'outline' | 'secondary';
@@ -85,8 +86,6 @@ const typeColors: Record<string, JobBadgeVariant> = {
 const AlumniJobsPage = () => {
   const { user } = useAuth();
   const { success, error: notifyError } = useNotification();
-  const [jobs, setJobs] = useState<AlumniJob[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'my' | 'applications'>('all');
   const [appStatusFilter, setAppStatusFilter] = useState<'all' | 'pending' | 'accepted' | 'rejected'>('all');
@@ -109,14 +108,18 @@ const AlumniJobsPage = () => {
   const [responsibilities, setResponsibilities] = useState('');
   const [appUrl, setAppUrl] = useState('');
 
-  useEffect(() => {
-    setLoading(true);
-    getJobPosts()
-      .then((data) => setJobs(Array.isArray(data) ? data : []))
-      .catch(() => notifyError('Error', 'Failed to load jobs'))
-      .finally(() => setLoading(false));
-  }, []);
-
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['alumni-jobs'],
+    queryFn: async () => {
+      const _r: any = { jobs: [] };
+      getJobPosts()
+        .then((data) => (_r.jobs = Array.isArray(data) ? data : []))
+        .catch(() => notifyError('Error', 'Failed to load jobs'));
+      return _r;
+    },
+    staleTime: 60_000,
+  });
+  const jobs = _qd?.jobs ?? [];
   const fetchApplicationsForMyJobs = useCallback(async () => {
     if (!user) return;
     setLoadingApps(true);

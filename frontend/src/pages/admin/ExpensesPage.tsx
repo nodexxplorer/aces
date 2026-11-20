@@ -1,15 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Banknote, CheckCircle, XCircle, Clock, Filter, Plus, BarChart3 } from 'lucide-react';
-import {
-  listExpenses,
-  createExpense,
-  getExpenseSummary,
-  updateExpenseStatus,
-  type Expense,
-} from '../../api/additional-features';
+import { listExpenses, createExpense, getExpenseSummary, updateExpenseStatus } from '../../api/additional-features';
 import { useRBAC } from '../../hooks/useRBAC';
 import EmptyState from '../../components/ui/EmptyState';
 
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 const STATUS_BADGES: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
   approved: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
@@ -26,8 +21,7 @@ interface ExpenseSummary {
 }
 
 export default function ExpensesPage() {
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [summary, setSummary] = useState<ExpenseSummary>({
+  const [summary, _setSummary] = useState<ExpenseSummary>({
     total_expenses: 0,
     total_count: 0,
     pending_count: 0,
@@ -35,7 +29,6 @@ export default function ExpensesPage() {
     rejected_count: 0,
     approved_amount: 0,
   });
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [showForm, setShowForm] = useState(false);
   const { isAdmin: isAdminRole, isBursar } = useRBAC();
@@ -49,31 +42,33 @@ export default function ExpensesPage() {
     receipt_url: '',
   });
 
-  const fetchExpenses = async () => {
-    setLoading(true);
-    try {
-      const data = await listExpenses();
-      setExpenses(data);
-    } catch (err) {
-      console.error('Failed to fetch expenses:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const queryClient = useQueryClient();
+  const { data: expenses = [], isLoading: loading } = useQuery({
+    queryKey: ['expenses'],
+    queryFn: async () => {
+      const res = await listExpenses();
+      return Array.isArray(res) ? res : [];
+    },
+    staleTime: 60_000,
+  });
 
-  const fetchSummary = async () => {
-    try {
-      const data = await getExpenseSummary();
-      setSummary(data);
-    } catch (err) {
-      console.error('Failed to fetch summary:', err);
-    }
-  };
+  const {
+    data: summary = {
+      total_expenses: 0,
+      total_count: 0,
+      pending_count: 0,
+      approved_count: 0,
+      rejected_count: 0,
+      approved_amount: 0,
+    },
+  } = useQuery({
+    queryKey: ['expenses-summary'],
+    queryFn: getExpenseSummary,
+    staleTime: 60_000,
+  });
 
-  useEffect(() => {
-    fetchExpenses();
-    fetchSummary();
-  }, []);
+  const fetchExpenses = () => queryClient.invalidateQueries({ queryKey: ['expenses'] });
+  const fetchSummary = () => queryClient.invalidateQueries({ queryKey: ['expenses-summary'] });
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

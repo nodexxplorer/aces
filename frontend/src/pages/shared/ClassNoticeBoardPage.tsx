@@ -9,11 +9,10 @@ import {
 import { useAuthStore } from '../../stores/authStore';
 import EmptyState from '../../components/ui/EmptyState';
 
+import { useQuery } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 export default function ClassNoticeBoardPage() {
   const { user } = useAuthStore();
-  const [notices, setNotices] = useState<ClassNotice[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [expandedNoticeId, setExpandedNoticeId] = useState<string | null>(null);
   const [commentsMap, setCommentsMap] = useState<
     Record<string, { id: string; content: string; author_name: string; created_at: string }[]>
@@ -22,14 +21,22 @@ export default function ClassNoticeBoardPage() {
   const [submitting, setSubmitting] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
 
-  useEffect(() => {
-    setLoading(true);
-    listClassNotices()
-      .then(setNotices)
-      .catch(() => setError('Failed to load class notices.'))
-      .finally(() => setLoading(false));
-  }, []);
-
+  const queryClient = useQueryClient();
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['class-notice-board'],
+    queryFn: async () => {
+      try {
+        const notices = await listClassNotices();
+        return { notices: Array.isArray(notices) ? notices : [], error: null };
+      } catch {
+        return { notices: [], error: 'Failed to load class notices.' };
+      }
+    },
+    staleTime: 60_000,
+  });
+  const notices = _qd?.notices ?? [];
+  const error = _qd?.error ?? null;
+  const _loadNotices = () => queryClient.invalidateQueries({ queryKey: ['class-notice-board'] });
   useEffect(() => {
     if (!expandedNoticeId) return;
     setLoadingComments(true);

@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
 import { formatCurrency } from '../../utils/formatters';
 import { getBursarDashboard } from '../../api/lecturers';
 import { getAllDues, verifyPayment } from '../../api/payments';
-import type { BursarDashboardResponse, PendingPayment } from '../../api/lecturers';
+import type { PendingPayment } from '../../api/lecturers';
 import type { DuePayment } from '../../types';
+import { useQuery } from '@tanstack/react-query';
 import {
   CreditCard,
   TrendingUp,
@@ -24,24 +25,28 @@ import {
 export default function BursarDashboard() {
   const { user } = useAuth();
   const { success, error: notifyError } = useNotification();
-
-  const [data, setData] = useState<BursarDashboardResponse | null>(null);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'all' | 'paystack' | 'manual'>('all');
   const [, setDues] = useState<DuePayment[]>([]);
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
+
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['bursar-dashboard'],
+    queryFn: async () => {
+      const _result: any = { data: null };
+      try {
+        const res = await getBursarDashboard();
+        _result.data = res;
+      } catch {
+        notifyError('Error', 'Failed to load dashboard data');
+      }
+
+      return _result;
+    },
+    staleTime: 30_000,
+  });
+  const data = _qd?.data ?? null;
   const [refreshing, setRefreshing] = useState(false);
-
-  const fetchDashboard = async () => {
-    try {
-      const res = await getBursarDashboard();
-      setData(res);
-    } catch {
-      notifyError('Error', 'Failed to load dashboard data');
-    }
-  };
-
-  const fetchDues = async () => {
+  const _fetchDues = async () => {
     try {
       const res = await getAllDues();
       const arr = Array.isArray(res) ? res : [];
@@ -50,12 +55,6 @@ export default function BursarDashboard() {
       setDues([]);
     }
   };
-
-  useEffect(() => {
-    setLoading(true);
-    Promise.all([fetchDashboard(), fetchDues()]).finally(() => setLoading(false));
-  }, []);
-
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchDashboard();

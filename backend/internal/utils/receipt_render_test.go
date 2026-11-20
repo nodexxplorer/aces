@@ -54,7 +54,7 @@ func TestRenderReceiptSamples(t *testing.T) {
 func TestEmbeddedFontsPresent(t *testing.T) {
 	for _, name := range []string{
 		"DejaVuSans.ttf", "DejaVuSans-Bold.ttf", "DejaVuSerif.ttf",
-		"DejaVuSerif-Bold.ttf", "DejaVuSansMono-Bold.ttf",
+		"DejaVuSerif-Bold.ttf", "DejaVuSansMono-Bold.ttf", "Signature.ttf",
 	} {
 		if _, err := embeddedFont(name); err != nil {
 			t.Errorf("embedded font %s: %v", name, err)

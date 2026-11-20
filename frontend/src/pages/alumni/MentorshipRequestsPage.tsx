@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
@@ -20,26 +21,24 @@ const statusVariants: Record<string, StatusVariant> = {
 
 const MentorshipRequestsPage = () => {
   const { success, error: notifyError } = useNotification();
-  const [requests, setRequests] = useState<MentorshipRequestItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [actioningId, setActioningId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const load = () => {
-    setLoading(true);
-    getMyMentorshipRequests()
-      .then((data) => setRequests(Array.isArray(data) ? data : []))
-      .catch(() => notifyError('Error', 'Failed to load mentorship requests'))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(load, []);
+  const { data: requests = [] as MentorshipRequestItem[], isLoading: loading } = useQuery({
+    queryKey: ['mentorship-requests'],
+    queryFn: async () => {
+      const data = await getMyMentorshipRequests();
+      return Array.isArray(data) ? data : [];
+    },
+    staleTime: 60_000,
+  });
 
   const respond = async (id: string, status: 'accepted' | 'declined') => {
     try {
       setActioningId(id);
       await respondToMentorship(id, status);
       success(status === 'accepted' ? 'Request Accepted' : 'Request Declined', '');
-      load();
+      queryClient.invalidateQueries({ queryKey: ['mentorship-requests'] });
     } catch (err) {
       notifyError('Action Failed', getErrorMessage(err, 'Could not update this request'));
     } finally {

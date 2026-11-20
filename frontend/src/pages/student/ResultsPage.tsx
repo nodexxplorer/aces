@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Card from '../../components/ui/Card';
 import EmptyState from '../../components/ui/EmptyState';
 import { getStudentResults, getResultSlipDownloadUrl } from '../../api/results';
@@ -7,8 +7,9 @@ import { getCourses } from '../../api/courses';
 import { getSessions, listSessionSemesters } from '../../api/sessions';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
-import type { Course, Session, SemesterEntry } from '../../types';
+import type { SemesterEntry } from '../../types';
 
+import { useQuery } from '@tanstack/react-query';
 interface RawResult {
   id: string;
   course_id: string;
@@ -48,45 +49,47 @@ const parseScore = (v: number | string | undefined): number => {
 export default function ResultsPage() {
   const { user } = useAuth();
   const { error: notifyError } = useNotification();
-  const [results, setResults] = useState<RawResult[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [sessions, setSessions] = useState<Session[]>([]);
   const [semesterMap, setSemesterMap] = useState<Record<string, SemesterEntry[]>>({});
-  const [loading, setLoading] = useState(true);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [, setPrintSection] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!user?.id) return;
-    setLoading(true);
-    Promise.all([
-      getStudentResults(user.id).catch(() => []),
-      getCourses().catch(() => []),
-      getSessions().catch(() => []),
-    ])
-      .then(async ([res, crs, sess]) => {
-        const rawResults = Array.isArray(res) ? (res as unknown as RawResult[]) : [];
-        setResults(rawResults);
-        setCourses(Array.isArray(crs) ? crs : []);
-        const sessArr = Array.isArray(sess) ? sess : [];
-        setSessions(sessArr);
-        const sessionIds = [...new Set(rawResults.map((r) => r.session_id).filter(Boolean))] as string[];
-        const semMap: Record<string, SemesterEntry[]> = {};
-        await Promise.all(
-          sessionIds.map(async (sid) => {
-            try {
-              semMap[sid] = await listSessionSemesters(sid);
-            } catch {
-              semMap[sid] = [];
-            }
-          }),
-        );
-        setSemesterMap(semMap);
-      })
-      .catch(() => notifyError('Error', 'Failed to load results'))
-      .finally(() => setLoading(false));
-  }, [user?.id]);
-
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['results', user?.id],
+    queryFn: async () => {
+      const _r: any = { results: [], courses: [], sessions: [] };
+      if (!user?.id) return;
+      Promise.all([
+        getStudentResults(user.id).catch(() => []),
+        getCourses().catch(() => []),
+        getSessions().catch(() => []),
+      ])
+        .then(async ([res, crs, sess]) => {
+          const rawResults = Array.isArray(res) ? (res as unknown as RawResult[]) : [];
+          _r.results = rawResults;
+          _r.courses = Array.isArray(crs) ? crs : [];
+          const sessArr = Array.isArray(sess) ? sess : [];
+          _r.sessions = sessArr;
+          const sessionIds = [...new Set(rawResults.map((r) => r.session_id).filter(Boolean))] as string[];
+          const semMap: Record<string, SemesterEntry[]> = {};
+          await Promise.all(
+            sessionIds.map(async (sid) => {
+              try {
+                semMap[sid] = await listSessionSemesters(sid);
+              } catch {
+                semMap[sid] = [];
+              }
+            }),
+          );
+          setSemesterMap(semMap);
+        })
+        .catch(() => notifyError('Error', 'Failed to load results'));
+      return _r;
+    },
+    staleTime: 60_000,
+  });
+  const results = _qd?.results ?? [];
+  const courses = _qd?.courses ?? [];
+  const sessions = _qd?.sessions ?? [];
   const courseLookup = new Map(courses.map((c) => [c.id, c]));
   const sessionLookup = new Map(sessions.map((s) => [s.id, s]));
 

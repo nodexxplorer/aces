@@ -16,10 +16,10 @@ import (
 var (
 	// crfSigningFee is paid per regular course form, before the student can sign it.
 	crfSigningFee = decimal.NewFromInt(200)
-	// duesCheckoutCharge is added once to each dues checkout (cart), whatever the
-	// number of dues in it. Backlog forms do not use it: their fee is already in
-	// the backlog price (see createCRFBacklogRequest).
-	duesCheckoutCharge = decimal.NewFromInt(200)
+	// duesCheckoutCharge is added per dues item in the checkout cart.
+	// Backlog forms do not use it: their fee is already in the backlog price
+	// (see createCRFBacklogRequest).
+	duesCheckoutCharge = decimal.NewFromInt(300)
 )
 
 // requireCRFSigningFee writes a 402 response and returns true when the form

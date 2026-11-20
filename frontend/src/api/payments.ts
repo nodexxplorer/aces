@@ -170,7 +170,7 @@ export const checkoutCart = async () => {
 // payment. The backend streams application/pdf with a Content-Disposition
 // filename, so this is a blob request — not a normal JSON call — and must
 // carry the session cookie like every other authenticated request.
-export const downloadPaymentReceipt = async (paymentId: string): Promise<void> => {
+export const downloadPaymentReceipt = async (paymentId: string, fallbackName?: string): Promise<void> => {
   const res = await apiClient.get(`/payments/${paymentId}/receipt`, { responseType: 'blob' });
 
   // Axios surfaces error bodies as text when a blob responseType is set;
@@ -194,7 +194,10 @@ export const downloadPaymentReceipt = async (paymentId: string): Promise<void> =
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = receiptFileNameFromHeaders(res.headers) || `Receipt-${paymentId.slice(0, 8)}.pdf`;
+  const fallback = fallbackName
+    ? `${fallbackName.trim().replace(/[\\/:*?"<>|]/g, '-')}.pdf`
+    : `Receipt-${paymentId.slice(0, 8)}.pdf`;
+  a.download = receiptFileNameFromHeaders(res.headers) || fallback;
   document.body.appendChild(a);
   a.click();
   a.remove();

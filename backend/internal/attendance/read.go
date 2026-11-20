@@ -34,6 +34,8 @@ func (s *Service) List(ctx context.Context, actor, course, semester uuid.UUID) (
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
+	// Auto-close any expired open sessions for this course and semester
+	_, _ = tx.Exec(ctx, `UPDATE attendance_v2_sessions SET status='closed' WHERE tenant_id=$1 AND course_id=$2 AND semester_id=$3 AND status='open' AND closes_at IS NOT NULL AND closes_at <= now()`, t, course, semester)
 	teach, err := teacher(ctx, tx, t, actor, course, semester)
 	if err != nil {
 		return nil, err

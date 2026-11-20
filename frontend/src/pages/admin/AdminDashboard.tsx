@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   Users,
   BookOpen,
@@ -37,41 +38,6 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const { success, error: notifyError } = useNotification();
 
-  const [loading, setLoading] = useState(true);
-
-  // Real data state
-  const [totalUsers, setTotalUsers] = useState(0);
-  const [usersThisWeek, setUsersThisWeek] = useState(0);
-  const [roleCounts, setRoleCounts] = useState({ students: 0, staff: 0, hod: 0, other: 0 });
-  const [levelCounts, setLevelCounts] = useState<Record<number, { registered: number; total: number }>>({
-    100: { registered: 0, total: 0 },
-    200: { registered: 0, total: 0 },
-    300: { registered: 0, total: 0 },
-    400: { registered: 0, total: 0 },
-    500: { registered: 0, total: 0 },
-  });
-
-  const [totalCourses, setTotalCourses] = useState(0);
-
-  const [complaintsCount, setComplaintsCount] = useState(0);
-  const [unansweredComplaints, setUnansweredComplaints] = useState(0);
-
-  const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
-
-  const [activeSession, setActiveSession] = useState<Session | null>(null);
-  const [activeSemester, setActiveSemester] = useState<SemesterEntry | null>(null);
-  const [registeredStudentsCount, setRegisteredStudentsCount] = useState(0);
-
-  // Course forms signing
-  const [signedFormsCount, setSignedFormsCount] = useState(0);
-  const [waitingFormsCount, setWaitingFormsCount] = useState(0);
-  const [oldFormsCount, setOldFormsCount] = useState(0);
-
-  // Dues & Payments
-  const [duesCollected, setDuesCollected] = useState(0);
-  const [duesTarget, setDuesTarget] = useState(0);
-  const [, setHasDues] = useState(false);
-
   // Middle right card toggle: 'announcement' or 'health'
   const [middleCardTab, setMiddleCardTab] = useState<'announcement' | 'health'>('health');
 
@@ -79,7 +45,6 @@ export default function AdminDashboard() {
   const [announcementTitle, setAnnouncementTitle] = useState('');
   const [announcementMessage, setAnnouncementMessage] = useState('');
   const [announcementAudience, setAnnouncementAudience] = useState<'all' | 'level500' | 'staff'>('all');
-  const [postingAnnouncement, setPostingAnnouncement] = useState(false);
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -90,14 +55,10 @@ export default function AdminDashboard() {
 
   const firstName = user?.firstName || user?.fullName?.split(' ')[0] || 'Bliss';
 
-  useEffect(() => {
-    fetchAllDashboardData();
-  }, []);
-
-  const fetchAllDashboardData = async () => {
-    try {
-      setLoading(true);
-
+  // Single query for all dashboard data
+  const { data: dashData, isLoading: loading } = useQuery({
+    queryKey: ['admin-dashboard'],
+    queryFn: async () => {
       const [
         analyticsRes,
         usersRes,
@@ -120,26 +81,34 @@ export default function AdminDashboard() {
         listAllCRFHistory(),
       ]);
 
-      // 1. Analytics & Basic Stats
+      // 1. Users calculation
+      let totalUsers = 0;
+      let usersThisWeek = 0;
+      let roleCounts = { students: 0, staff: 0, hod: 0, other: 0 };
+      let levelCounts: Record<number, { registered: number; total: number }> = {
+        100: { registered: 0, total: 0 },
+        200: { registered: 0, total: 0 },
+        300: { registered: 0, total: 0 },
+        400: { registered: 0, total: 0 },
+        500: { registered: 0, total: 0 },
+      };
+      let registeredStudentsCount = 0;
+
       let analyticsData = null;
       if (analyticsRes.status === 'fulfilled' && analyticsRes.value) {
         analyticsData = analyticsRes.value;
       }
 
-      // 2. Users calculation
       if (usersRes.status === 'fulfilled' && Array.isArray(usersRes.value)) {
         const usersList: User[] = usersRes.value;
-        // This week calculation
         const now = Date.now();
         const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-        const recent = usersList.filter((u) => {
+        usersThisWeek = usersList.filter((u) => {
           if (!u.createdAt) return false;
           const created = new Date(u.createdAt).getTime();
           return now - created <= sevenDaysMs;
         }).length;
-        setUsersThisWeek(recent);
 
-        // Role Breakdown
         let stCount = 0;
         let staffCount = 0;
         let hodCount = 0;
@@ -160,7 +129,6 @@ export default function AdminDashboard() {
             const lvl = Number(u.level);
             if (lvl && levels[lvl]) {
               levels[lvl].total++;
-              // If user has onboardingCompleted or active session registration
               if (u.onboardingCompleted !== false) {
                 levels[lvl].registered++;
               }
@@ -174,53 +142,54 @@ export default function AdminDashboard() {
           }
         });
 
-        setRoleCounts({ students: stCount, staff: staffCount, hod: hodCount, other: othCount });
-        setLevelCounts(levels);
-        setRegisteredStudentsCount(Object.values(levels).reduce((sum, item) => sum + item.registered, 0));
+        roleCounts = { students: stCount, staff: staffCount, hod: hodCount, other: othCount };
+        levelCounts = levels;
+        registeredStudentsCount = Object.values(levels).reduce((sum, item) => sum + item.registered, 0);
       }
 
-      // The total is every user on the server. The user list is one page (at most 100), so it is only a fallback.
       if (analyticsData) {
-        setTotalUsers((analyticsData.totalStudents ?? 0) + (analyticsData.totalLecturers ?? 0));
+        totalUsers = (analyticsData.totalStudents ?? 0) + (analyticsData.totalLecturers ?? 0);
       } else if (usersRes.status === 'fulfilled' && Array.isArray(usersRes.value)) {
-        setTotalUsers(usersRes.value.length);
+        totalUsers = usersRes.value.length;
       }
 
-      // 3. Pending approvals (New accounts queue)
+      // 2. Pending approvals
+      let pendingApprovalsCount = 0;
       if (pendingApprovalsRes.status === 'fulfilled' && Array.isArray(pendingApprovalsRes.value)) {
-        setPendingApprovalsCount(pendingApprovalsRes.value.length);
+        pendingApprovalsCount = pendingApprovalsRes.value.length;
       }
 
-      // 4. Courses
+      // 3. Courses
+      let totalCourses = 0;
       if (coursesRes.status === 'fulfilled' && Array.isArray(coursesRes.value)) {
-        setTotalCourses(coursesRes.value.length);
+        totalCourses = coursesRes.value.length;
       } else if (analyticsData?.totalCourses) {
-        setTotalCourses(analyticsData.totalCourses);
+        totalCourses = analyticsData.totalCourses;
       }
 
-      // 5. Complaints
+      // 4. Complaints
+      let complaintsCount = 0;
+      let unansweredComplaints = 0;
       if (complaintsRes.status === 'fulfilled' && Array.isArray(complaintsRes.value)) {
         const complaintsList = complaintsRes.value;
-        const open = complaintsList.filter((c) => c.status === 'open' || c.status === 'in_review').length;
-        const unanswered = complaintsList.filter((c) => c.status === 'open').length;
-        setComplaintsCount(open);
-        setUnansweredComplaints(unanswered);
+        complaintsCount = complaintsList.filter((c) => c.status === 'open' || c.status === 'in_review').length;
+        unansweredComplaints = complaintsList.filter((c) => c.status === 'open').length;
       } else if (analyticsData?.activeComplaints) {
-        setComplaintsCount(analyticsData.activeComplaints);
+        complaintsCount = analyticsData.activeComplaints;
       }
 
-      // 6. Sessions & Semesters
+      // 5. Sessions & Semesters
+      let activeSession: Session | null = null;
+      let activeSemester: SemesterEntry | null = null;
       if (sessionsRes.status === 'fulfilled' && Array.isArray(sessionsRes.value)) {
         const sessions = sessionsRes.value;
-        const currentActive = sessions.find((s) => s.is_active || s.isActive) || sessions[0] || null;
-        setActiveSession(currentActive);
+        activeSession = sessions.find((s) => s.is_active || s.isActive) || sessions[0] || null;
 
-        if (currentActive?.id) {
+        if (activeSession?.id) {
           try {
-            const semesters = await listSessionSemesters(currentActive.id);
+            const semesters = await listSessionSemesters(activeSession.id);
             if (Array.isArray(semesters) && semesters.length > 0) {
-              const activeSem = semesters.find((sm) => sm.is_active || sm.is_active) || semesters[0];
-              setActiveSemester(activeSem);
+              activeSemester = semesters.find((sm) => sm.is_active || sm.is_active) || semesters[0];
             }
           } catch {
             // silent fallback
@@ -228,89 +197,138 @@ export default function AdminDashboard() {
         }
       }
 
-      // 7. Dues and Payments
+      // 6. Dues and Payments
+      let duesCollected = 0;
+      let duesTarget = 0;
       let duesList: DuePayment[] = [];
       if (duesRes.status === 'fulfilled' && Array.isArray(duesRes.value)) {
         duesList = duesRes.value;
-        setHasDues(duesList.length > 0);
       }
 
       if (paymentsRes.status === 'fulfilled' && Array.isArray(paymentsRes.value)) {
         const paymentsList = paymentsRes.value;
-        const collected = paymentsList
+        duesCollected = paymentsList
           .filter((p) => p.status === 'completed' || p.status === 'success' || p.status === 'verified')
           .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-        setDuesCollected(collected);
 
-        // Calculate target from dues list or default reasonable calculation
         if (duesList.length > 0) {
           const totalDuesPrice = duesList.reduce((sum: number, d: DuePayment) => sum + (Number(d.amount) || 0), 0);
-          setDuesTarget(totalDuesPrice * Math.max(1, totalUsers));
-        } else {
-          setDuesTarget(0);
+          duesTarget = totalDuesPrice * Math.max(1, totalUsers);
         }
       }
 
-      // 8. Course forms from real CRF submissions. Signed and waiting count the
-      // current session's completed and draft forms; old forms are those from other sessions.
+      // 7. Course forms
       const currentSessionId =
         sessionsRes.status === 'fulfilled' && Array.isArray(sessionsRes.value)
           ? (sessionsRes.value.find((s) => s.is_active || s.isActive) || sessionsRes.value[0])?.id
           : undefined;
+      let signedFormsCount = 0;
+      let waitingFormsCount = 0;
+      let oldFormsCount = 0;
       if (crfRes.status === 'fulfilled' && Array.isArray(crfRes.value)) {
         const currentForms = crfRes.value.filter((f) => f.session_id === currentSessionId);
-        setSignedFormsCount(currentForms.filter((f) => f.status === 'completed').length);
-        setWaitingFormsCount(currentForms.filter((f) => f.status === 'draft').length);
-        setOldFormsCount(crfRes.value.length - currentForms.length);
-      } else {
-        setSignedFormsCount(0);
-        setWaitingFormsCount(0);
-        setOldFormsCount(0);
+        signedFormsCount = currentForms.filter((f) => f.status === 'completed').length;
+        waitingFormsCount = currentForms.filter((f) => f.status === 'draft').length;
+        oldFormsCount = crfRes.value.length - currentForms.length;
       }
-    } catch (err) {
-      console.error('Error fetching admin dashboard data:', err);
-    } finally {
-      setLoading(false);
-    }
+
+      return {
+        totalUsers,
+        usersThisWeek,
+        roleCounts,
+        levelCounts,
+        registeredStudentsCount,
+        totalCourses,
+        complaintsCount,
+        unansweredComplaints,
+        pendingApprovalsCount,
+        activeSession,
+        activeSemester,
+        duesCollected,
+        duesTarget,
+        signedFormsCount,
+        waitingFormsCount,
+        oldFormsCount,
+      };
+    },
+    staleTime: 30_000,
+  });
+
+  // Destructure with defaults
+  const totalUsers = dashData?.totalUsers ?? 0;
+  const usersThisWeek = dashData?.usersThisWeek ?? 0;
+  const roleCounts = dashData?.roleCounts ?? { students: 0, staff: 0, hod: 0, other: 0 };
+  const levelCounts = dashData?.levelCounts ?? {
+    100: { registered: 0, total: 0 },
+    200: { registered: 0, total: 0 },
+    300: { registered: 0, total: 0 },
+    400: { registered: 0, total: 0 },
+    500: { registered: 0, total: 0 },
   };
+  const totalCourses = dashData?.totalCourses ?? 0;
+  const complaintsCount = dashData?.complaintsCount ?? 0;
+  const unansweredComplaints = dashData?.unansweredComplaints ?? 0;
+  const pendingApprovalsCount = dashData?.pendingApprovalsCount ?? 0;
+  const activeSession = dashData?.activeSession ?? null;
+  const activeSemester = dashData?.activeSemester ?? null;
+  const registeredStudentsCount = dashData?.registeredStudentsCount ?? 0;
+  const signedFormsCount = dashData?.signedFormsCount ?? 0;
+  const waitingFormsCount = dashData?.waitingFormsCount ?? 0;
+  const oldFormsCount = dashData?.oldFormsCount ?? 0;
+  const duesCollected = dashData?.duesCollected ?? 0;
+  const duesTarget = dashData?.duesTarget ?? 0;
 
-  const handlePostAnnouncement = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!announcementTitle.trim() || !announcementMessage.trim()) {
-      notifyError('Missing Fields', 'Please provide a title and message.');
-      return;
-    }
-
-    try {
-      setPostingAnnouncement(true);
+  const announcementMutation = useMutation({
+    mutationFn: async ({
+      title,
+      message,
+      audience,
+    }: {
+      title: string;
+      message: string;
+      audience: 'all' | 'level500' | 'staff';
+    }) => {
       const targetAudience =
-        announcementAudience === 'all'
+        audience === 'all'
           ? ['student', 'lecturer', 'class_rep']
-          : announcementAudience === 'staff'
+          : audience === 'staff'
             ? ['lecturer', 'hod']
             : ['student'];
-
-      const targetLevels = announcementAudience === 'level500' ? [500] : [];
-
+      const targetLevels = audience === 'level500' ? [500] : [];
       await createAnnouncementV2({
-        title: announcementTitle.trim(),
-        content: announcementMessage.trim(),
+        title,
+        content: message,
         target_audience: targetAudience,
         target_levels: targetLevels,
         priority: 'normal',
         category: 'academic',
         status: 'published',
       });
-
+    },
+    onSuccess: () => {
       success('Announcement Posted', 'Your announcement has been broadcast successfully.');
       setAnnouncementTitle('');
       setAnnouncementMessage('');
-    } catch (_err: unknown) {
+    },
+    onError: () => {
       notifyError('Failed to Post', 'Could not post announcement. Please try again.');
-    } finally {
-      setPostingAnnouncement(false);
+    },
+  });
+
+  const handlePostAnnouncement = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!announcementTitle.trim() || !announcementMessage.trim()) {
+      notifyError('Missing Fields', 'Please provide a title and message.');
+      return;
     }
+    announcementMutation.mutate({
+      title: announcementTitle.trim(),
+      message: announcementMessage.trim(),
+      audience: announcementAudience,
+    });
   };
+
+  const postingAnnouncement = announcementMutation.isPending;
 
   const totalAttentionItems = waitingFormsCount + complaintsCount + pendingApprovalsCount;
 

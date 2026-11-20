@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import StatusBadge from '../../components/data-display/StatusBadge';
@@ -55,27 +56,18 @@ export default function AcademicsHubPage() {
 function GraduationTab() {
   const { success } = useNotification();
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(false);
-  const [students, setStudents] = useState<StudentRecord[]>([]);
   const [results, setResults] = useState<GraduationStatus[]>([]);
 
-  useEffect(() => {
-    fetchStudents();
-  }, []);
-
-  const fetchStudents = async () => {
-    try {
-      setLoading(true);
+  const { data: students = [], isLoading: loading } = useQuery({
+    queryKey: ['admin-students-academics'],
+    queryFn: async () => {
       const data = await getStudents({ page: 1, perPage: 100 });
       const items = Array.isArray(data) ? data : (data as unknown as { items?: StudentRecord[] }).items || [];
-      setStudents(items);
-    } catch {
-      /* silent */
-    } finally {
-      setLoading(false);
-    }
-  };
+      return items as StudentRecord[];
+    },
+    staleTime: 60_000,
+  });
 
   const handleCheck = async () => {
     try {

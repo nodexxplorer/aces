@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useNotification } from '../../hooks/useNotification';
-import { createLeaveRequest, listMyLeaveRequests, type LecturerLeave } from '../../api/lecturers';
+import { createLeaveRequest, listMyLeaveRequests } from '../../api/lecturers';
 import { getErrorMessage } from '../../utils/errors';
 import { Loader2, Send } from 'lucide-react';
 
+import { useQuery } from '@tanstack/react-query';
 const LEAVE_TYPE_LABELS: Record<string, string> = {
   sick: 'Sick',
   conference: 'Conference',
@@ -49,8 +50,6 @@ function formatRange(start: string, end: string) {
 
 const LeaveRequestsPage = () => {
   const { success, error: notifyError } = useNotification();
-  const [leaves, setLeaves] = useState<LecturerLeave[]>([]);
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     leave_type: 'sick',
@@ -60,21 +59,18 @@ const LeaveRequestsPage = () => {
     course_handover: '',
   });
 
-  const fetchLeaves = async () => {
-    setLoading(true);
-    try {
+  const {
+    data: leaves = [],
+    isLoading: loading,
+    refetch: fetchLeaves,
+  } = useQuery({
+    queryKey: ['leave-requests'],
+    queryFn: async () => {
       const data = await listMyLeaveRequests();
-      setLeaves(Array.isArray(data) ? data : []);
-    } catch (err: unknown) {
-      notifyError('Error', getErrorMessage(err, 'Failed to load leave requests'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchLeaves();
-  }, []);
+      return Array.isArray(data) ? data : [];
+    },
+    staleTime: 60_000,
+  });
 
   const days = workingDays(form.start_date, form.end_date);
 

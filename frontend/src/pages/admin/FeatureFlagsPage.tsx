@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Shield, Plus, ToggleLeft, ToggleRight, Trash2, Loader2 } from 'lucide-react';
 import {
   listFeatureFlags,
@@ -11,10 +11,9 @@ import EmptyState from '../../components/ui/EmptyState';
 import { useNotification } from '../../hooks/useNotification';
 import { getErrorMessage } from '../../utils/errors';
 
+import { useQuery } from '@tanstack/react-query';
 const FeatureFlagsPage = () => {
   const { success, error: notifyError } = useNotification();
-  const [flags, setFlags] = useState<FeatureFlag[]>([]);
-  const [loading, setLoading] = useState(true);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -25,22 +24,21 @@ const FeatureFlagsPage = () => {
   const [formLevels, setFormLevels] = useState('');
   const [formPercentage, setFormPercentage] = useState(100);
 
-  useEffect(() => {
-    fetchFlags();
-  }, []);
-
-  const fetchFlags = async () => {
-    setLoading(true);
-    try {
-      const data = await listFeatureFlags();
-      setFlags(Array.isArray(data) ? data : []);
-    } catch {
-      notifyError('Error', 'Failed to load feature flags');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['feature-flags'],
+    queryFn: async () => {
+      const _r: any = { flags: [] };
+      try {
+        const data = await listFeatureFlags();
+        _r.flags = Array.isArray(data) ? data : [];
+      } catch {
+        notifyError('Error', 'Failed to load feature flags');
+      }
+      return _r;
+    },
+    staleTime: 5 * 60_000,
+  });
+  const flags = _qd?.flags ?? [];
   const handleToggle = async (flag: FeatureFlag) => {
     setTogglingId(flag.name);
     try {

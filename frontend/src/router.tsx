@@ -23,7 +23,10 @@ const StudentSignupPage = lazy(() => import('./pages/auth/StudentSignupPage'));
 const LecturerSignupPage = lazy(() => import('./pages/auth/LecturerSignupPage'));
 const StudentOnboardingPage = lazy(() => import('./pages/onboarding/StudentOnboardingPage'));
 const VerifiedAttendancePage = lazy(() => import('./pages/shared/VerifiedAttendancePage'));
+const StudentVerifiedAttendancePage = lazy(() => import('./pages/student/StudentVerifiedAttendancePage'));
 const StudentAttendancePage = lazy(() => import('./pages/student/AttendancePage'));
+const LecturerAttendancePage = lazy(() => import('./pages/lecturer/LecturerAttendancePage'));
+const AdminAttendancePage = lazy(() => import('./pages/admin/AdminAttendancePage'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 
 // Student
@@ -248,7 +251,7 @@ const adminPages: { path: string; element: ReactNode }[] = [
   { path: '/admin/invitations', element: <InvitationsPage /> },
   { path: '/admin/user-roles', element: <UserRolesPage /> },
   { path: '/admin/delegate', element: <InvitationsPage /> },
-  { path: '/admin/attendance', element: <VerifiedAttendancePage /> },
+  { path: '/admin/attendance', element: <AdminAttendancePage /> },
   { path: '/admin/analytics', element: <AnalyticsPage /> },
   { path: '/admin/sessions', element: <SessionManagementPage /> },
   { path: '/admin/course-hub', element: <CourseHubPage /> },
@@ -530,8 +533,9 @@ export const router = createBrowserRouter([
                   { path: 'courses', element: <CoursesPage /> },
                   { path: 'courses/register', element: <RoleRedirect segment="i" to="/courses?tab=register" /> },
                   { path: 'materials', element: <RoleRedirect segment="i" to="/courses?tab=materials" /> },
-                  { path: 'attendance', element: <VerifiedAttendancePage /> },
+                  { path: 'attendance', element: <StudentVerifiedAttendancePage /> },
                   { path: 'attendance/legacy', element: <StudentAttendancePage /> },
+                  { path: 'attendance/v1', element: <VerifiedAttendancePage /> },
                   { path: 'attendance/checkin', element: <AttendanceCheckinPage /> },
                   { path: 'student/jobs', element: <StudentJobBoardPage /> },
                   { path: 'student/applications', element: <MyApplicationsPage /> },
@@ -580,8 +584,9 @@ export const router = createBrowserRouter([
                   { path: 'assignments', element: <AssignmentsPage /> },
                   { path: 'class-list', element: <LecturerClassListPage /> },
                   { path: 'reports', element: <LecturerReportsPage /> },
-                  { path: 'attendance', element: <VerifiedAttendancePage /> },
-                  { path: 'attendance-review', element: <VerifiedAttendancePage /> },
+                  { path: 'attendance', element: <LecturerAttendancePage /> },
+                  { path: 'attendance-review', element: <LecturerAttendancePage /> },
+                  { path: 'attendance/v1', element: <VerifiedAttendancePage /> },
                   { path: 'attendance/legacy', element: <LecturerAttendanceReviewPage /> },
                   { path: 'materials', element: <LecturerCourseMaterialsPage /> },
                   { path: 'leave', element: <LecturerLeaveRequestsPage /> },
@@ -609,7 +614,8 @@ export const router = createBrowserRouter([
                 children: [
                   { index: true, element: <RoleRedirect segment="rep" to="/dashboard" /> },
                   { path: 'dashboard', element: <ClassRepDashboard /> },
-                  { path: 'attendance', element: <VerifiedAttendancePage /> },
+                  { path: 'attendance', element: <StudentVerifiedAttendancePage /> },
+                  { path: 'attendance/v1', element: <VerifiedAttendancePage /> },
                   { path: 'attendance/legacy', element: <AttendancePage /> },
                   { path: 'assignments', element: <AssignmentUploadPage /> },
                   { path: 'pending', element: <PendingRequestsPage /> },

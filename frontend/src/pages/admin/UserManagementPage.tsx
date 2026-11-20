@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
@@ -18,7 +18,6 @@ import {
   searchStudentsForRoles,
   assignUserRole,
   revokeUserRole,
-  getAdminPermission,
   grantAdminPermission,
   updateAdminPermission,
   revokeAdminPermission,
@@ -28,6 +27,7 @@ import {
 } from '../../api/role-management';
 import type { User, UserRole, StudentForRoleManagement } from '../../types';
 import { getErrorMessage } from '../../utils/errors';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ADMIN_GRANTS,
   CAPABILITIES,
@@ -48,7 +48,7 @@ function flagsFromGrant(grant: AdminPermission | AdminGrant | null): AdminGrantF
 }
 
 /** True for the "no grant" answer from GET /admin-permissions/:user_id. */
-function isNotFound(err: unknown): boolean {
+function _isNotFound(err: unknown): boolean {
   return (err as { response?: { status?: number } })?.response?.status === 404;
 }
 import {
@@ -206,11 +206,9 @@ export default function UserManagementPage() {
   // ----------------------------------------------------
   // Global State (Real Data Only)
   // ----------------------------------------------------
-  const [users, setUsers] = useState<User[]>([]);
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [pendingApprovals, setPendingApprovals] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-
+  const [users, _setUsers] = useState<User[]>([]);
+  const [roles, _setRoles] = useState<Role[]>([]);
+  const [pendingApprovals, _setPendingApprovals] = useState<User[]>([]);
   // Directory filter states
   const [directorySearch, setDirectorySearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
@@ -268,48 +266,39 @@ export default function UserManagementPage() {
   const [permissionPerson, setPermissionPerson] = useState<User | null>(null);
   const [searchingPeople, setSearchingPeople] = useState(false);
   // The chosen person's saved grant (null when there is none) and the HOD's unsaved edits.
-  const [personGrant, setPersonGrant] = useState<AdminPermission | null>(null);
   const [grantDraft, setGrantDraft] = useState<AdminGrantFlags>(() => flagsFromGrant(null));
-  const [grantLoading, setGrantLoading] = useState(false);
   const [grantSaving, setGrantSaving] = useState(false);
-  const [grantLoadError, setGrantLoadError] = useState<string | null>(null);
-
   // Active action menu row id
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
   // ----------------------------------------------------
   // Fetch Real Data from APIs
   // ----------------------------------------------------
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
+  const queryClient = useQueryClient();
+  const { data: mainData, isLoading: loading } = useQuery({
+    queryKey: ['user-management-data'],
+    queryFn: async () => {
       const [usersRes, rolesRes, approvalsRes] = await Promise.allSettled([
         getUsers({ page: 1, perPage: 100 }),
         getAllRoles(),
         getPendingApprovals(),
       ]);
-
-      if (usersRes.status === 'fulfilled') {
-        setUsers(Array.isArray(usersRes.value) ? usersRes.value : []);
-      }
+      const users = usersRes.status === 'fulfilled' && Array.isArray(usersRes.value) ? usersRes.value : [];
+      let roles: Role[] = [];
       if (rolesRes.status === 'fulfilled') {
         const val = rolesRes.value;
-        const list = Array.isArray(val) ? val : (val as { items: Role[] })?.items || [];
-        setRoles(list);
+        roles = Array.isArray(val) ? val : (val as { items: Role[] })?.items || [];
       }
-      if (approvalsRes.status === 'fulfilled') {
-        setPendingApprovals(Array.isArray(approvalsRes.value) ? approvalsRes.value : []);
-      }
-    } catch {
-      notifyError('Error', 'Failed to load user directory');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+      const pendingApprovals =
+        approvalsRes.status === 'fulfilled' && Array.isArray(approvalsRes.value) ? approvalsRes.value : [];
+      return { users, roles, pendingApprovals };
+    },
+    staleTime: 60_000,
+  });
+  const users = mainData?.users ?? [];
+  const roles = mainData?.roles ?? [];
+  const pendingApprovals = mainData?.pendingApprovals ?? [];
+  const fetchData = () => queryClient.invalidateQueries({ queryKey: ['user-management-data'] });
 
   // Search the directory for the person whose permissions are shown (debounced).
   useEffect(() => {
@@ -334,32 +323,7 @@ export default function UserManagementPage() {
   }, [permissionSearch]);
 
   // Load the chosen person's grant when the HOD picks someone.
-  const permissionPersonId = permissionPerson?.id;
-  useEffect(() => {
-    setPersonGrant(null);
-    setGrantDraft(flagsFromGrant(null));
-    setGrantLoadError(null);
-    if (!permissionPersonId || !isHod) return;
-    let cancelled = false;
-    const load = async () => {
-      setGrantLoading(true);
-      try {
-        const grant = await getAdminPermission(permissionPersonId);
-        if (cancelled || !grant?.user_id) return;
-        setPersonGrant(grant);
-        setGrantDraft(flagsFromGrant(grant));
-      } catch (err: unknown) {
-        if (!cancelled && !isNotFound(err)) setGrantLoadError(getErrorMessage(err));
-      } finally {
-        if (!cancelled) setGrantLoading(false);
-      }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [permissionPersonId, isHod]);
-
+  const _permissionPersonId = permissionPerson?.id;
   const saveGrant = async () => {
     if (!permissionPerson) return;
     setGrantSaving(true);

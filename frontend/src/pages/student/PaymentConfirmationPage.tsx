@@ -30,23 +30,54 @@ const PaymentConfirmationPage = () => {
       return;
     }
 
+    let cancelled = false;
+    let attempt = 0;
+    const maxRetries = 3;
+    const retryDelay = 3000; // 3 seconds between retries
+
     const verify = async () => {
       try {
         const data = await confirmMyPaymentByReference(reference);
+        if (cancelled) return;
         setPayment(data);
         if (data?.status === 'completed') {
           setStatus('success');
         } else if (data?.status === 'pending') {
-          setStatus('pending');
+          // Payment exists but isn't completed yet. The webhook or a
+          // subsequent call may still complete it — retry a few times
+          // with a delay before giving up.
+          attempt++;
+          if (attempt < maxRetries) {
+            setStatus('loading');
+            setTimeout(() => {
+              if (!cancelled) void verify();
+            }, retryDelay);
+          } else {
+            setStatus('pending');
+          }
         } else {
           setStatus('error');
         }
       } catch {
-        setStatus('error');
+        if (cancelled) return;
+        // Network / server error. Retry a couple of times before
+        // showing an error — the webhook may still complete the payment.
+        attempt++;
+        if (attempt < maxRetries) {
+          setStatus('loading');
+          setTimeout(() => {
+            if (!cancelled) void verify();
+          }, retryDelay);
+        } else {
+          setStatus('error');
+        }
       }
     };
 
     verify();
+    return () => {
+      cancelled = true;
+    };
   }, [reference]);
 
   useEffect(() => {
@@ -75,7 +106,7 @@ const PaymentConfirmationPage = () => {
     if (!payment?.id) return;
     setDownloading(true);
     try {
-      await downloadPaymentReceipt(payment.id);
+      await downloadPaymentReceipt(payment.id, payment.item_name || payment.due_name || 'Dues Receipt');
       success('Receipt Downloaded', 'Your payment receipt has been saved.');
     } catch {
       notifyError('Download Failed', 'Could not download receipt PDF.');
@@ -112,6 +143,35 @@ const PaymentConfirmationPage = () => {
               className="w-full py-2.5 rounded-xl bg-[#1d68ec] hover:bg-[#1554c2] text-white text-xs font-bold inline-flex items-center justify-center gap-2 transition-colors"
             >
               <ArrowLeft className="w-4 h-4" /> Back to Payments
+            </Link>
+          </div>
+        </div>
+      ) : status === 'pending' ? (
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 dark:border-[#222530] bg-white dark:bg-[#161820] p-8 text-center shadow-lg space-y-4">
+          <div className="w-16 h-16 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto">
+            <Loader2 className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-bold text-[var(--text)]">Payment Processing</h2>
+          <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+            Your payment for reference <span className="font-mono font-semibold">{reference}</span> is still being
+            processed. This usually completes within a few seconds.
+          </p>
+          <div className="flex flex-col gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setStatus('loading');
+                window.location.reload();
+              }}
+              className="w-full py-2.5 rounded-xl bg-[#1d68ec] hover:bg-[#1554c2] text-white text-xs font-bold inline-flex items-center justify-center gap-2 transition-colors"
+            >
+              <Loader2 className="w-4 h-4" /> Refresh &amp; Retry
+            </button>
+            <Link
+              to="/i/payments"
+              className="w-full py-2.5 rounded-xl border border-slate-200 dark:border-[#2b2f3d] text-[var(--text)] text-xs font-bold inline-flex items-center justify-center gap-2 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" /> Check Transactions
             </Link>
           </div>
         </div>

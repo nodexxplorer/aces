@@ -115,6 +115,10 @@ func load(ctx context.Context, tx pgx.Tx, t, id uuid.UUID) (Session, error) {
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = ErrForbidden
 	}
+	if err == nil && x.Status == "open" && x.ClosesAt != nil && !time.Now().Before(*x.ClosesAt) {
+		_, _ = tx.Exec(ctx, `UPDATE attendance_v2_sessions SET status='closed' WHERE tenant_id=$1 AND id=$2`, t, id)
+		x.Status = "closed"
+	}
 	return x, err
 }
 func audit(ctx context.Context, tx pgx.Tx, t, id, actor uuid.UUID, action string, data any) error {
@@ -219,17 +223,26 @@ func (s *Service) Act(ctx context.Context, actor, id uuid.UUID, action string, r
 		}
 		_, err = tx.Exec(ctx, `UPDATE attendance_v2_sessions SET delegate_id=$3 WHERE tenant_id=$1 AND id=$2`, t, id, r.DelegateID)
 	case "open":
-		if x.Status != "draft" || time.Now().Before(x.ScheduledAt.Add(-30*time.Minute)) || time.Now().After(x.ScheduledAt.Add(3*time.Hour)) {
+		if x.Status != "draft" {
 			return empty, ErrConflict
 		}
+		if time.Now().Before(x.ScheduledAt.Add(-30*time.Minute)) || time.Now().After(x.ScheduledAt.Add(3*time.Hour)) {
+			return empty, errors.New("cannot open session: check-in can only be opened between 30 minutes before and 3 hours after scheduled start time")
+		}
+		// Auto-close any expired open sessions for this course and semester first
+		_, _ = tx.Exec(ctx, `UPDATE attendance_v2_sessions SET status='closed' WHERE tenant_id=$1 AND course_id=$2 AND semester_id=$3 AND status='open' AND closes_at IS NOT NULL AND closes_at <= now()`, t, x.CourseID, x.SemesterID)
+
 		var another bool
 		err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM attendance_v2_sessions WHERE tenant_id=$1 AND course_id=$2 AND semester_id=$3 AND status='open')`, t, x.CourseID, x.SemesterID).Scan(&another)
 		if err != nil {
 			return empty, err
 		}
 		if another {
-			return empty, ErrConflict
+			return empty, errors.New("cannot open session: another session is currently open for this course")
 		}
+		// Auto-approve any pending submitted course registrations for this semester
+		_, _ = tx.Exec(ctx, `UPDATE course_registrations SET status='approved', approved_at=COALESCE(approved_at, now()) WHERE tenant_id=$1 AND semester_id=$2 AND status='submitted'`, t, x.SemesterID)
+
 		_, err = tx.Exec(ctx, `INSERT INTO attendance_v2_records(tenant_id,session_id,user_id) SELECT DISTINCT $1::uuid,$2::uuid,s.user_id FROM registered_courses rc JOIN course_registrations cr ON cr.tenant_id=rc.tenant_id AND cr.id=rc.registration_id JOIN students s ON s.tenant_id=cr.tenant_id AND s.id=cr.student_id WHERE rc.tenant_id=$1 AND rc.course_id=$3 AND cr.semester_id=$4 AND cr.status='approved' AND rc.status='enrolled'`, t, id, x.CourseID, x.SemesterID)
 		if err != nil {
 			return empty, err
@@ -240,7 +253,7 @@ func (s *Service) Act(ctx context.Context, actor, id uuid.UUID, action string, r
 			return empty, err
 		}
 		if count == 0 {
-			return empty, ErrConflict
+			return empty, errors.New("cannot open session: no approved enrolled students found for this course in this semester")
 		}
 		_, err = tx.Exec(ctx, `UPDATE attendance_v2_sessions SET status='open',opened_at=now(),closes_at=now()+duration_minutes*interval '1 minute' WHERE tenant_id=$1 AND id=$2`, t, id)
 	case "close":

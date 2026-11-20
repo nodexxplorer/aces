@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
   Bell,
@@ -184,7 +185,6 @@ export default function StudentCommunicationPage() {
   // TAB 2: ANNOUNCEMENTS STATE & ACTIONS
   // ==========================================
   const [announcements, setAnnouncements] = useState<AnnouncementV2[]>([]);
-  const [loadingAnnouncements, setLoadingAnnouncements] = useState(true);
   const [annSearch, setAnnSearch] = useState('');
   const [annFilter, setAnnFilter] = useState<'all' | 'unread' | 'urgent' | 'academic' | 'events' | 'fees'>('all');
   const [readMap, setReadMap] = useState<Record<string, boolean>>({});
@@ -196,12 +196,11 @@ export default function StudentCommunicationPage() {
   const [isAcknowledged, setIsAcknowledged] = useState(false);
   const [acknowledging, setAcknowledging] = useState(false);
 
-  const fetchAnnouncementsData = useCallback(async () => {
-    setLoadingAnnouncements(true);
-    try {
+  const { isLoading: loadingAnnouncements, refetch: _refetchAnnouncements } = useQuery({
+    queryKey: ['student-announcements'],
+    queryFn: async () => {
       const data = await listStudentAnnouncements({ limit: 50 });
       setAnnouncements(data || []);
-      // Fetch read statuses
       const statusResults = await Promise.all(
         (data || []).map(async (a) => {
           try {
@@ -217,18 +216,11 @@ export default function StudentCommunicationPage() {
         rMap[s.id] = s.read;
       });
       setReadMap(rMap);
-    } catch (err) {
-      notifyError('Failed to load announcements', getErrorMessage(err, 'Check your connection.'));
-    } finally {
-      setLoadingAnnouncements(false);
-    }
-  }, [notifyError]);
-
-  useEffect(() => {
-    if (activeTab === 'announcements') {
-      fetchAnnouncementsData();
-    }
-  }, [activeTab, fetchAnnouncementsData]);
+      return data;
+    },
+    enabled: activeTab === 'announcements',
+    staleTime: 60_000,
+  });
 
   // Filter & Search Announcements
   const filteredAnnouncements = useMemo(() => {
@@ -325,7 +317,6 @@ export default function StudentCommunicationPage() {
   // TAB 3: NOTICE BOARD STATE & ACTIONS
   // ==========================================
   const [notices, setNotices] = useState<ClassNotice[]>([]);
-  const [loadingNotices, setLoadingNotices] = useState(true);
   const [noticeFilter, setNoticeFilter] = useState<'all' | 'pinned' | 'exams' | 'department' | 'events'>('all');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [selectedNotice, setSelectedNotice] = useState<ClassNotice | null>(null);
@@ -336,23 +327,16 @@ export default function StudentCommunicationPage() {
   const [submittingNoticeComment, setSubmittingNoticeComment] = useState(false);
   const [acknowledgedNotices, setAcknowledgedNotices] = useState<Record<string, boolean>>({});
 
-  const fetchNoticesData = useCallback(async () => {
-    setLoadingNotices(true);
-    try {
+  const { isLoading: loadingNotices } = useQuery({
+    queryKey: ['class-notices'],
+    queryFn: async () => {
       const res = await listClassNotices();
       setNotices(res || []);
-    } catch (err) {
-      notifyError('Failed to load notices', getErrorMessage(err, 'Please try again.'));
-    } finally {
-      setLoadingNotices(false);
-    }
-  }, [notifyError]);
-
-  useEffect(() => {
-    if (activeTab === 'notices') {
-      fetchNoticesData();
-    }
-  }, [activeTab, fetchNoticesData]);
+      return res;
+    },
+    enabled: activeTab === 'notices',
+    staleTime: 60_000,
+  });
 
   // Filter and sort notices
   const filteredNotices = useMemo(() => {

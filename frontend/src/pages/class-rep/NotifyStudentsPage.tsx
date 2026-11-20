@@ -1,16 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
-import { getClassRepClassList, type ClassRepStudent } from '../../api/class-rep';
+import { getClassRepClassList } from '../../api/class-rep';
 import { createClassNotice } from '../../api/additional-features';
 import { getErrorMessage } from '../../utils/errors';
 import { Search, Send, Megaphone } from 'lucide-react';
 
+import { useQuery } from '@tanstack/react-query';
 export default function NotifyStudentsPage() {
   const { user } = useAuth();
   const { success, error: notifyError } = useNotification();
-  const [students, setStudents] = useState<ClassRepStudent[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeListTab, setActiveListTab] = useState<'everyone' | 'selected'>('everyone');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -21,17 +20,22 @@ export default function NotifyStudentsPage() {
   const [pinned, setPinned] = useState(false);
   const [sending, setSending] = useState(false);
 
-  useEffect(() => {
-    getClassRepClassList()
-      .then((data) => {
-        const list = Array.isArray(data) ? data : [];
-        setStudents(list);
-        setSelectedIds(new Set(list.map((s) => s.id)));
-      })
-      .catch(() => notifyError('Error', 'Failed to load class list'))
-      .finally(() => setLoading(false));
-  }, []);
-
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['notify-students'],
+    queryFn: async () => {
+      const _r: any = { students: [] };
+      getClassRepClassList()
+        .then((data) => {
+          const list = Array.isArray(data) ? data : [];
+          _r.students = list;
+          setSelectedIds(new Set(list.map((s) => s.id)));
+        })
+        .catch(() => notifyError('Error', 'Failed to load class list'));
+      return _r;
+    },
+    staleTime: 60_000,
+  });
+  const students = _qd?.students ?? [];
   const filteredStudents = students.filter((s) => {
     const matchesSearch =
       !search.trim() ||

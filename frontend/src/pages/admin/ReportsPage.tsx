@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import {
@@ -21,24 +21,25 @@ import {
 } from 'lucide-react';
 import { useNotification } from '../../hooks/useNotification';
 import apiClient from '../../api/client';
-import { listAllReports, updateReportStatus, type ClassRepReport } from '../../api/class-rep';
+import { listAllReports, updateReportStatus } from '../../api/class-rep';
 import { getErrorMessage } from '../../utils/errors';
 
-interface DashboardStats {
+import { useQuery } from '@tanstack/react-query';
+interface _DashboardStats {
   total_students: number;
   total_lecturers: number;
   active_courses: number;
   pending_approvals: number;
 }
 
-interface GradeDistribution {
+interface _GradeDistribution {
   course_code: string;
   course_title: string;
   grade: string;
   count: number;
 }
 
-interface AtRiskStudent {
+interface _AtRiskStudent {
   student_id: string;
   student_name: string;
   matric_number: string;
@@ -63,11 +64,6 @@ const STATUS_OPTIONS = [
 
 const ReportsPage = () => {
   const { success, error: notifyError } = useNotification();
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [gradeData, setGradeData] = useState<GradeDistribution[]>([]);
-  const [atRiskStudents, setAtRiskStudents] = useState<AtRiskStudent[]>([]);
-  const [classRepReports, setClassRepReports] = useState<ClassRepReport[]>([]);
   const [generating, setGenerating] = useState<string | null>(null);
 
   // Class rep reports UI state
@@ -75,44 +71,47 @@ const ReportsPage = () => {
   const [expandedReport, setExpandedReport] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['reports', fetchAllData],
+    queryFn: async () => {
+      const _r: any = { stats: null, gradeData: [], atRiskStudents: [], classRepReports: [] };
+      try {
+        const [dashRes, gradeRes, riskRes, reportsData] = await Promise.allSettled([
+          apiClient.get('/analytics/dashboard'),
+          apiClient.get('/predictions/grade-distribution'),
+          apiClient.get('/predictions/at-risk'),
+          listAllReports(),
+        ]);
+
+        if (dashRes.status === 'fulfilled') {
+          const d = dashRes.value.data?.data || dashRes.value.data;
+          _r.stats = d;
+        }
+        if (gradeRes.status === 'fulfilled') {
+          const g = gradeRes.value.data?.data || gradeRes.value.data;
+          _r.gradeData = Array.isArray(g) ? g : [];
+        }
+        if (riskRes.status === 'fulfilled') {
+          const r = riskRes.value.data?.data || riskRes.value.data;
+          _r.atRiskStudents = Array.isArray(r?.students) ? r.students : Array.isArray(r) ? r : [];
+        }
+        if (reportsData.status === 'fulfilled') {
+          _r.classRepReports = Array.isArray(reportsData.value) ? reportsData.value : [];
+        }
+      } catch {
+        // Partial data is fine
+      }
+      return _r;
+    },
+    staleTime: 60_000,
+    enabled: !!fetchAllData,
+  });
+  const stats = _qd?.stats ?? null;
+  const gradeData = _qd?.gradeData ?? [];
+  const atRiskStudents = _qd?.atRiskStudents ?? [];
+  const classRepReports = _qd?.classRepReports ?? [];
   const [updatingReport, setUpdatingReport] = useState<string | null>(null);
-
-  const fetchAllData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [dashRes, gradeRes, riskRes, reportsData] = await Promise.allSettled([
-        apiClient.get('/analytics/dashboard'),
-        apiClient.get('/predictions/grade-distribution'),
-        apiClient.get('/predictions/at-risk'),
-        listAllReports(),
-      ]);
-
-      if (dashRes.status === 'fulfilled') {
-        const d = dashRes.value.data?.data || dashRes.value.data;
-        setStats(d);
-      }
-      if (gradeRes.status === 'fulfilled') {
-        const g = gradeRes.value.data?.data || gradeRes.value.data;
-        setGradeData(Array.isArray(g) ? g : []);
-      }
-      if (riskRes.status === 'fulfilled') {
-        const r = riskRes.value.data?.data || riskRes.value.data;
-        setAtRiskStudents(Array.isArray(r?.students) ? r.students : Array.isArray(r) ? r : []);
-      }
-      if (reportsData.status === 'fulfilled') {
-        setClassRepReports(Array.isArray(reportsData.value) ? reportsData.value : []);
-      }
-    } catch {
-      // Partial data is fine
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchAllData();
-  }, [fetchAllData]);
-
   const generateCSV = (headers: string[], rows: (string | number)[][], filename: string) => {
     const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });

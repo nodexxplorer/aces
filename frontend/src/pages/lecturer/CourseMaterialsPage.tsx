@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
 import EmptyState from '../../components/ui/EmptyState';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
-import { listLecturerAssignments, type LecturerAssignment } from '../../api/lecturers';
+import { listLecturerAssignments } from '../../api/lecturers';
 import {
   uploadCourseMaterial,
   listMyCourseMaterials,
@@ -17,6 +17,7 @@ import {
 import { Upload, FileText, Trash2, Download, Loader2, BookOpen } from 'lucide-react';
 import { getErrorMessage } from '../../utils/errors';
 
+import { useQuery } from '@tanstack/react-query';
 const TYPE_LABELS: Record<CourseMaterialType, string> = {
   slide: 'Lecture Slide',
   past_question: 'Past Question',
@@ -27,34 +28,36 @@ const TYPE_LABELS: Record<CourseMaterialType, string> = {
 export default function LecturerCourseMaterialsPage() {
   const { user } = useAuth();
   const { success, error: notifyError } = useNotification();
-  const [assignments, setAssignments] = useState<LecturerAssignment[]>([]);
-  const [materials, setMaterials] = useState<CourseMaterial[]>([]);
-  const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-
-  const [courseId, setCourseId] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [materialType, setMaterialType] = useState<CourseMaterialType>('slide');
   const [file, setFile] = useState<File | null>(null);
 
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['course-materials', user?.id],
+    queryFn: async () => {
+      const _r: any = { assignments: [], materials: [], courseId: '' };
+      if (!user?.id) return;
+      Promise.all([listLecturerAssignments(user.id).catch(() => []), listMyCourseMaterials().catch(() => [])]).then(
+        ([ass, mats]) => {
+          _r.assignments = ass;
+          _r.materials = mats;
+          if (ass.length > 0) _r.courseId = ass[0].course_id;
+        },
+      );
+      return _r;
+    },
+    staleTime: 60_000,
+  });
+  const assignments = _qd?.assignments ?? [];
+  const materials = _qd?.materials ?? [];
+  const courseId = _qd?.courseId ?? '';
   const fetchMaterials = () => {
     listMyCourseMaterials()
       .then(setMaterials)
       .catch(() => {});
   };
-
-  useEffect(() => {
-    if (!user?.id) return;
-    setLoading(true);
-    Promise.all([listLecturerAssignments(user.id).catch(() => []), listMyCourseMaterials().catch(() => [])])
-      .then(([ass, mats]) => {
-        setAssignments(ass);
-        setMaterials(mats);
-        if (ass.length > 0) setCourseId(ass[0].course_id);
-      })
-      .finally(() => setLoading(false));
-  }, [user?.id]);
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();

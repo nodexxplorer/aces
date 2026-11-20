@@ -22,6 +22,7 @@ import (
 	"github.com/aces/backend/internal/tenant"
 	"github.com/aces/backend/internal/uploads"
 	"github.com/aces/backend/internal/ws"
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -199,6 +200,7 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 
 	router := newEngine()
 	router.Use(gin.Recovery())
+	router.Use(gzip.Gzip(gzip.DefaultCompression))
 	router.Use(middleware.RequestID())
 	router.Use(middleware.ResponseNormalizer())
 	router.Use(middleware.SignUploadLinks(signer))
@@ -438,8 +440,8 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		}
 	})
 
-	verified.GET("/catalog", server.attendanceCatalogV2)
-	verified.GET("/sessions", server.attendanceSessionsV2)
+	verified.GET("/catalog", middleware.CacheControl(60*time.Second), server.attendanceCatalogV2)
+	verified.GET("/sessions", middleware.CacheControl(15*time.Second), server.attendanceSessionsV2)
 	verified.POST("/sessions", server.attendanceCreateV2)
 	verified.GET("/sessions/:id", server.attendanceDetailV2)
 	verified.GET("/sessions/:id/code", server.attendanceCodeV2)
@@ -457,8 +459,8 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		attendance.GET("/course", requireCapability(capManageCourses, "lecturer", "hod", "admin", "delegated_admin", "class_rep"), server.listCourseAttendanceSheets)
 		attendance.GET("/student", server.listStudentAttendance)
 		attendance.GET("/summary", server.getAttendanceSummary)
-		attendance.GET("/my-overview", middleware.RequireRoles("student"), server.getStudentAttendanceOverview)
-		attendance.GET("/my-courses/:course_id", middleware.RequireRoles("student"), server.getStudentCourseAttendanceDetail)
+		attendance.GET("/my-overview", middleware.RequireRoles("student"), middleware.CacheControl(30*time.Second), server.getStudentAttendanceOverview)
+		attendance.GET("/my-courses/:course_id", middleware.RequireRoles("student"), middleware.CacheControl(30*time.Second), server.getStudentCourseAttendanceDetail)
 		attendance.GET("/:id", server.getAttendanceSheet)
 		attendance.PUT("/:id", requireCapability(capManageCourses, "class_rep", "hod", "delegated_admin"), server.updateAttendanceSheet)
 		attendance.POST("/:id/finalize", requireCapability(capManageCourses, "class_rep", "hod", "delegated_admin"), server.finalizeAttendanceSheet)
@@ -746,7 +748,8 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 	}
 
 	// ── Student Dashboard ──
-	api.GET("/dashboard/student", middleware.RequireRoles("student"), server.getStudentDashboard)
+	shortCache := middleware.CacheControl(30 * time.Second)
+	api.GET("/dashboard/student", middleware.RequireRoles("student"), shortCache, server.getStudentDashboard)
 
 	// ── Class Representative Management ──
 	classRep := api.Group("/class-rep")
@@ -801,7 +804,7 @@ func NewServer(store *db.Queries, tenants *tenant.Manager, cfg *config.Config) *
 		lecturers.PUT("/leave/:id/status", requireCapability(capManageUsers, "hod", "admin", "delegated_admin"), server.updateLeaveStatusHandler)
 
 		// Dashboard
-		lecturers.GET("/dashboard/stats", middleware.RequireRoles("lecturer"), server.getLecturerDashboardStats)
+		lecturers.GET("/dashboard/stats", middleware.RequireRoles("lecturer"), shortCache, server.getLecturerDashboardStats)
 	}
 
 	// ── Bursar Dashboard ──

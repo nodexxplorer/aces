@@ -241,7 +241,7 @@ export default function VerifiedAttendance() {
               >
                 <QRCode value={code} size={240} />
                 <Text style={{ color: '#111', marginTop: 8 }}>
-                  Rotates every 20 seconds · expires {new Date(expires).toLocaleTimeString()}
+                  Rotates every 59 seconds · expires {new Date(expires).toLocaleTimeString()}
                 </Text>
               </View>
             )}

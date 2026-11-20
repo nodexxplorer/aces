@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { ADMIN_GRANTS } from '../../config/permissions';
 import { useAuthStore } from '../../stores/authStore';
 import {
@@ -14,31 +14,34 @@ import { getErrorMessage } from '../../utils/errors';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 
+import { useQuery } from '@tanstack/react-query';
 const roleLabel = (role: InviteRole) =>
   ({ lecturer: 'Lecturer', delegated_admin: 'Delegated admin', hod: 'HOD (additional access)' })[role];
 export default function InvitationsPage() {
   const user = useAuthStore((s) => s.user);
   const isHOD = user?.roles?.includes('hod') || user?.role === 'hod';
-  const [items, setItems] = useState<AccessInvitation[]>([]);
   const [role, setRole] = useState<InviteRole>('lecturer');
   const [grants, setGrants] = useState<AccessInvitation['grants']>({});
   const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+
+  const { data: _qd, isLoading: loading } = useQuery({
+    queryKey: ['invitations', load],
+    queryFn: async () => {
+      const _r: any = { items: [], error: '' };
+      try {
+        _r.items = await listInvitations();
+      } catch (err) {
+        _r.error = getErrorMessage(err);
+      }
+      return _r;
+    },
+    staleTime: 60_000,
+    enabled: !!load,
+  });
+  const items = _qd?.items ?? [];
+  const error = _qd?.error ?? '';
   const [history, setHistory] = useState<{ id: string; events: InvitationEvent[] } | null>(null);
-  const load = useCallback(async () => {
-    try {
-      setItems(await listInvitations());
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-  useEffect(() => {
-    void load();
-  }, [load]);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
