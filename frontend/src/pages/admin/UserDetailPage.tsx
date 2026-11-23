@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -30,7 +30,7 @@ import {
 import type { User as UserType, Course, UserRole } from '../../types';
 
 import { useQuery } from '@tanstack/react-query';
-type _EditFormState = {
+type EditFormData = {
   fullName: string;
   email: string;
   phone: string;
@@ -53,6 +53,21 @@ const UserDetailPage = () => {
   const [saving, setSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [user, setUser] = useState<UserType | null>(null);
+  const [editForm, setEditForm] = useState<EditFormData>({
+    fullName: '',
+    email: '',
+    phone: '',
+    role: 'student',
+    dateOfBirth: '',
+    matricNumber: '',
+    level: '',
+    admissionMode: '',
+    yearAdmitted: '',
+    emergencyContactName: '',
+    emergencyContactPhone: '',
+    homeAddress: '',
+  });
 
   const { data: _qd, isLoading: loading } = useQuery({
     queryKey: ['user-detail', id],
@@ -118,22 +133,11 @@ const UserDetailPage = () => {
     staleTime: 60_000,
     enabled: !!id,
   });
-  const user = _qd?.user ?? null;
   const assignedCourses = _qd?.assignedCourses ?? [];
-  const editForm = _qd?.editForm ?? {
-    fullName: '',
-    email: '',
-    phone: '',
-    role: 'student',
-    dateOfBirth: '',
-    matricNumber: '',
-    level: '',
-    admissionMode: '',
-    yearAdmitted: '',
-    emergencyContactName: '',
-    emergencyContactPhone: '',
-    homeAddress: '',
-  };
+  useEffect(() => {
+    if (_qd?.user) setUser(_qd.user);
+    if (_qd?.editForm) setEditForm(_qd.editForm);
+  }, [_qd?.user, _qd?.editForm]);
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);

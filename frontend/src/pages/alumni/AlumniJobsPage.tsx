@@ -108,6 +108,7 @@ const AlumniJobsPage = () => {
   const [responsibilities, setResponsibilities] = useState('');
   const [appUrl, setAppUrl] = useState('');
 
+  const [jobs, setJobs] = useState<any[]>([]);
   const { data: _qd, isLoading: loading } = useQuery({
     queryKey: ['alumni-jobs'],
     queryFn: async () => {
@@ -119,7 +120,9 @@ const AlumniJobsPage = () => {
     },
     staleTime: 60_000,
   });
-  const jobs = _qd?.jobs ?? [];
+  useEffect(() => {
+    if (_qd?.jobs) setJobs(_qd.jobs);
+  }, [_qd?.jobs]);
   const fetchApplicationsForMyJobs = useCallback(async () => {
     if (!user) return;
     setLoadingApps(true);
@@ -154,7 +157,7 @@ const AlumniJobsPage = () => {
   const allMyApplications = myJobs
     .flatMap((job) => (jobApplications[job.id] || []).map((app: JobApplicationEntry) => ({ app, job })))
     .filter(({ app }) => appStatusFilter === 'all' || (app.status || 'pending') === appStatusFilter)
-    .sort((a, b) => new Date(b.app.created_at || 0).getTime() - new Date(a.app.created_at || 0).getTime());
+    .sort((a: any, b: any) => new Date(b.app.created_at || 0).getTime() - new Date(a.app.created_at || 0).getTime());
 
   const canEditJob = (job: AlumniJob) => {
     if (!user || !job) return false;

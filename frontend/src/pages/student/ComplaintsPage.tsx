@@ -145,7 +145,12 @@ const ComplaintsPage = () => {
   const [feedbackComment, setFeedbackComment] = useState('');
   const [feedbackSubmitted, setFeedbackSubmitted] = useState<Record<string, boolean>>({});
 
-  const { data: _qd, isLoading: loading } = useQuery({
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const {
+    data: _qd,
+    isLoading: loading,
+    refetch: fetchComplaints,
+  } = useQuery({
     queryKey: ['complaints'],
     queryFn: async () => {
       const _r: any = { liveComplaints: [], selectedTicketId: null };
@@ -164,11 +169,13 @@ const ComplaintsPage = () => {
     staleTime: 60_000,
   });
   const liveComplaints = _qd?.liveComplaints ?? [];
-  const selectedTicketId = _qd?.selectedTicketId ?? null;
+  useEffect(() => {
+    if (_qd?.selectedTicketId && !selectedTicketId) setSelectedTicketId(_qd.selectedTicketId);
+  }, [_qd?.selectedTicketId, selectedTicketId]);
   /* ─────────────────────── data fetching ─────────────────────── */ /* ─────────────────────── derived data ─────────────────────── */
 
   const tickets = useMemo<TicketItem[]>(() => {
-    return liveComplaints.map((c) => {
+    return liveComplaints.map((c: any) => {
       const code = getTicketCode(c.id);
       const statusMap: Record<string, 'open' | 'in_review' | 'resolved'> = {
         open: 'open',

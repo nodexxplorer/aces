@@ -12,6 +12,7 @@ import { useNotification } from '../../hooks/useNotification';
 import { getErrorMessage } from '../../utils/errors';
 
 import { useQuery } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 const FeatureFlagsPage = () => {
   const { success, error: notifyError } = useNotification();
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -24,21 +25,24 @@ const FeatureFlagsPage = () => {
   const [formLevels, setFormLevels] = useState('');
   const [formPercentage, setFormPercentage] = useState(100);
 
-  const { data: _qd, isLoading: loading } = useQuery({
+  const queryClient = useQueryClient();
+  const [flags, setFlags] = useState<FeatureFlag[]>([]);
+  const { isLoading: loading } = useQuery({
     queryKey: ['feature-flags'],
     queryFn: async () => {
-      const _r: any = { flags: [] };
       try {
         const data = await listFeatureFlags();
-        _r.flags = Array.isArray(data) ? data : [];
+        const list = Array.isArray(data) ? data : [];
+        setFlags(list);
+        return list;
       } catch {
         notifyError('Error', 'Failed to load feature flags');
+        return [];
       }
-      return _r;
     },
     staleTime: 5 * 60_000,
   });
-  const flags = _qd?.flags ?? [];
+  const fetchFlags = () => queryClient.invalidateQueries({ queryKey: ['feature-flags'] });
   const handleToggle = async (flag: FeatureFlag) => {
     setTogglingId(flag.name);
     try {
@@ -259,7 +263,7 @@ const FeatureFlagsPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-50 dark:divide-surface-800/50">
-                {flags.map((flag) => (
+                {flags.map((flag: any) => (
                   <tr key={flag.name} className="hover:bg-surface-50 dark:hover:bg-surface-800/30 transition-colors">
                     <td className="px-6 py-4">
                       <span className="font-mono text-sm font-semibold text-surface-900 dark:text-white">
@@ -279,7 +283,7 @@ const FeatureFlagsPage = () => {
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-1">
                         {flag.target_roles && flag.target_roles.length > 0 ? (
-                          flag.target_roles.map((role) => (
+                          flag.target_roles.map((role: string) => (
                             <span
                               key={role}
                               className="text-[10px] px-2 py-0.5 rounded-full bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400 font-medium"
@@ -295,7 +299,7 @@ const FeatureFlagsPage = () => {
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-1">
                         {flag.target_levels && flag.target_levels.length > 0 ? (
-                          flag.target_levels.map((lvl) => (
+                          flag.target_levels.map((lvl: number) => (
                             <span
                               key={lvl}
                               className="text-[10px] px-2 py-0.5 rounded-full bg-accent-50 text-accent-700 dark:bg-accent-900/30 dark:text-accent-400 font-medium"

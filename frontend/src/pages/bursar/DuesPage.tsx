@@ -18,7 +18,11 @@ export default function DuesPage() {
   const [formAmount, setFormAmount] = useState('');
   const [formDeadline, setFormDeadline] = useState('');
 
-  const { data: _qd, isLoading: loading } = useQuery({
+  const {
+    data: _qd,
+    isLoading: loading,
+    refetch: fetchData,
+  } = useQuery({
     queryKey: ['dues'],
     queryFn: async () => {
       const _r: any = { dues: [], payments: [], students: [] };
@@ -50,23 +54,25 @@ export default function DuesPage() {
   const students = _qd?.students ?? [];
   const [formLevel, setFormLevel] = useState<number | 'all'>('all');
   const completedPayments = useMemo(() => {
-    return payments.filter((p) => p.status === 'completed' || p.status === 'success' || p.status === 'verified');
+    return payments.filter((p: any) => p.status === 'completed' || p.status === 'success' || p.status === 'verified');
   }, [payments]);
 
   // Real stats
-  const activeDues = dues.filter((d) => d.is_active);
+  const activeDues = dues.filter((d: any) => d.is_active);
   const activeDuesCount = activeDues.length;
 
   const totalExpected = useMemo(() => {
     if (activeDues.length === 0) return 0;
-    return activeDues.reduce((acc, d) => {
-      const studentCount = d.level ? students.filter((s) => s.level === d.level).length : Math.max(students.length, 1);
+    return activeDues.reduce((acc: any, d: any) => {
+      const studentCount = d.level
+        ? students.filter((s: any) => s.level === d.level).length
+        : Math.max(students.length, 1);
       return acc + (Number(d.amount) || 0) * (studentCount || 1);
     }, 0);
   }, [activeDues, students]);
 
   const totalCollected = useMemo(() => {
-    return completedPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+    return completedPayments.reduce((acc: any, p: any) => acc + (Number(p.amount) || 0), 0);
   }, [completedPayments]);
 
   const collectionRate = useMemo(() => {
@@ -212,10 +218,10 @@ export default function DuesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-100 dark:divide-surface-800/60">
-                {dues.map((d) => {
+                {dues.map((d: any) => {
                   const paidForDue = completedPayments
-                    .filter((p) => p.due_id === d.id)
-                    .reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+                    .filter((p: any) => p.due_id === d.id)
+                    .reduce((acc: any, p: any) => acc + (Number(p.amount) || 0), 0);
                   const expectedForDue = (Number(d.amount) || 0) * (students.length || 1);
                   const pct = expectedForDue > 0 ? Math.min(100, Math.round((paidForDue / expectedForDue) * 100)) : 0;
                   const deadlineDate = d.deadline

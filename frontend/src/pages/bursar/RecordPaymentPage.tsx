@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
@@ -63,12 +63,20 @@ export default function RecordPaymentPage() {
   });
   const students = _qd?.students ?? [];
   const dues = _qd?.dues ?? [];
-  const selectedStudentId = _qd?.selectedStudentId ?? '';
-  const selectedDueId = _qd?.selectedDueId ?? '';
-  const amount = _qd?.amount ?? '';
+  const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [selectedDueId, setSelectedDueId] = useState('');
+  const [amount, setAmount] = useState('');
+
+  useEffect(() => {
+    if (_qd) {
+      if (_qd.selectedStudentId && !selectedStudentId) setSelectedStudentId(_qd.selectedStudentId);
+      if (_qd.selectedDueId && !selectedDueId) setSelectedDueId(_qd.selectedDueId);
+      if (_qd.amount && !amount) setAmount(_qd.amount);
+    }
+  }, [_qd, selectedStudentId, selectedDueId, amount]);
   const handleDueChange = (dueId: string) => {
     setSelectedDueId(dueId);
-    const found = dues.find((d) => d.id === dueId);
+    const found = dues.find((d: any) => d.id === dueId);
     if (found) {
       setAmount(String(found.amount));
     }
@@ -80,8 +88,8 @@ export default function RecordPaymentPage() {
     }
   };
 
-  const selectedStudent = students.find((s) => s.id === selectedStudentId);
-  const selectedDue = dues.find((d) => d.id === selectedDueId);
+  const selectedStudent = students.find((s: any) => s.id === selectedStudentId);
+  const selectedDue = dues.find((d: any) => d.id === selectedDueId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,7 +155,7 @@ export default function RecordPaymentPage() {
                   onChange={(e) => setSelectedStudentId(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl bg-surface-50 dark:bg-[#0b101c] border border-surface-300 dark:border-[#1e2a3f] text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#1d68ec] cursor-pointer"
                 >
-                  {students.map((s) => (
+                  {students.map((s: any) => (
                     <option key={s.id} value={s.id}>
                       {s.fullName || `${s.firstName || ''} ${s.lastName || ''}`.trim() || 'Student'} ·{' '}
                       {s.matricNumber || s.email}
@@ -179,7 +187,7 @@ export default function RecordPaymentPage() {
                     onChange={(e) => handleDueChange(e.target.value)}
                     className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl bg-surface-50 dark:bg-[#0b101c] border border-surface-300 dark:border-[#1e2a3f] text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#1d68ec] cursor-pointer"
                   >
-                    {dues.map((d) => (
+                    {dues.map((d: any) => (
                       <option key={d.id} value={d.id}>
                         {d.name}
                       </option>

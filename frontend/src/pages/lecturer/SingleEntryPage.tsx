@@ -48,7 +48,10 @@ export function SingleEntryTab() {
     enabled: !!user?.id,
   });
   const assignments = meta?.assignments ?? [];
-  const students = meta?.students ?? [];
+  const [students, setStudents] = useState<StudentForRoleManagement[]>([]);
+  useEffect(() => {
+    if (meta?.students) setStudents(meta.students);
+  }, [meta?.students]);
 
   useEffect(() => {
     if (assignments.length > 0 && !selectedAssignmentId) {
@@ -77,14 +80,14 @@ export function SingleEntryTab() {
 
         setStudents((prev) => {
           const existingMatrics = new Set(mapped.map((s) => s.matric_number));
-          const remain = prev.filter((s) => !existingMatrics.has(s.matric_number));
+          const remain = prev.filter((s: any) => !existingMatrics.has(s.matric_number));
           return [...mapped, ...remain];
         });
       })
       .catch(() => {});
   }, [selAssignment?.course_id]);
 
-  const filteredStudents = students.filter((s) => {
+  const filteredStudents = students.filter((s: any) => {
     const q = studentSearch.toLowerCase();
     return (s.full_name || '').toLowerCase().includes(q) || (s.matric_number || '').toLowerCase().includes(q);
   });
@@ -196,7 +199,7 @@ export function SingleEntryTab() {
             </div>
             {showStudentDropdown && !selectedStudent && filteredStudents.length > 0 && (
               <div className="absolute z-20 mt-1 w-full bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                {filteredStudents.map((s) => (
+                {filteredStudents.map((s: any) => (
                   <button
                     key={s.id}
                     className="w-full text-left px-4 py-2.5 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors border-b border-surface-100 dark:border-surface-700 last:border-0"

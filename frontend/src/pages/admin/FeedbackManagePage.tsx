@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { MessageSquare, Star, CheckCircle, Clock, AlertCircle, Filter } from 'lucide-react';
-import { listFeedback, updateFeedbackStatus } from '../../api/additional-features';
+import { listFeedback, updateFeedbackStatus, type Feedback } from '../../api/additional-features';
 import EmptyState from '../../components/ui/EmptyState';
 
 import { useQuery } from '@tanstack/react-query';
@@ -41,29 +41,29 @@ const FeedbackManagePage = () => {
   const [responseMap, setResponseMap] = useState<Record<string, string>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const { data: _qd, isLoading: loading } = useQuery({
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const { isLoading: loading } = useQuery({
     queryKey: ['feedback-manage'],
     queryFn: async () => {
-      const _r: any = { feedbacks: [] };
       try {
         const data = await listFeedback();
-        _r.feedbacks = Array.isArray(data) ? data : [];
+        const list = Array.isArray(data) ? data : [];
+        setFeedbacks(list);
+        return list;
       } catch {
-        // silent
+        return [];
       }
-      return _r;
     },
     staleTime: 60_000,
   });
-  const feedbacks = _qd?.feedbacks ?? [];
-  const filtered = activeTab === 'all' ? feedbacks : feedbacks.filter((f) => f.status === activeTab);
+  const filtered = activeTab === 'all' ? feedbacks : feedbacks.filter((f: any) => f.status === activeTab);
 
   const handleStatusUpdate = async (id: string, status: string) => {
     setUpdatingId(id);
     try {
       await updateFeedbackStatus(id, { status, admin_response: responseMap[id] || undefined });
       setFeedbacks((prev) =>
-        prev.map((f) => (f.id === id ? { ...f, status, admin_response: responseMap[id] || f.admin_response } : f)),
+        prev.map((f: any) => (f.id === id ? { ...f, status, admin_response: responseMap[id] || f.admin_response } : f)),
       );
       setExpandedId(null);
     } catch {

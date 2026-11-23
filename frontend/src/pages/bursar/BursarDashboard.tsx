@@ -29,7 +29,11 @@ export default function BursarDashboard() {
   const [, setDues] = useState<DuePayment[]>([]);
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
 
-  const { data: _qd, isLoading: loading } = useQuery({
+  const {
+    data: _qd,
+    isLoading: loading,
+    refetch: fetchDashboard,
+  } = useQuery({
     queryKey: ['bursar-dashboard'],
     queryFn: async () => {
       const _result: any = { data: null };
@@ -75,7 +79,7 @@ export default function BursarDashboard() {
     }
   };
 
-  const filteredPending = (data?.pending_payments ?? []).filter((p) => {
+  const filteredPending = (data?.pending_payments ?? []).filter((p: any) => {
     if (activeTab === 'all') return true;
     return p.payment_method === activeTab;
   });
@@ -114,8 +118,8 @@ export default function BursarDashboard() {
   ];
 
   const pendingCount = data?.pending_payments?.length ?? 0;
-  const paystackCount = (data?.pending_payments ?? []).filter((p) => p.payment_method === 'paystack').length;
-  const manualCount = (data?.pending_payments ?? []).filter((p) => p.payment_method === 'manual').length;
+  const paystackCount = (data?.pending_payments ?? []).filter((p: any) => p.payment_method === 'paystack').length;
+  const manualCount = (data?.pending_payments ?? []).filter((p: any) => p.payment_method === 'manual').length;
 
   return (
     <div className="space-y-6">
@@ -231,7 +235,7 @@ export default function BursarDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-surface-100 dark:divide-surface-800/60">
-                    {filteredPending.map((p) => (
+                    {filteredPending.map((p: any) => (
                       <tr key={p.id} className="hover:bg-surface-50 dark:hover:bg-[#152033]/40">
                         <td className="py-3 px-3 font-medium text-surface-900 dark:text-white">
                           {p.student_name}
@@ -310,7 +314,7 @@ export default function BursarDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-surface-100 dark:divide-surface-800/60">
-                    {data?.recent_payments?.slice(0, 5).map((p) => (
+                    {data?.recent_payments?.slice(0, 5).map((p: any) => (
                       <tr key={p.id} className="hover:bg-surface-50 dark:hover:bg-[#152033]/40">
                         <td className="py-3 px-3 font-medium text-surface-900 dark:text-white">
                           {p.student_name}

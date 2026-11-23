@@ -57,7 +57,7 @@ const StudentJobBoardPage = () => {
     staleTime: 60_000,
   });
   const jobs = _qd?.jobs ?? [];
-  const filtered = jobs.filter((j) => {
+  const filtered = jobs.filter((j: any) => {
     const q = search.toLowerCase();
     const matchSearch = !q || j.title?.toLowerCase().includes(q) || j.company?.toLowerCase().includes(q);
     const matchType = !typeFilter || (j.job_type || j.type) === typeFilter;
@@ -132,7 +132,7 @@ const StudentJobBoardPage = () => {
         </Card>
       ) : (
         <div className="space-y-4">
-          {filtered.map((job) => {
+          {filtered.map((job: any) => {
             const type = (job.job_type || job.type || 'full_time') as string;
             return (
               <Card key={extractId(job.id)} hover className="p-5">

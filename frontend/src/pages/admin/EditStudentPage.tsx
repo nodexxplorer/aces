@@ -5,7 +5,7 @@ import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import EmptyState from '../../components/ui/EmptyState';
 import Badge from '../../components/ui/Badge';
-import { getStudentFullProfile, hodEditStudent, type _AuditLog, type StudentProfile } from '../../api/profile-edit';
+import { getStudentFullProfile, hodEditStudent, type AuditLog, type StudentProfile } from '../../api/profile-edit';
 import { useNotification } from '../../hooks/useNotification';
 import { ArrowLeft, Save, Shield, Clock, User, Phone, MapPin, Mail, AlertCircle } from 'lucide-react';
 import { getErrorMessage } from '../../utils/errors';
@@ -18,58 +18,9 @@ const EditStudentPage = () => {
   const [reason, setReason] = useState('');
   const [showReason, setShowReason] = useState(false);
 
-  const { data: _qd, isLoading: loading } = useQuery({
-    queryKey: ['edit-student', id],
-    queryFn: async () => {
-      const _r: any = {
-        profile: null,
-        auditLogs: [],
-        form: {
-          firstName: '',
-          lastName: '',
-          phone: '',
-          homeAddress: '',
-          dateOfBirth: '',
-          emergencyContactName: '',
-          emergencyContactPhone: '',
-          matricNumber: '',
-          level: '',
-          academicStanding: '',
-          graduationStatus: '',
-          admissionMode: '',
-          yearAdmitted: '',
-        },
-      };
-      if (!id) return;
-      getStudentFullProfile(id)
-        .then((data: StudentProfile) => {
-          _r.profile = data;
-          _r.auditLogs = data.audit_logs || [];
-          _r.form = {
-            firstName: data.firstName || '',
-            lastName: data.lastName || '',
-            phone: data.phone || '',
-            homeAddress: data.homeAddress || '',
-            dateOfBirth: data.dateOfBirth || '',
-            emergencyContactName: data.emergencyContactName || '',
-            emergencyContactPhone: data.emergencyContactPhone || '',
-            matricNumber: data.matricNumber || '',
-            level: data.level ? String(data.level) : '',
-            academicStanding: data.academicStanding || '',
-            graduationStatus: data.graduationStatus || '',
-            admissionMode: data.admissionMode || '',
-            yearAdmitted: data.yearAdmitted ? String(data.yearAdmitted) : '',
-          };
-        })
-        .catch((err: unknown) => notifyError('Error', getErrorMessage(err, 'Failed to load profile')));
-      return _r;
-    },
-    staleTime: 60_000,
-    enabled: !!id,
-  });
-  const profile = _qd?.profile ?? null;
-  const auditLogs = _qd?.auditLogs ?? [];
-  const form = _qd?.form ?? {
+  const [profile, setProfile] = useState<StudentProfile | null>(null);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [form, setForm] = useState({
     firstName: '',
     lastName: '',
     phone: '',
@@ -83,7 +34,40 @@ const EditStudentPage = () => {
     graduationStatus: '',
     admissionMode: '',
     yearAdmitted: '',
-  };
+  });
+
+  const { isLoading: loading } = useQuery({
+    queryKey: ['edit-student', id],
+    queryFn: async () => {
+      if (!id) return null;
+      try {
+        const data = (await getStudentFullProfile(id)) as StudentProfile;
+        setProfile(data);
+        setAuditLogs(data.audit_logs || []);
+        setForm({
+          firstName: data.firstName || '',
+          lastName: data.lastName || '',
+          phone: data.phone || '',
+          homeAddress: data.homeAddress || '',
+          dateOfBirth: data.dateOfBirth || '',
+          emergencyContactName: data.emergencyContactName || '',
+          emergencyContactPhone: data.emergencyContactPhone || '',
+          matricNumber: data.matricNumber || '',
+          level: data.level ? String(data.level) : '',
+          academicStanding: data.academicStanding || '',
+          graduationStatus: data.graduationStatus || '',
+          admissionMode: data.admissionMode || '',
+          yearAdmitted: data.yearAdmitted ? String(data.yearAdmitted) : '',
+        });
+        return data;
+      } catch (err: unknown) {
+        notifyError('Load Failed', getErrorMessage(err, 'Failed to load student profile.'));
+        return null;
+      }
+    },
+    staleTime: 60_000,
+    enabled: !!id,
+  });
   const hasChanges =
     JSON.stringify(form) !==
     JSON.stringify({

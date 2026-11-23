@@ -89,7 +89,6 @@ export default function AttendancePage() {
   const selectedCourse = _qd?.selectedCourse ?? null;
   const students = _qd?.students ?? [];
   const activeSession = _qd?.activeSession ?? null;
-  const loading = _qd?.loading ?? true;
   const [submitting, setSubmitting] = useState(false);
   const handleSetStatus = async (studentId: string, status: AttendanceStatus) => {
     setStatusMap((prev) => ({ ...prev, [studentId]: status }));
@@ -109,7 +108,7 @@ export default function AttendancePage() {
 
   const handleMarkAllPresent = async () => {
     const updated: Record<string, AttendanceStatus> = {};
-    students.forEach((s) => {
+    students.forEach((s: any) => {
       updated[s.id] = 'present';
     });
     setStatusMap(updated);
@@ -129,7 +128,7 @@ export default function AttendancePage() {
     const userIdOrMatric = parsed || scannedText.trim();
 
     const matched = students.find(
-      (s) =>
+      (s: any) =>
         s.user_id === userIdOrMatric ||
         s.id === userIdOrMatric ||
         s.matric_number?.toLowerCase() === userIdOrMatric.toLowerCase(),
@@ -158,17 +157,17 @@ export default function AttendancePage() {
   };
 
   const filteredStudents = students.filter(
-    (s) =>
+    (s: any) =>
       !search.trim() ||
       s.full_name?.toLowerCase().includes(search.toLowerCase()) ||
       s.matric_number?.toLowerCase().includes(search.toLowerCase()),
   );
 
   // Stats calculation
-  const presentCount = students.filter((s) => statusMap[s.id] === 'present').length;
-  const lateCount = students.filter((s) => statusMap[s.id] === 'late').length;
-  const absentCount = students.filter((s) => statusMap[s.id] === 'absent').length;
-  const notMarkedCount = students.filter((s) => !statusMap[s.id] || statusMap[s.id] === 'unmarked').length;
+  const presentCount = students.filter((s: any) => statusMap[s.id] === 'present').length;
+  const lateCount = students.filter((s: any) => statusMap[s.id] === 'late').length;
+  const absentCount = students.filter((s: any) => statusMap[s.id] === 'absent').length;
+  const notMarkedCount = students.filter((s: any) => !statusMap[s.id] || statusMap[s.id] === 'unmarked').length;
 
   const courseTitle = selectedCourse
     ? `${selectedCourse.code} · ${selectedCourse.title}`
@@ -254,12 +253,12 @@ export default function AttendancePage() {
             <div className="py-16 text-center text-xs text-surface-400 dark:text-slate-500">No students found</div>
           ) : (
             <div className="divide-y divide-surface-100 dark:divide-surface-800/60">
-              {filteredStudents.map((s) => {
+              {filteredStudents.map((s: any) => {
                 const curStatus = statusMap[s.id] || 'unmarked';
                 const initials =
                   s.full_name
                     ?.split(' ')
-                    .map((n) => n[0])
+                    .map((n: any) => n[0])
                     .join('')
                     .slice(0, 2)
                     .toUpperCase() || 'ST';

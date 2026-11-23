@@ -33,7 +33,7 @@ export default function ClassListPage() {
   }, []);
 
   const filtered = students.filter(
-    (s) =>
+    (s: any) =>
       s.full_name?.toLowerCase().includes(search.toLowerCase()) ||
       s.matric_number?.toLowerCase().includes(search.toLowerCase()) ||
       s.email?.toLowerCase().includes(search.toLowerCase()),
@@ -43,7 +43,7 @@ export default function ClassListPage() {
     const csv = [
       'Student Name,Matric Number,Email,Status',
       ...filtered.map(
-        (s) => `"${s.full_name}","${s.matric_number}","${s.email}","${s.is_defaulter ? 'Defaulter' : 'Active'}"`,
+        (s: any) => `"${s.full_name}","${s.matric_number}","${s.email}","${s.is_defaulter ? 'Defaulter' : 'Active'}"`,
       ),
     ].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -134,11 +134,11 @@ export default function ClassListPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-100 dark:divide-surface-800/60">
-                {filtered.map((s) => {
+                {filtered.map((s: any) => {
                   const initials =
                     s.full_name
                       ?.split(' ')
-                      .map((n) => n[0])
+                      .map((n: any) => n[0])
                       .join('')
                       .slice(0, 2)
                       .toUpperCase() || 'ST';

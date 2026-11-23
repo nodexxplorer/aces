@@ -54,9 +54,12 @@ export default function AcceptInvitationPage() {
     enabled: !!credentials,
   });
   const preview = _qd?.preview ?? null;
+  const [actionError, setActionError] = useState<string | null>(null);
   const error =
+    actionError ??
     _qd?.error ??
     (!credentials ? 'This invitation link is missing or invalid. Ask the sender for a new invitation.' : '');
+  const setError = (msg: string) => setActionError(msg);
   const navigate = useNavigate();
   const matchingAccount = Boolean(
     user &&

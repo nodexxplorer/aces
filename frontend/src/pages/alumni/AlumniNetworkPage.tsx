@@ -137,7 +137,12 @@ const AlumniNetworkPage = () => {
               <Button variant="ghost" size="sm" onClick={clearFilters}>
                 Clear
               </Button>
-              <Button size="sm" onClick={fetchAlumni}>
+              <Button
+                size="sm"
+                onClick={() => {
+                  fetchAlumni();
+                }}
+              >
                 Apply
               </Button>
             </div>

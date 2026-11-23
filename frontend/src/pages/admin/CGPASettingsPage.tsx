@@ -11,40 +11,33 @@ const CGPASettingsPage = () => {
   const { success } = useNotification();
   const [saving, setSaving] = useState(false);
 
-  const { data: _qd, isLoading: loading } = useQuery({
+  const [scale, setScale] = useState('5.0');
+  const [passingCGPA, setPassingCGPA] = useState('1.0');
+  const [firstClass, setFirstClass] = useState('4.5');
+  const [secondClassUpper, setSecondClassUpper] = useState('3.5');
+  const [secondClassLower, setSecondClassLower] = useState('2.5');
+  const [thirdClass, setThirdClass] = useState('1.5');
+
+  const { isLoading: loading } = useQuery({
     queryKey: ['cgpasettings'],
     queryFn: async () => {
-      const _r: any = {
-        scale: '5.0',
-        passingCGPA: '1.0',
-        firstClass: '4.5',
-        secondClassUpper: '3.5',
-        secondClassLower: '2.5',
-        thirdClass: '1.5',
-      };
       try {
         const config = await getCGPAConfig();
         if (config) {
-          _r.scale = String(config.scale || config.maxScale || '5.0');
-          _r.passingCGPA = String(config.passingCGPA || config.minimumPassing || '1.0');
-          _r.firstClass = String(config.firstClass || config.gradeBoundaries?.firstClass || '4.5');
-          _r.secondClassUpper = String(config.secondClassUpper || config.gradeBoundaries?.secondClassUpper || '3.5');
-          _r.secondClassLower = String(config.secondClassLower || config.gradeBoundaries?.secondClassLower || '2.5');
-          _r.thirdClass = String(config.thirdClass || config.gradeBoundaries?.thirdClass || '1.5');
+          setScale(String(config.scale || config.maxScale || '5.0'));
+          setPassingCGPA(String(config.passingCGPA || config.minimumPassing || '1.0'));
+          setFirstClass(String(config.firstClass || config.gradeBoundaries?.firstClass || '4.5'));
+          setSecondClassUpper(String(config.secondClassUpper || config.gradeBoundaries?.secondClassUpper || '3.5'));
+          setSecondClassLower(String(config.secondClassLower || config.gradeBoundaries?.secondClassLower || '2.5'));
+          setThirdClass(String(config.thirdClass || config.gradeBoundaries?.thirdClass || '1.5'));
         }
+        return config;
       } catch {
-        // silent
+        return null;
       }
-      return _r;
     },
     staleTime: 5 * 60_000,
   });
-  const scale = _qd?.scale ?? '5.0';
-  const passingCGPA = _qd?.passingCGPA ?? '1.0';
-  const firstClass = _qd?.firstClass ?? '4.5';
-  const secondClassUpper = _qd?.secondClassUpper ?? '3.5';
-  const secondClassLower = _qd?.secondClassLower ?? '2.5';
-  const thirdClass = _qd?.thirdClass ?? '1.5';
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     try {

@@ -8,7 +8,6 @@ import { useQuery } from '@tanstack/react-query';
 import {
   getMyAttendanceOverview,
   getMyCourseAttendance,
-  type _StudentAttendanceOverview,
   type StudentCourseAttendance,
   type StudentCourseAttendanceSession,
 } from '../../api/attendance';

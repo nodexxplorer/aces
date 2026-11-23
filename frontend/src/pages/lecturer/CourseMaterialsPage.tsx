@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
@@ -29,6 +29,8 @@ export default function LecturerCourseMaterialsPage() {
   const { user } = useAuth();
   const { success, error: notifyError } = useNotification();
   const [uploading, setUploading] = useState(false);
+  const [courseId, setCourseId] = useState('');
+  const [materials, setMaterials] = useState<CourseMaterial[]>([]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [materialType, setMaterialType] = useState<CourseMaterialType>('slide');
@@ -51,8 +53,12 @@ export default function LecturerCourseMaterialsPage() {
     staleTime: 60_000,
   });
   const assignments = _qd?.assignments ?? [];
-  const materials = _qd?.materials ?? [];
-  const courseId = _qd?.courseId ?? '';
+  useEffect(() => {
+    if (_qd) {
+      if (_qd.materials) setMaterials(_qd.materials);
+      if (_qd.courseId && !courseId) setCourseId(_qd.courseId);
+    }
+  }, [_qd, courseId]);
   const fetchMaterials = () => {
     listMyCourseMaterials()
       .then(setMaterials)
@@ -90,7 +96,7 @@ export default function LecturerCourseMaterialsPage() {
     if (!confirm(`Remove "${material.title}"?`)) return;
     try {
       await deleteCourseMaterial(material.id);
-      setMaterials((prev) => prev.filter((m) => m.id !== material.id));
+      setMaterials((prev: any[]) => prev.filter((m: any) => m.id !== material.id));
       success('Removed', 'Material removed.');
     } catch {
       notifyError('Error', 'Could not remove material');
@@ -130,7 +136,7 @@ export default function LecturerCourseMaterialsPage() {
               <div>
                 <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Course</label>
                 <Select
-                  options={assignments.map((a) => ({
+                  options={assignments.map((a: any) => ({
                     value: a.course_id,
                     label: `${a.course_code} - ${a.course_title}`,
                   }))}

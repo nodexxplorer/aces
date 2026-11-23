@@ -23,6 +23,7 @@ import type { LecturerProfile, LecturerAssignment, LecturerLeave } from '../../a
 import { getErrorMessage } from '../../utils/errors';
 
 import { useQuery } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 type Tab = 'list' | 'courses' | 'leave';
 
 const statusVariant = (s: string) => {
@@ -55,26 +56,32 @@ const LecturerManagementPage = () => {
 
   const [, setProfileModalOpen] = useState(false);
 
-  const { data: _qd, isLoading: loading } = useQuery({
+  const queryClient = useQueryClient();
+  const [lecturers, setLecturers] = useState<LecturerProfile[]>([]);
+  const [courses, setCourses] = useState<any[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
+
+  const { isLoading: loading } = useQuery({
     queryKey: ['lecturer-management'],
     queryFn: async () => {
-      const _r: any = { lecturers: [], courses: [], leaveRequests: [] };
       try {
         const [l, c, lr] = await Promise.allSettled([listLecturers(), getCourses(), listAllLeaveRequests()]);
-        if (l.status === 'fulfilled') _r.lecturers = Array.isArray(l.value) ? l.value : [];
-        if (c.status === 'fulfilled') _r.courses = Array.isArray(c.value) ? c.value : [];
-        if (lr.status === 'fulfilled') _r.leaveRequests = Array.isArray(lr.value) ? lr.value : [];
+        const lList = l.status === 'fulfilled' && Array.isArray(l.value) ? l.value : [];
+        const cList = c.status === 'fulfilled' && Array.isArray(c.value) ? c.value : [];
+        const lrList = lr.status === 'fulfilled' && Array.isArray(lr.value) ? lr.value : [];
+        setLecturers(lList);
+        setCourses(cList);
+        setLeaveRequests(lrList);
+        return { lecturers: lList, courses: cList, leaveRequests: lrList };
       } catch {
-        // silent
+        return { lecturers: [], courses: [], leaveRequests: [] };
       }
-      return _r;
     },
     staleTime: 60_000,
   });
-  const lecturers = _qd?.lecturers ?? [];
-  const courses = _qd?.courses ?? [];
-  const leaveRequests = _qd?.leaveRequests ?? [];
-  const filteredLecturers = lecturers.filter((l) => {
+
+  const fetchAll = () => queryClient.invalidateQueries({ queryKey: ['lecturer-management'] });
+  const filteredLecturers = lecturers.filter((l: any) => {
     const q = search.toLowerCase();
     return (
       (l.full_name || '').toLowerCase().includes(q) ||
@@ -84,7 +91,7 @@ const LecturerManagementPage = () => {
     );
   });
 
-  const availableCourses = courses.filter((c) => c.isActive);
+  const availableCourses = courses.filter((c: any) => c.isActive);
 
   const handleSelectLecturer = async (lecturer: LecturerProfile) => {
     setSelectedLecturer(lecturer);
@@ -138,7 +145,7 @@ const LecturerManagementPage = () => {
     try {
       await updateLeaveStatus(leave.id, status);
       success('Updated', `Leave request ${status}`);
-      setLeaveRequests((prev) => prev.map((l) => (l.id === leave.id ? { ...l, status } : l)));
+      setLeaveRequests((prev) => prev.map((l: any) => (l.id === leave.id ? { ...l, status } : l)));
     } catch (err: unknown) {
       notifyError('Update Failed', getErrorMessage(err, 'Could not update leave status'));
     }
@@ -241,7 +248,7 @@ const LecturerManagementPage = () => {
                             <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-xs font-semibold text-primary-600 dark:text-primary-400">
                               {(l.full_name || '?')
                                 .split(' ')
-                                .map((w) => w[0])
+                                .map((w: any) => w[0])
                                 .join('')
                                 .slice(0, 2)
                                 .toUpperCase()}
@@ -307,7 +314,7 @@ const LecturerManagementPage = () => {
                       <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-xs font-semibold text-primary-600 dark:text-primary-400 shrink-0">
                         {(l.full_name || '?')
                           .split(' ')
-                          .map((w) => w[0])
+                          .map((w: any) => w[0])
                           .join('')
                           .slice(0, 2)
                           .toUpperCase()}
@@ -425,7 +432,7 @@ const LecturerManagementPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-surface-200 dark:divide-surface-700">
-                  {leaveRequests.map((lr) => (
+                  {leaveRequests.map((lr: any) => (
                     <tr key={lr.id} className="hover:bg-surface-50 dark:hover:bg-surface-900/30 transition-colors">
                       <td className="px-4 py-3">
                         <p className="font-medium text-surface-900 dark:text-surface-100">
@@ -539,7 +546,7 @@ const LecturerManagementPage = () => {
                 <div className="w-16 h-16 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-xl font-bold text-primary-600 dark:text-primary-400">
                   {(selectedLecturer.full_name || '?')
                     .split(' ')
-                    .map((w) => w[0])
+                    .map((w: any) => w[0])
                     .join('')
                     .slice(0, 2)
                     .toUpperCase()}

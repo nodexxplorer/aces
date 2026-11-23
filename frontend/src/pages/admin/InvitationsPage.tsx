@@ -25,22 +25,27 @@ export default function InvitationsPage() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
 
-  const { data: _qd, isLoading: loading } = useQuery({
-    queryKey: ['invitations', load],
+  const [items, setItems] = useState<AccessInvitation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const { refetch: load } = useQuery({
+    queryKey: ['invitations'],
     queryFn: async () => {
-      const _r: any = { items: [], error: '' };
+      setLoading(true);
       try {
-        _r.items = await listInvitations();
+        const data = await listInvitations();
+        setItems(data);
+        return data;
       } catch (err) {
-        _r.error = getErrorMessage(err);
+        setError(getErrorMessage(err));
+        return [];
+      } finally {
+        setLoading(false);
       }
-      return _r;
     },
     staleTime: 60_000,
-    enabled: !!load,
   });
-  const items = _qd?.items ?? [];
-  const error = _qd?.error ?? '';
   const [history, setHistory] = useState<{ id: string; events: InvitationEvent[] } | null>(null);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -199,7 +204,7 @@ export default function InvitationsPage() {
         ) : items.length === 0 ? (
           <p>No invitations yet.</p>
         ) : (
-          items.map((item) => (
+          items.map((item: any) => (
             <Card key={item.id}>
               <div className="p-4 space-y-3">
                 <div className="flex flex-wrap justify-between gap-2">
@@ -261,9 +266,9 @@ export default function InvitationsPage() {
                     First-HOD invitations can only be resent by the deployment operator.
                   </p>
                 )}
-                {history?.id === item.id && (
+                {Boolean(history && history.id === item.id) && (
                   <ul className="text-sm space-y-1" aria-label="Invitation history">
-                    {history.events.map((e, index) => (
+                    {history?.events?.map((e, index) => (
                       <li key={index}>
                         {new Date(e.createdAt).toLocaleString()} — {e.action.replace(/_/g, ' ')}{' '}
                         {e.actorId ? `(actor ${e.actorId})` : '(system/operator)'}

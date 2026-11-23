@@ -363,6 +363,8 @@ type TabKey = 'overview' | 'sessions' | 'eligibility';
    ═══════════════════════════════════════════ */
 export default function StudentVerifiedAttendancePage() {
   const user = useAuthStore((s) => s.user);
+  const [choice, setChoice] = useState('');
+  const [error, setError] = useState('');
   const [sessions, setSessions] = useState<VerifiedSession[]>([]);
   const [detail, setDetail] = useState<AttendanceDetail | null>(null);
   const [report, setReport] = useState<EligibilityReport | null>(null);
@@ -373,7 +375,7 @@ export default function StudentVerifiedAttendancePage() {
     queryKey: ['student-verified-attendance', user?.id],
     queryFn: async () => {
       const _r: any = { courses: [], choice: '', error: '' };
-      let active = true;
+      const active = true;
       generation.current++;
       attendanceCatalog()
         .then((data) => {
@@ -386,20 +388,20 @@ export default function StudentVerifiedAttendancePage() {
             _r.error = msg(e);
           }
         });
-      return () => {
-        active = false;
-        generation.current++;
-      };
       return _r;
     },
     staleTime: 15_000,
   });
   const courses = _qd?.courses ?? [];
-  const choice = _qd?.choice ?? '';
-  const error = _qd?.error ?? '';
+  useEffect(() => {
+    if (_qd) {
+      if (_qd.choice && !choice) setChoice(_qd.choice);
+      if (_qd.error) setError(_qd.error);
+    }
+  }, [_qd, choice]);
   const generation = useRef(0);
 
-  const course = courses.find((c) => `${c.id}:${c.semester_id}` === choice);
+  const course = courses.find((c: any) => `${c.id}:${c.semester_id}` === choice);
 
   /* ── Load catalog ── */
   /* ── Load sessions + eligibility ── */

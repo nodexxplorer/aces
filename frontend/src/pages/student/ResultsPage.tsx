@@ -7,7 +7,7 @@ import { getCourses } from '../../api/courses';
 import { getSessions, listSessionSemesters } from '../../api/sessions';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
-import type { SemesterEntry } from '../../types';
+import type { Course, Session, SemesterEntry } from '../../types';
 
 import { useQuery } from '@tanstack/react-query';
 interface RawResult {
@@ -49,6 +49,9 @@ const parseScore = (v: number | string | undefined): number => {
 export default function ResultsPage() {
   const { user } = useAuth();
   const { error: notifyError } = useNotification();
+  const [results, _setResults] = useState<RawResult[]>([]);
+  const [courses, _setCourses] = useState<Course[]>([]);
+  const [sessions, _setSessions] = useState<Session[]>([]);
   const [semesterMap, setSemesterMap] = useState<Record<string, SemesterEntry[]>>({});
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [, setPrintSection] = useState<string | null>(null);
@@ -87,9 +90,6 @@ export default function ResultsPage() {
     },
     staleTime: 60_000,
   });
-  const results = _qd?.results ?? [];
-  const courses = _qd?.courses ?? [];
-  const sessions = _qd?.sessions ?? [];
   const courseLookup = new Map(courses.map((c) => [c.id, c]));
   const sessionLookup = new Map(sessions.map((s) => [s.id, s]));
 
@@ -205,11 +205,15 @@ export default function ResultsPage() {
         </Card>
         <Card className="p-5 text-center">
           <p className="text-xs text-surface-500 uppercase tracking-wider font-semibold mb-1">Approved</p>
-          <p className="text-3xl font-bold text-green-600">{results.filter((r) => r.status === 'approved').length}</p>
+          <p className="text-3xl font-bold text-green-600">
+            {results.filter((r: any) => r.status === 'approved').length}
+          </p>
         </Card>
         <Card className="p-5 text-center">
           <p className="text-xs text-surface-500 uppercase tracking-wider font-semibold mb-1">Pending</p>
-          <p className="text-3xl font-bold text-yellow-600">{results.filter((r) => r.status === 'pending').length}</p>
+          <p className="text-3xl font-bold text-yellow-600">
+            {results.filter((r: any) => r.status === 'pending').length}
+          </p>
         </Card>
       </div>
 

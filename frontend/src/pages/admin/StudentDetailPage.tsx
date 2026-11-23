@@ -225,7 +225,7 @@ const StudentDetailPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-surface-100 dark:divide-surface-700/50">
-                  {results.slice(0, 10).map((r) => (
+                  {results.slice(0, 10).map((r: any) => (
                     <tr key={r.id}>
                       <td className="px-3 py-2 font-medium">{r.courseCode || r.course?.code || 'N/A'}</td>
                       <td className="px-3 py-2">{r.caScore ?? '-'}</td>

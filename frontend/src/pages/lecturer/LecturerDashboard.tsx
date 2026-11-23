@@ -11,7 +11,7 @@ import { listStudentAnnouncements } from '../../api/verification-announcements';
 import { getLecturerPendingAttendanceReviews, getLecturerAttendanceHistory } from '../../api/attendance';
 
 import { formatTimeAgo } from '../../utils/formatters';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   BookOpen,
   Users,
@@ -42,9 +42,13 @@ export const LecturerDashboard: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { error: notifyError } = useNotification();
+  const queryClient = useQueryClient();
+  const loadData = () => {
+    queryClient.invalidateQueries({ queryKey: ['lecturer-dashboard'] });
+  };
 
   const { data: _qd, isLoading: loading } = useQuery({
-    queryKey: ['lecturer-dashboard', loadData],
+    queryKey: ['lecturer-dashboard'],
     queryFn: async () => {
       const _r: any = {
         stats: null,
@@ -139,10 +143,10 @@ export const LecturerDashboard: React.FC = () => {
   const coursesCount = stats?.courses_assigned ?? courses.length;
   const totalStudents = useMemo(() => {
     if (typeof stats?.total_students === 'number') return stats.total_students;
-    return courses.reduce((acc, c) => acc + (c.enrolled_count || 0), 0);
+    return courses.reduce((acc: any, c: any) => acc + (c.enrolled_count || 0), 0);
   }, [stats?.total_students, courses]);
 
-  const pendingLeavesCount = useMemo(() => leaves.filter((l) => l.status === 'pending').length, [leaves]);
+  const pendingLeavesCount = useMemo(() => leaves.filter((l: any) => l.status === 'pending').length, [leaves]);
   const reportCount = pendingReviews.length + reviewHistory.length;
   const hasCourses = courses.length > 0;
 
@@ -150,7 +154,9 @@ export const LecturerDashboard: React.FC = () => {
     const first = courses[0];
     if (!first) return '';
     const session =
-      sessions.find((s) => s.id === first.session_id) || sessions.find((s) => s.isActive || s.is_active) || sessions[0];
+      sessions.find((s: any) => s.id === first.session_id) ||
+      sessions.find((s: any) => s.isActive || s.is_active) ||
+      sessions[0];
     return sessionLine(session?.name || '', first.semester);
   }, [courses, sessions]);
 
@@ -304,7 +310,7 @@ export const LecturerDashboard: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-3">
-                {courses.map((course) => (
+                {courses.map((course: any) => (
                   <div
                     key={course.id || course.course_id}
                     className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/40"
@@ -475,7 +481,7 @@ export const LecturerDashboard: React.FC = () => {
               </p>
             ) : (
               <div className="space-y-3">
-                {announcements.map((a) => (
+                {announcements.map((a: any) => (
                   <Link
                     key={a.id}
                     to={announcementsPath}

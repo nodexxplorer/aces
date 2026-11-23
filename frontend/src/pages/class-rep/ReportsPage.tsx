@@ -23,7 +23,11 @@ export default function ReportsPage() {
   const [subject, setSubject] = useState('');
   const [details, setDetails] = useState('');
 
-  const { data: _qd, isLoading: loading } = useQuery({
+  const {
+    data: _qd,
+    isLoading: loading,
+    refetch: fetchReports,
+  } = useQuery({
     queryKey: ['reports'],
     queryFn: async () => {
       const _r: any = { reports: [] };
@@ -248,7 +252,7 @@ export default function ReportsPage() {
             ) : (
               /* Populated list with real reports */
               <div className="divide-y divide-surface-100 dark:divide-surface-800/80">
-                {reports.map((r) => (
+                {reports.map((r: any) => (
                   <div key={r.id} className="py-3.5 first:pt-0 last:pb-0 flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3 min-w-0">
                       <div className="p-2 rounded-xl bg-surface-100 dark:bg-[#152033] text-[#1d68ec] shrink-0 mt-0.5">

@@ -74,10 +74,15 @@ export default function CRFSigningSettingsPage() {
   const [savingSignature, setSavingSignature] = useState(false);
   const [deletingKind, setDeletingKind] = useState<CRFSignatureKind | null>(null);
 
-  const { data: _qd, isLoading: loading } = useQuery({
+  const [assets, setAssets] = useState<any[]>([]);
+  const [feeInput, setFeeInput] = useState<string>('');
+  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [feeLoaded, setFeeLoaded] = useState<boolean>(false);
+
+  const { isLoading: loading } = useQuery({
     queryKey: ['crfsigning-settings'],
     queryFn: async () => {
-      const _r: any = { assets: [], submissions: [], sessions: [], feeInput: '', feeLoaded: false };
       try {
         const [assetsData, priceData, historyData, sessionsData] = await Promise.allSettled([
           listCRFSignatureAssets(),
@@ -87,46 +92,42 @@ export default function CRFSigningSettingsPage() {
         ]);
 
         if (assetsData.status === 'fulfilled') {
-          _r.assets = Array.isArray(assetsData.value) ? assetsData.value : [];
+          setAssets(Array.isArray(assetsData.value) ? assetsData.value : []);
         }
         if (priceData.status === 'fulfilled') {
-          const amt = Number(priceData.value?.amount_per_backlog);
+          const amt = Number((priceData.value as any)?.amount_per_backlog);
           if (Number.isFinite(amt) && amt > 0) {
             setBacklogFee(amt);
-            _r.feeInput = String(amt);
-            _r.feeLoaded = true;
+            setFeeInput(String(amt));
+            setFeeLoaded(true);
           }
         }
         if (historyData.status === 'fulfilled') {
-          _r.submissions = Array.isArray(historyData.value) ? historyData.value : [];
+          setSubmissions(Array.isArray(historyData.value) ? historyData.value : []);
         }
         if (sessionsData.status === 'fulfilled') {
-          _r.sessions = Array.isArray(sessionsData.value) ? sessionsData.value : [];
+          setSessions(Array.isArray(sessionsData.value) ? sessionsData.value : []);
         }
       } catch {
         notifyError('Load Failed', 'Could not load course forms data');
       }
-      return _r;
+      return true;
     },
     staleTime: 5 * 60_000,
   });
-  const assets = _qd?.assets ?? [];
-  const submissions = _qd?.submissions ?? [];
-  const sessions = _qd?.sessions ?? [];
-  const feeInput = _qd?.feeInput ?? '';
-  const feeLoaded = _qd?.feeLoaded ?? false;
   // Hidden file inputs for each kind
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const currentUploadKindRef = useRef<CRFSignatureKind>('hod');
 
-  // Load Real Data from APIs    const hodAsset = useMemo(() => assets.find((a) => a.kind === 'hod'), [assets]);
-  const examOfficerAsset = useMemo(() => assets.find((a) => a.kind === 'exam_officer'), [assets]);
+  // Load Real Data from APIs
+  const hodAsset = useMemo(() => assets.find((a: any) => a.kind === 'hod'), [assets]);
+  const examOfficerAsset = useMemo(() => assets.find((a: any) => a.kind === 'exam_officer'), [assets]);
   const isReady = Boolean(hodAsset && examOfficerAsset);
 
   // Filtered Submissions for History Tab
   const filteredSubmissions = useMemo(() => {
     const q = historySearch.trim().toLowerCase();
-    return submissions.filter((sub) => {
+    return submissions.filter((sub: any) => {
       // Session filter
       if (sessionFilter !== 'all') {
         if (sub.session_id !== sessionFilter && sub.session_name !== sessionFilter) return false;
@@ -161,9 +162,9 @@ export default function CRFSigningSettingsPage() {
 
   // Real Metrics for History Tab
   const totalSubmissions = submissions.length;
-  const completedCount = useMemo(() => submissions.filter((s) => s.status === 'completed').length, [submissions]);
-  const draftCount = useMemo(() => submissions.filter((s) => s.status === 'draft').length, [submissions]);
-  const uniqueStudents = useMemo(() => new Set(submissions.map((s) => s.user_id)).size, [submissions]);
+  const completedCount = useMemo(() => submissions.filter((s: any) => s.status === 'completed').length, [submissions]);
+  const draftCount = useMemo(() => submissions.filter((s: any) => s.status === 'draft').length, [submissions]);
+  const uniqueStudents = useMemo(() => new Set(submissions.map((s: any) => s.user_id)).size, [submissions]);
 
   // Trigger file selection for a specific signature kind
   const triggerFileSelect = (kind: CRFSignatureKind) => {
@@ -258,7 +259,7 @@ export default function CRFSigningSettingsPage() {
         : selectedFile;
 
       const updatedAsset = await uploadCRFSignatureAsset(modalKind, fileToUpload);
-      setAssets((prev) => [...prev.filter((a) => a.kind !== modalKind), updatedAsset]);
+      setAssets((prev) => [...prev.filter((a: any) => a.kind !== modalKind), updatedAsset]);
       success('Signature Saved', `${KIND_TITLES[modalKind]} has been saved.`);
       setModalOpen(false);
       setSelectedFile(null);
@@ -278,7 +279,7 @@ export default function CRFSigningSettingsPage() {
     try {
       setDeletingKind(kind);
       await deleteCRFSignatureAsset(kind);
-      setAssets((prev) => prev.filter((a) => a.kind !== kind));
+      setAssets((prev) => prev.filter((a: any) => a.kind !== kind));
       success('Signature Removed', `${KIND_TITLES[kind]} removed.`);
     } catch (err: unknown) {
       notifyError('Remove Failed', getErrorMessage(err, 'Could not remove signature'));
@@ -568,7 +569,7 @@ export default function CRFSigningSettingsPage() {
                       const initials =
                         studentName
                           .split(' ')
-                          .map((n) => n[0])
+                          .map((n: string) => n[0])
                           .slice(0, 2)
                           .join('')
                           .toUpperCase() || 'ST';
