@@ -262,7 +262,7 @@ function ManageTab() {
       notifyError('Error', getErrorMessage(err, 'Failed'));
     }
   };
-  const filtStu = students.filter((s) => {
+  const filtStu = students.filter((s: any) => {
     const q = stuSearch.toLowerCase();
     return (s.full_name || '').toLowerCase().includes(q) || (s.matric_number || '').toLowerCase().includes(q);
   });
@@ -289,7 +289,7 @@ function ManageTab() {
           </div>
         ) : (
           <div className="space-y-1 max-h-[480px] overflow-y-auto pr-1">
-            {filtStu.map((s) => (
+            {filtStu.map((s: any) => (
               <button
                 key={s.id}
                 onClick={() => loadR(s)}
@@ -574,6 +574,7 @@ interface ValidatedRow extends CsvRow {
 
 function BulkUploadTab() {
   const { success, error: notifyError } = useNotification();
+  const [students, setStudents] = useState<any[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedSession, setSelectedSession] = useState('');
@@ -683,7 +684,9 @@ function BulkUploadTab() {
         errors.push('Total score cannot exceed 100');
       }
 
-      const student = students.find((s) => (s.matric_number || '').toLowerCase() === row.matric_number.toLowerCase());
+      const student = (students as any[]).find(
+        (s: any) => (s.matric_number || '').toLowerCase() === row.matric_number.toLowerCase(),
+      );
       let studentId: string | undefined,
         courseId: string | undefined,
         studentName: string | undefined,
@@ -1020,6 +1023,7 @@ function BulkUploadTab() {
 
 function SingleEntryTab() {
   const { success, error: notifyError } = useNotification();
+  const [students, setStudents] = useState<StudentForRoleManagement[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedSession, setSelectedSession] = useState('');
   const [semesters, setSemesters] = useState<SemesterEntry[]>([]);
@@ -1069,7 +1073,7 @@ function SingleEntryTab() {
   }, [selectedSession]);
 
   const filteredStudents = students
-    .filter((s) => {
+    .filter((s: any) => {
       if (!studentSearch || studentSearch.length < 2) return false;
       const q = studentSearch.toLowerCase();
       const name = (s.full_name || s.email || '').toLowerCase();
@@ -1206,7 +1210,7 @@ function SingleEntryTab() {
             </div>
             {showStudentDropdown && !selectedStudent && filteredStudents.length > 0 && (
               <div className="absolute z-20 mt-1 w-full bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                {filteredStudents.map((s) => (
+                {filteredStudents.map((s: any) => (
                   <button
                     key={s.id}
                     className="w-full text-left px-4 py-2.5 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors border-b border-surface-100 dark:border-surface-700 last:border-0"

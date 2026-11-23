@@ -33,7 +33,7 @@ import {
 } from '../../api/sessions';
 import type { Session, SemesterEntry } from '../../types';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 export default function SessionManagementPage() {
   const { success, error: notifyError } = useNotification();
   const [semestersMap, setSemestersMap] = useState<Record<string, SemesterEntry[]>>({});
@@ -96,8 +96,12 @@ export default function SessionManagementPage() {
   const [rollOverLoading, setRollOverLoading] = useState(false);
   const [rollOverConfirming, setRollOverConfirming] = useState(false);
 
+  const queryClient = useQueryClient();
+  const fetchData = () => {
+    queryClient.invalidateQueries({ queryKey: ['session-management'] });
+  };
   const { data: _qd, isLoading: loading } = useQuery({
-    queryKey: ['session-management', fetchData],
+    queryKey: ['session-management'],
 
     queryFn: async () => {
       const _r: any = { sessions: [] };
@@ -132,7 +136,7 @@ export default function SessionManagementPage() {
   const sessions = _qd?.sessions ?? [];
   // Load sessions and their semesters    // Identify active session & active semester
   const activeSession = useMemo(() => {
-    return sessions.find((s) => s.is_active || s.isActive) || null;
+    return sessions.find((s: any) => s.is_active || s.isActive) || null;
   }, [sessions]);
 
   const activeSemester = useMemo(() => {
@@ -1033,7 +1037,7 @@ export default function SessionManagementPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Sessions List */}
         <div className="lg:col-span-8 space-y-6">
-          {sessions.map((sess) => {
+          {sessions.map((sess: any) => {
             const isActive = Boolean(sess.is_active || sess.isActive);
             const sems = semestersMap[sess.id] || [];
             const firstSem = sems.find((sm) => sm.name.toLowerCase().includes('first')) || sems[0];
@@ -1305,7 +1309,7 @@ export default function SessionManagementPage() {
             <button
               type="button"
               onClick={() => {
-                const nextSess = sessions.find((s) => !s.is_active && !s.isActive);
+                const nextSess = sessions.find((s: any) => !s.is_active && !s.isActive);
                 if (nextSess) {
                   handleSetActiveSession(nextSess);
                 } else {

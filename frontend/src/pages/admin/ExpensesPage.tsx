@@ -11,7 +11,7 @@ const STATUS_BADGES: Record<string, string> = {
   rejected: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
 };
 
-interface ExpenseSummary {
+interface _ExpenseSummary {
   total_expenses: number;
   total_count: number;
   pending_count: number;
@@ -21,14 +21,6 @@ interface ExpenseSummary {
 }
 
 export default function ExpensesPage() {
-  const [summary, _setSummary] = useState<ExpenseSummary>({
-    total_expenses: 0,
-    total_count: 0,
-    pending_count: 0,
-    approved_count: 0,
-    rejected_count: 0,
-    approved_amount: 0,
-  });
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [showForm, setShowForm] = useState(false);
   const { isAdmin: isAdminRole, isBursar } = useRBAC();

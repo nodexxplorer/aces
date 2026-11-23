@@ -1638,6 +1638,7 @@ function CreateGroupModal({
 // ========================================================
 function DiscoverTab({ myId }: { myId: string }) {
   const { success, error: notifyError } = useNotification();
+  const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<DirectoryUser[]>([]);
   const [search, setSearch] = useState('');
   const [level, setLevel] = useState<number | 'all'>('all');
@@ -1876,6 +1877,7 @@ function RequestsTab({
   onAccepted: () => void;
 }) {
   const { success, error: notifyError } = useNotification();
+  const [loading, setLoading] = useState(true);
   const [receivedRequests, setReceivedRequests] = useState<Connection[]>([]);
   const [sentRequests, setSentRequests] = useState<Connection[]>([]);
   const [subTab, setSubTab] = useState<'received' | 'sent'>('received');

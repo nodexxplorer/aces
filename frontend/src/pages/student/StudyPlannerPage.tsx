@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Trash2, CheckCircle, Clock, AlertTriangle, Circle, Calendar, Sparkles, X } from 'lucide-react';
 import {
   createStudyTask,
@@ -36,6 +36,8 @@ const filterTabs: { key: FilterTab; label: string }[] = [
 
 export default function StudyPlannerPage() {
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
+  const [tasks, setTasks] = useState<StudyTask[]>([]);
+  const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [creating, setCreating] = useState(false);
 
@@ -48,7 +50,11 @@ export default function StudyPlannerPage() {
   const [aiPlanLoading, setAiPlanLoading] = useState(false);
   const [aiPlanError, setAiPlanError] = useState('');
 
-  const { data: _qd, isLoading: loading } = useQuery({
+  const {
+    data: _qd,
+    isLoading: loading,
+    refetch: fetchTasks,
+  } = useQuery({
     queryKey: ['study-planner'],
     queryFn: async () => {
       const _r: any = { tasks: [], error: '' };
@@ -64,8 +70,12 @@ export default function StudyPlannerPage() {
     },
     staleTime: 60_000,
   });
-  const tasks = _qd?.tasks ?? [];
-  const error = _qd?.error ?? '';
+  useEffect(() => {
+    if (_qd) {
+      if (_qd.tasks) setTasks(_qd.tasks);
+      if (_qd.error) setError(_qd.error);
+    }
+  }, [_qd]);
   const handleGeneratePlan = async () => {
     setAiPlanLoading(true);
     setAiPlanError('');
@@ -78,7 +88,7 @@ export default function StudyPlannerPage() {
       setAiPlanLoading(false);
     }
   };
-  const filteredTasks = tasks.filter((t) => {
+  const filteredTasks = tasks.filter((t: any) => {
     if (activeFilter === 'all') return true;
     if (activeFilter === 'high') return t.priority === 'high';
     if (activeFilter === 'in_progress') return t.status === 'in_progress';
@@ -115,7 +125,7 @@ export default function StudyPlannerPage() {
     try {
       await updateStudyTask(task.id, { status: nextStatus });
       // Optimistically update local state immediately
-      setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status: nextStatus } : t)));
+      setTasks((prev: any[]) => prev.map((t: any) => (t.id === task.id ? { ...t, status: nextStatus } : t)));
       // Refetch in background to sync with server — don't surface errors here
       fetchTasks().catch(() => {});
     } catch {
@@ -127,7 +137,7 @@ export default function StudyPlannerPage() {
     setError('');
     try {
       await deleteStudyTask(taskId);
-      setTasks((prev) => prev.filter((t) => t.id !== taskId));
+      setTasks((prev: any[]) => prev.filter((t: any) => t.id !== taskId));
       fetchTasks().catch(() => {});
     } catch {
       setError('Failed to delete task');
@@ -241,7 +251,7 @@ export default function StudyPlannerPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredTasks.map((task) => {
+          {filteredTasks.map((task: any) => {
             const pCfg = priorityConfig[task.priority as Priority] ?? priorityConfig.medium;
             const sCfg = statusConfig[task.status as Status] ?? statusConfig.pending;
             const StatusIcon = sCfg.icon;

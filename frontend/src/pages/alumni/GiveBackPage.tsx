@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
@@ -37,7 +37,14 @@ const GiveBackPage = () => {
   const [message, setMessage] = useState('');
   const [anonymous, setAnonymous] = useState(false);
 
-  const { data: _qd, isLoading: loading } = useQuery({
+  const [myDonations, setMyDonations] = useState<any[]>([]);
+  const [allDonations, setAllDonations] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const {
+    data: _qd,
+    isLoading: loading,
+    refetch: _fetchGiveBack,
+  } = useQuery({
     queryKey: ['give-back'],
     queryFn: async () => {
       const _result: any = { myDonations: [], allDonations: [], stats: null, loading: true };
@@ -58,10 +65,13 @@ const GiveBackPage = () => {
     },
     staleTime: 60_000,
   });
-  const myDonations = _qd?.myDonations ?? [];
-  const allDonations = _qd?.allDonations ?? [];
-  const stats = _qd?.stats ?? null;
-  const loading = _qd?.loading ?? true;
+  useEffect(() => {
+    if (_qd) {
+      if (_qd.myDonations) setMyDonations(_qd.myDonations);
+      if (_qd.allDonations) setAllDonations(_qd.allDonations);
+      if (_qd.stats) setStats(_qd.stats);
+    }
+  }, [_qd]);
   const [submitting, setSubmitting] = useState(false);
   const handleDonate = async () => {
     const val = parseInt(amount);
@@ -164,7 +174,7 @@ const GiveBackPage = () => {
             <div>
               <h2 className="text-lg font-semibold text-surface-900 dark:text-white mb-3">Your Donation History</h2>
               <div className="space-y-2">
-                {myDonations.map((d) => (
+                {myDonations.map((d: any) => (
                   <Card key={d.id} className="p-4 flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-surface-900 dark:text-white">

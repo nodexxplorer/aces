@@ -132,7 +132,7 @@ export default function GPAHubPage() {
 
   // Filter courses by search query and selected prefix
   const filteredCourses = useMemo(() => {
-    return courses.filter((c) => {
+    return courses.filter((c: any) => {
       const matchesSearch =
         c.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.title.toLowerCase().includes(searchQuery.toLowerCase());
@@ -310,7 +310,7 @@ export default function GPAHubPage() {
               ) : filteredCourses.length === 0 ? (
                 <div className="py-8 text-center text-xs text-slate-400">No courses matching your filter.</div>
               ) : (
-                filteredCourses.map((c) => {
+                filteredCourses.map((c: any) => {
                   const isSelected = selectedCourses.some((sc) => sc.id === c.id);
                   const units = c.creditUnits || c.unit || 2;
 

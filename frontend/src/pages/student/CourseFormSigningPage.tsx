@@ -48,9 +48,9 @@ import {
   createCRFBacklogRequest,
   getMyCRFBacklogStatus,
   submitCRFBacklogForm,
-  type _CRFSigningSubmission,
-  type _CRFBacklogRequest,
-  type _CRFSignatureAsset,
+  type CRFSigningSubmission,
+  type CRFBacklogRequest,
+  type CRFSignatureAsset,
   type CRFPlacements,
 } from '../../api/crf-signing';
 
@@ -60,6 +60,16 @@ export default function CourseFormSigningPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Submission & Flow State
+  const [submission, setSubmission] = useState<CRFSigningSubmission | null>(null);
+  const [historyList, setHistoryList] = useState<CRFSigningSubmission[]>([]);
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
+  const [assets, setAssets] = useState<CRFSignatureAsset[]>([]);
+  const [placements, setPlacements] = useState<CRFPlacements>({});
+  const [backlogPrice, setBacklogPrice] = useState(1000);
+  const [backlog, setBacklog] = useState<CRFBacklogRequest | null>(null);
+  const [pastSemesters, setPastSemesters] = useState<SemesterEntry[]>([]);
+  const [allSemesters, setAllSemesters] = useState<SemesterEntry[]>([]);
+  const [activeSemesterId, setActiveSemesterId] = useState<string>('');
   const [activeStep, setActiveStep] = useState<number>(1);
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -178,16 +188,20 @@ export default function CourseFormSigningPage() {
     },
     staleTime: 60_000,
   });
-  const submission = _qd?.submission ?? null;
-  const historyList = _qd?.historyList ?? [];
-  const assets = _qd?.assets ?? [];
-  const placements = _qd?.placements ?? {};
-  const backlogPrice = _qd?.backlogPrice ?? 1000;
-  const backlog = _qd?.backlog ?? null;
-  const pastSemesters = _qd?.pastSemesters ?? [];
-  const allSemesters = _qd?.allSemesters ?? [];
-  const activeSemesterId = _qd?.activeSemesterId ?? '';
-  const selectedHistoryId = _qd?.selectedHistoryId ?? null;
+  useEffect(() => {
+    if (_qd) {
+      if (_qd.submission) setSubmission(_qd.submission);
+      if (_qd.historyList) setHistoryList(_qd.historyList);
+      if (_qd.assets) setAssets(_qd.assets);
+      if (_qd.placements) setPlacements(_qd.placements);
+      if (_qd.backlogPrice) setBacklogPrice(_qd.backlogPrice);
+      if (_qd.backlog) setBacklog(_qd.backlog);
+      if (_qd.pastSemesters) setPastSemesters(_qd.pastSemesters);
+      if (_qd.allSemesters) setAllSemesters(_qd.allSemesters);
+      if (_qd.activeSemesterId) setActiveSemesterId(_qd.activeSemesterId);
+      if (_qd.selectedHistoryId) setSelectedHistoryId(_qd.selectedHistoryId);
+    }
+  }, [_qd]);
   // Check unpaid required dues
   useEffect(() => {
     let cancelled = false;
@@ -379,7 +393,7 @@ export default function CourseFormSigningPage() {
       await saveCRFPlacements(submission.id, placements);
       const final = await approveCRFSubmission(submission.id);
       setSubmission(final);
-      setHistoryList((prev) => [final, ...prev.filter((h) => h.id !== final.id)]);
+      setHistoryList((prev: any[]) => [final, ...prev.filter((h) => h.id !== final.id)]);
       setActiveStep(4);
       success('Form Signed', 'Your course form has been officially signed and saved.');
 

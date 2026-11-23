@@ -56,10 +56,6 @@ export const RevenueForecastPage: React.FC = () => {
         })
         .finally(() => {});
 
-      return () => {
-        isMounted = false;
-      };
-
       return _r;
     },
 
@@ -77,12 +73,12 @@ export const RevenueForecastPage: React.FC = () => {
   const defaulters = _qd?.defaulters ?? [];
   // Filter completed/successful payments
   const completedPayments = useMemo(() => {
-    return payments.filter((p) => p.status === 'completed' || p.status === 'success' || p.status === 'verified');
+    return payments.filter((p: any) => p.status === 'completed' || p.status === 'success' || p.status === 'verified');
   }, [payments]);
 
   // Total collected from real payments
   const totalCollected = useMemo(() => {
-    const sum = completedPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+    const sum = completedPayments.reduce((acc: any, p: any) => acc + (Number(p.amount) || 0), 0);
     return sum > 0 ? sum : (forecast?.total_collected ?? 0);
   }, [completedPayments, forecast]);
 
@@ -99,8 +95,10 @@ export const RevenueForecastPage: React.FC = () => {
   // Total expected dues calculation
   const totalExpected = useMemo(() => {
     if (dues.length === 0) return forecast?.total_expected ?? 0;
-    return dues.reduce((acc, d) => {
-      const studentCount = d.level ? students.filter((s) => s.level === d.level).length : Math.max(students.length, 1);
+    return dues.reduce((acc: any, d: any) => {
+      const studentCount = d.level
+        ? students.filter((s: any) => s.level === d.level).length
+        : Math.max(students.length, 1);
       return acc + (Number(d.amount) || 0) * (studentCount || 1);
     }, 0);
   }, [dues, students, forecast]);
@@ -134,11 +132,11 @@ export const RevenueForecastPage: React.FC = () => {
 
       if (!isProjected) {
         // Real collected in this calendar month
-        const inMonth = completedPayments.filter((p) => {
+        const inMonth = completedPayments.filter((p: any) => {
           const pDate = new Date(p.created_at || p.createdAt || p.paid_at || '');
           return !isNaN(pDate.getTime()) && pDate.getMonth() === d.getMonth() && pDate.getFullYear() === year;
         });
-        const sum = inMonth.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+        const sum = inMonth.reduce((acc: any, p: any) => acc + (Number(p.amount) || 0), 0);
         result.push({
           month: mName,
           year,
@@ -235,11 +233,11 @@ export const RevenueForecastPage: React.FC = () => {
   // Real collection by due item
   const collectionByDue = useMemo(() => {
     if (dues.length === 0) return [];
-    return dues.map((due) => {
-      const duePayments = completedPayments.filter((p) => p.due_id === due.id || p.due_name === due.name);
-      const collected = duePayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+    return dues.map((due: any) => {
+      const duePayments = completedPayments.filter((p: any) => p.due_id === due.id || p.due_name === due.name);
+      const collected = duePayments.reduce((acc: any, p: any) => acc + (Number(p.amount) || 0), 0);
       const studentCount = due.level
-        ? students.filter((s) => s.level === due.level).length
+        ? students.filter((s: any) => s.level === due.level).length
         : Math.max(students.length, 1);
       const expected = (Number(due.amount) || 0) * (studentCount || 1);
       const pct = expected > 0 ? Math.min(100, Math.round((collected / expected) * 100)) : 0;
@@ -257,12 +255,12 @@ export const RevenueForecastPage: React.FC = () => {
   const collectionByLevel = useMemo(() => {
     const levels = [100, 200, 300, 400, 500];
     return levels.map((lvl) => {
-      const lvlStudents = students.filter((s) => s.level === lvl);
-      const lvlPayments = completedPayments.filter((p) => lvlStudents.some((s) => s.id === p.student_id));
-      const collected = lvlPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+      const lvlStudents = students.filter((s: any) => s.level === lvl);
+      const lvlPayments = completedPayments.filter((p: any) => lvlStudents.some((s: any) => s.id === p.student_id));
+      const collected = lvlPayments.reduce((acc: any, p: any) => acc + (Number(p.amount) || 0), 0);
       const expected = dues
-        .filter((d) => !d.level || d.level === lvl)
-        .reduce((acc, d) => acc + (Number(d.amount) || 0) * Math.max(lvlStudents.length, 1), 0);
+        .filter((d: any) => !d.level || d.level === lvl)
+        .reduce((acc: any, d: any) => acc + (Number(d.amount) || 0) * Math.max(lvlStudents.length, 1), 0);
 
       const pct =
         expected > 0 && collected > 0
@@ -290,7 +288,7 @@ export const RevenueForecastPage: React.FC = () => {
       ];
     }
 
-    const totalOutstanding = defaulters.reduce((acc, d) => acc + (Number(d.total_outstanding) || 0), 0);
+    const totalOutstanding = defaulters.reduce((acc: any, d: any) => acc + (Number(d.total_outstanding) || 0), 0);
     const count = defaulters.length;
 
     // Proportionally distribute based on active defaulter records
@@ -319,7 +317,7 @@ export const RevenueForecastPage: React.FC = () => {
       [
         'Matric Number,Student Name,Level,Unpaid Dues,Total Outstanding (₦)',
         ...defaulters.map(
-          (d) =>
+          (d: any) =>
             `${d.matric_number || '—'},"${d.full_name || 'Student'}",${d.level || '—'},${d.unpaid_dues_count || 1},${d.total_outstanding || 0}`,
         ),
       ].join('\n');
@@ -694,7 +692,7 @@ export const RevenueForecastPage: React.FC = () => {
               <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4">Collection by due</h3>
               <div className="space-y-4">
                 {collectionByDue.length > 0 ? (
-                  collectionByDue.map((item) => (
+                  collectionByDue.map((item: any) => (
                     <div key={item.id} className="space-y-1.5">
                       <div className="flex items-center justify-between text-xs font-semibold">
                         <span className="text-slate-800 dark:text-slate-200">{item.name}</span>

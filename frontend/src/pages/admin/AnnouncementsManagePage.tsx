@@ -138,7 +138,6 @@ export const AnnouncementsManagePage: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // Real data state
-  const [totalStudentsCount, _setTotalStudentsCount] = useState<number>(0);
   const [templateDropdownOpen, setTemplateDropdownOpen] = useState(false);
 
   // Filters

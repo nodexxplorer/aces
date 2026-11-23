@@ -30,7 +30,7 @@ import {
   clearStudentCart,
   checkDuePaid,
   downloadPaymentReceipt,
-  type _CartItem,
+  type CartItem,
 } from '../../api/payments';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
@@ -66,6 +66,18 @@ const TYPE_LABELS: Record<string, string> = {
 const PaymentsPage = () => {
   const { user } = useAuth();
   const { success, error: notifyError } = useNotification();
+
+  const [tab, setTab] = useState<'cart' | 'transactions'>('cart');
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [summary, setSummary] = useState<{
+    total_paid: number;
+    total_pending: number;
+    amount_paid: number;
+    amount_pending: number;
+  } | null>(null);
+  const [dues, setDues] = useState<DuePayment[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
   const [cartBusyId, setCartBusyId] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [paidDueIds, setPaidDueIds] = useState<Set<string>>(new Set());
@@ -119,12 +131,15 @@ const PaymentsPage = () => {
     staleTime: 60_000,
     enabled: !!notifyError,
   });
-  const tab = _qd?.tab ?? 'cart';
-  const payments = _qd?.payments ?? [];
-  const summary = _qd?.summary ?? null;
-  const dues = _qd?.dues ?? [];
-  const cart = _qd?.cart ?? [];
-  const selectedPaymentId = _qd?.selectedPaymentId ?? null;
+  useEffect(() => {
+    if (_qd) {
+      if (_qd.payments) setPayments(_qd.payments);
+      if (_qd.summary) setSummary(_qd.summary);
+      if (_qd.dues) setDues(_qd.dues);
+      if (_qd.cart) setCart(_qd.cart);
+      if (_qd.selectedPaymentId) setSelectedPaymentId(_qd.selectedPaymentId);
+    }
+  }, [_qd]);
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (typeDropdownRef.current && !typeDropdownRef.current.contains(e.target as Node)) {
@@ -279,7 +294,7 @@ const PaymentsPage = () => {
   // Filtered transactions
   const filteredPayments = useMemo(() => {
     const q = txSearch.trim().toLowerCase();
-    return payments.filter((p) => {
+    return payments.filter((p: any) => {
       const matchesStatus = txStatusFilter === 'all' || p.status === txStatusFilter;
       const matchesType = txTypeFilter === 'all' || p.type === txTypeFilter;
       const matchesSearch =

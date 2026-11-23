@@ -206,9 +206,9 @@ export default function UserManagementPage() {
   // ----------------------------------------------------
   // Global State (Real Data Only)
   // ----------------------------------------------------
-  const [users, _setUsers] = useState<User[]>([]);
-  const [roles, _setRoles] = useState<Role[]>([]);
-  const [pendingApprovals, _setPendingApprovals] = useState<User[]>([]);
+  const [personGrant, setPersonGrant] = useState<AdminPermission | null>(null);
+  const [grantLoading, _setGrantLoading] = useState(false);
+  const [grantLoadError, _setGrantLoadError] = useState<string | null>(null);
   // Directory filter states
   const [directorySearch, setDirectorySearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');

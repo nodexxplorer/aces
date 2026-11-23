@@ -84,7 +84,7 @@ const MyApplicationsPage = () => {
         </Card>
       ) : (
         <div className="space-y-3">
-          {applications.map((app) => {
+          {applications.map((app: any) => {
             const status = app.status || 'pending';
             const StatusIcon = statusIcons[status] || AlertCircle;
             return (

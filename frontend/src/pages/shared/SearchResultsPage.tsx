@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Search, BookOpen, User, Megaphone, Loader2, AlertCircle } from 'lucide-react';
 import { universalSearch, type SearchResult } from '../../api/additional-features';
@@ -28,6 +28,8 @@ const TYPE_CONFIG: Record<string, { icon: typeof BookOpen; label: string; color:
 
 export default function SearchResultsPage() {
   const [params, setParams] = useSearchParams();
+  const query = params.get('q') || '';
+  const navigate = useNavigate();
 
   const [inputValue, setInputValue] = useState(query);
 
@@ -51,8 +53,6 @@ export default function SearchResultsPage() {
   });
   const results = _qd?.results ?? [];
   const error = _qd?.error ?? '';
-  const query = params.get('q') || '';
-  const navigate = useNavigate();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

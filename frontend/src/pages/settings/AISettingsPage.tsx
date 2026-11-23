@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { useNotification } from '../../hooks/useNotification';
@@ -11,11 +11,15 @@ const AISettingsPage = () => {
   const { success, error } = useNotification();
   const [saving, setSaving] = useState(false);
 
-  const { data: settings, isLoading: loading } = useQuery({
+  const [settings, setSettings] = useState<AISettings | null>(null);
+  const { data: initialSettings, isLoading: loading } = useQuery({
     queryKey: ['aisettings'],
     queryFn: getAISettings,
     staleTime: 5 * 60_000,
   });
+  useEffect(() => {
+    if (initialSettings) setSettings(initialSettings);
+  }, [initialSettings]);
 
   const handleToggle = async (key: keyof AISettings) => {
     if (!settings) return;

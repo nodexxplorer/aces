@@ -25,8 +25,8 @@ import {
   getActiveSessionAndSemester,
   getMyRegisteredCourseIDs,
   getStudentRegistrations,
-  type _RawSession,
-  type _RawSemester,
+  type RawSession as _RawSession,
+  type RawSemester as _RawSemester,
 } from '../../api/course-registrations';
 import { getMyDues, checkDuePaid } from '../../api/payments';
 import { useNotification } from '../../hooks/useNotification';
@@ -34,7 +34,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { getErrorMessage } from '../../utils/errors';
 import type { Course, User } from '../../types';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 type Tab = 'register' | 'registrations';
 
 interface RegisteredCourseRow {
@@ -92,6 +92,10 @@ export default function CourseRegistrationPage() {
   const [registrations, setRegistrations] = useState<RegistrationRow[]>([]);
   const [loadingRegistrations, setLoadingRegistrations] = useState(false);
 
+  const queryClient = useQueryClient();
+  const loadCourses = () => {
+    queryClient.invalidateQueries({ queryKey: ['course-registration'] });
+  };
   const { data: _qd, isLoading: loading } = useQuery({
     queryKey: ['course-registration', loadCourses],
     queryFn: async () => {
@@ -214,13 +218,13 @@ export default function CourseRegistrationPage() {
 
   // Standard available courses for student's level
   const studentAvailableCourses = useMemo(() => {
-    return courses.filter((c) => !registeredCourseIds.has(c.id));
+    return courses.filter((c: any) => !registeredCourseIds.has(c.id));
   }, [courses, registeredCourseIds]);
 
   // Selected other-level courses
   const selectedOtherLevelCourses = useMemo(() => {
     return otherLevelCourses.filter(
-      (c) => selectedIds.includes(c.id) && !studentAvailableCourses.some((sc) => sc.id === c.id),
+      (c: any) => selectedIds.includes(c.id) && !studentAvailableCourses.some((sc: any) => sc.id === c.id),
     );
   }, [otherLevelCourses, selectedIds, studentAvailableCourses]);
 
@@ -247,7 +251,7 @@ export default function CourseRegistrationPage() {
 
   // Filtered other level courses for modal
   const filteredOtherLevelCourses = useMemo(() => {
-    return otherLevelCourses.filter((c) => {
+    return otherLevelCourses.filter((c: any) => {
       if (c.level === studentLevel) return false;
       if (otherLevelFilter !== 'all' && c.level !== otherLevelFilter) return false;
       if (otherLevelSearch.trim()) {
@@ -260,7 +264,7 @@ export default function CourseRegistrationPage() {
 
   const availableOtherLevels = useMemo(() => {
     const s = new Set<number>();
-    otherLevelCourses.forEach((c) => {
+    otherLevelCourses.forEach((c: any) => {
       if (c.level !== studentLevel) s.add(c.level);
     });
     return Array.from(s).sort((a, b) => a - b);
@@ -293,7 +297,7 @@ export default function CourseRegistrationPage() {
   const registeredCoursesList = useMemo(() => {
     const list: Course[] = [];
     registeredCourseIds.forEach((id) => {
-      const match = courses.find((c) => c.id === id) || allCourses.find((c) => c.id === id);
+      const match = courses.find((c: any) => c.id === id) || allCourses.find((c: any) => c.id === id);
       if (match && !list.some((item) => item.id === match.id)) {
         list.push(match);
       }
@@ -302,7 +306,8 @@ export default function CourseRegistrationPage() {
     // Also look inside student registrations if any
     registrations.forEach((r) => {
       (r.registered_courses || []).forEach((rc) => {
-        const match = courses.find((c) => c.id === rc.course_id) || allCourses.find((c) => c.id === rc.course_id);
+        const match =
+          courses.find((c: any) => c.id === rc.course_id) || allCourses.find((c: any) => c.id === rc.course_id);
         if (match && !list.some((item) => item.id === match.id)) {
           list.push(match);
         }
@@ -333,7 +338,7 @@ export default function CourseRegistrationPage() {
     const course =
       typeof courseOrId !== 'string'
         ? courseOrId
-        : availableCourses.find((c) => c.id === courseId) || otherLevelCourses.find((c) => c.id === courseId);
+        : availableCourses.find((c: any) => c.id === courseId) || otherLevelCourses.find((c: any) => c.id === courseId);
     const units = course ? course.unit || course.creditUnits || 0 : 0;
     if (totalUnits + units > maxUnits) {
       warning(
@@ -570,7 +575,9 @@ export default function CourseRegistrationPage() {
                 <div className="flex items-center gap-3 pt-1">
                   <button
                     type="button"
-                    onClick={loadCourses}
+                    onClick={() => {
+                      loadCourses();
+                    }}
                     className="px-5 py-2.5 rounded-full bg-[#1d68ec] hover:bg-[#1554c2] text-white text-xs font-bold inline-flex items-center gap-2 shadow-sm transition-all"
                   >
                     <RotateCw className="w-4 h-4" />
@@ -1418,10 +1425,10 @@ export default function CourseRegistrationPage() {
                       : 'border border-slate-200 dark:border-[#262833] bg-white dark:bg-[#161820] text-[var(--text-muted)] hover:text-[var(--text)]'
                   }`}
                 >
-                  All ({otherLevelCourses.filter((c) => c.level !== studentLevel).length})
+                  All ({otherLevelCourses.filter((c: any) => c.level !== studentLevel).length})
                 </button>
                 {availableOtherLevels.map((lvl) => {
-                  const count = otherLevelCourses.filter((c) => c.level === lvl).length;
+                  const count = otherLevelCourses.filter((c: any) => c.level === lvl).length;
                   return (
                     <button
                       key={lvl}
@@ -1447,7 +1454,7 @@ export default function CourseRegistrationPage() {
                   No courses found matching this level or search for {semesterDisplayName}.
                 </div>
               ) : (
-                filteredOtherLevelCourses.map((c) => {
+                filteredOtherLevelCourses.map((c: any) => {
                   const isSelected = selectedIds.includes(c.id);
                   const isRegistered = registeredCourseIds.has(c.id);
                   const unitCount = c.unit || c.creditUnits || 0;

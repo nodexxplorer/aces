@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import DataTable from '../../components/data-display/DataTable';
@@ -23,6 +23,7 @@ const ResultApprovalPage = () => {
   const { success, error, warning } = useNotification();
   const [actionId, setActionId] = useState<string | null>(null);
 
+  const [results, setResults] = useState<PendingResult[]>([]);
   const { data: _qd, isLoading: loading } = useQuery({
     queryKey: ['result-approval'],
     queryFn: async () => {
@@ -39,7 +40,9 @@ const ResultApprovalPage = () => {
     },
     staleTime: 60_000,
   });
-  const results = _qd?.results ?? [];
+  useEffect(() => {
+    if (_qd?.results) setResults(_qd.results);
+  }, [_qd?.results]);
   const handleApprove = async (id: string, code: string) => {
     try {
       setActionId(id);

@@ -45,6 +45,8 @@ const label = (s: string) => s.replace(/_/g, ' ');
 
 export default function LecturerAttendancePage() {
   const user = useAuthStore((s) => s.user);
+  const [choice, setChoice] = useState('');
+  const [error, setError] = useState('');
   const [sessions, setSessions] = useState<VerifiedSession[]>([]);
   const [detail, setDetail] = useState<AttendanceDetail | null>(null);
   const [report, setReport] = useState<EligibilityReport | null>(null);
@@ -58,7 +60,7 @@ export default function LecturerAttendancePage() {
     queryKey: ['lecturer-attendance', user?.id],
     queryFn: async () => {
       const _r: any = { courses: [], choice: '', error: '' };
-      let active = true;
+      const active = true;
       gen.current++;
       attendanceCatalog()
         .then((data) => {
@@ -72,20 +74,20 @@ export default function LecturerAttendancePage() {
             _r.error = errMsg(e);
           }
         });
-      return () => {
-        active = false;
-        gen.current++;
-      };
       return _r;
     },
     staleTime: 15_000,
   });
   const courses = _qd?.courses ?? [];
-  const choice = _qd?.choice ?? '';
-  const error = _qd?.error ?? '';
+  useEffect(() => {
+    if (_qd) {
+      if (_qd.choice && !choice) setChoice(_qd.choice);
+      if (_qd.error) setError(_qd.error);
+    }
+  }, [_qd, choice]);
   const gen = useRef(0);
 
-  const course = courses.find((c) => `${c.id}:${c.semester_id}` === choice);
+  const course = courses.find((c: any) => `${c.id}:${c.semester_id}` === choice);
 
   // Load catalog
   // Load course data
@@ -301,7 +303,7 @@ export default function LecturerAttendancePage() {
                   setTab('sessions');
                 }}
               >
-                {courses.map((c) => (
+                {courses.map((c: any) => (
                   <option key={`${c.id}:${c.semester_id}`} value={`${c.id}:${c.semester_id}`}>
                     {c.code} — {c.title} ({c.academic_year} {c.semester})
                   </option>

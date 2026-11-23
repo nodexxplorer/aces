@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardTitle } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -51,18 +51,35 @@ const AlumniProfilePage = () => {
     },
     staleTime: 60_000,
   });
-  const profile = _qd?.profile ?? null;
-  const location = _qd?.location ?? '';
-  const industry = _qd?.industry ?? '';
-  const jobTitle = _qd?.jobTitle ?? '';
-  const company = _qd?.company ?? '';
-  const bio = _qd?.bio ?? '';
-  const linkedinUrl = _qd?.linkedinUrl ?? '';
-  const portfolioUrl = _qd?.portfolioUrl ?? '';
-  const isMentor = _qd?.isMentor ?? false;
-  const mentorTopics = _qd?.mentorTopics ?? '';
-  const skills = _qd?.skills ?? '';
-  const privacyLevel = _qd?.privacyLevel ?? 'public';
+  const [profile, setProfile] = useState<any | null>(null);
+  const [location, setLocation] = useState('');
+  const [industry, setIndustry] = useState('');
+  const [jobTitle, setJobTitle] = useState('');
+  const [company, setCompany] = useState('');
+  const [bio, setBio] = useState('');
+  const [linkedinUrl, setLinkedinUrl] = useState('');
+  const [portfolioUrl, setPortfolioUrl] = useState('');
+  const [isMentor, setIsMentor] = useState(false);
+  const [mentorTopics, setMentorTopics] = useState('');
+  const [skills, setSkills] = useState('');
+  const [privacyLevel, setPrivacyLevel] = useState<'public' | 'alumni_only' | 'private'>('public');
+
+  useEffect(() => {
+    if (_qd) {
+      if (_qd.profile) setProfile(_qd.profile);
+      if (_qd.location !== undefined) setLocation(_qd.location);
+      if (_qd.industry !== undefined) setIndustry(_qd.industry);
+      if (_qd.jobTitle !== undefined) setJobTitle(_qd.jobTitle);
+      if (_qd.company !== undefined) setCompany(_qd.company);
+      if (_qd.bio !== undefined) setBio(_qd.bio);
+      if (_qd.linkedinUrl !== undefined) setLinkedinUrl(_qd.linkedinUrl);
+      if (_qd.portfolioUrl !== undefined) setPortfolioUrl(_qd.portfolioUrl);
+      if (_qd.isMentor !== undefined) setIsMentor(_qd.isMentor);
+      if (_qd.mentorTopics !== undefined) setMentorTopics(_qd.mentorTopics);
+      if (_qd.skills !== undefined) setSkills(_qd.skills);
+      if (_qd.privacyLevel !== undefined) setPrivacyLevel(_qd.privacyLevel);
+    }
+  }, [_qd]);
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -243,7 +260,7 @@ const AlumniProfilePage = () => {
                 <select
                   className="w-full mt-1 px-3 py-2 text-sm bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-600 rounded-lg"
                   value={privacyLevel}
-                  onChange={(e) => setPrivacyLevel(e.target.value)}
+                  onChange={(e) => setPrivacyLevel(e.target.value as any)}
                 >
                   <option value="public">Public - Full profile visible to all</option>
                   <option value="network">Network - Visible to alumni and students</option>

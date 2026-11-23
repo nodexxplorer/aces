@@ -33,6 +33,7 @@ import { getUsers } from '../../api/users';
 import { formatCurrency } from '../../utils/formatters';
 import { getErrorMessage } from '../../utils/errors';
 import { useQuery } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import type { AlumniProfile, AlumniFullProfile, User } from '../../types';
 
 const AlumniManagementPage = () => {
@@ -88,6 +89,8 @@ const AlumniManagementPage = () => {
     },
     staleTime: 60_000,
   });
+  const queryClient = useQueryClient();
+  const fetchData = () => queryClient.invalidateQueries({ queryKey: ['alumni-management'] });
   const alumni = _qd?.alumni ?? [];
   const dashboardStats = _qd?.dashboardStats ?? null;
   const recentDonations = _qd?.recentDonations ?? [];
@@ -189,7 +192,7 @@ const AlumniManagementPage = () => {
     },
   ];
 
-  const upcomingEvents = events.filter((e) => e.end_date >= new Date().toISOString() || e.is_active);
+  const upcomingEvents = events.filter((e: any) => e.end_date >= new Date().toISOString() || e.is_active);
 
   return (
     <div className="space-y-6">
@@ -267,7 +270,7 @@ const AlumniManagementPage = () => {
                 {recentDonations.length === 0 ? (
                   <EmptyState title="No donations yet" className="py-4" />
                 ) : (
-                  recentDonations.slice(0, 5).map((d) => (
+                  recentDonations.slice(0, 5).map((d: any) => (
                     <div
                       key={d.id}
                       className="flex items-center justify-between py-2 border-b border-surface-100 dark:border-surface-800 last:border-0"
@@ -296,7 +299,7 @@ const AlumniManagementPage = () => {
                 {upcomingEvents.length === 0 ? (
                   <EmptyState title="No upcoming events" className="py-4" />
                 ) : (
-                  upcomingEvents.slice(0, 5).map((e) => (
+                  upcomingEvents.slice(0, 5).map((e: any) => (
                     <div
                       key={e.id}
                       className="flex items-center justify-between py-2 border-b border-surface-100 dark:border-surface-800 last:border-0"
@@ -359,7 +362,7 @@ const AlumniManagementPage = () => {
             {recentDonations.length === 0 ? (
               <EmptyState title="No donations recorded" className="py-8" />
             ) : (
-              recentDonations.map((d) => (
+              recentDonations.map((d: any) => (
                 <div
                   key={d.id}
                   className="flex items-center justify-between py-3 border-b border-surface-100 dark:border-surface-800 last:border-0"

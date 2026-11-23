@@ -28,7 +28,8 @@ const AssignmentsPage = () => {
   const [maxScore, setMaxScore] = useState('100');
   const [saving, setSaving] = useState(false);
 
-  const { data: assignments = [], isLoading: loading } = useQuery({
+  const [assignments, setAssignments] = useState<any[]>([]);
+  const { data: _qAssignments = [], isLoading: loading } = useQuery({
     queryKey: ['assignments', selectedCourseId, sessionId],
     queryFn: async () => {
       if (!selectedCourseId || !sessionId) return [];
@@ -42,6 +43,9 @@ const AssignmentsPage = () => {
     staleTime: 60_000,
     enabled: !!selectedCourseId && !!sessionId,
   });
+  useEffect(() => {
+    if (_qAssignments) setAssignments(_qAssignments);
+  }, [_qAssignments]);
   useEffect(() => {
     getCourses()
       .then((res) => {
@@ -112,7 +116,7 @@ const AssignmentsPage = () => {
   const handleDelete = async (id: string) => {
     try {
       await deleteAssignment(id);
-      setAssignments((prev) => prev.filter((a) => a.id !== id));
+      setAssignments((prev: any[]) => prev.filter((a: any) => a.id !== id));
       success('Deleted', 'Assignment removed.');
     } catch {
       notifyError('Error', 'Failed to delete assignment.');

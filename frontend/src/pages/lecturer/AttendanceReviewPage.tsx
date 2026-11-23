@@ -35,7 +35,11 @@ const LecturerAttendanceReviewPage = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewSessionId, setPreviewSessionId] = useState<string | null>(null);
 
-  const { data: _qd, isLoading: loading } = useQuery({
+  const {
+    data: _qd,
+    isLoading: loading,
+    refetch: fetchReviews,
+  } = useQuery({
     queryKey: ['attendance-review'],
     queryFn: async () => {
       const _r: any = { reviews: [] };
@@ -212,7 +216,7 @@ const LecturerAttendanceReviewPage = () => {
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-4">
-          {reviews.map((r) => (
+          {reviews.map((r: any) => (
             <Card key={r.session_id} className="p-6">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>

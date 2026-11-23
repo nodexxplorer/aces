@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   HelpCircle,
@@ -46,7 +46,6 @@ import {
 } from '../../api/additional-features';
 import EmptyState from '../../components/ui/EmptyState';
 
-import { useQuery } from '@tanstack/react-query';
 // Map category names to icons
 function getCategoryIcon(cat: string) {
   const c = cat.toLowerCase();
@@ -281,6 +280,8 @@ function StillNeedHelpCard({ onFileTicket, onAskAssistant }: { onFileTicket: () 
 
 function HelpCenterTab() {
   const navigate = useNavigate();
+  const [articles, setArticles] = useState<HelpArticle[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedArticle, setSelectedArticle] = useState<HelpArticle | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -289,6 +290,22 @@ function HelpCenterTab() {
   const [helpfulFeedbackGiven, setHelpfulFeedbackGiven] = useState<Record<string, 'yes' | 'no'>>({});
 
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const fetchArticles = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await listHelpArticles();
+      setArticles(data || []);
+    } catch {
+      /* silent */
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchArticles();
+  }, [fetchArticles]);
 
   // Keyboard shortcut '/' to focus search
   useEffect(() => {
@@ -1020,7 +1037,7 @@ function MyFeedbackTab({ onBrowseHelpCenter }: FeedbackTabProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
-  const [_loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'idea' | 'problem' | 'praise'>('all');
@@ -2218,21 +2235,6 @@ function MyFeedbackTab({ onBrowseHelpCenter }: FeedbackTabProps) {
 export default function SupportPage() {
   const [activeTab, setActiveTab] = useState<'help' | 'feedback'>('help');
 
-  const { data: _qd, isLoading: _loading } = useQuery({
-    queryKey: ['support'],
-    queryFn: async () => {
-      const _r: any = { articles: [] };
-      try {
-        const data = await listHelpArticles();
-        _r.articles = data || [];
-      } catch {
-        /* silent */
-      }
-      return _r;
-    },
-    staleTime: 60_000,
-  });
-  const _articles = _qd?.articles ?? [];
   return (
     <div className="min-h-screen bg-surface-50 dark:bg-surface-950 pb-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 space-y-6">

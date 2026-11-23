@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
@@ -16,7 +17,11 @@ export default function ClassRepDashboard() {
   const { user } = useAuth();
   const { error: notifyError } = useNotification();
 
-  const { data: _qd, isLoading: loading } = useQuery({
+  const {
+    data: _qd,
+    isLoading: loading,
+    refetch: loadData,
+  } = useQuery({
     queryKey: ['class-rep-dashboard'],
     queryFn: async () => {
       const _r: any = {
@@ -55,17 +60,18 @@ export default function ClassRepDashboard() {
   const reports = _qd?.reports ?? [];
   const pendingFormsCount = _qd?.pendingFormsCount ?? 0;
   const pendingStudentsCount = _qd?.pendingStudentsCount ?? 0;
-  const refreshing = _qd?.refreshing ?? false;
+  const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadData();
+    setRefreshing(false);
   };
 
   const totalSessions = sessions.length;
-  const finalizedSessions = sessions.filter((s) => s.status === 'finalized' || s.status === 'closed').length;
-  const pendingReportsCount = reports.filter((r) => r.status === 'submitted' || r.status === 'pending').length;
-  const totalPresent = sessions.reduce((sum, s) => sum + s.total_present, 0);
-  const totalStudentsInSessions = sessions.reduce((sum, s) => sum + s.total_students, 0);
+  const finalizedSessions = sessions.filter((s: any) => s.status === 'finalized' || s.status === 'closed').length;
+  const pendingReportsCount = reports.filter((r: any) => r.status === 'submitted' || r.status === 'pending').length;
+  const totalPresent = sessions.reduce((sum: any, s: any) => sum + s.total_present, 0);
+  const totalStudentsInSessions = sessions.reduce((sum: any, s: any) => sum + s.total_students, 0);
   const attendanceRate =
     totalStudentsInSessions > 0 ? Math.round((totalPresent / totalStudentsInSessions) * 100) : null;
 
@@ -170,7 +176,7 @@ export default function ClassRepDashboard() {
             </div>
           ) : (
             <div className="divide-y divide-surface-100 dark:divide-surface-800/80">
-              {sessions.slice(0, 4).map((s) => (
+              {sessions.slice(0, 4).map((s: any) => (
                 <div key={s.id} className="py-3 flex items-center justify-between">
                   <div>
                     <p className="text-sm font-semibold text-surface-900 dark:text-white">
@@ -218,7 +224,7 @@ export default function ClassRepDashboard() {
             </div>
           ) : (
             <div className="divide-y divide-surface-100 dark:divide-surface-800/80">
-              {reports.slice(0, 4).map((r) => (
+              {reports.slice(0, 4).map((r: any) => (
                 <div key={r.id} className="py-3 flex items-center justify-between">
                   <div>
                     <p className="text-sm font-semibold text-surface-900 dark:text-white">{r.title}</p>

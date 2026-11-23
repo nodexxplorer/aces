@@ -40,7 +40,7 @@ const DelegateAdminPage = () => {
     staleTime: 60_000,
   });
   const users = _qd?.users ?? [];
-  const filtered = users.filter((u) => {
+  const filtered = users.filter((u: any) => {
     const matchesRole = roleFilter === 'all' || u.role === roleFilter;
     const name = getDisplayName(u);
     const matchesSearch =

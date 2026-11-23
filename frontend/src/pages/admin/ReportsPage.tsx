@@ -25,6 +25,7 @@ import { listAllReports, updateReportStatus } from '../../api/class-rep';
 import { getErrorMessage } from '../../utils/errors';
 
 import { useQuery } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 interface _DashboardStats {
   total_students: number;
   total_lecturers: number;
@@ -72,8 +73,11 @@ const ReportsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
+  const queryClient = useQueryClient();
+  const [classRepReports, setClassRepReports] = useState<any[]>([]);
+
   const { data: _qd, isLoading: loading } = useQuery({
-    queryKey: ['reports', fetchAllData],
+    queryKey: ['reports-data'],
     queryFn: async () => {
       const _r: any = { stats: null, gradeData: [], atRiskStudents: [], classRepReports: [] };
       try {
@@ -97,7 +101,9 @@ const ReportsPage = () => {
           _r.atRiskStudents = Array.isArray(r?.students) ? r.students : Array.isArray(r) ? r : [];
         }
         if (reportsData.status === 'fulfilled') {
-          _r.classRepReports = Array.isArray(reportsData.value) ? reportsData.value : [];
+          const list = Array.isArray(reportsData.value) ? reportsData.value : [];
+          _r.classRepReports = list;
+          setClassRepReports(list);
         }
       } catch {
         // Partial data is fine
@@ -105,12 +111,11 @@ const ReportsPage = () => {
       return _r;
     },
     staleTime: 60_000,
-    enabled: !!fetchAllData,
   });
   const stats = _qd?.stats ?? null;
   const gradeData = _qd?.gradeData ?? [];
   const atRiskStudents = _qd?.atRiskStudents ?? [];
-  const classRepReports = _qd?.classRepReports ?? [];
+  const _fetchAllData = () => queryClient.invalidateQueries({ queryKey: ['reports-data'] });
   const [updatingReport, setUpdatingReport] = useState<string | null>(null);
   const generateCSV = (headers: string[], rows: (string | number)[][], filename: string) => {
     const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
@@ -147,14 +152,14 @@ const ReportsPage = () => {
 
   const handleExportGrades = () => {
     setGenerating('grades');
-    const rows = gradeData.map((g) => [g.course_code || '', g.course_title || '', g.grade || '', g.count || 0]);
+    const rows = gradeData.map((g: any) => [g.course_code || '', g.course_title || '', g.grade || '', g.count || 0]);
     generateCSV(['Course Code', 'Course Title', 'Grade', 'Count'], rows, 'grade-distribution.csv');
     setGenerating(null);
   };
 
   const handleExportAtRisk = () => {
     setGenerating('risk');
-    const rows = atRiskStudents.map((s) => [
+    const rows = atRiskStudents.map((s: any) => [
       s.student_name || '',
       s.matric_number || '',
       s.risk_level || '',
@@ -183,7 +188,7 @@ const ReportsPage = () => {
     try {
       await updateReportStatus(reportId, newStatus);
       // Update local state
-      setClassRepReports((prev) => prev.map((r) => (r.id === reportId ? { ...r, status: newStatus } : r)));
+      setClassRepReports((prev) => prev.map((r: any) => (r.id === reportId ? { ...r, status: newStatus } : r)));
       success('Updated', `Report marked as ${newStatus}`);
     } catch (err) {
       notifyError('Error', getErrorMessage(err, 'Failed to update report status'));
@@ -250,7 +255,7 @@ const ReportsPage = () => {
   };
 
   // Filter reports
-  const filteredReports = classRepReports.filter((r) => {
+  const filteredReports = classRepReports.filter((r: any) => {
     const matchesSearch =
       !searchTerm ||
       r.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -261,7 +266,7 @@ const ReportsPage = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const pendingCount = classRepReports.filter((r) =>
+  const pendingCount = classRepReports.filter((r: any) =>
     ['submitted', 'delivered', 'pending'].includes(r.status?.toLowerCase()),
   ).length;
 

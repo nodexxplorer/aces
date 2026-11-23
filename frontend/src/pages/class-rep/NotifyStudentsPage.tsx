@@ -36,7 +36,7 @@ export default function NotifyStudentsPage() {
     staleTime: 60_000,
   });
   const students = _qd?.students ?? [];
-  const filteredStudents = students.filter((s) => {
+  const filteredStudents = students.filter((s: any) => {
     const matchesSearch =
       !search.trim() ||
       s.full_name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -58,7 +58,7 @@ export default function NotifyStudentsPage() {
     if (selectedIds.size === students.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(students.map((s) => s.id)));
+      setSelectedIds(new Set(students.map((s: any) => s.id)));
     }
   };
 
@@ -73,7 +73,7 @@ export default function NotifyStudentsPage() {
       const targetUserIds =
         selectedIds.size > 0 && selectedIds.size < students.length
           ? Array.from(selectedIds)
-              .map((id) => students.find((s) => s.id === id)?.user_id)
+              .map((id: any) => students.find((s: any) => s.id === id)?.user_id)
               .filter((id): id is string => !!id)
           : undefined;
 
@@ -176,12 +176,12 @@ export default function NotifyStudentsPage() {
                 No students match your filter
               </div>
             ) : (
-              filteredStudents.map((s) => {
+              filteredStudents.map((s: any) => {
                 const isSelected = selectedIds.has(s.id);
                 const initials =
                   s.full_name
                     ?.split(' ')
-                    .map((n) => n[0])
+                    .map((n: any) => n[0])
                     .join('')
                     .slice(0, 2)
                     .toUpperCase() || 'ST';

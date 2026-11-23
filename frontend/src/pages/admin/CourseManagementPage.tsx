@@ -44,7 +44,9 @@ const CourseManagementPage = () => {
   const [assigning, setAssigning] = useState(false);
 
   const queryClient = useQueryClient();
-  const { data: _qd, isLoading: loading } = useQuery({
+  const [courses, setCourses] = useState<CourseRow[]>([]);
+  const [lecturers, setLecturers] = useState<UserType[]>([]);
+  const { isLoading: loading } = useQuery({
     queryKey: ['course-management'],
     queryFn: async () => {
       try {
@@ -52,10 +54,12 @@ const CourseManagementPage = () => {
           getCourses({ page: 1, perPage: 100 }),
           getUsers({ page: 1, perPage: 100, role: 'lecturer' }),
         ]);
-        const courses =
+        const cList =
           (coursesResult as unknown as { items?: CourseRow[] }).items || (coursesResult as unknown as CourseRow[]);
-        const lecturers = Array.isArray(lecturersResult) ? lecturersResult : [];
-        return { courses, lecturers };
+        const lList = Array.isArray(lecturersResult) ? lecturersResult : [];
+        setCourses(cList);
+        setLecturers(lList);
+        return { courses: cList, lecturers: lList };
       } catch (err: unknown) {
         notifyError('Load Failed', getErrorMessage(err, 'Could not load data'));
         return { courses: [], lecturers: [] };
@@ -63,8 +67,6 @@ const CourseManagementPage = () => {
     },
     staleTime: 60_000,
   });
-  const courses = _qd?.courses ?? [];
-  const lecturers = _qd?.lecturers ?? [];
   const fetchInitialData = () => queryClient.invalidateQueries({ queryKey: ['course-management'] });
   const lecturerMap = useMemo(() => {
     const map: Record<string, UserType> = {};

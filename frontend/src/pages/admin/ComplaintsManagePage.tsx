@@ -42,23 +42,24 @@ const ComplaintsManagePage = () => {
   const [resolutionText, setResolutionText] = useState('');
   const [history, setHistory] = useState<ComplaintStatusHistoryEntry[]>([]);
 
-  const { data: _qd, isLoading: loading } = useQuery({
+  const [complaints, setComplaints] = useState<ComplaintRow[]>([]);
+  const { isLoading: loading } = useQuery({
     queryKey: ['complaints-manage'],
     queryFn: async () => {
-      const _r: any = { complaints: [] };
       try {
-        const data = await getComplaints();
-        const items = Array.isArray(data) ? data : (data as unknown as { items?: ComplaintRow[] }).items || [];
-        _r.complaints = items as unknown as ComplaintRow[];
+        const res = await getComplaints({ page: 1, perPage: 100 });
+        const list = Array.isArray(res) ? res : (res as any)?.items || [];
+        setComplaints(list);
+        return list;
       } catch (err: unknown) {
         notifyError('Load Failed', getErrorMessage(err, 'Could not load complaints'));
+        return [];
       }
-      return _r;
     },
     staleTime: 60_000,
   });
-  const complaints = _qd?.complaints ?? [];
-  const filtered = statusFilter === 'all' ? complaints : complaints.filter((c) => c.status === statusFilter);
+  const filtered =
+    statusFilter === 'all' ? complaints : complaints.filter((c: ComplaintRow) => c.status === statusFilter);
 
   const handleAssignToMe = async (id: string) => {
     if (!user?.id) return;
