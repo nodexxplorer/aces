@@ -11,12 +11,14 @@ import (
 	"github.com/skip2/go-qrcode"
 )
 
-// BrownWatermarkColor is the rich warm brown ink used for the watermark QR code and text.
-var BrownWatermarkColor = color.RGBA{R: 101, G: 56, B: 24, A: 130} // feint warm brown ink
+// BrownWatermarkColor is the delicate feint warm brown ink used for the watermark QR code and text.
+// Designed to be very light and blend gracefully with the course form.
+var BrownWatermarkColor = color.RGBA{R: 110, G: 65, B: 30, A: 120}
 
-// GenerateCRFStudentWatermarkPNG renders a compact white-and-brown QR code badge
-// containing the student's name, matric number, and cryptographic/verification metadata.
-// It is styled cleanly for feint watermarking onto student course forms.
+// GenerateCRFStudentWatermarkPNG renders a feint, transparent-backed QR code badge
+// containing the student's name, matric number, and verification metadata.
+// It uses a transparent background and delicate lines so it blends seamlessly into the course form
+// text and table lines without masking content or creating an opaque patch.
 func GenerateCRFStudentWatermarkPNG(studentName, matricNumber, submissionID string) ([]byte, error) {
 	name := strings.TrimSpace(studentName)
 	if name == "" {
@@ -33,13 +35,13 @@ func GenerateCRFStudentWatermarkPNG(studentName, matricNumber, submissionID stri
 	// QR code data payload
 	qrPayload := fmt.Sprintf("ACES OFFICIAL COURSE FORM\nStudent: %s\nMatric: %s\nRef: %s\nVerified: AUTHENTIC", name, matric, submissionID)
 
-	// Generate brown-on-white QR code
+	// Generate brown QR code with completely transparent background
 	qr, err := qrcode.New(qrPayload, qrcode.Medium)
 	if err != nil {
 		return nil, fmt.Errorf("generate qr: %w", err)
 	}
 	qr.ForegroundColor = BrownWatermarkColor
-	qr.BackgroundColor = color.RGBA{R: 255, G: 255, B: 255, A: 200}
+	qr.BackgroundColor = color.RGBA{R: 255, G: 255, B: 255, A: 0} // Transparent background so form content shows through
 
 	const qrPx = 96
 	qrImg := qr.Image(qrPx)
@@ -51,12 +53,10 @@ func GenerateCRFStudentWatermarkPNG(studentName, matricNumber, submissionID stri
 	)
 	dc := gg.NewContext(cardW, cardH)
 
-	// Draw rounded card background with subtle brown border
+	// Draw rounded card border only (no opaque white fill, purely transparent interior)
 	dc.DrawRoundedRectangle(1.5, 1.5, cardW-3, cardH-3, 8)
-	dc.SetColor(color.RGBA{R: 255, G: 255, B: 255, A: 215})
-	dc.FillPreserve()
-	dc.SetColor(color.RGBA{R: 101, G: 56, B: 24, A: 120})
-	dc.SetLineWidth(1.8)
+	dc.SetColor(color.RGBA{R: 110, G: 65, B: 30, A: 60}) // Very soft subtle border
+	dc.SetLineWidth(1.0)
 	dc.Stroke()
 
 	// Header: "ACES VERIFIED"
@@ -84,9 +84,9 @@ func GenerateCRFStudentWatermarkPNG(studentName, matricNumber, submissionID stri
 	dc.SetColor(BrownWatermarkColor)
 	dc.DrawStringAnchored(matric, cardW/2, 145, 0.5, 0.5)
 
-	// Sub-label: "AUTHENTIC FORM"
+	// Sub-label: "AUTHENTIC CRF"
 	_ = dc.LoadFontFace(FontRegularPath, 6.0)
-	dc.SetColor(color.RGBA{R: 140, G: 85, B: 45, A: 255})
+	dc.SetColor(color.RGBA{R: 110, G: 65, B: 30, A: 100})
 	dc.DrawStringAnchored("AUTHENTIC CRF", cardW/2, 158, 0.5, 0.5)
 
 	var buf bytes.Buffer

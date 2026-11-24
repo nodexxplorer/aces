@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Card from '../../components/ui/Card';
-
 import Badge from '../../components/ui/Badge';
 import Tabs from '../../components/ui/Tabs';
 import Spinner from '../../components/ui/Spinner';
@@ -13,10 +12,7 @@ import {
   attendanceDetail,
   attendanceEligibility,
   attendanceSnapshots,
-  type VerifiedSession,
-  type AttendanceDetail,
-  type EligibilityReport,
-  type EligibilitySnapshot,
+  type AttendanceCourse,
   type AttendanceEvent,
 } from '../../api/verified-attendance';
 import SessionCard from '../../components/attendance/SessionCard';
@@ -31,114 +27,128 @@ const label = (s: string) => s.replace(/_/g, ' ');
 
 export default function AdminAttendancePage() {
   const user = useAuthStore((s) => s.user);
-  const [choice, setChoice] = useState('');
-  const [sessions, setSessions] = useState<VerifiedSession[]>([]);
-  const [detail, setDetail] = useState<AttendanceDetail | null>(null);
-  const [report, setReport] = useState<EligibilityReport | null>(null);
-  const [snapshots, setSnapshots] = useState<EligibilitySnapshot[]>([]);
-  const [allEvents, setAllEvents] = useState<AttendanceEvent[]>([]);
-  const [tab, setTab] = useState('dashboard');
-  const [error, setError] = useState('');
-  const [auditSearch, setAuditSearch] = useState('');
-  const gen = useRef(0);
+  const queryClient = useQueryClient();
 
-  const { data: courses = [], isLoading: loading } = useQuery({
-    queryKey: ['admin-attendance-catalog', user?.id],
-    queryFn: () => attendanceCatalog().then((d) => d.courses),
-    staleTime: 60_000,
+  const [selectedChoice, setChoice] = useState('');
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [tab, setTab] = useState('dashboard');
+  const [auditSearch, setAuditSearch] = useState('');
+
+  // 1. Catalog query
+  const {
+    data: catalogData,
+    isLoading: catalogLoading,
+    error: catalogError,
+  } = useQuery({
+    queryKey: ['attendance', 'catalog', user?.id],
+    queryFn: attendanceCatalog,
     enabled: !!user?.id,
+    staleTime: 60_000,
   });
 
-  // Auto-select first course
-  useEffect(() => {
-    if (courses.length > 0 && !choice) {
-      setChoice(`${courses[0].id}:${courses[0].semester_id}`);
-    }
-  }, [courses]);
+  const courses: AttendanceCourse[] = catalogData?.courses ?? [];
+
+  // Active choice defaults to first course if none selected or if selection invalid
+  const choice =
+    selectedChoice && courses.some((c) => `${c.id}:${c.semester_id}` === selectedChoice)
+      ? selectedChoice
+      : courses[0]
+        ? `${courses[0].id}:${courses[0].semester_id}`
+        : '';
 
   const course = courses.find((c) => `${c.id}:${c.semester_id}` === choice);
 
-  // Load course data
-  const loadCourse = async (rev?: number) => {
-    if (!course) return;
-    const r = rev ?? gen.current;
-    try {
-      const [sess, elig, snaps] = await Promise.all([
-        attendanceSessions(course.id, course.semester_id),
-        attendanceEligibility(course.id, course.semester_id),
-        attendanceSnapshots(course.id, course.semester_id).catch(() => []),
-      ]);
-      if (r !== gen.current) return;
-      setSessions(sess);
-      setReport(elig);
-      setSnapshots(snaps);
+  // Clear selected session when course choice changes
+  useEffect(() => {
+    setSelectedSessionId(null);
+  }, [choice]);
 
-      // Aggregate all events from session details for the audit tab
+  // 2. Course sessions query
+  const { data: sessions = [], error: sessionsError } = useQuery({
+    queryKey: ['attendance', 'sessions', course?.id, course?.semester_id],
+    queryFn: () => attendanceSessions(course!.id, course!.semester_id),
+    enabled: !!course?.id && !!course?.semester_id,
+    staleTime: 15_000,
+  });
+
+  // 3. Course eligibility query
+  const { data: report = null, error: reportError } = useQuery({
+    queryKey: ['attendance', 'eligibility', course?.id, course?.semester_id],
+    queryFn: () => attendanceEligibility(course!.id, course!.semester_id),
+    enabled: !!course?.id && !!course?.semester_id,
+    staleTime: 15_000,
+  });
+
+  // 4. Course snapshots query
+  const { data: snapshots = [] } = useQuery({
+    queryKey: ['attendance', 'snapshots', course?.id, course?.semester_id],
+    queryFn: () => attendanceSnapshots(course!.id, course!.semester_id).catch(() => []),
+    enabled: !!course?.id && !!course?.semester_id,
+    staleTime: 60_000,
+  });
+
+  // 5. Selected session detail query
+  const { data: detail = null, error: detailError } = useQuery({
+    queryKey: ['attendance', 'session-detail', selectedSessionId],
+    queryFn: () => attendanceDetail(selectedSessionId!),
+    enabled: !!selectedSessionId,
+    staleTime: 15_000,
+  });
+
+  // 6. Aggregate audit events from recent sessions
+  const sessionIdsKey = useMemo(
+    () =>
+      sessions
+        .slice(0, 20)
+        .map((s) => s.id)
+        .join(','),
+    [sessions],
+  );
+
+  const { data: allEvents = [] } = useQuery({
+    queryKey: ['attendance', 'audit-events', course?.id, course?.semester_id, sessionIdsKey],
+    queryFn: async () => {
+      const topSessions = sessions.slice(0, 20);
+      if (topSessions.length === 0) return [];
+      const details = await Promise.allSettled(topSessions.map((s) => attendanceDetail(s.id)));
       const eventList: AttendanceEvent[] = [];
-      for (const s of sess.slice(0, 20)) {
-        try {
-          const d = await attendanceDetail(s.id);
-          if (r !== gen.current) return;
-          if (d.events) eventList.push(...d.events);
-        } catch {
-          /* skip */
+      for (const res of details) {
+        if (res.status === 'fulfilled' && res.value.events) {
+          eventList.push(...res.value.events);
         }
       }
       eventList.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      if (r === gen.current) setAllEvents(eventList);
-    } catch (e) {
-      if (r === gen.current) setError(errMsg(e));
-    }
-  };
+      return eventList;
+    },
+    enabled: !!course?.id && !!course?.semester_id && sessions.length > 0,
+    staleTime: 15_000,
+  });
 
-  useEffect(() => {
-    const rev = ++gen.current;
-    setDetail(null);
-    setSessions([]);
-    setReport(null);
-    setSnapshots([]);
-    setAllEvents([]);
-    setError('');
-    void loadCourse(rev);
-  }, [choice, course]);
-
-  const selectSession = async (id: string) => {
-    const rev = gen.current;
-    setError('');
-    try {
-      const d = await attendanceDetail(id);
-      if (rev === gen.current) setDetail(d);
-    } catch (e) {
-      if (rev === gen.current) setError(errMsg(e));
-    }
+  const selectSession = (id: string) => {
+    setSelectedSessionId(id);
   };
 
   const refreshAll = async () => {
-    const rev = gen.current;
-    await loadCourse(rev);
-    if (detail) {
-      try {
-        const d = await attendanceDetail(detail.session.id);
-        if (rev === gen.current) setDetail(d);
-      } catch {
-        /* ignore */
-      }
-    }
+    await queryClient.invalidateQueries({ queryKey: ['attendance'] });
   };
 
-  // Dashboard stats
-  const openCount = sessions.filter((s) => s.status === 'open').length;
-  const closedCount = sessions.filter((s) => s.status === 'closed').length;
-  const finalizedCount = sessions.filter((s) => s.status === 'finalized').length;
-  const pendingReviews = report?.results.reduce((n, r) => n + r.pending, 0) ?? 0;
+  const queryError = catalogError || sessionsError || reportError || detailError;
+  const error = queryError ? errMsg(queryError) : '';
+  const loading = !user?.id || catalogLoading;
 
-  const filteredEvents = auditSearch
-    ? allEvents.filter(
-        (e) =>
-          e.action.toLowerCase().includes(auditSearch.toLowerCase()) ||
-          JSON.stringify(e.evidence).toLowerCase().includes(auditSearch.toLowerCase()),
-      )
-    : allEvents;
+  // Dashboard stats
+  const openCount = useMemo(() => sessions.filter((s) => s.status === 'open').length, [sessions]);
+  const closedCount = useMemo(() => sessions.filter((s) => s.status === 'closed').length, [sessions]);
+  const finalizedCount = useMemo(() => sessions.filter((s) => s.status === 'finalized').length, [sessions]);
+  const pendingReviews = useMemo(() => report?.results.reduce((n, r) => n + r.pending, 0) ?? 0, [report]);
+
+  const filteredEvents = useMemo(() => {
+    if (!auditSearch) return allEvents;
+    const q = auditSearch.toLowerCase();
+    return allEvents.filter(
+      (e) => e.action.toLowerCase().includes(q) || JSON.stringify(e.evidence).toLowerCase().includes(q),
+    );
+  }, [allEvents, auditSearch]);
 
   const tabDefs = [
     { id: 'dashboard', label: 'Dashboard' },
