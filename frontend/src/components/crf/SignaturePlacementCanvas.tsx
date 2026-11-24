@@ -452,13 +452,13 @@ export default function SignaturePlacementCanvas({
                     title="Official anti-fraud watermark — Click or drag to reposition"
                   >
                     <div
-                      className="w-full h-full bg-white/95 border border-[#653818]/60 rounded-md p-1 shadow-xs flex flex-col items-center justify-between text-center transition-all group-hover:border-[#653818] group-hover:shadow-md"
-                      style={{ opacity: isDraggingWatermark ? 0.8 : 0.3 }}
+                      className="w-full h-full bg-transparent border border-[#653818]/30 rounded-md p-1 flex flex-col items-center justify-between text-center transition-all group-hover:border-[#653818]/60 group-hover:bg-[#653818]/5"
+                      style={{ opacity: isDraggingWatermark ? 0.7 : 0.22 }}
                     >
                       <span className="text-[5px] font-black text-[#653818] tracking-wider leading-none">
                         ACES VERIFIED
                       </span>
-                      <div className="w-6 h-6 bg-white flex items-center justify-center p-0.5 my-0.5">
+                      <div className="w-6 h-6 bg-transparent flex items-center justify-center p-0.5 my-0.5">
                         <svg className="w-full h-full text-[#653818]" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M2 2h8v8H2V2zm2 2v4h4V4H4zm8-2h8v8h-8V2zm2 2v4h4V4h-4zM2 14h8v8H2v-8zm2 2v4h4v-4H4zm11 1h1v1h-1v-1zm-3-3h2v2h-2v-2zm4 0h2v2h-2v-2zm-2 4h2v2h-2v-2zm4-2h2v2h-2v-2zm0 4h2v2h-2v-2zm-2 2h2v2h-2v-2zm4-4h2v2h-2v-2zm-6 2h2v2h-2v-2z" />
                         </svg>

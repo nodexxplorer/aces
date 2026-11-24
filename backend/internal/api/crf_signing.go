@@ -744,12 +744,12 @@ func (server *Server) stampCRFPDFWithPlacements(ctx context.Context, queries *db
 
 	wmPNG, err := utils.GenerateCRFStudentWatermarkPNG(studentName, matricNumber, submissionID.String())
 	if err == nil && len(wmPNG) > 0 {
-		dims, err := api.PageDims(bytes.NewReader(pdfBytes), nil)
+		dims, err := api.PageDims(ctx, bytes.NewReader(pdfBytes), nil)
 		const (
 			defaultWmWidthPt  = 44.0
 			defaultWmHeightPt = 50.0
 			bottomMarginPt    = 42.0
-			feintOpacity      = 1.0
+			feintOpacity      = 0.22
 		)
 		wmPlacement, hasCustomWM := placements["watermark"]
 

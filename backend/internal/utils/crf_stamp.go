@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"image"
 	_ "image/jpeg"
@@ -65,7 +66,7 @@ func StampSignatures(pdfBytes []byte, stamps []SignatureStamp) ([]byte, error) {
 			opacity = 1.0
 		}
 		desc := fmt.Sprintf("position:bl, offset:%.2f %.2f, scalefactor:%.6f abs, opacity:%.2f, rotation:0", s.X, s.Y, scale, opacity)
-		wm, err := api.ImageWatermarkForReader(bytes.NewReader(imgBytes), desc, true, false, types.POINTS)
+		wm, err := api.ImageWatermarkForReader(context.Background(), bytes.NewReader(imgBytes), desc, true, false, types.POINTS)
 
 		if err != nil {
 			return nil, fmt.Errorf("build watermark for %s: %w", s.ImagePath, err)
@@ -88,7 +89,7 @@ func StampSignatures(pdfBytes []byte, stamps []SignatureStamp) ([]byte, error) {
 			// diagonal "SAMPLE"-style stamp) which otherwise multiplies on
 			// top of the points font size and renders it enormous.
 			dateDesc := fmt.Sprintf("position:bl, offset:%.2f %.2f, points:%.0f, scalefactor:1 abs, rotation:0, color:0 0 0", s.DateX, s.DateY, fontSize)
-			dateWM, err := api.TextWatermark(dateText, dateDesc, true, false, types.POINTS)
+			dateWM, err := api.TextWatermark(context.Background(), dateText, dateDesc, true, false, types.POINTS, nil)
 			if err != nil {
 				return nil, fmt.Errorf("build date watermark: %w", err)
 			}
@@ -97,7 +98,7 @@ func StampSignatures(pdfBytes []byte, stamps []SignatureStamp) ([]byte, error) {
 	}
 
 	var out bytes.Buffer
-	if err := api.AddWatermarksSliceMap(bytes.NewReader(pdfBytes), &out, pageWatermarks, nil); err != nil {
+	if err := api.AddWatermarksSliceMap(context.Background(), bytes.NewReader(pdfBytes), &out, pageWatermarks, nil); err != nil {
 		return nil, fmt.Errorf("stamp pdf: %w", err)
 	}
 
