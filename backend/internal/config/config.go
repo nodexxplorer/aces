@@ -119,9 +119,6 @@ func Load() *Config {
 	if getEnv("ENVIRONMENT", "development") == "production" && getEnv("PAYSTACK_SECRET_KEY", "") == "" {
 		log.Fatal("PAYSTACK_SECRET_KEY environment variable is required in production. See .env.example for reference.")
 	}
-	if getEnv("ENVIRONMENT", "development") == "production" && getEnv("MANUAL_QR_SECRET", "") == "" {
-		log.Fatal("MANUAL_QR_SECRET environment variable is required in production. See .env.example for reference.")
-	}
 
 	return &Config{
 		DBSource:           dbSource,
